@@ -1,0 +1,1 @@
+{"failed to create user event: %v":"ایجاد رویداد کاربر ناموفق: %v","failed to get user events: %v":"دریافت رویدادهای کاربر ناموفق: %v","failed to get user event: %v":"دریافت رویداد کاربر ناموفق: %v","user event not found":"رویداد کاربر یافت نشد","failed to report user event: %v":"گزارش رویداد کاربر ناموفق: %v","failed to send response: %v":"ارسال پاسخ ناموفق: %v"}

@@ -1,0 +1,15 @@
+{
+  "family service not initialized": "سرویس خانواده راه‌اندازی نشده",
+  "permission service not initialized": "سرویس مجوز راه‌اندازی نشده",
+  "join request service not initialized": "سرویس درخواست عضویت راه‌اندازی نشده",
+  "user search service not initialized": "سرویس جستجوی کاربر راه‌اندازی نشده",
+  "dynasty service not initialized": "سرویس خاندان راه‌اندازی نشده",
+  "failed to get feature details: %v": "دریافت جزئیات ویژگی ناموفق: %v",
+  "failed to get user features: %v": "دریافت ویژگی‌های کاربر ناموفق: %v",
+  "failed to get dynasty: %v": "دریافت خاندان ناموفق: %v",
+  "family not found for dynasty": "خانواده برای خاندان یافت نشد",
+  "dynasty not found": "خاندان یافت نشد",
+  "family not found": "خانواده یافت نشد",
+  "prize service not initialized": "سرویس جایزه راه‌اندازی نشده",
+  "prize not found": "جایزه یافت نشد"
+}

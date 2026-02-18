@@ -1,0 +1,8 @@
+{
+  "failed to get wallet: %v": "failed to get wallet: %v",
+  "failed to lock balance: %v": "failed to lock balance: %v",
+  "failed to unlock balance: %v": "failed to unlock balance: %v",
+  "failed to initiate payment: %v": "failed to initiate payment: %v",
+  "failed to handle callback: %v": "failed to handle callback: %v",
+  "failed to verify payment: %v": "failed to verify payment: %v"
+}

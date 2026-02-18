@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"metargb/auth-service/internal/lang"
 	"metargb/auth-service/internal/models"
 	"metargb/auth-service/internal/service"
 	pb "metargb/shared/pb/auth"
@@ -38,8 +39,9 @@ func (h *profileLimitationHandler) CreateProfileLimitation(ctx context.Context, 
 	}
 
 	// Validate options
+	locale := getProjectLocale()
 	if err := h.limitationService.ValidateOptions(options); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid options: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, lang.Tf(locale, "invalid options: %v", err))
 	}
 
 	limitation, err := h.limitationService.Create(
@@ -50,7 +52,7 @@ func (h *profileLimitationHandler) CreateProfileLimitation(ctx context.Context, 
 		req.Note,
 	)
 	if err != nil {
-		return nil, mapProfileLimitationError(err)
+		return nil, mapProfileLimitationError(err, locale)
 	}
 
 	return &pb.ProfileLimitationResponse{
@@ -70,8 +72,9 @@ func (h *profileLimitationHandler) UpdateProfileLimitation(ctx context.Context, 
 	}
 
 	// Validate options
+	locale := getProjectLocale()
 	if err := h.limitationService.ValidateOptions(options); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid options: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, lang.Tf(locale, "invalid options: %v", err))
 	}
 
 	limitation, err := h.limitationService.Update(
@@ -82,7 +85,7 @@ func (h *profileLimitationHandler) UpdateProfileLimitation(ctx context.Context, 
 		req.Note,
 	)
 	if err != nil {
-		return nil, mapProfileLimitationError(err)
+		return nil, mapProfileLimitationError(err, locale)
 	}
 
 	return &pb.ProfileLimitationResponse{
@@ -92,7 +95,7 @@ func (h *profileLimitationHandler) UpdateProfileLimitation(ctx context.Context, 
 
 func (h *profileLimitationHandler) DeleteProfileLimitation(ctx context.Context, req *pb.DeleteProfileLimitationRequest) (*emptypb.Empty, error) {
 	if err := h.limitationService.Delete(ctx, req.LimitationId, req.LimiterUserId); err != nil {
-		return nil, mapProfileLimitationError(err)
+		return nil, mapProfileLimitationError(err, getProjectLocale())
 	}
 
 	return &emptypb.Empty{}, nil
@@ -101,7 +104,7 @@ func (h *profileLimitationHandler) DeleteProfileLimitation(ctx context.Context, 
 func (h *profileLimitationHandler) GetProfileLimitation(ctx context.Context, req *pb.GetProfileLimitationRequest) (*pb.ProfileLimitationResponse, error) {
 	limitation, err := h.limitationService.GetByID(ctx, req.LimitationId)
 	if err != nil {
-		return nil, mapProfileLimitationError(err)
+		return nil, mapProfileLimitationError(err, getProjectLocale())
 	}
 
 	// Note: We need caller user ID to determine if note should be visible
@@ -112,7 +115,7 @@ func (h *profileLimitationHandler) GetProfileLimitation(ctx context.Context, req
 }
 
 // mapProfileLimitationError maps service errors to gRPC status codes
-func mapProfileLimitationError(err error) error {
+func mapProfileLimitationError(err error, locale string) error {
 	if err == nil {
 		return nil
 	}
@@ -132,7 +135,7 @@ func mapProfileLimitationError(err error) error {
 	case errors.Is(err, service.ErrUnauthorized):
 		return status.Errorf(codes.PermissionDenied, "%s", err.Error())
 	default:
-		return status.Errorf(codes.Internal, "operation failed: %v", err)
+		return status.Errorf(codes.Internal, lang.Tf(locale, "operation failed: %v", err))
 	}
 }
 

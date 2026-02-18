@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -22,7 +23,11 @@ type Config struct {
 }
 
 func Load() *Config {
-	locale := getEnv("LOCALE", "en")
+	locale := getEnv("PROJECT_LOCALE", getEnv("LOCALE", "en"))
+	locale = strings.ToLower(locale)
+	if locale != "fa" && locale != "en" {
+		locale = "en"
+	}
 	return &Config{
 		HTTPPort:                getEnv("HTTP_PORT", "8080"),
 		AuthServiceAddr:         getEnv("AUTH_SERVICE_ADDR", "auth-service:50051"),

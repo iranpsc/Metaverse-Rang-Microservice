@@ -1,0 +1,9 @@
+{
+  "failed to get videos: %v": "دریافت ویدیوها ناموفق: %v",
+  "video not found: %v": "ویدیو یافت نشد: %v",
+  "failed to get video details: %v": "دریافت جزئیات ویدیو ناموفق: %v",
+  "failed to search videos: %v": "جستجوی ویدیوها ناموفق: %v",
+  "failed to increment view: %v": "افزایش بازدید ناموفق: %v",
+  "failed to add interaction: %v": "افزودن تعامل ناموفق: %v",
+  "invalid video data": "داده ویدیو نامعتبر است"
+}

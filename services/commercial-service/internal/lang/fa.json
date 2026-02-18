@@ -1,0 +1,1 @@
+{"failed to get wallet: %v":"دریافت کیف پول ناموفق: %v","failed to lock balance: %v":"قفل موجودی ناموفق: %v","failed to unlock balance: %v":"باز کردن قفل موجودی ناموفق: %v","failed to initiate payment: %v":"شروع پرداخت ناموفق: %v","failed to handle callback: %v":"پردازش بازگشت ناموفق: %v","failed to verify payment: %v":"تأیید پرداخت ناموفق: %v"}

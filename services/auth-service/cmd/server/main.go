@@ -266,7 +266,9 @@ func main() {
 	}
 
 	// Register handlers
-	handler.RegisterAuthHandler(grpcServer, authService, tokenRepo, profilePhotoHandler)
+	projectLocale := getEnv("PROJECT_LOCALE", "EN")
+	handler.SetProjectLocale(projectLocale)
+	handler.RegisterAuthHandler(grpcServer, authService, tokenRepo, profilePhotoHandler, projectLocale)
 	handler.RegisterUserHandler(grpcServer, userService, profileLimitationService, helperService)
 	handler.RegisterKYCHandler(grpcServer, kycService, storageClient)
 	handler.RegisterCitizenHandler(grpcServer, citizenService)

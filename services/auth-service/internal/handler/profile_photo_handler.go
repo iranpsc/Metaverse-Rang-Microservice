@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"metargb/auth-service/internal/lang"
 	"metargb/auth-service/internal/service"
 	pb "metargb/shared/pb/auth"
 	storagepb "metargb/shared/pb/storage"
@@ -57,13 +58,14 @@ func (h *ProfilePhotoHandler) PrependGatewayURL(url string) string {
 
 // ListProfilePhotos returns all profile photos for the authenticated user
 func (h *ProfilePhotoHandler) ListProfilePhotos(ctx context.Context, req *pb.ListProfilePhotosRequest) (*pb.ListProfilePhotosResponse, error) {
+	locale := getProjectLocale()
 	if req.UserId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "user_id is required")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "user_id is required"))
 	}
 
 	photos, err := h.ProfilePhotoService.ListProfilePhotos(ctx, req.UserId)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list profile photos: %v", err)
+		return nil, status.Errorf(codes.Internal, lang.Tf(locale, "failed to list profile photos: %v", err))
 	}
 
 	response := &pb.ListProfilePhotosResponse{
@@ -88,43 +90,44 @@ func (h *ProfilePhotoHandler) ListProfilePhotos(ctx context.Context, req *pb.Lis
 
 // UploadProfilePhoto uploads a new profile photo for the authenticated user
 func (h *ProfilePhotoHandler) UploadProfilePhoto(ctx context.Context, req *pb.UploadProfilePhotoRequest) (*pb.ProfilePhotoResponse, error) {
+	locale := getProjectLocale()
 	if req.UserId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "user_id is required")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "user_id is required"))
 	}
 
 	if len(req.ImageData) == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "image_data is required")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "image_data is required"))
 	}
 
 	if req.Filename == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "filename is required")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "filename is required"))
 	}
 
 	if req.ContentType == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "content_type is required")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "content_type is required"))
 	}
 
 	// Validate file size (≤1 MB = 1024 * 1024 bytes)
 	const maxSize = 1024 * 1024
 	if len(req.ImageData) > maxSize {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid image: must be PNG or JPEG, ≤1 MB")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "invalid image: must be PNG or JPEG, ≤1 MB"))
 	}
 
 	// Validate content type
 	contentType := strings.ToLower(req.ContentType)
 	if contentType != "image/png" && contentType != "image/jpeg" && contentType != "image/jpg" {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid image: must be PNG or JPEG, ≤1 MB")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "invalid image: must be PNG or JPEG, ≤1 MB"))
 	}
 
 	// Validate filename extension
 	filenameLower := strings.ToLower(req.Filename)
 	if !strings.HasSuffix(filenameLower, ".png") && !strings.HasSuffix(filenameLower, ".jpg") && !strings.HasSuffix(filenameLower, ".jpeg") {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid image: must be PNG or JPEG, ≤1 MB")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "invalid image: must be PNG or JPEG, ≤1 MB"))
 	}
 
 	// Upload file to storage-service
 	if h.StorageClient == nil {
-		return nil, status.Errorf(codes.Internal, "storage service not available")
+		return nil, status.Errorf(codes.Internal, lang.T(locale, "storage service not available"))
 	}
 
 	// Create upload ID for chunk upload
@@ -144,15 +147,15 @@ func (h *ProfilePhotoHandler) UploadProfilePhoto(ctx context.Context, req *pb.Up
 
 	chunkResp, err := h.StorageClient.ChunkUpload(ctx, chunkReq)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to upload file to storage service: %v", err)
+		return nil, status.Errorf(codes.Internal, lang.Tf(locale, "failed to upload file to storage service: %v", err))
 	}
 
 	if !chunkResp.Success {
-		return nil, status.Errorf(codes.Internal, "storage service upload failed: %s", chunkResp.Message)
+		return nil, status.Errorf(codes.Internal, lang.Tf(locale, "storage service upload failed: %s", chunkResp.Message))
 	}
 
 	if !chunkResp.IsFinished {
-		return nil, status.Errorf(codes.Internal, "storage service upload did not complete")
+		return nil, status.Errorf(codes.Internal, lang.T(locale, "storage service upload did not complete"))
 	}
 
 	// Get file path from storage service response
@@ -167,10 +170,10 @@ func (h *ProfilePhotoHandler) UploadProfilePhoto(ctx context.Context, req *pb.Up
 	}
 
 	if dirPath == "" {
-		return nil, status.Errorf(codes.Internal, "storage service did not return file directory path")
+		return nil, status.Errorf(codes.Internal, lang.T(locale, "storage service did not return file directory path"))
 	}
 	if filename == "" {
-		return nil, status.Errorf(codes.Internal, "storage service did not return filename")
+		return nil, status.Errorf(codes.Internal, lang.T(locale, "storage service did not return filename"))
 	}
 
 	// Construct full path: directory + filename
@@ -179,7 +182,7 @@ func (h *ProfilePhotoHandler) UploadProfilePhoto(ctx context.Context, req *pb.Up
 	// Create database record with the full file path from storage-service
 	photo, err := h.ProfilePhotoService.CreateProfilePhotoRecord(ctx, req.UserId, fullPath)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to create profile photo record: %v", err)
+		return nil, status.Errorf(codes.Internal, lang.Tf(locale, "failed to create profile photo record: %v", err))
 	}
 
 	// URLs are now stored as full URLs in the database, but keep fallback for existing records
@@ -196,17 +199,18 @@ func (h *ProfilePhotoHandler) UploadProfilePhoto(ctx context.Context, req *pb.Up
 
 // GetProfilePhoto retrieves a profile photo by ID
 func (h *ProfilePhotoHandler) GetProfilePhoto(ctx context.Context, req *pb.GetProfilePhotoRequest) (*pb.ProfilePhotoResponse, error) {
+	locale := getProjectLocale()
 	if req.ProfilePhotoId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "profile_photo_id is required")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "profile_photo_id is required"))
 	}
 
 	photo, err := h.ProfilePhotoService.GetProfilePhoto(ctx, req.ProfilePhotoId)
 	if err != nil {
 		switch err {
 		case service.ErrProfilePhotoNotFound:
-			return nil, status.Errorf(codes.NotFound, "profile photo not found")
+			return nil, status.Errorf(codes.NotFound, lang.T(locale, "profile photo not found"))
 		default:
-			return nil, status.Errorf(codes.Internal, "failed to get profile photo: %v", err)
+			return nil, status.Errorf(codes.Internal, lang.Tf(locale, "failed to get profile photo: %v", err))
 		}
 	}
 
@@ -224,23 +228,24 @@ func (h *ProfilePhotoHandler) GetProfilePhoto(ctx context.Context, req *pb.GetPr
 
 // DeleteProfilePhoto deletes a profile photo (with ownership check)
 func (h *ProfilePhotoHandler) DeleteProfilePhoto(ctx context.Context, req *pb.DeleteProfilePhotoRequest) (*emptypb.Empty, error) {
+	locale := getProjectLocale()
 	if req.UserId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "user_id is required")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "user_id is required"))
 	}
 
 	if req.ProfilePhotoId == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "profile_photo_id is required")
+		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "profile_photo_id is required"))
 	}
 
 	err := h.ProfilePhotoService.DeleteProfilePhoto(ctx, req.UserId, req.ProfilePhotoId)
 	if err != nil {
 		switch err {
 		case service.ErrProfilePhotoNotFound:
-			return nil, status.Errorf(codes.NotFound, "profile photo not found")
+			return nil, status.Errorf(codes.NotFound, lang.T(locale, "profile photo not found"))
 		case service.ErrUnauthorized:
-			return nil, status.Errorf(codes.PermissionDenied, "unauthorized: profile photo does not belong to user")
+			return nil, status.Errorf(codes.PermissionDenied, lang.T(locale, "unauthorized: profile photo does not belong to user"))
 		default:
-			return nil, status.Errorf(codes.Internal, "failed to delete profile photo: %v", err)
+			return nil, status.Errorf(codes.Internal, lang.Tf(locale, "failed to delete profile photo: %v", err))
 		}
 	}
 

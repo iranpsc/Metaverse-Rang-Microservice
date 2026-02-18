@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"metargb/auth-service/internal/lang"
 	"metargb/auth-service/internal/repository"
 	"metargb/auth-service/internal/service"
 	pb "metargb/shared/pb/auth"
@@ -23,23 +24,24 @@ type authHandler struct {
 	authService         service.AuthService
 	tokenRepo           repository.TokenRepository
 	profilePhotoHandler *ProfilePhotoHandler
+	locale              string
 }
 
-func RegisterAuthHandler(grpcServer *grpc.Server, authService service.AuthService, tokenRepo repository.TokenRepository, profilePhotoHandler *ProfilePhotoHandler) {
+func RegisterAuthHandler(grpcServer *grpc.Server, authService service.AuthService, tokenRepo repository.TokenRepository, profilePhotoHandler *ProfilePhotoHandler, locale string) {
 	pb.RegisterAuthServiceServer(grpcServer, &authHandler{
 		authService:         authService,
 		tokenRepo:           tokenRepo,
 		profilePhotoHandler: profilePhotoHandler,
+		locale:              lang.NormalizeLocale(locale),
 	})
 }
 
 func (h *authHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	// Validate back_url is required (matching Laravel: 'back_url' => 'required|url')
 	validationErrors := make(map[string]string)
-	locale := "en" // TODO: Get locale from config or context
 
 	if req.BackUrl == "" {
-		t := helpers.GetLocaleTranslations(locale)
+		t := helpers.GetLocaleTranslations(h.locale)
 		validationErrors["back_url"] = fmt.Sprintf(t.Required, "back_url")
 	}
 
@@ -53,12 +55,12 @@ func (h *authHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 	if err != nil {
 		// Check if it's a referral validation error
 		if strings.Contains(err.Error(), "referral code does not exist") {
-			t := helpers.GetLocaleTranslations(locale)
+			t := helpers.GetLocaleTranslations(h.locale)
 			validationErrors["referral"] = fmt.Sprintf(t.Invalid, "referral")
 			encodedError := helpers.EncodeValidationError(validationErrors)
 			return nil, status.Error(codes.InvalidArgument, encodedError)
 		}
-		return nil, status.Errorf(codes.Internal, "registration failed: %v", err)
+		return nil, status.Errorf(codes.Internal, lang.Tf(h.locale, "registration failed: %v", err))
 	}
 
 	return &pb.RegisterResponse{
@@ -69,7 +71,7 @@ func (h *authHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 func (h *authHandler) Redirect(ctx context.Context, req *pb.RedirectRequest) (*pb.RedirectResponse, error) {
 	url, _, err := h.authService.Redirect(ctx, req.RedirectTo, req.BackUrl)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "redirect failed: %v", err)
+		return nil, status.Errorf(codes.Internal, lang.Tf(h.locale, "redirect failed: %v", err))
 	}
 
 	return &pb.RedirectResponse{
@@ -85,9 +87,9 @@ func (h *authHandler) Callback(ctx context.Context, req *pb.CallbackRequest) (*p
 	if err != nil {
 		// Map InvalidArgumentException to InvalidArgument status code
 		if strings.Contains(err.Error(), "invalid state value") {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid state value: %v", err)
+			return nil, status.Errorf(codes.InvalidArgument, lang.Tf(h.locale, "invalid state value: %v", err))
 		}
-		return nil, status.Errorf(codes.Internal, "callback failed: %v", err)
+		return nil, status.Errorf(codes.Internal, lang.Tf(h.locale, "callback failed: %v", err))
 	}
 
 	return &pb.CallbackResponse{
@@ -100,7 +102,7 @@ func (h *authHandler) Callback(ctx context.Context, req *pb.CallbackRequest) (*p
 func (h *authHandler) GetMe(ctx context.Context, req *pb.GetMeRequest) (*pb.UserResponse, error) {
 	userDetails, err := h.authService.GetMe(ctx, req.Token)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "authentication failed: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, lang.Tf(h.locale, "authentication failed: %v", err))
 	}
 
 	// Default automatic_logout to 55 if 0 (matching Laravel: settings->automatic_logout ?: 55)
@@ -140,7 +142,7 @@ func (h *authHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*empty
 	// Validate token and get user
 	user, err := h.tokenRepo.ValidateToken(ctx, req.Token)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, lang.Tf(h.locale, "invalid token: %v", err))
 	}
 
 	// Extract IP and UserAgent from request context (if available)
@@ -149,7 +151,7 @@ func (h *authHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*empty
 	userAgent := ""
 
 	if err := h.authService.Logout(ctx, user.ID, ip, userAgent); err != nil {
-		return nil, status.Errorf(codes.Internal, "logout failed: %v", err)
+		return nil, status.Errorf(codes.Internal, lang.Tf(h.locale, "logout failed: %v", err))
 	}
 
 	return &emptypb.Empty{}, nil
@@ -173,10 +175,9 @@ func (h *authHandler) ValidateToken(ctx context.Context, req *pb.ValidateTokenRe
 func (h *authHandler) RequestAccountSecurity(ctx context.Context, req *pb.RequestAccountSecurityRequest) (*emptypb.Empty, error) {
 	// Validate time parameter
 	validationErrors := make(map[string]string)
-	locale := "en" // TODO: Get locale from config or context
 
 	if req.TimeMinutes < 5 || req.TimeMinutes > 60 {
-		t := helpers.GetLocaleTranslations(locale)
+		t := helpers.GetLocaleTranslations(h.locale)
 		validationErrors["time"] = fmt.Sprintf(t.Invalid, "time")
 	}
 
@@ -187,7 +188,7 @@ func (h *authHandler) RequestAccountSecurity(ctx context.Context, req *pb.Reques
 	}
 
 	if err := h.authService.RequestAccountSecurity(ctx, req.UserId, req.TimeMinutes, req.Phone); err != nil {
-		return nil, mapAccountSecurityErrorWithFields(err)
+		return nil, mapAccountSecurityErrorWithFields(err, h.locale)
 	}
 	return &emptypb.Empty{}, nil
 }
@@ -195,13 +196,12 @@ func (h *authHandler) RequestAccountSecurity(ctx context.Context, req *pb.Reques
 func (h *authHandler) VerifyAccountSecurity(ctx context.Context, req *pb.VerifyAccountSecurityRequest) (*emptypb.Empty, error) {
 	// Validate code parameter
 	validationErrors := make(map[string]string)
-	locale := "en" // TODO: Get locale from config or context
 
 	if req.Code == "" {
-		t := helpers.GetLocaleTranslations(locale)
+		t := helpers.GetLocaleTranslations(h.locale)
 		validationErrors["code"] = fmt.Sprintf(t.Required, "code")
 	} else if len(req.Code) != 6 {
-		t := helpers.GetLocaleTranslations(locale)
+		t := helpers.GetLocaleTranslations(h.locale)
 		validationErrors["code"] = fmt.Sprintf(t.Len, "code", "6")
 	} else {
 		// Validate that code contains only digits
@@ -213,7 +213,7 @@ func (h *authHandler) VerifyAccountSecurity(ctx context.Context, req *pb.VerifyA
 			}
 		}
 		if !allDigits {
-			t := helpers.GetLocaleTranslations(locale)
+			t := helpers.GetLocaleTranslations(h.locale)
 			validationErrors["code"] = fmt.Sprintf(t.Invalid, "code")
 		}
 	}
@@ -225,17 +225,16 @@ func (h *authHandler) VerifyAccountSecurity(ctx context.Context, req *pb.VerifyA
 	}
 
 	if err := h.authService.VerifyAccountSecurity(ctx, req.UserId, req.Code, req.Ip, req.UserAgent); err != nil {
-		return nil, mapAccountSecurityErrorWithFields(err)
+		return nil, mapAccountSecurityErrorWithFields(err, h.locale)
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func mapAccountSecurityError(err error) error {
-	return mapAccountSecurityErrorWithFields(err)
+func mapAccountSecurityError(err error, locale string) error {
+	return mapAccountSecurityErrorWithFields(err, locale)
 }
 
-func mapAccountSecurityErrorWithFields(err error) error {
-	locale := "en" // TODO: Get locale from config or context
+func mapAccountSecurityErrorWithFields(err error, locale string) error {
 	validationErrors := make(map[string]string)
 
 	switch {
@@ -271,7 +270,7 @@ func mapAccountSecurityErrorWithFields(err error) error {
 	case errors.Is(err, service.ErrAccountSecurityAlreadyUnlocked):
 		return status.Errorf(codes.FailedPrecondition, "%v", err)
 	default:
-		return status.Errorf(codes.Internal, "account security operation failed: %v", err)
+		return status.Errorf(codes.Internal, lang.Tf(locale, "account security operation failed: %v", err))
 	}
 }
 

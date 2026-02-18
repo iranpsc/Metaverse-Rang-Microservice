@@ -214,6 +214,7 @@ func main() {
 	)
 
 	// Initialize gRPC handlers
+	handler.SetProjectLocale(getEnv("PROJECT_LOCALE", "EN"))
 	featureHandler := handler.NewFeatureHandler(featureService)
 	marketplaceHandler := handler.NewMarketplaceHandler(marketplaceService, geometryRepo, propertiesRepo, featureRepo)
 	profitHandler := handler.NewProfitHandler(profitService)
