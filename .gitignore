@@ -68,6 +68,9 @@ websocket-gateway/config.env
 docker/*.env
 docker/*.env.*
 
+# API documentation (local/reference only)
+api-docs/
+
 # Miscellaneous
 *.iml
 *.orig
