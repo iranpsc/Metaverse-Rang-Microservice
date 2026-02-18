@@ -101,7 +101,8 @@ func (h *AuthHandler) Redirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"url": resp.Url})
+	// /auth/redirect endpoint should NOT wrap response in data field
+	writeJSON(w, http.StatusOK, map[string]string{"url": resp.Url}, true)
 }
 
 // Callback handles GET /api/auth/callback
@@ -1625,7 +1626,52 @@ func setFieldValue(fieldValue reflect.Value, value string) error {
 	return nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, data interface{}) {
+// writeJSON writes a JSON response, wrapping it in a "data" field unless:
+// 1. The data is already wrapped (has a "data" key at top level)
+// 2. The data is an error response (has "error" key)
+// 3. skipWrap is true (for special cases like /auth/redirect)
+func writeJSON(w http.ResponseWriter, status int, data interface{}, skipWrap ...bool) {
+	shouldSkipWrap := len(skipWrap) > 0 && skipWrap[0]
+	
+	// Handle nil data
+	if data == nil {
+		data = map[string]interface{}{}
+	}
+	
+	// Check if we should wrap the response
+	if !shouldSkipWrap {
+		// Check if data is already wrapped or is an error response
+		if dataMap, ok := data.(map[string]interface{}); ok {
+			// Already has "data" key - don't wrap again
+			if _, hasData := dataMap["data"]; hasData {
+				shouldSkipWrap = true
+			}
+			// Has "error" key - don't wrap error responses
+			if _, hasError := dataMap["error"]; hasError {
+				shouldSkipWrap = true
+			}
+			// Has "message" and "errors" keys - validation error, don't wrap
+			if _, hasMessage := dataMap["message"]; hasMessage {
+				if _, hasErrors := dataMap["errors"]; hasErrors {
+					shouldSkipWrap = true
+				}
+			}
+		} else if dataMap, ok := data.(map[string]string); ok {
+			// Check for error or special responses in map[string]string
+			if _, hasError := dataMap["error"]; hasError {
+				shouldSkipWrap = true
+			}
+			// Special case: /auth/redirect returns {"url": "..."} - handled by skipWrap parameter
+		}
+		
+		// Wrap in data field if not skipping
+		if !shouldSkipWrap {
+			data = map[string]interface{}{
+				"data": data,
+			}
+		}
+	}
+	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
