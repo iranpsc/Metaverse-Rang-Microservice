@@ -4,10 +4,24 @@ FROM golang:1.24-alpine AS builder
 # Install build dependencies
 RUN apk add --no-cache git make protoc protobuf-dev
 
+# Install protoc-gen-go and protoc-gen-go-grpc plugins
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
 WORKDIR /workspace
 
 # Create the proper directory structure
 RUN mkdir -p /workspace/metargb/levels-service /workspace/metargb/shared
+
+# Copy proto files first
+COPY ./shared/proto/ /workspace/metargb/shared/proto/
+
+# Generate proto files before copying shared module
+ENV PATH="${PATH}:/root/go/bin"
+RUN mkdir -p /workspace/metargb/shared/pb/levels && \
+    protoc --go_out=/workspace/metargb/shared/pb/levels --go_opt=paths=source_relative \
+        --go-grpc_out=/workspace/metargb/shared/pb/levels --go-grpc_opt=paths=source_relative \
+        -I=/workspace/metargb/shared/proto /workspace/metargb/shared/proto/levels.proto
 
 # Copy shared module first
 COPY ./shared/go.mod /workspace/metargb/shared/

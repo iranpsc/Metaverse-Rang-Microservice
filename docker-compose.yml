@@ -103,8 +103,14 @@ services:
     environment:
       HTTP_PORT: 8080
       AUTH_SERVICE_ADDR: auth-service:50051
-      TRAINING_SERVICE_ADDR: training-service:50057
+      CALENDAR_SERVICE_ADDR: calendar-service:50059
+      DYNASTY_SERVICE_ADDR: dynasty-service:50055
+      FEATURES_SERVICE_ADDR: features-service:50053
       FINANCIAL_SERVICE_ADDR: financial-service:50062
+      LEVELS_SERVICE_ADDR: levels-service:50054
+      TRAINING_SERVICE_ADDR: training-service:50057
+      SUPPORT_SERVICE_ADDR: support-service:50056
+      NOTIFICATION_SERVICE_ADDR: notifications-service:50058
       STORAGE_SERVICE_ADDR: storage-service:8059
     depends_on:
       auth-service:
@@ -112,6 +118,8 @@ services:
       training-service:
         condition: service_started
       storage-service:
+        condition: service_started
+      levels-service:
         condition: service_started
     networks:
       - metargb-network
