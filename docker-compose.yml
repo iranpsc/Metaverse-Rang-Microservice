@@ -90,6 +90,16 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/auth-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # gRPC Gateway Service - REST to gRPC Translation
   grpc-gateway:
@@ -131,6 +141,16 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/grpc-gateway
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Commercial Service - Wallets & Transactions
   commercial-service:
@@ -163,6 +183,16 @@ services:
     networks:
       - metargb-network
     restart: unless-stopped
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/commercial-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Features Service - Feature/Land Management
   features-service:
@@ -194,6 +224,16 @@ services:
     networks:
       - metargb-network
     restart: unless-stopped
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/features-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Levels Service - User Progression & Activities
   levels-service:
@@ -218,6 +258,16 @@ services:
     networks:
       - metargb-network
     restart: unless-stopped
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/levels-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Dynasty Service - Family & Dynasty Management
   dynasty-service:
@@ -242,6 +292,16 @@ services:
     networks:
       - metargb-network
     restart: unless-stopped
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/dynasty-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Calendar Service - Events Management
   calendar-service:
@@ -266,6 +326,16 @@ services:
     networks:
       - metargb-network
     restart: unless-stopped
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/calendar-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Support Service - Tickets & Reports
   support-service:
@@ -298,6 +368,16 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/support-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Training Service - Video Tutorials & Comments
   training-service:
@@ -330,6 +410,16 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/training-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Notifications Service - Multi-channel Notifications
   notifications-service:
@@ -366,6 +456,16 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/notifications-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Financial Service - Payment Processing & Transactions
   financial-service:
@@ -395,6 +495,16 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/financial-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
 
   # Storage Service - File Upload & Management
   storage-service:
@@ -424,6 +534,17 @@ services:
     networks:
       - metargb-network
     restart: unless-stopped
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/storage-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+            - "**/uploads"
+        - action: rebuild
+          path: ./shared
 
   # ============================================================================
   # Gateway Services
@@ -456,6 +577,18 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./websocket-gateway
+          target: /app
+          ignore:
+            - "**/node_modules"
+            - "**/.git"
+        - action: rebuild
+          path: ./websocket-gateway/package.json
+        - action: rebuild
+          path: ./websocket-gateway/package-lock.json
 
   # Health Check Service - System Health Monitoring
   health-check-service:

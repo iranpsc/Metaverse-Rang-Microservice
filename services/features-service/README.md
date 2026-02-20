@@ -98,8 +98,12 @@ go run cmd/server/main.go
 ### Docker
 
 ```bash
-docker build -f Dockerfile.dev -t features-service:dev .
-docker run --env-file config.env features-service:dev
+# Build and run with Docker Compose (recommended)
+make dev-up
+
+# Or build manually
+docker build -f Dockerfile -t features-service:latest .
+docker run --env-file config.env features-service:latest
 ```
 
 ## API Documentation
