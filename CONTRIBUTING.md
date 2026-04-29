@@ -108,18 +108,22 @@ metargb-microservices/
 └── docker-compose.yml
 
 ### Branching Strategy
+```bash
 # Feature branches
 git checkout -b feature/add-otp-login
-
+```
+```bash
 # Bug fixes
 git checkout -b fix/payment-timeout
-
+```
+```bash
 # Documentation
 git checkout -b docs/update-readme
-
+```
+```bash
 # Performance
 git checkout -b perf/cache-user-session
-
+```
 ### Service Ports
 Service	gRPC Port	HTTP Port
 auth-service	50051	-
@@ -158,8 +162,14 @@ Types: feat, fix, docs, style, refactor, perf, test, chore
 Scopes: auth, commercial, features, levels, dynasty, support, training, notifications, calendar, storage, financial, gateway, shared, proto, kong, scripts, docs
 
 Examples: 
+```bash
 git commit -m "feat(auth): add SMS-based OTP login"
+```
 git commit -m "fix(commercial): handle Parsian payment timeout"
+```bash
 git commit -m "docs(contributing): add contribution guidelines"
+```
 git commit -m "perf(storage): implement FTP connection pooling"
+```bash
 git commit -m "test(auth): add unit tests for login service"
+```
