@@ -25,7 +25,21 @@ func validateRequired(fieldName string, value interface{}, locale string) map[st
 		if v == "" {
 			validationErrors[fieldName] = fmt.Sprintf(t.Required, fieldName)
 		}
-	case uint64, uint32, int64, int32:
+	// Separate cases: with multiple types in one case, v is still interface{} per Go spec,
+	// so numeric zero checks would not run correctly.
+	case uint64:
+		if v == 0 {
+			validationErrors[fieldName] = fmt.Sprintf(t.Required, fieldName)
+		}
+	case uint32:
+		if v == 0 {
+			validationErrors[fieldName] = fmt.Sprintf(t.Required, fieldName)
+		}
+	case int64:
+		if v == 0 {
+			validationErrors[fieldName] = fmt.Sprintf(t.Required, fieldName)
+		}
+	case int32:
 		if v == 0 {
 			validationErrors[fieldName] = fmt.Sprintf(t.Required, fieldName)
 		}
@@ -95,4 +109,3 @@ func mergeValidationErrors(errors ...map[string]string) map[string]string {
 	}
 	return result
 }
-

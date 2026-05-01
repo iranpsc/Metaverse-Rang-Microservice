@@ -7,23 +7,13 @@ import (
 	"time"
 
 	"metargb/features-service/internal/repository"
+	"metargb/features-service/internal/testutil"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func setupTestDBForMap(t *testing.T) *sql.DB {
-	// Use test database if available, otherwise skip
-	dsn := "metargb_user:metargb_password@tcp(localhost:3306)/metargb_db_test?parseTime=true&charset=utf8mb4"
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		t.Skipf("Skipping test: could not connect to test database: %v", err)
-	}
-
-	if err := db.Ping(); err != nil {
-		t.Skipf("Skipping test: could not ping test database: %v", err)
-	}
-
-	return db
+	return testutil.OpenMySQLOrSkip(t)
 }
 
 func TestMapRepository_FindAll(t *testing.T) {

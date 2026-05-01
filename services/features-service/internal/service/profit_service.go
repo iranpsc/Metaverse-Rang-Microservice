@@ -186,7 +186,7 @@ func (s *ProfitService) GetProfitsByApplication(ctx context.Context, userID uint
 func (s *ProfitService) TransferProfitOnSale(ctx context.Context, featureID, sellerID, buyerID uint64, withdrawProfitDays int) error {
 	// Get existing profit for seller
 	oldProfit, err := s.profitRepo.GetByFeatureAndUser(ctx, featureID, sellerID)
-	if err == nil && oldProfit != nil && oldProfit.Amount > 0 {
+	if err == nil && oldProfit != nil && oldProfit.Amount > 0 && s.commercialClient != nil {
 		// Add accumulated profit to seller's wallet via gRPC
 		if err := s.commercialClient.AddBalance(ctx, sellerID, oldProfit.Asset, oldProfit.Amount); err != nil {
 			s.log.Error("Failed to transfer profit to seller", "error", err)

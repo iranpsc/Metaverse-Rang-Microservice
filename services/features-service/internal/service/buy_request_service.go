@@ -1,3 +1,6 @@
+// BuyRequestService (this file) is a legacy alternate implementation of buy-request flows that mirrors
+// MarketplaceService. It is not constructed in cmd/server/main.go; production uses MarketplaceService
+// for all FeatureMarketplaceService RPCs. Kept for reference and potential extraction of shared helpers.
 package service
 
 import (

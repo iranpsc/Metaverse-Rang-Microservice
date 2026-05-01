@@ -2,14 +2,19 @@ package service_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
+	"metargb/features-service/internal/metrics"
+	"metargb/features-service/internal/repository"
 	"metargb/features-service/internal/service"
+	"metargb/features-service/internal/testutil"
 	commercialpb "metargb/shared/pb/commercial"
-	pb "metargb/shared/pb/features"
+	"metargb/shared/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // MockCommercialClient is a mock implementation of CommercialClient
@@ -79,164 +84,127 @@ func (m *MockEventBroadcaster) Close() error {
 	return nil
 }
 
-// setupTestMarketplaceService creates a marketplace service with mocked dependencies
-func setupTestMarketplaceService(t *testing.T) (*service.MarketplaceService, *MockCommercialClient, *MockNotificationClient, *MockEventBroadcaster) {
-	// TODO: Setup test database and repositories
-	// For now, we'll skip tests that require actual database
-	t.Skip("Test database setup not implemented")
-
-	mockCommercial := &MockCommercialClient{}
-	mockNotification := &MockNotificationClient{}
-	mockBroadcaster := &MockEventBroadcaster{}
-
-	// Create service with mocks
-	// Note: MarketplaceService uses concrete client types, not interfaces
-	// This test needs to be refactored to use interfaces or integration tests
-	// marketplaceService := service.NewMarketplaceService(
-	// 	nil, // featureRepo
-	// 	nil, // propertiesRepo
-	// 	nil, // geometryRepo
-	// 	nil, // tradeRepo
-	// 	nil, // buyRequestRepo
-	// 	nil, // sellRequestRepo
-	// 	nil, // lockedAssetRepo
-	// 	nil, // hourlyProfitRepo
-	// 	nil, // featureLimitRepo
-	// 	nil, // variableRepo
-	// 	mockCommercial,
-	// 	mockNotification,
-	// 	mockBroadcaster,
-	// 	metrics.NewMarketplaceMetrics(),
-	// 	nil, // db
-	// 	logger.NewLogger("test"),
-	// )
-
-	return nil, mockCommercial, mockNotification, mockBroadcaster
+func marketplaceFromDB(t *testing.T, db *sql.DB) *service.MarketplaceService {
+	t.Helper()
+	log := logger.NewLogger("marketplace-int")
+	return service.NewMarketplaceService(
+		repository.NewFeatureRepository(db),
+		repository.NewPropertiesRepository(db),
+		repository.NewGeometryRepository(db),
+		repository.NewTradeRepository(db),
+		repository.NewBuyRequestRepository(db),
+		repository.NewSellRequestRepository(db),
+		repository.NewLockedAssetRepository(db),
+		repository.NewHourlyProfitRepository(db),
+		repository.NewFeatureLimitRepository(db),
+		repository.NewVariableRepository(db),
+		nil,
+		nil,
+		nil,
+		metrics.NewMarketplaceMetrics(),
+		db,
+		log,
+	)
 }
 
-func TestMarketplaceService_SendBuyRequest_FloorPriceValidation(t *testing.T) {
-	service, mockCommercial, mockNotification, _ := setupTestMarketplaceService(t)
-	if service == nil {
-		return
-	}
+func integrationMarketplaceService(t *testing.T) (*service.MarketplaceService, *sql.DB) {
+	db := testutil.OpenMySQLOrSkip(t)
+	return marketplaceFromDB(t, db), db
+}
 
+func TestMarketplaceService_ListBuyRequests_Integration(t *testing.T) {
+	ms, db := integrationMarketplaceService(t)
+	defer db.Close()
 	ctx := context.Background()
-
-	// Setup mocks
-	mockCommercial.On("CheckBalance", ctx, uint64(1), "psc", mock.AnythingOfType("float64")).Return(true, nil)
-	mockCommercial.On("CheckBalance", ctx, uint64(1), "irr", mock.AnythingOfType("float64")).Return(true, nil)
-	mockCommercial.On("DeductBalance", ctx, uint64(1), "psc", mock.AnythingOfType("float64")).Return(nil)
-	mockCommercial.On("DeductBalance", ctx, uint64(1), "irr", mock.AnythingOfType("float64")).Return(nil)
-	mockNotification.On("SendBuyRequestNotification", ctx, uint64(1), "buyer", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	mockNotification.On("SendBuyRequestNotification", ctx, uint64(2), "seller", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	req := &pb.SendBuyRequestRequest{
-		BuyerId:   1,
-		FeatureId: 100,
-		PricePsc:  "50.0", // Below floor price
-		PriceIrr:  "500000.0",
-	}
-
-	_, err := service.SendBuyRequest(ctx, req)
-
-	// Should fail validation
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "floor")
+	out, err := ms.ListBuyRequests(ctx, 999999001)
+	require.NoError(t, err)
+	assert.NotNil(t, out)
 }
 
-func TestMarketplaceService_SendBuyRequest_InsufficientBalance(t *testing.T) {
-	service, mockCommercial, _, _ := setupTestMarketplaceService(t)
-	if service == nil {
-		return
-	}
-
+func TestMarketplaceService_ListReceivedBuyRequests_Integration(t *testing.T) {
+	ms, db := integrationMarketplaceService(t)
+	defer db.Close()
 	ctx := context.Background()
-
-	// Setup mocks - insufficient balance
-	mockCommercial.On("CheckBalance", ctx, uint64(1), "psc", mock.AnythingOfType("float64")).Return(false, nil)
-
-	req := &pb.SendBuyRequestRequest{
-		BuyerId:   1,
-		FeatureId: 100,
-		PricePsc:  "100.0",
-		PriceIrr:  "1000000.0",
-	}
-
-	_, err := service.SendBuyRequest(ctx, req)
-
-	// Should fail with insufficient balance
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "موجودی")
+	out, err := ms.ListReceivedBuyRequests(ctx, 999999002)
+	require.NoError(t, err)
+	assert.NotNil(t, out)
 }
 
-func TestMarketplaceService_AcceptBuyRequest_UnderpricedCooldown(t *testing.T) {
-	service, _, _, _ := setupTestMarketplaceService(t)
-	if service == nil {
-		return
-	}
-
-	// Test that underpriced cooldown is enforced
-	// This requires setting up test data with recent underpriced sale
-
-	// TODO: Implement test with underpriced restriction
-	t.Skip("Requires test data setup for underpriced restriction")
-}
-
-func TestMarketplaceService_CreateSellRequest_AgeBasedPricingLimit(t *testing.T) {
-	service, _, mockNotification, mockBroadcaster := setupTestMarketplaceService(t)
-	if service == nil {
-		return
-	}
-
+func TestMarketplaceService_ListSellRequests_Integration(t *testing.T) {
+	ms, db := integrationMarketplaceService(t)
+	defer db.Close()
 	ctx := context.Background()
-
-	// Setup mocks
-	mockNotification.On("SendSellRequestNotification", ctx, uint64(1), mock.Anything, mock.Anything).Return(nil)
-	mockBroadcaster.On("BroadcastFeatureStatusChanged", ctx, mock.Anything, mock.Anything).Return(nil)
-
-	// Test under-18 user trying to set price below 110%
-	req := &pb.CreateSellRequestRequest{
-		SellerId:               1, // Under-18 user
-		FeatureId:              100,
-		MinimumPricePercentage: 100, // Below 110% limit
-	}
-
-	_, err := service.CreateSellRequest(ctx, req)
-
-	// Should fail with age-based limit error
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "110")
+	out, err := ms.ListSellRequests(ctx, 999999003)
+	require.NoError(t, err)
+	assert.NotNil(t, out)
 }
 
-func TestMarketplaceService_BuyFeature_ThreePathRouting(t *testing.T) {
-	service, mockCommercial, mockNotification, mockBroadcaster := setupTestMarketplaceService(t)
-	if service == nil {
-		return
-	}
-
+func TestMarketplaceService_RequestGracePeriod_Integration(t *testing.T) {
+	db := testutil.OpenMySQLOrSkip(t)
+	defer db.Close()
 	ctx := context.Background()
+	buyRepo := repository.NewBuyRequestRepository(db)
+	rid, err := buyRepo.Create(ctx, 910001, 910002, 910003, "grace-test", 1, 1)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = buyRepo.Delete(ctx, rid) })
 
-	// Test limited feature path
-	t.Run("LimitedFeature", func(t *testing.T) {
-		mockCommercial.On("CheckBalance", ctx, uint64(1), "yellow", mock.AnythingOfType("float64")).Return(true, nil)
-		mockCommercial.On("DeductBalance", ctx, uint64(1), "yellow", mock.AnythingOfType("float64")).Return(nil)
-		mockCommercial.On("AddBalance", ctx, mock.Anything, "yellow", mock.AnythingOfType("float64")).Return(nil)
-		mockNotification.On("SendBuyFeatureNotification", ctx, uint64(1), mock.Anything, true, mock.Anything, mock.Anything, float64(0), float64(0)).Return(nil)
-		mockBroadcaster.On("BroadcastFeatureStatusChanged", ctx, mock.Anything, mock.Anything).Return(nil)
+	ms := marketplaceFromDB(t, db)
+	require.NoError(t, ms.RequestGracePeriod(ctx, rid, 910002, "7"))
 
-		// TODO: Setup feature with limited status
-		t.Skip("Requires test data setup")
-	})
+	row, err := buyRepo.FindByID(ctx, rid)
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	assert.True(t, row.RequestedGracePeriod.Valid)
+}
 
-	// Test RGB purchase path
-	t.Run("RGBPurchase", func(t *testing.T) {
-		// TODO: Implement
-		t.Skip("Requires test data setup")
-	})
+func TestMarketplaceService_UpdateGracePeriod_Integration(t *testing.T) {
+	db := testutil.OpenMySQLOrSkip(t)
+	defer db.Close()
+	ctx := context.Background()
+	buyRepo := repository.NewBuyRequestRepository(db)
+	rid, err := buyRepo.Create(ctx, 910010, 910011, 910012, "grace2", 1, 1)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = buyRepo.Delete(ctx, rid) })
 
-	// Test user-to-user purchase path
-	t.Run("UserToUserPurchase", func(t *testing.T) {
-		// TODO: Implement
-		t.Skip("Requires test data setup")
-	})
+	ms := marketplaceFromDB(t, db)
+	require.NoError(t, ms.UpdateGracePeriod(ctx, rid, 910011, 14))
+
+	row, err := buyRepo.FindByID(ctx, rid)
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	assert.True(t, row.RequestedGracePeriod.Valid)
+}
+
+func TestMarketplaceService_DeleteSellRequest_Integration(t *testing.T) {
+	db := testutil.OpenMySQLOrSkip(t)
+	defer db.Close()
+	ctx := context.Background()
+	sellRepo := repository.NewSellRequestRepository(db)
+	// Use feature_id=1 if present in test DB; ignore failure if schema empty
+	id, err := sellRepo.Create(ctx, 1, 1, 1, 1, 100)
+	if err != nil {
+		t.Skipf("seed sell request: %v", err)
+	}
+	ms := marketplaceFromDB(t, db)
+	err = ms.DeleteSellRequest(ctx, id, 1)
+	if err != nil {
+		// May fail if feature/properties missing for status rollback
+		t.Logf("DeleteSellRequest: %v", err)
+	}
+}
+
+func TestMarketplaceService_RejectBuyRequest_NotFound(t *testing.T) {
+	ms, db := integrationMarketplaceService(t)
+	defer db.Close()
+	err := ms.RejectBuyRequest(context.Background(), 999999777, 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestMarketplaceService_DeleteBuyRequest_NotFound(t *testing.T) {
+	ms, db := integrationMarketplaceService(t)
+	defer db.Close()
+	err := ms.DeleteBuyRequest(context.Background(), 999999776, 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
 }

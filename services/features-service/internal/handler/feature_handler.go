@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"metargb/features-service/internal/service"
 	pb "metargb/shared/pb/features"
 	"metargb/shared/pkg/auth"
 
@@ -18,10 +17,10 @@ type pbEmpty = emptypb.Empty
 
 type FeatureHandler struct {
 	pb.UnimplementedFeatureServiceServer
-	service *service.FeatureService
+	service FeatureServicePort
 }
 
-func NewFeatureHandler(service *service.FeatureService) *FeatureHandler {
+func NewFeatureHandler(service FeatureServicePort) *FeatureHandler {
 	return &FeatureHandler{
 		service: service,
 	}

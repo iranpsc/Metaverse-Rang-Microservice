@@ -1,41 +1,60 @@
 package repository_test
 
 import (
+	"context"
 	"testing"
-	"time"
 
-	"metargb/features-service/internal/models"
+	"metargb/features-service/internal/repository"
+	"metargb/features-service/internal/testutil"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestSellRequestRepository_ListBySellerID(t *testing.T) {
-	// This is a unit test placeholder
-	// In a real scenario, you'd set up a test database or use mocks
-	t.Skip("Requires database setup")
-}
+func TestSellRequestRepository_CreateFindListDelete(t *testing.T) {
+	db := testutil.OpenMySQLOrSkip(t)
+	defer db.Close()
 
-func TestSellRequestRepository_FindByID(t *testing.T) {
-	// This is a unit test placeholder
-	// In a real scenario, you'd set up a test database or use mocks
-	t.Skip("Requires database setup")
-}
+	repo := repository.NewSellRequestRepository(db)
+	ctx := context.Background()
 
-func TestSellRequestRepository_Delete(t *testing.T) {
-	// This is a unit test placeholder
-	// In a real scenario, you'd set up a test database or use mocks
-	t.Skip("Requires database setup")
-}
+	sellerID := uint64(900001)
+	featureID := uint64(900002)
 
-// Helper function to create a test sell request model
-func createTestSellRequest(id, sellerID, featureID uint64, pricePSC, priceIRR float64, limit int, status int) *models.SellFeatureRequest {
-	return &models.SellFeatureRequest{
-		ID:        id,
-		SellerID:  sellerID,
-		FeatureID: featureID,
-		PricePSC:  pricePSC,
-		PriceIRR:  priceIRR,
-		Limit:     limit,
-		Status:    status,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+	id, err := repo.Create(ctx, sellerID, featureID, 10.5, 1000000, 100)
+	require.NoError(t, err)
+	assert.Greater(t, id, uint64(0))
+
+	found, err := repo.FindByID(ctx, id)
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	assert.Equal(t, sellerID, found.SellerID)
+	assert.Equal(t, featureID, found.FeatureID)
+
+	list, err := repo.ListBySellerID(ctx, sellerID)
+	require.NoError(t, err)
+	foundInList := false
+	for _, r := range list {
+		if r.ID == id {
+			foundInList = true
+			break
+		}
 	}
+	assert.True(t, foundInList, "created sell request should appear in list")
+
+	require.NoError(t, repo.Delete(ctx, id))
+
+	after, err := repo.FindByID(ctx, id)
+	require.NoError(t, err)
+	assert.Nil(t, after)
+}
+
+func TestSellRequestRepository_FindByID_NotFound(t *testing.T) {
+	db := testutil.OpenMySQLOrSkip(t)
+	defer db.Close()
+	repo := repository.NewSellRequestRepository(db)
+	ctx := context.Background()
+	row, err := repo.FindByID(ctx, 999999999)
+	require.NoError(t, err)
+	assert.Nil(t, row)
 }

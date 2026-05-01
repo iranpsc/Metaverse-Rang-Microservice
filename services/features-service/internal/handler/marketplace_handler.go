@@ -3,12 +3,9 @@ package handler
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"metargb/features-service/internal/models"
-	"metargb/features-service/internal/repository"
-	"metargb/features-service/internal/service"
 	pb "metargb/shared/pb/features"
 	"metargb/shared/pkg/helpers"
 
@@ -19,18 +16,17 @@ import (
 
 type MarketplaceHandler struct {
 	pb.UnimplementedFeatureMarketplaceServiceServer
-	service        *service.MarketplaceService
-	geometryRepo   *repository.GeometryRepository
-	propertiesRepo *repository.PropertiesRepository
-	featureRepo    *repository.FeatureRepository
+	service      MarketplaceServicePort
+	geometryRepo GeometryCoordinateReader
+	featureRepo  FeaturePropertyReader
 }
 
-func NewMarketplaceHandler(service *service.MarketplaceService, geometryRepo *repository.GeometryRepository, propertiesRepo *repository.PropertiesRepository, featureRepo *repository.FeatureRepository) *MarketplaceHandler {
+// NewMarketplaceHandler wires marketplace RPCs. propertiesRepo was removed; it was unused.
+func NewMarketplaceHandler(service MarketplaceServicePort, geometryRepo GeometryCoordinateReader, featureRepo FeaturePropertyReader) *MarketplaceHandler {
 	return &MarketplaceHandler{
-		service:        service,
-		geometryRepo:   geometryRepo,
-		propertiesRepo: propertiesRepo,
-		featureRepo:    featureRepo,
+		service:      service,
+		geometryRepo: geometryRepo,
+		featureRepo:  featureRepo,
 	}
 }
 
@@ -403,20 +399,29 @@ func (h *MarketplaceHandler) UpdateGracePeriod(ctx context.Context, req *pb.Upda
 }
 
 // RequestGracePeriod adds grace period to a buy request (deprecated)
-// Implements Laravel's BuyRequestsController@addGracePeriod
+// Implements Laravel's BuyRequestsController@addGracePeriod (seller-only; legacy field buyer_id holds seller id).
 func (h *MarketplaceHandler) RequestGracePeriod(ctx context.Context, req *pb.RequestGracePeriodRequest) (*pb.GracePeriodResponse, error) {
 	if req.RequestId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "request_id is required")
 	}
-
-	// Parse grace period string to int
-	gracePeriodDays, err := strconv.ParseInt(req.GracePeriod, 10, 32)
-	if err != nil || gracePeriodDays < 1 || gracePeriodDays > 30 {
-		return nil, status.Errorf(codes.InvalidArgument, "grace_period must be between 1 and 30")
+	if req.BuyerId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "buyer_id is required (must be seller user id per API contract)")
+	}
+	if req.GracePeriod == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "grace_period is required")
 	}
 
-	err = h.service.UpdateGracePeriod(ctx, req.RequestId, req.BuyerId, int32(gracePeriodDays))
+	err := h.service.RequestGracePeriod(ctx, req.RequestId, req.BuyerId, req.GracePeriod)
 	if err != nil {
+		if strings.Contains(err.Error(), "unauthorized") {
+			return nil, status.Errorf(codes.PermissionDenied, "%v", err)
+		}
+		if strings.Contains(err.Error(), "not found") {
+			return nil, status.Errorf(codes.NotFound, "%v", err)
+		}
+		if strings.Contains(err.Error(), "not pending") || strings.Contains(err.Error(), "between 1 and 30") {
+			return nil, status.Errorf(codes.FailedPrecondition, "%v", err)
+		}
 		return nil, status.Errorf(codes.Internal, "failed to request grace period: %v", err)
 	}
 

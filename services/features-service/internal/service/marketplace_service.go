@@ -475,10 +475,10 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 		if err := s.notificationClient.SendBuyFeatureNotification(ctx, buyerID, feature.ID, false, "", 0, buyerChargePSC, buyerChargeIRR); err != nil {
 			s.log.Warn("Failed to send buy feature notification to buyer", "error", err)
 		}
-		
+
 		// Notify seller - they received payment
-		if err := s.notificationClient.SendNotification(ctx, feature.OwnerID, "sellFeature", "فروش ملک", 
-			fmt.Sprintf("ملک %d با موفقیت فروخته شد.", feature.ID), 
+		if err := s.notificationClient.SendNotification(ctx, feature.OwnerID, "sellFeature", "فروش ملک",
+			fmt.Sprintf("ملک %d با موفقیت فروخته شد.", feature.ID),
 			map[string]string{
 				"feature_id": fmt.Sprintf("%d", feature.ID),
 				"trade_id":   fmt.Sprintf("%d", tradeID),
@@ -862,16 +862,16 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 		if latestTrade != nil {
 			tradeID = latestTrade.ID
 		}
-		
+
 		// Notify buyer - user-to-user purchase (PSC + IRR)
 		if err := s.notificationClient.SendBuyFeatureNotification(ctx, buyRequest.BuyerID, buyRequest.FeatureID, false, "", 0, pscAmount, irrAmount); err != nil {
 			s.log.Warn("Failed to send buy feature notification to buyer", "error", err)
 		}
-		
+
 		// Notify seller - they received payment
 		// Using a generic notification since Laravel sends sellFeature notification
-		if err := s.notificationClient.SendNotification(ctx, sellerID, "sellFeature", "فروش ملک", 
-			fmt.Sprintf("ملک %d با موفقیت فروخته شد.", buyRequest.FeatureID), 
+		if err := s.notificationClient.SendNotification(ctx, sellerID, "sellFeature", "فروش ملک",
+			fmt.Sprintf("ملک %d با موفقیت فروخته شد.", buyRequest.FeatureID),
 			map[string]string{
 				"feature_id": fmt.Sprintf("%d", buyRequest.FeatureID),
 				"trade_id":   fmt.Sprintf("%d", tradeID),
@@ -1123,10 +1123,15 @@ func (s *MarketplaceService) DeleteSellRequest(ctx context.Context, sellRequestI
 	return nil
 }
 
-// RequestGracePeriod adds grace period to a buy request (deprecated - use UpdateGracePeriod)
-func (s *MarketplaceService) RequestGracePeriod(ctx context.Context, requestID, buyerID uint64, gracePeriod string) error {
-	// TODO: Implement grace period request
-	return fmt.Errorf("not implemented")
+// RequestGracePeriod sets requested_grace_period on a pending buy request (deprecated RPC; prefer UpdateGracePeriod).
+// gracePeriod is the number of days as a decimal string (1–30). buyerID is a legacy proto field name: it must be the
+// seller's user id, matching Laravel BuyFeatureRequestPolicy::addGracePeriod (seller-only).
+func (s *MarketplaceService) RequestGracePeriod(ctx context.Context, requestID, sellerID uint64, gracePeriod string) error {
+	days, err := strconv.ParseInt(gracePeriod, 10, 32)
+	if err != nil || days < 1 || days > 30 {
+		return fmt.Errorf("grace period must be between 1 and 30 days")
+	}
+	return s.UpdateGracePeriod(ctx, requestID, sellerID, int32(days))
 }
 
 // ListBuyRequests lists all buy requests for a buyer

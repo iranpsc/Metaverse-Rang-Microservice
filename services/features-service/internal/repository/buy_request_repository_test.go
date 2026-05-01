@@ -7,18 +7,15 @@ import (
 	"time"
 
 	"metargb/features-service/internal/repository"
+	"metargb/features-service/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// setupTestDB creates a test database connection
-// In real implementation, this would use a test database or mock
+// setupTestDB connects when TEST_MYSQL_DSN is set (see internal/testutil.OpenMySQLOrSkip).
 func setupTestDB(t *testing.T) *sql.DB {
-	// TODO: Implement test database setup
-	// This should use a test database or sqlmock
-	t.Skip("Test database setup not implemented")
-	return nil
+	return testutil.OpenMySQLOrSkip(t)
 }
 
 func TestBuyRequestRepository_Create(t *testing.T) {
@@ -223,4 +220,3 @@ func TestBuyRequestRepository_UpdateGracePeriod(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, buyRequest.RequestedGracePeriod.Valid)
 }
-
