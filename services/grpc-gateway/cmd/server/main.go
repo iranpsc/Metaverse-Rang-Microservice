@@ -56,7 +56,7 @@ func main() {
 	log.Printf("✅ Created auth service client for %s (connection will be established on first RPC call)", cfg.AuthServiceAddr)
 
 	// Create connections to other services (with fallback if not configured)
-	var calendarConn, dynastyConn, featuresConn, financialConn, levelsConn, trainingConn, supportConn, notificationConn *grpc.ClientConn
+	var calendarConn, commercialConn, dynastyConn, featuresConn, financialConn, levelsConn, trainingConn, supportConn, notificationConn *grpc.ClientConn
 
 	if cfg.CalendarServiceAddr != "" {
 		calendarConn, err = grpc.NewClient(
@@ -107,6 +107,19 @@ func main() {
 		} else {
 			defer financialConn.Close()
 			log.Printf("✅ Connected to financial service at %s", cfg.FinancialServiceAddr)
+		}
+	}
+
+	if cfg.CommercialServiceAddr != "" {
+		commercialConn, err = grpc.NewClient(
+			cfg.CommercialServiceAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
+		if err != nil {
+			log.Printf("⚠️  Failed to connect to commercial service: %v", err)
+		} else {
+			defer commercialConn.Close()
+			log.Printf("✅ Connected to commercial service at %s", cfg.CommercialServiceAddr)
 		}
 	}
 
@@ -195,6 +208,12 @@ func main() {
 	var financialHandler *handler.FinancialHandler
 	if financialConn != nil {
 		financialHandler = handler.NewFinancialHandler(financialConn, authConn, cfg.Locale)
+	}
+
+	var commercialHandler *handler.CommercialHandler
+	if commercialConn != nil {
+		commercialHandler = handler.NewCommercialHandler(commercialConn)
+		log.Printf("✅ Commercial handler ready for wallet/transactions routes")
 	}
 
 	var levelsHandler *handler.LevelsHandler
@@ -658,6 +677,13 @@ func main() {
 		mux.Handle("/api/store", optionalAuthMiddleware(http.HandlerFunc(financialHandler.GetStorePackages)))
 	}
 
+	// Commercial routes (wallet + transactions for authenticated user)
+	if commercialHandler != nil {
+		mux.Handle("/api/user/transactions/latest", authMiddleware(http.HandlerFunc(commercialHandler.GetLatestTransaction)))
+		mux.Handle("/api/user/transactions", authMiddleware(http.HandlerFunc(commercialHandler.ListTransactions)))
+		mux.Handle("/api/user/wallet", authMiddleware(http.HandlerFunc(commercialHandler.GetCurrentUserWallet)))
+	}
+
 	// Levels routes - using router function to handle all nested routes
 	if levelsHandler != nil {
 		// Register exact match for list endpoint
@@ -665,7 +691,7 @@ func main() {
 		// Register catch-all router for all other routes (nested paths)
 		mux.Handle("/api/levels/", http.HandlerFunc(levelsHandler.HandleLevelsRoutes)) // Public
 		// v2 routes - for backward compatibility
-		mux.Handle("/api/v2/levels", http.HandlerFunc(levelsHandler.GetAllLevels)) // Public
+		mux.Handle("/api/v2/levels", http.HandlerFunc(levelsHandler.GetAllLevels))        // Public
 		mux.Handle("/api/v2/levels/", http.HandlerFunc(levelsHandler.HandleLevelsRoutes)) // Public
 	}
 
@@ -754,8 +780,8 @@ func main() {
 					}
 				}
 
-			// Check for comment routes: /api/tutorials/{video}/comments/...
-			if len(parts) >= 2 && parts[1] == "comments" {
+				// Check for comment routes: /api/tutorials/{video}/comments/...
+				if len(parts) >= 2 && parts[1] == "comments" {
 					if len(parts) >= 4 {
 						// /api/tutorials/{video}/comments/{comment}/{action}
 						action := parts[3]

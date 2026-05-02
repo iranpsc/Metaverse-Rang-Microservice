@@ -1,13 +1,43 @@
 package handler
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"metargb/shared/pkg/helpers"
 )
+
+const defaultLocale = "en"
+
+// GetLocaleFromContext reads Accept-Language from incoming gRPC metadata (set by grpc-gateway).
+// Returns "fa" when the primary tag starts with fa, otherwise "en".
+func GetLocaleFromContext(ctx context.Context) string {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return defaultLocale
+	}
+	vals := md.Get("grpcgateway-accept-language")
+	if len(vals) == 0 {
+		vals = md.Get("accept-language")
+	}
+	if len(vals) == 0 {
+		vals = md.Get("Accept-Language")
+	}
+	if len(vals) == 0 {
+		return defaultLocale
+	}
+	primary := strings.TrimSpace(strings.Split(vals[0], ",")[0])
+	primary = strings.TrimSpace(strings.Split(primary, ";")[0])
+	if strings.HasPrefix(strings.ToLower(primary), "fa") {
+		return "fa"
+	}
+	return defaultLocale
+}
 
 // returnValidationError returns a gRPC InvalidArgument error with encoded validation fields
 func returnValidationError(fields map[string]string) error {
@@ -104,4 +134,3 @@ func mergeValidationErrors(errors ...map[string]string) map[string]string {
 	}
 	return result
 }
-

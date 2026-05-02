@@ -31,7 +31,7 @@ func RegisterStoreHandler(grpcServer *grpc.Server, storeService service.StoreSer
 }
 
 func (h *StoreHandler) GetStorePackages(ctx context.Context, req *pb.GetStorePackagesRequest) (*pb.GetStorePackagesResponse, error) {
-	locale := "en" // TODO: Get locale from config or context
+	locale := GetLocaleFromContext(ctx)
 	validationErrors := make(map[string]string)
 	t := helpers.GetLocaleTranslations(locale)
 

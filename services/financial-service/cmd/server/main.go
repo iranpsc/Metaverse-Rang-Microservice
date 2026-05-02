@@ -14,11 +14,15 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	"metargb/financial-service/internal/grpcclients"
 	"metargb/financial-service/internal/handler"
 	"metargb/financial-service/internal/parsian"
 	"metargb/financial-service/internal/repository"
 	"metargb/financial-service/internal/service"
+	commercialpb "metargb/shared/pb/commercial"
+	notificationpb "metargb/shared/pb/notifications"
 )
 
 func main() {
@@ -78,6 +82,32 @@ func main() {
 	cancel()
 	log.Println("Successfully connected to database")
 
+	// Downstream gRPC clients (commercial-service, notifications-service)
+	var walletAdapter *grpcclients.WalletAdapter
+	var referralAdapter *grpcclients.ReferralAdapter
+	var notifyAdapter *grpcclients.NotifyAdapter
+
+	commercialAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052")
+	commercialConn, err := grpc.NewClient(commercialAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("Warning: failed to dial commercial service at %s — wallet/referral callbacks disabled: %v", commercialAddr, err)
+	} else {
+		defer commercialConn.Close()
+		log.Printf("Connected to commercial service at %s", commercialAddr)
+		walletAdapter = &grpcclients.WalletAdapter{Client: commercialpb.NewWalletServiceClient(commercialConn)}
+		referralAdapter = &grpcclients.ReferralAdapter{Client: commercialpb.NewReferralServiceClient(commercialConn)}
+	}
+
+	notificationsAddr := getEnv("NOTIFICATIONS_SERVICE_ADDR", "notifications-service:50058")
+	notifConn, err := grpc.NewClient(notificationsAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("Warning: failed to dial notifications service at %s — purchase notifications disabled: %v", notificationsAddr, err)
+	} else {
+		defer notifConn.Close()
+		log.Printf("Connected to notifications service at %s", notificationsAddr)
+		notifyAdapter = &grpcclients.NotifyAdapter{Client: notificationpb.NewNotificationServiceClient(notifConn)}
+	}
+
 	// Initialize repositories
 	orderRepo := repository.NewOrderRepository(db)
 	transactionRepo := repository.NewTransactionRepository(db)
@@ -106,6 +136,9 @@ func main() {
 		parsianClient,
 		orderPolicy,
 		jalaliConverter,
+		walletAdapter,
+		referralAdapter,
+		notifyAdapter,
 		service.OrderConfig{
 			ParsianMerchantID:            getEnv("PARSIAN_MERCHANT_ID", ""),
 			ParsianLoanAccountMerchantID: getEnv("PARSIAN_LOAN_ACCOUNT_MERCHANT_ID", ""),

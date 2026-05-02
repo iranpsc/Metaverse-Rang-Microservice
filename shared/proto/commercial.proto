@@ -30,6 +30,11 @@ service PaymentService {
   rpc VerifyPayment(VerifyPaymentRequest) returns (VerifyPaymentResponse);
 }
 
+// ReferralService processes referral commission after a successful order (used by financial-service after Parsian verify).
+service ReferralService {
+  rpc ProcessReferral(ProcessReferralRequest) returns (google.protobuf.Empty);
+}
+
 // ============== Messages ==============
 
 message Wallet {
@@ -219,4 +224,11 @@ message VerifyPaymentResponse {
   int64 reference_id = 3;
   string card_hash = 4;
   string message = 5;
+}
+
+message ProcessReferralRequest {
+  uint64 buyer_user_id = 1; // user who placed the order
+  uint64 order_id = 2;
+  string asset = 3;
+  double amount = 4; // order amount in asset units (same as orders.amount)
 }

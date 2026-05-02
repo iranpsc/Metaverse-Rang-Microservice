@@ -152,6 +152,7 @@ func main() {
 	handler.RegisterWalletHandler(grpcServer, walletService)
 	handler.RegisterTransactionHandler(grpcServer, transactionService)
 	handler.RegisterPaymentHandler(grpcServer, paymentService)
+	handler.RegisterReferralHandler(grpcServer, referralService)
 
 	// Start gRPC server
 	port := getEnv("GRPC_PORT", "50052")

@@ -29,7 +29,7 @@ func RegisterOrderHandler(grpcServer *grpc.Server, orderService service.OrderSer
 }
 
 func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderResponse, error) {
-	locale := "en" // TODO: Get locale from config or context
+	locale := GetLocaleFromContext(ctx)
 	validationErrors := mergeValidationErrors(
 		validateMin("amount", int64(req.Amount), 1, locale),
 		validateRequired("asset", req.Asset, locale),
@@ -61,7 +61,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderReque
 }
 
 func (h *OrderHandler) HandleCallback(ctx context.Context, req *pb.HandleCallbackRequest) (*pb.HandleCallbackResponse, error) {
-	locale := "en" // TODO: Get locale from config or context
+	locale := GetLocaleFromContext(ctx)
 	validationErrors := mergeValidationErrors(
 		validateRequired("order_id", req.OrderId, locale),
 		validateRequired("token", req.Token, locale),

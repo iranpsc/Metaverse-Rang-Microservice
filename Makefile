@@ -1,4 +1,4 @@
-.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test up down restart logs ps build clean dev dev-up dev-down
+.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test up down restart logs ps build clean dev dev-up dev-down test-coverage-financial
 
 # Proto generation
 PROTO_DIR=shared/proto
@@ -39,6 +39,7 @@ help:
 	@echo "  test             - Run integration tests"
 	@echo "  test-all         - Run all test suites"
 	@echo "  test-coverage-features - features-service handler coverage ≥70% (GOWORK=off)"
+	@echo "  test-coverage-financial - financial-service handler coverage ≥70%"
 	@echo ""
 	@echo "Database:"
 	@echo "  import-schema    - Import database schema only (schema.sql)"
@@ -79,6 +80,15 @@ test-coverage-features:
 	echo "handler statements coverage: $${pct}%"; \
 	awk -v p="$$pct" 'BEGIN{if (p+0 < 70.0) exit 1}'
 	@echo "✅ features-service handler coverage OK"
+
+# Financial-service handler coverage gate (≥70%)
+test-coverage-financial:
+	@echo "🧪 financial-service handler coverage (min 70%)..."
+	cd services/financial-service && go test ./internal/handler/... -race -coverprofile=coverage.out -covermode=atomic
+	@pct=$$(cd services/financial-service && go tool cover -func=coverage.out | tail -1 | grep -oE '[0-9]+\.[0-9]+' | tail -1); \
+	echo "financial-service handler statements coverage: $${pct}%"; \
+	awk -v p="$$pct" 'BEGIN{if (p+0 < 70.0) exit 1}'
+	@echo "✅ financial-service handler coverage OK"
 
 # Integration tests
 test-integration:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"time"
 
@@ -25,6 +26,21 @@ type OrderService interface {
 	HandleCallback(ctx context.Context, orderID uint64, status int32, token int64, additionalParams map[string]string) (string, error)
 }
 
+// WalletTopUp credits the buyer wallet via commercial-service (optional).
+type WalletTopUp interface {
+	AddBalance(ctx context.Context, userID uint64, asset string, amount float64) error
+}
+
+// ReferralProcessor triggers referral commission via commercial-service (optional).
+type ReferralProcessor interface {
+	ProcessReferral(ctx context.Context, buyerUserID, orderID uint64, asset string, amount float64) error
+}
+
+// PurchaseNotifier sends post-payment notifications via notifications-service (optional).
+type PurchaseNotifier interface {
+	NotifyPurchaseSuccess(ctx context.Context, userID, orderID uint64, asset string, amount float64) error
+}
+
 type orderService struct {
 	orderRepo       repository.OrderRepository
 	transactionRepo repository.TransactionRepository
@@ -34,13 +50,13 @@ type orderService struct {
 	parsianClient   ParsianClient // Interface for easier testing
 	orderPolicy     OrderPolicy
 	jalaliConverter JalaliConverter
+	wallet          WalletTopUp
+	referral        ReferralProcessor
+	notify          PurchaseNotifier
 	merchantID      string
 	loanMerchantID  string
 	callbackURL     string
 	frontendURL     string
-	// TODO: Add gRPC clients for wallet and referral services
-	// walletClient    commercialpb.WalletServiceClient
-	// referralService ReferralService
 }
 
 type OrderConfig struct {
@@ -59,6 +75,9 @@ func NewOrderService(
 	parsianClient ParsianClient,
 	orderPolicy OrderPolicy,
 	jalaliConverter JalaliConverter,
+	wallet WalletTopUp,
+	referral ReferralProcessor,
+	notify PurchaseNotifier,
 	config OrderConfig,
 ) OrderService {
 	return &orderService{
@@ -70,6 +89,9 @@ func NewOrderService(
 		parsianClient:   parsianClient,
 		orderPolicy:     orderPolicy,
 		jalaliConverter: jalaliConverter,
+		wallet:          wallet,
+		referral:        referral,
+		notify:          notify,
 		merchantID:      config.ParsianMerchantID,
 		loanMerchantID:  config.ParsianLoanAccountMerchantID,
 		callbackURL:     config.ParsianCallbackURL,
@@ -168,7 +190,7 @@ func (s *orderService) CreateOrder(ctx context.Context, userID uint64, amount in
 	err = s.transactionRepo.Update(ctx, transaction)
 	if err != nil {
 		// Log error but don't fail - token is stored
-		fmt.Printf("Warning: failed to update transaction with token: %v\n", err)
+		log.Printf("Warning: failed to update transaction with token: %v", err)
 	}
 
 	// Return payment URL
@@ -264,12 +286,12 @@ func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, statu
 			amount := order.Amount * rate
 
 			if canGetBonus {
-				// First order bonus: 50%
+				// First order bonus: 50% (Laravel: wallet increment order + bonus)
 				bonus := order.Amount * 0.5
-				_ = order.Amount + bonus // totalAmount for future gRPC call
-
-				// TODO: Add balance via gRPC call to commercial-service
-				// walletClient.AddBalance(ctx, order.UserID, order.Asset, totalAmount)
+				totalAmount := order.Amount + bonus
+				if s.wallet != nil {
+					_ = s.wallet.AddBalance(ctx, order.UserID, order.Asset, totalAmount)
+				}
 
 				// Create first order record
 				jalaliDate := s.jalaliConverter.NowJalali()
@@ -282,12 +304,12 @@ func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, statu
 				}
 				err = s.firstOrderRepo.Create(ctx, firstOrder)
 				if err != nil {
-					fmt.Printf("Warning: failed to create first order record: %v\n", err)
+					log.Printf("Warning: failed to create first order record: %v", err)
 				}
 			} else {
-				// Regular order - add only order amount
-				// TODO: Add balance via gRPC call to commercial-service
-				// walletClient.AddBalance(ctx, order.UserID, order.Asset, order.Amount)
+				if s.wallet != nil {
+					_ = s.wallet.AddBalance(ctx, order.UserID, order.Asset, order.Amount)
+				}
 			}
 
 			// Create payment record
@@ -305,16 +327,19 @@ func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, statu
 			}
 			err = s.paymentRepo.Create(ctx, payment)
 			if err != nil {
-				fmt.Printf("Warning: failed to create payment record: %v\n", err)
+				log.Printf("Warning: failed to create payment record: %v", err)
 			}
 
-			// Process referral (only for non-irr assets)
-			if order.Asset != "irr" {
-				// TODO: Process referral via gRPC call to commercial-service
-				// referralService.ProcessReferralCommission(ctx, order.UserID, order)
+			// Process referral (only for non-irr assets), mirrors Laravel OrderController::callback
+			if order.Asset != "irr" && s.referral != nil {
+				_ = s.referral.ProcessReferral(ctx, order.UserID, order.ID, order.Asset, order.Amount)
 			}
 
-			// TODO: Send notification and call user.deposit() via gRPC
+			if s.notify != nil {
+				_ = s.notify.NotifyPurchaseSuccess(ctx, order.UserID, order.ID, order.Asset, order.Amount)
+			}
+
+			// Laravel calls $user->deposit() which fires a model event (score / activity). Parity with levels-service is TODO.
 		} else {
 			// Verification failed - update order with status
 			order.Status = verifyResponse.Status
