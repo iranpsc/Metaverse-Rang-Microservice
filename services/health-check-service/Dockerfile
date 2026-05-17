@@ -1,6 +1,11 @@
 # Health Check Service Dockerfile
 FROM golang:1.24-alpine AS builder
 
+# Iran-accessible Alpine package mirror (MobinHost)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
+# Iran-accessible Go module proxy (ParsPack Abrha mirror)
+ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
+ENV GOSUMDB=off
 # Install build dependencies (git needed for GOPROXY=direct)
 RUN apk add --no-cache git
 
@@ -10,7 +15,9 @@ WORKDIR /app
 COPY services/health-check-service/go.mod services/health-check-service/go.sum* ./
 
 # Download dependencies
-ENV GOPROXY=https://goproxy.io,direct
+# Iran-accessible Go module proxy (ParsPack Abrha mirror)
+ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
+ENV GOSUMDB=off
 RUN go mod download
 
 # Copy source
@@ -22,6 +29,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o health-check-serv
 # Final stage
 FROM alpine:latest
 
+# Iran-accessible Alpine package mirror (MobinHost)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
 RUN apk update && apk --no-cache add ca-certificates
 
 WORKDIR /app

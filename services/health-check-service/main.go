@@ -174,7 +174,7 @@ var servicePortMap = map[string]string{
 	"calendar-service":      "50059",
 	"storage-service":       "50060",
 	"kong":                  "8000",
-	"websocket-gateway":     "3000",
+	"websocket-gateway":     "3002",
 	"grpc-gateway":          "8080",
 }
 
@@ -417,7 +417,7 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	// Gateway Services (HTTP)
 	services = append(services, checkHTTP(ctx, "Kong API Gateway", "http://kong:8001/status"))
 	services = append(services, checkHTTP(ctx, "Kong Admin API", "http://kong:8001/status"))
-	services = append(services, checkHTTP(ctx, "WebSocket Gateway", "http://websocket-gateway:3000/health"))
+	services = append(services, checkHTTP(ctx, "WebSocket Gateway", "http://websocket-gateway:3002/health"))
 	services = append(services, checkHTTP(ctx, "Storage Service (HTTP)", "http://storage-service:8059/health"))
 
 	// Update uptime trackers
@@ -831,7 +831,7 @@ func metricsHandler(w http.ResponseWriter, r *http.Request) {
 	services = append(services, checkTCP(ctx, "Calendar Service", "calendar-service", 50059))
 	services = append(services, checkTCP(ctx, "Storage Service (gRPC)", "storage-service", 50060))
 	services = append(services, checkHTTP(ctx, "Kong API Gateway", "http://kong:8001/status"))
-	services = append(services, checkHTTP(ctx, "WebSocket Gateway", "http://websocket-gateway:3000/health"))
+	services = append(services, checkHTTP(ctx, "WebSocket Gateway", "http://websocket-gateway:3002/health"))
 	services = append(services, checkHTTP(ctx, "Storage Service (HTTP)", "http://storage-service:8059/health"))
 	services = append(services, checkHTTP(ctx, "gRPC Gateway", "http://grpc-gateway:8080/health"))
 

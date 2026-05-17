@@ -1,6 +1,11 @@
 # Multi-stage build for Dynasty Service
 FROM golang:1.24-alpine AS builder
 
+# Iran-accessible Alpine package mirror (MobinHost)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
+# Iran-accessible Go module proxy (ParsPack Abrha mirror)
+ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
+ENV GOSUMDB=off
 # Install build dependencies
 RUN apk add --no-cache git make protoc protobuf-dev
 
@@ -36,7 +41,9 @@ RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /
 RUN go get metargb/shared@v0.0.0 || true
 
 # Use alternative proxy to bypass proxy.golang.org 403 errors
-ENV GOPROXY=https://goproxy.io,direct
+# Iran-accessible Go module proxy (ParsPack Abrha mirror)
+ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
+ENV GOSUMDB=off
 RUN go mod download
 
 # Build the application  
@@ -47,6 +54,8 @@ RUN cd /workspace/metargb/dynasty-service && CGO_ENABLED=0 GOOS=linux go build -
 # Final stage
 FROM alpine:latest
 
+# Iran-accessible Alpine package mirror (MobinHost)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
 RUN apk update && apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
