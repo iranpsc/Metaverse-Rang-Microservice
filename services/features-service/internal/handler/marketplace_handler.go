@@ -415,7 +415,12 @@ func (h *MarketplaceHandler) RequestGracePeriod(ctx context.Context, req *pb.Req
 		return nil, status.Errorf(codes.InvalidArgument, "grace_period must be between 1 and 30")
 	}
 
-	err = h.service.UpdateGracePeriod(ctx, req.RequestId, req.BuyerId, int32(gracePeriodDays))
+	// Deprecated RPC: grace period must be set by the seller (proto only carries buyer_id).
+	sellerID, err := h.service.GetBuyRequestSellerID(ctx, req.RequestId)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "buy request not found: %v", err)
+	}
+	err = h.service.UpdateGracePeriod(ctx, req.RequestId, sellerID, int32(gracePeriodDays))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to request grace period: %v", err)
 	}

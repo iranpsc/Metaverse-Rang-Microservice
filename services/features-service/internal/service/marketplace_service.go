@@ -1178,6 +1178,8 @@ func (s *MarketplaceService) RejectBuyRequest(ctx context.Context, requestID, se
 		}
 	}
 
+	s.deleteBuyRequestTransactions(ctx, requestID)
+
 	// Delete locked asset and buy request
 	if err := s.lockedAssetRepo.Delete(ctx, requestID); err != nil {
 		s.log.Error("Failed to delete locked asset", "error", err)
@@ -1225,6 +1227,8 @@ func (s *MarketplaceService) DeleteBuyRequest(ctx context.Context, requestID, bu
 			return fmt.Errorf("failed to refund IRR: %w", err)
 		}
 	}
+
+	s.deleteBuyRequestTransactions(ctx, requestID)
 
 	// Delete locked asset and buy request
 	if err := s.lockedAssetRepo.Delete(ctx, requestID); err != nil {
@@ -1347,6 +1351,26 @@ func (s *MarketplaceService) isUserUnder18(ctx context.Context, userID uint64) b
 	// Calculate age accurately
 	age := time.Since(birthdate.Time).Hours() / 24 / 365.25
 	return age < 18
+}
+
+// GetBuyRequestSellerID returns the seller ID for a buy request (used by deprecated RequestGracePeriod RPC).
+func (s *MarketplaceService) GetBuyRequestSellerID(ctx context.Context, requestID uint64) (uint64, error) {
+	buyRequest, err := s.buyRequestRepo.FindByID(ctx, requestID)
+	if err != nil || buyRequest == nil {
+		return 0, fmt.Errorf("buy request not found: %w", err)
+	}
+	return buyRequest.SellerID, nil
+}
+
+// deleteBuyRequestTransactions removes ledger rows linked to a buy feature request.
+func (s *MarketplaceService) deleteBuyRequestTransactions(ctx context.Context, requestID uint64) {
+	_, err := s.db.ExecContext(ctx,
+		"DELETE FROM transactions WHERE transactionable_type = ? AND transactionable_id = ?",
+		"App\\Models\\BuyFeatureRequest", requestID,
+	)
+	if err != nil {
+		s.log.Warn("Failed to delete buy request transactions", "request_id", requestID, "error", err)
+	}
 }
 
 // GetUserCode gets user code from database (exported for handler use)

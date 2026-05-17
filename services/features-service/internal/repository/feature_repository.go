@@ -24,7 +24,7 @@ func (r *FeatureRepository) FindByID(ctx context.Context, id uint64) (*models.Fe
 	properties := &models.FeatureProperties{}
 
 	query := `
-		SELECT f.id, f.owner_id, f.dynasty_id, f.created_at, f.updated_at,
+		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
 		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
@@ -34,7 +34,7 @@ func (r *FeatureRepository) FindByID(ctx context.Context, id uint64) (*models.Fe
 	`
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&feature.ID, &feature.OwnerID, &feature.DynastyID,
+		&feature.ID, &feature.OwnerID, &feature.MapID, &feature.Type,
 		&feature.CreatedAt, &feature.UpdatedAt,
 		&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
 		&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
@@ -120,7 +120,7 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 	// Load features with properties
 	// Join with geometries table since geometries have feature_id (not features.geometry_id)
 	featureQuery := `
-		SELECT f.id, f.owner_id, f.dynasty_id, f.created_at, f.updated_at,
+		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
 		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
@@ -142,7 +142,7 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 		properties := &models.FeatureProperties{}
 		if err := featureRows.Scan(
 			&feature.ID, &feature.OwnerID,
-			&feature.DynastyID, &feature.CreatedAt, &feature.UpdatedAt,
+			&feature.MapID, &feature.Type, &feature.CreatedAt, &feature.UpdatedAt,
 			&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
 			&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
 			&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
@@ -226,7 +226,7 @@ func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context,
 	// Load features with properties
 	// Join with geometries table since geometries have feature_id (not features.geometry_id)
 	featureQuery := `
-		SELECT f.id, f.owner_id, f.dynasty_id, f.created_at, f.updated_at,
+		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
 		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
@@ -249,7 +249,7 @@ func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context,
 		properties := &models.FeatureProperties{}
 		if err := featureRows.Scan(
 			&feature.ID, &feature.OwnerID,
-			&feature.DynastyID, &feature.CreatedAt, &feature.UpdatedAt,
+			&feature.MapID, &feature.Type, &feature.CreatedAt, &feature.UpdatedAt,
 			&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
 			&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
 			&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
@@ -267,7 +267,7 @@ func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context,
 // FindByOwner retrieves all features owned by a user
 func (r *FeatureRepository) FindByOwner(ctx context.Context, ownerID uint64) ([]*models.Feature, error) {
 	query := `
-		SELECT id, owner_id, dynasty_id, created_at, updated_at
+		SELECT id, owner_id, map_id, type, created_at, updated_at
 		FROM features
 		WHERE owner_id = ?
 	`
@@ -283,7 +283,7 @@ func (r *FeatureRepository) FindByOwner(ctx context.Context, ownerID uint64) ([]
 		feature := &models.Feature{}
 		if err := rows.Scan(
 			&feature.ID, &feature.OwnerID,
-			&feature.DynastyID, &feature.CreatedAt, &feature.UpdatedAt,
+			&feature.MapID, &feature.Type, &feature.CreatedAt, &feature.UpdatedAt,
 		); err != nil {
 			continue
 		}
@@ -348,7 +348,7 @@ func (r *FeatureRepository) FindByOwnerPaginated(ctx context.Context, ownerID ui
 	offset := (page - 1) * perPage
 
 	// Query does NOT select f.geometry_id because features table doesn't have that column
-	query := `SELECT f.id, f.owner_id, f.dynasty_id, f.created_at, f.updated_at, fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label, fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage, fp.created_at as prop_created_at, fp.updated_at as prop_updated_at FROM features f LEFT JOIN feature_properties fp ON f.id = fp.feature_id WHERE f.owner_id = ? ORDER BY f.id ASC LIMIT ? OFFSET ?`
+	query := `SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at, fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label, fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage, fp.created_at as prop_created_at, fp.updated_at as prop_updated_at FROM features f LEFT JOIN feature_properties fp ON f.id = fp.feature_id WHERE f.owner_id = ? ORDER BY f.id ASC LIMIT ? OFFSET ?`
 
 	rows, err := r.db.QueryContext(ctx, query, ownerID, perPage, offset)
 	if err != nil {
@@ -363,7 +363,7 @@ func (r *FeatureRepository) FindByOwnerPaginated(ctx context.Context, ownerID ui
 		properties := &models.FeatureProperties{}
 		if err := rows.Scan(
 			&feature.ID, &feature.OwnerID,
-			&feature.DynastyID, &feature.CreatedAt, &feature.UpdatedAt,
+			&feature.MapID, &feature.Type, &feature.CreatedAt, &feature.UpdatedAt,
 			&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
 			&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
 			&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
@@ -385,7 +385,7 @@ func (r *FeatureRepository) FindByOwnerAndFeatureID(ctx context.Context, ownerID
 	properties := &models.FeatureProperties{}
 
 	query := `
-		SELECT f.id, f.owner_id, f.dynasty_id, f.created_at, f.updated_at,
+		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
 		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
@@ -395,7 +395,7 @@ func (r *FeatureRepository) FindByOwnerAndFeatureID(ctx context.Context, ownerID
 	`
 
 	err := r.db.QueryRowContext(ctx, query, featureID, ownerID).Scan(
-		&feature.ID, &feature.OwnerID, &feature.DynastyID,
+		&feature.ID, &feature.OwnerID, &feature.MapID, &feature.Type,
 		&feature.CreatedAt, &feature.UpdatedAt,
 		&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
 		&properties.Owner, &properties.Label, &properties.Area, &properties.Density,

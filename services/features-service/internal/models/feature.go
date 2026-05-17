@@ -8,11 +8,12 @@ import (
 // Feature represents a land/property feature
 // NOTE: features table does NOT have geometry_id column - geometries table has feature_id instead
 type Feature struct {
-	ID        uint64        `db:"id"`
-	OwnerID   uint64        `db:"owner_id"`
-	DynastyID sql.NullInt64 `db:"dynasty_id"`
-	CreatedAt time.Time     `db:"created_at"`
-	UpdatedAt time.Time     `db:"updated_at"`
+	ID        uint64    `db:"id"`
+	OwnerID   uint64    `db:"owner_id"`
+	MapID     uint64    `db:"map_id"`
+	Type      string    `db:"type"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }
 
 // FeatureProperties represents feature_properties table

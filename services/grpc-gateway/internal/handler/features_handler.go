@@ -399,7 +399,7 @@ func (h *FeaturesHandler) GetBuildPackage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v2/features/"), "/")
 	if len(pathParts) == 0 {
 		writeError(w, http.StatusBadRequest, "feature ID is required")
 		return
@@ -557,7 +557,7 @@ func (h *FeaturesHandler) GetBuildings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v2/features/"), "/")
 	if len(pathParts) == 0 {
 		writeError(w, http.StatusBadRequest, "feature ID is required")
 		return
@@ -628,7 +628,7 @@ func (h *FeaturesHandler) UpdateBuilding(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v2/features/"), "/")
 	if len(pathParts) < 4 {
 		writeError(w, http.StatusBadRequest, "feature ID and building model ID are required")
 		return
@@ -720,7 +720,7 @@ func (h *FeaturesHandler) DestroyBuilding(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/")
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v2/features/"), "/")
 	if len(pathParts) < 4 {
 		writeError(w, http.StatusBadRequest, "feature ID and building model ID are required")
 		return

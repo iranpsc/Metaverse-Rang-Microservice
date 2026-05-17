@@ -188,8 +188,12 @@ func main() {
 	}
 
 	var featuresHandler *handler.FeaturesHandler
+	var profitHandler *handler.ProfitHandler
+	var mapsHandler *handler.MapsHandler
 	if featuresConn != nil {
 		featuresHandler = handler.NewFeaturesHandler(featuresConn, authConn, cfg.Locale)
+		profitHandler = handler.NewProfitHandler(featuresConn, authConn)
+		mapsHandler = handler.NewMapsHandler(featuresConn)
 	}
 
 	var financialHandler *handler.FinancialHandler
@@ -591,63 +595,50 @@ func main() {
 	// Features routes
 	if featuresHandler != nil {
 		mux.Handle("/api/features", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.ListFeatures)))
-		mux.Handle("/api/features/", optionalAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path := r.URL.Path
-			if strings.Contains(path, "/buy/") {
-				// Buy feature handler would go here
+		mux.Handle("/api/features/", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.HandleFeaturesRoutes)))
+
+		mux.Handle("/api/my-features", authMiddleware(http.HandlerFunc(featuresHandler.ListMyFeatures)))
+		mux.Handle("/api/my-features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleMyFeaturesRoutes)))
+
+		mux.Handle("/api/v2/features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleV2FeaturesRoutes)))
+
+		mux.Handle("/api/buy-requests", authMiddleware(http.HandlerFunc(featuresHandler.HandleBuyRequestsRoutes)))
+		mux.Handle("/api/buy-requests/", authMiddleware(http.HandlerFunc(featuresHandler.HandleBuyRequestsRoutes)))
+
+		mux.Handle("/api/sell-requests", authMiddleware(http.HandlerFunc(featuresHandler.HandleSellRequestsRoutes)))
+		mux.Handle("/api/sell-requests/", authMiddleware(http.HandlerFunc(featuresHandler.HandleSellRequestsRoutes)))
+	}
+
+	if profitHandler != nil {
+		mux.Handle("/api/hourly-profits", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodGet:
+				profitHandler.GetHourlyProfits(w, r)
+			case http.MethodPost:
+				profitHandler.GetProfitsByApplication(w, r)
+			default:
 				http.NotFound(w, r)
-			} else if strings.Contains(path, "/build/package") {
-				// Build package handler would go here
-				http.NotFound(w, r)
-			} else if strings.Contains(path, "/build/buildings") {
-				// Buildings handler would go here
-				http.NotFound(w, r)
-			} else {
-				featuresHandler.GetFeature(w, r)
 			}
 		})))
-		mux.Handle("/api/features/my-features", authMiddleware(http.HandlerFunc(featuresHandler.ListMyFeatures)))
-		mux.Handle("/api/my-features", authMiddleware(http.HandlerFunc(featuresHandler.ListMyFeatures))) // Also handle /api/my-features
-		mux.Handle("/api/features/my-features/", authMiddleware(http.HandlerFunc(featuresHandler.GetMyFeature)))
-		mux.Handle("/api/my-features/", authMiddleware(http.HandlerFunc(featuresHandler.GetMyFeature))) // Also handle /api/my-features/
-		mux.HandleFunc("/api/maps", func(w http.ResponseWriter, r *http.Request) {
-			// Maps handler would need to be created separately
-			http.NotFound(w, r)
-		})
-		mux.HandleFunc("/api/v2/maps", func(w http.ResponseWriter, r *http.Request) {
-			// Maps handler would need to be created separately
-			http.NotFound(w, r)
-		})
-		mux.HandleFunc("/api/v2/maps/", func(w http.ResponseWriter, r *http.Request) {
-			// Maps handler would need to be created separately
-			http.NotFound(w, r)
-		})
-		// Buy/Sell requests routes
-		mux.HandleFunc("/api/buy-requests", func(w http.ResponseWriter, r *http.Request) {
-			// Buy requests handler would go here
-			http.NotFound(w, r)
-		})
-		mux.HandleFunc("/api/buy-requests/", func(w http.ResponseWriter, r *http.Request) {
-			// Buy requests handler would go here
-			http.NotFound(w, r)
-		})
-		mux.HandleFunc("/api/sell-requests", func(w http.ResponseWriter, r *http.Request) {
-			// Sell requests handler would go here
-			http.NotFound(w, r)
-		})
-		mux.HandleFunc("/api/sell-requests/", func(w http.ResponseWriter, r *http.Request) {
-			// Sell requests handler would go here
-			http.NotFound(w, r)
-		})
-		// Hourly profits routes
-		mux.HandleFunc("/api/hourly-profits", func(w http.ResponseWriter, r *http.Request) {
-			// Hourly profits handler would go here
-			http.NotFound(w, r)
-		})
-		mux.HandleFunc("/api/hourly-profits/", func(w http.ResponseWriter, r *http.Request) {
-			// Hourly profits handler would go here
-			http.NotFound(w, r)
-		})
+		mux.Handle("/api/hourly-profits/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				profitHandler.GetSingleProfit(w, r)
+			} else {
+				http.NotFound(w, r)
+			}
+		})))
+	}
+
+	if mapsHandler != nil {
+		mux.Handle("/api/v2/maps", optionalAuthMiddleware(http.HandlerFunc(mapsHandler.ListMaps)))
+		mux.Handle("/api/v2/maps/", optionalAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path := r.URL.Path
+			if strings.HasSuffix(path, "/border") {
+				mapsHandler.GetMapBorder(w, r)
+			} else {
+				mapsHandler.GetMap(w, r)
+			}
+		})))
 	}
 
 	// Financial routes

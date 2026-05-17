@@ -224,7 +224,7 @@ func main() {
 	// Initialize token validator for authentication
 	// Connect to auth service for token validation
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:50051")
-	authConn, err := grpc.Dial(authServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authConn, err := grpc.NewClient(authServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Warn("Failed to connect to auth service - authentication disabled", "error", err)
 	} else {
