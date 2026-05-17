@@ -1,6 +1,11 @@
 # Multi-stage build for Calendar Service
 FROM golang:1.24-alpine AS builder
 
+# Iran-accessible Alpine package mirror (MobinHost)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
+# Iran-accessible Go module proxy (ParsPack Abrha mirror)
+ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
+ENV GOSUMDB=off
 # Install build dependencies
 RUN apk add --no-cache git make protoc protobuf-dev
 
@@ -39,7 +44,9 @@ RUN go get metargb/shared@v0.0.0 || true
 RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /workspace/metargb/shared|g' go.mod || true
 
 # Use GOPROXY with fallback instead of direct-only (faster and more reliable)
-ENV GOPROXY=https://goproxy.io,direct
+# Iran-accessible Go module proxy (ParsPack Abrha mirror)
+ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
+ENV GOSUMDB=off
 
 # Build the application (go build will download dependencies automatically)  
 WORKDIR /workspace
@@ -49,6 +56,8 @@ RUN cd /workspace/metargb/calendar-service && CGO_ENABLED=0 GOOS=linux go build 
 # Final stage
 FROM alpine:latest
 
+# Iran-accessible Alpine package mirror (MobinHost)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
 RUN apk update && apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
@@ -64,11 +73,11 @@ RUN addgroup -g 1000 appuser && \
 USER appuser
 
 # Expose gRPC port
-EXPOSE 50058
+EXPOSE 50059
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD nc -z localhost 50058 || exit 1
+  CMD nc -z localhost 50059 || exit 1
 
 # Run the application
 ENTRYPOINT ["/app/calendar-service"]

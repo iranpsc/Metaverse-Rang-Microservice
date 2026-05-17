@@ -1,12 +1,18 @@
 # Multi-stage build for Auth Service
 FROM golang:1.24-alpine AS builder
 
+# Iran-accessible Alpine package mirror (MobinHost)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
+# Iran-accessible Go module proxy (must be set before go install)
+ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
+ENV GOSUMDB=off
+
 # Install build dependencies
 RUN apk add --no-cache git make protoc protobuf-dev
 
 # Install protoc-gen-go and protoc-gen-go-grpc plugins
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6 && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 
 WORKDIR /workspace
 
@@ -62,8 +68,6 @@ WORKDIR /workspace/metargb/auth-service
 # Update replace directive for Docker context
 RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /workspace/metargb/shared|g' go.mod
 
-# Use GOPROXY with fallback instead of direct-only (faster and more reliable)
-ENV GOPROXY=https://goproxy.io,direct
 RUN go mod download
 
 # Now copy the rest of the source code (this invalidates cache only when source changes)
@@ -83,6 +87,8 @@ RUN cd /workspace/metargb/auth-service && CGO_ENABLED=0 GOOS=linux go build -a -
 # Final stage
 FROM alpine:latest
 
+# Iran-accessible Alpine package mirror (MobinHost)
+RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
 RUN apk update && apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
