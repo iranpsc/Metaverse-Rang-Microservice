@@ -27,6 +27,9 @@ type CacheRepository interface {
 
 	// GetBackURL retrieves and removes the back_url (pull semantics)
 	GetBackURL(ctx context.Context, state string) (string, error)
+
+	// TryAcquireAccountSecurityVerificationSlot returns true when the user may request a new verification code.
+	TryAcquireAccountSecurityVerificationSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error)
 }
 
 type cacheRepository struct {
@@ -98,4 +101,13 @@ func (r *cacheRepository) GetBackURL(ctx context.Context, state string) (string,
 	}
 
 	return val, nil
+}
+
+func (r *cacheRepository) TryAcquireAccountSecurityVerificationSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error) {
+	key := fmt.Sprintf("account_security:verification_request:%d", userID)
+	ok, err := r.client.SetNX(ctx, key, "1", period).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check verification request rate limit: %w", err)
+	}
+	return ok, nil
 }

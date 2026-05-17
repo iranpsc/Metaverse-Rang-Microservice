@@ -244,10 +244,10 @@ func (h *AuthHandler) RequestAccountSecurity(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Parse request body
+	// Parse request body (Laravel API field: time)
 	var req struct {
-		Time  int32  `json:"time"` // Minutes (5-60)
-		Phone string `json:"phone,omitempty"`
+		Time  flexibleInt32 `json:"time" form:"time"`
+		Phone string        `json:"phone,omitempty" form:"phone"`
 	}
 
 	if err := decodeRequestBody(r, &req); err != nil {
@@ -259,9 +259,24 @@ func (h *AuthHandler) RequestAccountSecurity(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	minutes := req.Time.Int32()
+	t := helpers.GetLocaleTranslations(h.locale)
+	if minutes == 0 {
+		helpers.WriteValidationErrorResponseFromMap(w, map[string]string{
+			"time": fmt.Sprintf(t.Required, "time"),
+		}, h.locale)
+		return
+	}
+	if minutes < 5 || minutes > 60 {
+		helpers.WriteValidationErrorResponseFromMap(w, map[string]string{
+			"time": fmt.Sprintf(t.Invalid, "time"),
+		}, h.locale)
+		return
+	}
+
 	grpcReq := &pb.RequestAccountSecurityRequest{
 		UserId:      userCtx.UserID,
-		TimeMinutes: req.Time,
+		TimeMinutes: minutes,
 		Phone:       req.Phone,
 	}
 
@@ -1180,6 +1195,18 @@ func (h *AuthHandler) DeleteBankAccount(w http.ResponseWriter, r *http.Request) 
 
 // Helper functions
 
+// requestHasBody reports whether the request may carry a body.
+// ContentLength -1 (chunked / unset) is common for API clients such as Bruno and must not be treated as empty.
+func requestHasBody(r *http.Request) bool {
+	if r.Body == nil {
+		return false
+	}
+	if r.ContentLength == 0 {
+		return false
+	}
+	return r.ContentLength > 0 || r.ContentLength < 0
+}
+
 // decodeRequest decodes request data from query parameters, JSON body, or form-data
 // It tries query parameters first, then falls back to body (JSON or form-data)
 // This allows handlers to accept data from multiple sources
@@ -1188,8 +1215,7 @@ func decodeRequest(r *http.Request, v interface{}) error {
 	queryErr := decodeQueryParams(r, v)
 
 	// Check if body exists and has content
-	hasBody := r.Body != nil && r.ContentLength > 0
-	if !hasBody {
+	if !requestHasBody(r) {
 		// If no body, return query params result (even if empty, that's OK)
 		return queryErr
 	}
@@ -1228,10 +1254,7 @@ func decodeRequest(r *http.Request, v interface{}) error {
 // It automatically detects the content type and handles both formats
 // If the body is empty, it will also check query string parameters
 func decodeRequestBody(r *http.Request, v interface{}) error {
-	hasBody := r.Body != nil && r.ContentLength > 0
-
-	// If no body, try query parameters
-	if !hasBody {
+	if !requestHasBody(r) {
 		return decodeQueryParams(r, v)
 	}
 

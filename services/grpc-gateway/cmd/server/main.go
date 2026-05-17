@@ -250,9 +250,8 @@ func main() {
 	mux.Handle("/api/auth/me", authMiddleware(http.HandlerFunc(authHandler.GetMe)))
 	mux.Handle("/api/auth/logout", authMiddleware(http.HandlerFunc(authHandler.Logout)))
 
-	// Account security route with throttle: 1 request per minute per user
-	accountSecurityThrottle := middleware.ThrottleMiddleware(1, time.Minute)
-	mux.Handle("/api/account/security", authMiddleware(accountSecurityThrottle(http.HandlerFunc(authHandler.RequestAccountSecurity))))
+	// Account security verification requests are rate limited in auth-service (production only).
+	mux.Handle("/api/account/security", authMiddleware(http.HandlerFunc(authHandler.RequestAccountSecurity)))
 	mux.Handle("/api/account/security/verify", authMiddleware(http.HandlerFunc(authHandler.VerifyAccountSecurity)))
 
 	// User routes - register /api/users FIRST before any other user routes

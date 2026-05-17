@@ -176,8 +176,11 @@ func (h *authHandler) RequestAccountSecurity(ctx context.Context, req *pb.Reques
 	// Validate time parameter
 	validationErrors := make(map[string]string)
 
-	if req.TimeMinutes < 5 || req.TimeMinutes > 60 {
-		t := helpers.GetLocaleTranslations(h.locale)
+	t := helpers.GetLocaleTranslations(h.locale)
+	switch {
+	case req.TimeMinutes == 0:
+		validationErrors["time"] = fmt.Sprintf(t.Required, "time")
+	case req.TimeMinutes < 5 || req.TimeMinutes > 60:
 		validationErrors["time"] = fmt.Sprintf(t.Invalid, "time")
 	}
 
@@ -269,6 +272,8 @@ func mapAccountSecurityErrorWithFields(err error, locale string) error {
 		return status.Errorf(codes.NotFound, "%v", err)
 	case errors.Is(err, service.ErrAccountSecurityAlreadyUnlocked):
 		return status.Errorf(codes.FailedPrecondition, "%v", err)
+	case errors.Is(err, service.ErrVerificationRequestRateLimited):
+		return status.Errorf(codes.ResourceExhausted, "%v", err)
 	default:
 		return status.Errorf(codes.Internal, lang.Tf(locale, "account security operation failed: %v", err))
 	}

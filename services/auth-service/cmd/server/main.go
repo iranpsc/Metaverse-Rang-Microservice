@@ -210,6 +210,7 @@ func main() {
 		getEnv("OAUTH_CLIENT_SECRET", ""),
 		getEnv("APP_URL", "http://localhost:8000"),
 		getEnv("FRONT_END_URL", "http://localhost:3000"),
+		service.IsProductionEnv(getEnv("APP_ENV", "local")),
 	)
 	// Initialize user service with all dependencies for Users API
 	userService := service.NewUserServiceWithDependencies(

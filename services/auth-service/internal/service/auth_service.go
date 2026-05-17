@@ -47,9 +47,10 @@ type authService struct {
 	oauthServerURL      string
 	oauthClientID       string
 	oauthClientSecret   string
-	appURL              string
-	frontEndURL         string
-	httpClient          *http.Client
+	appURL                           string
+	frontEndURL                      string
+	rateLimitVerificationRequests    bool
+	httpClient                       *http.Client
 }
 
 type CallbackResult struct {
@@ -90,8 +91,11 @@ var (
 	ErrInvalidPhoneFormat             = errors.New("invalid phone format")
 	ErrPhoneAlreadyTaken              = errors.New("phone already in use")
 	ErrUserNotFound                   = errors.New("user not found")
-	ErrInvalidUnlockDuration          = errors.New("invalid unlock duration")
+	ErrInvalidUnlockDuration              = errors.New("invalid unlock duration")
+	ErrVerificationRequestRateLimited     = errors.New("verification request rate limit exceeded")
 )
+
+const accountSecurityVerificationRequestPeriod = time.Minute
 
 var (
 	iranMobileRegex = regexp.MustCompile(`^09\d{9}$`)
@@ -108,6 +112,7 @@ func NewAuthService(
 	helperService HelperService,
 	notificationsClient notificationspb.SMSServiceClient,
 	oauthServerURL, oauthClientID, oauthClientSecret, appURL, frontEndURL string,
+	rateLimitVerificationRequests bool,
 ) AuthService {
 	// Validate OAuth configuration
 	if oauthServerURL == "" {
@@ -132,9 +137,20 @@ func NewAuthService(
 		oauthServerURL:      oauthServerURL,
 		oauthClientID:       oauthClientID,
 		oauthClientSecret:   oauthClientSecret,
-		appURL:              appURL,
-		frontEndURL:         frontEndURL,
-		httpClient:          &http.Client{Timeout: 30 * time.Second},
+		appURL:                        appURL,
+		frontEndURL:                   frontEndURL,
+		rateLimitVerificationRequests: rateLimitVerificationRequests,
+		httpClient:                    &http.Client{Timeout: 30 * time.Second},
+	}
+}
+
+// IsProductionEnv reports whether APP_ENV is a production value.
+func IsProductionEnv(appEnv string) bool {
+	switch strings.ToLower(strings.TrimSpace(appEnv)) {
+	case "production", "prod":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -404,10 +420,7 @@ func (s *authService) GetMe(ctx context.Context, token string) (*UserDetails, er
 	if kyc != nil && kyc.Status == 1 {
 		details.Name = kyc.FullName()
 		if kyc.Birthdate.Valid {
-			// Format as Jalali date Y/m/d
-			// Import shared helpers for Jalali formatting
-			// For now, using simple format - TODO: integrate shared/pkg/helpers/jalali.go
-			details.Birthdate = kyc.Birthdate.Time.Format("2006/01/02")
+			details.Birthdate = FormatJalaliDate(kyc.Birthdate.Time)
 		}
 	}
 
@@ -478,6 +491,10 @@ func (s *authService) ValidateToken(ctx context.Context, token string) (*models.
 func (s *authService) RequestAccountSecurity(ctx context.Context, userID uint64, minutes int32, phone string) error {
 	if minutes < 5 || minutes > 60 {
 		return ErrInvalidUnlockDuration
+	}
+
+	if err := s.enforceAccountSecurityVerificationRateLimit(ctx, userID); err != nil {
+		return err
 	}
 
 	user, err := s.userRepo.FindByID(ctx, userID)
@@ -647,6 +664,28 @@ func (s *authService) VerifyAccountSecurity(ctx context.Context, userID uint64, 
 		return fmt.Errorf("failed to record account security event: %w", err)
 	}
 
+	return nil
+}
+
+func (s *authService) enforceAccountSecurityVerificationRateLimit(ctx context.Context, userID uint64) error {
+	if !s.rateLimitVerificationRequests {
+		return nil
+	}
+	if s.cacheRepo == nil {
+		return fmt.Errorf("verification request rate limit is enabled but cache is not configured")
+	}
+
+	allowed, err := s.cacheRepo.TryAcquireAccountSecurityVerificationSlot(
+		ctx,
+		userID,
+		accountSecurityVerificationRequestPeriod,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to check verification request rate limit: %w", err)
+	}
+	if !allowed {
+		return ErrVerificationRequestRateLimited
+	}
 	return nil
 }
 

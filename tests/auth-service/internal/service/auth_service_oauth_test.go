@@ -32,6 +32,7 @@ func TestRegister(t *testing.T) {
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
+			false,
 		)
 
 		url, err := svc.Register(ctx, "https://example.com/back", "REF123")
@@ -71,6 +72,7 @@ func TestRegister(t *testing.T) {
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
+			false,
 		)
 
 		url, err := svc.Register(ctx, "https://example.com/back", "")
@@ -102,6 +104,7 @@ func TestRedirect(t *testing.T) {
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
+			false,
 		)
 
 		url, state, err := svc.Redirect(ctx, "https://example.com/dashboard", "https://example.com/home")
@@ -163,6 +166,7 @@ func TestRedirect(t *testing.T) {
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
+			false,
 		)
 
 		_, state, err := svc.Redirect(ctx, "https://example.com/dashboard", "")
@@ -257,6 +261,7 @@ func TestCallback(t *testing.T) {
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
+			false,
 		)
 
 		result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1")
@@ -307,6 +312,7 @@ func TestCallback(t *testing.T) {
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
+			false,
 		)
 
 		_, err := svc.Callback(ctx, "invalid_state", "test_code", "127.0.0.1")
@@ -358,6 +364,7 @@ func TestCallback(t *testing.T) {
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
+			false,
 		)
 
 		result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1")
@@ -420,6 +427,7 @@ func TestCallback(t *testing.T) {
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
+			false,
 		)
 
 		result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1")
@@ -478,6 +486,7 @@ func TestGetMe(t *testing.T) {
 			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
+			false,
 		)
 
 		details, err := svc.GetMe(ctx, "valid_token")
@@ -513,6 +522,7 @@ func TestGetMe(t *testing.T) {
 			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
+			false,
 		)
 
 		_, err := svc.GetMe(ctx, "invalid_token")
@@ -547,6 +557,7 @@ func TestLogout(t *testing.T) {
 			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
 			observerService, nil, nil,
 			"", "", "", "", "",
+			false,
 		)
 
 		err := svc.Logout(ctx, 1, "127.0.0.1", "Mozilla/5.0")
@@ -571,6 +582,7 @@ func TestLogout(t *testing.T) {
 			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
+			false,
 		)
 
 		err := svc.Logout(ctx, 999, "127.0.0.1", "Mozilla/5.0")
@@ -603,6 +615,7 @@ func TestValidateToken(t *testing.T) {
 			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
+			false,
 		)
 
 		user, err := svc.ValidateToken(ctx, "valid_token")
@@ -631,6 +644,7 @@ func TestValidateToken(t *testing.T) {
 			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
+			false,
 		)
 
 		_, err := svc.ValidateToken(ctx, "invalid_token")
@@ -643,20 +657,22 @@ func TestValidateToken(t *testing.T) {
 // --- Fake implementations for testing ---
 
 type fakeCacheRepository struct {
-	state      map[string]bool
-	redirectTo map[string]string
-	backURL    map[string]string
-	ttl        map[string]time.Duration
-	setTime    map[string]time.Time
+	state                         map[string]bool
+	redirectTo                    map[string]string
+	backURL                       map[string]string
+	ttl                           map[string]time.Duration
+	setTime                       map[string]time.Time
+	verificationRequestSlots      map[uint64]time.Time
 }
 
 func newFakeCacheRepository() *fakeCacheRepository {
 	return &fakeCacheRepository{
-		state:      make(map[string]bool),
-		redirectTo: make(map[string]string),
-		backURL:    make(map[string]string),
-		ttl:        make(map[string]time.Duration),
-		setTime:    make(map[string]time.Time),
+		state:                    make(map[string]bool),
+		redirectTo:               make(map[string]string),
+		backURL:                  make(map[string]string),
+		ttl:                      make(map[string]time.Duration),
+		setTime:                  make(map[string]time.Time),
+		verificationRequestSlots: make(map[uint64]time.Time),
 	}
 }
 
@@ -712,6 +728,14 @@ func (f *fakeCacheRepository) GetBackURL(ctx context.Context, state string) (str
 		delete(f.setTime, key)
 	}
 	return val, nil
+}
+
+func (f *fakeCacheRepository) TryAcquireAccountSecurityVerificationSlot(_ context.Context, userID uint64, period time.Duration) (bool, error) {
+	if until, exists := f.verificationRequestSlots[userID]; exists && time.Now().Before(until) {
+		return false, nil
+	}
+	f.verificationRequestSlots[userID] = time.Now().Add(period)
+	return true, nil
 }
 
 var _ repository.CacheRepository = (*fakeCacheRepository)(nil)
