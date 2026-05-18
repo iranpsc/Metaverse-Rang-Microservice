@@ -14,11 +14,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"metargb/financial-service/internal/handler"
 	"metargb/financial-service/internal/parsian"
 	"metargb/financial-service/internal/repository"
 	"metargb/financial-service/internal/service"
+	commercialpb "metargb/shared/pb/commercial"
 )
 
 func main() {
@@ -96,6 +98,18 @@ func main() {
 	// Initialize Jalali converter
 	jalaliConverter := service.NewJalaliConverter()
 
+	// Connect to commercial-service for wallet balance updates
+	var walletClient commercialpb.WalletServiceClient
+	commercialAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052")
+	commercialConn, err := grpc.Dial(commercialAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("Warning: Failed to connect to commercial service at %s - wallet updates disabled: %v", commercialAddr, err)
+	} else {
+		defer commercialConn.Close()
+		walletClient = commercialpb.NewWalletServiceClient(commercialConn)
+		log.Printf("Connected to commercial service at %s", commercialAddr)
+	}
+
 	// Initialize order service
 	orderService := service.NewOrderService(
 		orderRepo,
@@ -106,6 +120,7 @@ func main() {
 		parsianClient,
 		orderPolicy,
 		jalaliConverter,
+		walletClient,
 		service.OrderConfig{
 			ParsianMerchantID:            getEnv("PARSIAN_MERCHANT_ID", ""),
 			ParsianLoanAccountMerchantID: getEnv("PARSIAN_LOAN_ACCOUNT_MERCHANT_ID", ""),

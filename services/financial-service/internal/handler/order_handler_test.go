@@ -423,28 +423,33 @@ func TestOrderHandler_HandleCallback(t *testing.T) {
 		}
 	})
 
-	t.Run("validation error - missing token", func(t *testing.T) {
-		mockService := &mockOrderService{}
+	t.Run("allows zero token for failed payment callbacks", func(t *testing.T) {
+		mockService := &mockOrderService{
+			callbackFunc: func(ctx context.Context, orderID uint64, status int32, token int64, additionalParams map[string]string) (string, error) {
+				if token != 0 {
+					t.Errorf("expected token 0, got %d", token)
+				}
+				return "https://rgb.irpsc.com/metaverse/payment/verify?OrderId=123&status=1&Token=0", nil
+			},
+		}
 		handler := NewOrderHandler(mockService)
 
 		req := &pb.HandleCallbackRequest{
 			OrderId: 123,
-			Status:  0,
-			Token:   0, // Invalid: required field
+			Status:  1,
+			Token:   0,
 		}
 
-		_, err := handler.HandleCallback(ctx, req)
-		if err == nil {
-			t.Fatal("expected validation error for missing token")
+		resp, err := handler.HandleCallback(ctx, req)
+		if err != nil {
+			t.Fatalf("HandleCallback failed: %v", err)
 		}
-
-		st, ok := status.FromError(err)
-		if !ok || st.Code() != codes.InvalidArgument {
-			t.Errorf("expected InvalidArgument, got %v", err)
+		if resp.RedirectUrl == "" {
+			t.Error("expected redirect URL")
 		}
 	})
 
-	t.Run("validation error - missing both order_id and token", func(t *testing.T) {
+	t.Run("validation error - missing order_id with zero token", func(t *testing.T) {
 		mockService := &mockOrderService{}
 		handler := NewOrderHandler(mockService)
 

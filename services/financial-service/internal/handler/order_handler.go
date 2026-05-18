@@ -64,7 +64,6 @@ func (h *OrderHandler) HandleCallback(ctx context.Context, req *pb.HandleCallbac
 	locale := "en" // TODO: Get locale from config or context
 	validationErrors := mergeValidationErrors(
 		validateRequired("order_id", req.OrderId, locale),
-		validateRequired("token", req.Token, locale),
 	)
 	if len(validationErrors) > 0 {
 		return nil, returnValidationError(validationErrors)

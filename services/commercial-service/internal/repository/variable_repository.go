@@ -7,7 +7,7 @@ import (
 )
 
 type VariableRepository interface {
-	GetRate(ctx context.Context, key string) (float64, error)
+	GetRate(ctx context.Context, asset string) (float64, error)
 	GetAllRates(ctx context.Context) (map[string]float64, error)
 }
 
@@ -21,32 +21,32 @@ func NewVariableRepository(db *sql.DB) VariableRepository {
 
 // GetRate retrieves the rate for a specific asset
 // Laravel equivalent: Variable::getRate('psc')
-func (r *variableRepository) GetRate(ctx context.Context, key string) (float64, error) {
+func (r *variableRepository) GetRate(ctx context.Context, asset string) (float64, error) {
 	query := `
-		SELECT value
+		SELECT price
 		FROM variables
-		WHERE ` + "`key`" + ` = ?
+		WHERE asset = ?
 		LIMIT 1
 	`
 
-	var value float64
-	err := r.db.QueryRowContext(ctx, query, key).Scan(&value)
+	var price float64
+	err := r.db.QueryRowContext(ctx, query, asset).Scan(&price)
 	if err == sql.ErrNoRows {
-		return 0, fmt.Errorf("variable not found: %s", key)
+		return 0, fmt.Errorf("variable not found: %s", asset)
 	}
 	if err != nil {
 		return 0, fmt.Errorf("failed to get variable rate: %w", err)
 	}
 
-	return value, nil
+	return price, nil
 }
 
 // GetAllRates retrieves all rates at once for efficiency
 func (r *variableRepository) GetAllRates(ctx context.Context) (map[string]float64, error) {
 	query := `
-		SELECT ` + "`key`" + `, value
+		SELECT asset, price
 		FROM variables
-		WHERE ` + "`key`" + ` IN ('psc', 'red', 'blue', 'yellow')
+		WHERE asset IN ('psc', 'red', 'blue', 'yellow')
 	`
 
 	rows, err := r.db.QueryContext(ctx, query)
@@ -57,12 +57,12 @@ func (r *variableRepository) GetAllRates(ctx context.Context) (map[string]float6
 
 	rates := make(map[string]float64)
 	for rows.Next() {
-		var key string
-		var value float64
-		if err := rows.Scan(&key, &value); err != nil {
+		var asset string
+		var price float64
+		if err := rows.Scan(&asset, &price); err != nil {
 			return nil, fmt.Errorf("failed to scan rate: %w", err)
 		}
-		rates[key] = value
+		rates[asset] = price
 	}
 
 	if err = rows.Err(); err != nil {
