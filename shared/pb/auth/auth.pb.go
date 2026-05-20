@@ -988,16 +988,16 @@ func (x *GetMeRequest) GetToken() string {
 }
 
 type UserResponse struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Id              uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name            string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Token           string                 `protobuf:"bytes,3,opt,name=token,proto3" json:"token,omitempty"`
-	AccessToken     string                 `protobuf:"bytes,4,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
-	AutomaticLogout int32                  `protobuf:"varint,5,opt,name=automatic_logout,json=automaticLogout,proto3" json:"automatic_logout,omitempty"`
-	Code            string                 `protobuf:"bytes,6,opt,name=code,proto3" json:"code,omitempty"`
-	Level           *Level                 `protobuf:"bytes,7,opt,name=level,proto3" json:"level,omitempty"`
-	Image           string                 `protobuf:"bytes,8,opt,name=image,proto3" json:"image,omitempty"`
-	UnreadNotificationsCount int32         `protobuf:"varint,9,opt,name=unread_notifications_count,json=unreadNotificationsCount,proto3" json:"unread_notifications_count,omitempty"`
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Id                       uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name                     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Token                    string                 `protobuf:"bytes,3,opt,name=token,proto3" json:"token,omitempty"`
+	AccessToken              string                 `protobuf:"bytes,4,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	AutomaticLogout          int32                  `protobuf:"varint,5,opt,name=automatic_logout,json=automaticLogout,proto3" json:"automatic_logout,omitempty"`
+	Code                     string                 `protobuf:"bytes,6,opt,name=code,proto3" json:"code,omitempty"`
+	Level                    *Level                 `protobuf:"bytes,7,opt,name=level,proto3" json:"level,omitempty"`
+	Image                    string                 `protobuf:"bytes,8,opt,name=image,proto3" json:"image,omitempty"`
+	UnreadNotificationsCount int32                  `protobuf:"varint,9,opt,name=unread_notifications_count,json=unreadNotificationsCount,proto3" json:"unread_notifications_count,omitempty"`
 	// CRITICAL: Preserve Laravel typos for API compatibility!
 	// Laravel has "socre" not "score" and "unasnwered" not "unanswered"
 	SocrePercentageToNextLevel float64 `protobuf:"fixed64,10,opt,name=socre_percentage_to_next_level,json=socrePercentageToNextLevel,proto3" json:"socre_percentage_to_next_level,omitempty"`
@@ -7612,7 +7612,7 @@ const file_auth_proto_rawDesc = "" +
 	"expires_at\x18\x02 \x01(\x05R\texpiresAt\x12!\n" +
 	"\fredirect_url\x18\x03 \x01(\tR\vredirectUrl\"$\n" +
 	"\fGetMeRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\xa8\x04\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\xa7\x04\n" +
 	"\fUserResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -7621,8 +7621,8 @@ const file_auth_proto_rawDesc = "" +
 	"\x10automatic_logout\x18\x05 \x01(\x05R\x0fautomaticLogout\x12\x12\n" +
 	"\x04code\x18\x06 \x01(\tR\x04code\x12!\n" +
 	"\x05level\x18\a \x01(\v2\v.auth.LevelR\x05level\x12\x14\n" +
-	"\x05image\x18\b \x01(\tR\x05image\x12=\n" +
-	"\x19unread_notifications_count\x18\t \x01(\x05R\x17unreadNotificationsCount\x12B\n" +
+	"\x05image\x18\b \x01(\tR\x05image\x12<\n" +
+	"\x1aunread_notifications_count\x18\t \x01(\x05R\x18unreadNotificationsCount\x12B\n" +
 	"\x1esocre_percentage_to_next_level\x18\n" +
 	" \x01(\x01R\x1asocrePercentageToNextLevel\x12<\n" +
 	"\x1aunasnwered_questions_count\x18\v \x01(\x05R\x18unasnweredQuestionsCount\x12A\n" +

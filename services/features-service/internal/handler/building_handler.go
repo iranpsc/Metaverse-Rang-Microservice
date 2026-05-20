@@ -52,13 +52,11 @@ func (h *BuildingHandler) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	if req.FeatureId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "feature_id is required"))
 	}
-	// TODO: Change back to string check (== "") after proto regeneration
-	// Currently proto generated code has uint64, but proto file says string
-	if req.BuildingModelId == 0 {
+	if strings.TrimSpace(req.BuildingModelId) == "" {
 		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "building_model_id is required"))
 	}
 
-	_, err := h.service.BuildFeature(ctx, req)
+	featureResp, err := h.service.BuildFeature(ctx, req)
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") || strings.Contains(err.Error(), "does not own") {
 			return nil, status.Errorf(codes.PermissionDenied, "%s", err.Error())
@@ -72,11 +70,8 @@ func (h *BuildingHandler) BuildFeature(ctx context.Context, req *pb.BuildFeature
 		return nil, status.Errorf(codes.Internal, lang.Tf(locale, "failed to build feature: %v", err))
 	}
 
-	// TODO: Change back to Feature field after proto regeneration
-	// Currently proto generated code has Success/Message, but proto file says Feature
 	return &pb.BuildFeatureResponse{
-		Success: true,
-		Message: "Building created successfully",
+		Feature: featureResp,
 	}, nil
 }
 
@@ -105,9 +100,7 @@ func (h *BuildingHandler) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 	if req.FeatureId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "feature_id is required"))
 	}
-	// TODO: Change back to string check (== "") after proto regeneration
-	// Currently proto generated code has uint64, but proto file says string
-	if req.BuildingModelId == 0 {
+	if strings.TrimSpace(req.BuildingModelId) == "" {
 		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "building_model_id is required"))
 	}
 
@@ -139,7 +132,7 @@ func (h *BuildingHandler) DestroyBuilding(ctx context.Context, req *pb.DestroyBu
 	if req.FeatureId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "feature_id is required"))
 	}
-	if req.BuildingModelId == 0 {
+	if strings.TrimSpace(req.BuildingModelId) == "" {
 		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "building_model_id is required"))
 	}
 

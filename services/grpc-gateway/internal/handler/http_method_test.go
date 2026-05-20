@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -59,7 +60,7 @@ func TestEffectiveHTTPMethod(t *testing.T) {
 				target += "?" + tt.query
 			}
 
-			var body *strings.Reader
+			var body io.Reader = http.NoBody
 			if tt.body != "" {
 				body = strings.NewReader(tt.body)
 			}

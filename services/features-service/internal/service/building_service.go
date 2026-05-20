@@ -157,8 +157,7 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	}
 
 	// 3. Get building model
-	// Convert uint64 to string (temporary until proto is regenerated)
-	buildingModelIDStr := strconv.FormatUint(req.BuildingModelId, 10)
+	buildingModelIDStr := strings.TrimSpace(req.BuildingModelId)
 	buildingModel, err := s.buildingRepo.FindBuildingModelByModelID(ctx, buildingModelIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find building model: %w", err)
@@ -278,8 +277,7 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	bubbleDiameter := s.calculateBubbleDiameter(buildingModel.Attributes)
 
 	// 12. Create building record
-	// Convert uint64 to string (temporary until proto is regenerated)
-	buildingModelIDStr = strconv.FormatUint(req.BuildingModelId, 10)
+	buildingModelIDStr = strings.TrimSpace(req.BuildingModelId)
 	err = s.buildingRepo.CreateBuilding(ctx, req.FeatureId, buildingModelIDStr,
 		req.LaunchedSatisfaction, req.Rotation, req.Position, informationJSON,
 		constructionStartDate, constructionEndDate, bubbleDiameter)
@@ -495,8 +493,7 @@ func (s *BuildingService) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 	}
 
 	// 2. Get building model
-	// Convert uint64 to string (temporary until proto is regenerated)
-	buildingModelIDStr := strconv.FormatUint(req.BuildingModelId, 10)
+	buildingModelIDStr := strings.TrimSpace(req.BuildingModelId)
 	buildingModel, err := s.buildingRepo.FindBuildingModelByModelID(ctx, buildingModelIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find building model: %w", err)
@@ -550,8 +547,6 @@ func (s *BuildingService) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 	}
 
 	// 6. Get existing building to preserve start date and bubble diameter
-	// Convert uint64 to string (temporary until proto is regenerated)
-	buildingModelIDStr = strconv.FormatUint(req.BuildingModelId, 10)
 	existingBuilding, err := s.buildingRepo.FindBuildingByFeatureAndModel(ctx, req.FeatureId, buildingModelIDStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find existing building: %w", err)
@@ -639,8 +634,6 @@ func (s *BuildingService) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 	existingBubbleDiameter, _ := strconv.ParseFloat(existingBuilding.BubbleDiameter, 64)
 
 	// 10. Update building (preserve existing bubble diameter)
-	// Convert uint64 to string (temporary until proto is regenerated)
-	buildingModelIDStr = strconv.FormatUint(req.BuildingModelId, 10)
 	updatedBuilding, err := s.buildingRepo.UpdateBuilding(ctx, req.FeatureId, buildingModelIDStr,
 		req.LaunchedSatisfaction, req.Rotation, req.Position, informationJSON,
 		constructionEndDate, existingBubbleDiameter)
@@ -682,9 +675,8 @@ func (s *BuildingService) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 
 // DestroyBuilding removes a building from a feature and refunds invested satisfaction
 // buildingModelID is the string model_id from 3D API
-func (s *BuildingService) DestroyBuilding(ctx context.Context, featureID uint64, buildingModelID uint64) error {
-	// Convert uint64 to string (temporary until proto is regenerated)
-	buildingModelIDStr := strconv.FormatUint(buildingModelID, 10)
+func (s *BuildingService) DestroyBuilding(ctx context.Context, featureID uint64, buildingModelID string) error {
+	buildingModelIDStr := strings.TrimSpace(buildingModelID)
 	// Check ownership
 	feature, _, err := s.featureRepo.FindByID(ctx, featureID)
 	if err != nil {

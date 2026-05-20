@@ -465,8 +465,8 @@ func (h *FeaturesHandler) BuildFeature(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid feature ID")
 		return
 	}
-	buildingModelID, err := strconv.ParseUint(pathParts[2], 10, 64)
-	if err != nil {
+	buildingModelID := strings.TrimSpace(pathParts[2])
+	if buildingModelID == "" {
 		writeError(w, http.StatusBadRequest, "invalid building model ID")
 		return
 	}
@@ -621,8 +621,8 @@ func (h *FeaturesHandler) UpdateBuilding(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid feature ID")
 		return
 	}
-	buildingModelID, err := strconv.ParseUint(pathParts[3], 10, 64)
-	if err != nil {
+	buildingModelID := strings.TrimSpace(pathParts[3])
+	if buildingModelID == "" {
 		writeError(w, http.StatusBadRequest, "invalid building model ID")
 		return
 	}
@@ -713,8 +713,8 @@ func (h *FeaturesHandler) DestroyBuilding(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "invalid feature ID")
 		return
 	}
-	buildingModelID, err := strconv.ParseUint(pathParts[3], 10, 64)
-	if err != nil {
+	buildingModelID := strings.TrimSpace(pathParts[3])
+	if buildingModelID == "" {
 		writeError(w, http.StatusBadRequest, "invalid building model ID")
 		return
 	}

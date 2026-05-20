@@ -11,7 +11,7 @@ ENV GOSUMDB=off
 RUN apk add --no-cache git make protoc protobuf-dev
 
 # Install protoc-gen-go and protoc-gen-go-grpc plugins
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6 && \
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 
 WORKDIR /workspace
@@ -32,6 +32,9 @@ RUN mkdir -p /workspace/metargb/shared/pb/auth && \
     protoc --go_out=/workspace/metargb/shared/pb/commercial --go_opt=paths=source_relative \
         --go-grpc_out=/workspace/metargb/shared/pb/commercial --go-grpc_opt=paths=source_relative \
         -I=/workspace/metargb/shared/proto /workspace/metargb/shared/proto/commercial.proto && \
+    mkdir -p /workspace/metargb/shared/pb/common && \
+    protoc --go_out=/workspace/metargb/shared/pb/common --go_opt=paths=source_relative \
+        -I=/workspace/metargb/shared/proto /workspace/metargb/shared/proto/common.proto && \
     mkdir -p /workspace/metargb/shared/pb/features && \
     protoc --go_out=/workspace/metargb/shared/pb/features --go_opt=paths=source_relative \
         --go-grpc_out=/workspace/metargb/shared/pb/features --go-grpc_opt=paths=source_relative \
@@ -70,9 +73,11 @@ RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /
 
 RUN go mod download
 
-# Now copy the rest of the source code (this invalidates cache only when source changes)
+# Now copy the rest of the source code (this invalidates cache only when source changes).
+# Do not COPY shared/pb: it would replace protos generated above and can mismatch the Go protobuf runtime.
 WORKDIR /workspace
-COPY ./shared/ /workspace/metargb/shared/
+COPY ./shared/go.sum /workspace/metargb/shared/
+COPY ./shared/pkg/ /workspace/metargb/shared/pkg/
 COPY ./services/auth-service/ /workspace/metargb/auth-service/
 
 # Fix replace directive again after copying source (since go.mod gets overwritten)
