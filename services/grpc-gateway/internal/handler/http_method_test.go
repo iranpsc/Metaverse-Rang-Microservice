@@ -36,6 +36,12 @@ func TestEffectiveHTTPMethod(t *testing.T) {
 			expected: http.MethodPut,
 		},
 		{
+			name:     "POST with query _method patch",
+			method:   http.MethodPost,
+			query:    "_method=patch",
+			expected: http.MethodPatch,
+		},
+		{
 			name:     "POST with form _method put",
 			method:   http.MethodPost,
 			body:     "_method=put&announcements_sms=1",

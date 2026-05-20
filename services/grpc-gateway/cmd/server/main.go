@@ -305,21 +305,24 @@ func main() {
 	// These are already registered as protected routes above
 
 	// KYC routes - match the pattern used by /api/personal-info which works
+	// Use EffectiveHTTPMethod so POST + _method=put|patch (Laravel multipart uploads) is accepted
 	mux.Handle("/api/kyc", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch handler.EffectiveHTTPMethod(r) {
+		case http.MethodGet:
 			authHandler.GetKYC(w, r)
-		} else if r.Method == http.MethodPut || r.Method == http.MethodPatch {
+		case http.MethodPut, http.MethodPatch:
 			authHandler.UpdateKYC(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))
 	mux.Handle("/api/kyc/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch handler.EffectiveHTTPMethod(r) {
+		case http.MethodGet:
 			authHandler.GetKYC(w, r)
-		} else if r.Method == http.MethodPut || r.Method == http.MethodPatch {
+		case http.MethodPut, http.MethodPatch:
 			authHandler.UpdateKYC(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))

@@ -862,8 +862,8 @@ func (h *AuthHandler) GetKYC(w http.ResponseWriter, r *http.Request) {
 
 // UpdateKYC handles PUT/PATCH /api/kyc
 func (h *AuthHandler) UpdateKYC(w http.ResponseWriter, r *http.Request) {
-	// Validate HTTP method
-	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
+	// Accept Laravel-style POST + _method=put|patch for multipart file uploads
+	if m := EffectiveHTTPMethod(r); m != http.MethodPut && m != http.MethodPatch {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -909,9 +909,9 @@ func (h *AuthHandler) UpdateKYC(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Read file data
-	melliCardData := make([]byte, header.Size)
-	if _, err := file.Read(melliCardData); err != nil {
+	// Read full file body (multipart size may be unknown; single Read is not enough).
+	melliCardData, err := io.ReadAll(file)
+	if err != nil {
 		writeError(w, http.StatusBadRequest, "failed to read melli_card file data")
 		return
 	}
