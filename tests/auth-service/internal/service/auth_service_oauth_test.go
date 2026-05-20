@@ -503,8 +503,8 @@ func TestGetMe(t *testing.T) {
 		if details.AutomaticLogout != 60 {
 			t.Errorf("Expected automatic_logout 60, got %d", details.AutomaticLogout)
 		}
-		if details.Notifications != 5 {
-			t.Errorf("Expected notifications 5, got %d", details.Notifications)
+		if details.UnreadNotificationsCount != 5 {
+			t.Errorf("Expected unread_notifications_count 5, got %d", details.UnreadNotificationsCount)
 		}
 	})
 

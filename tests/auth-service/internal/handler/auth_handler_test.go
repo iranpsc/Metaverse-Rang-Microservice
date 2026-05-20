@@ -218,7 +218,7 @@ func TestAuthHandler_GetMe(t *testing.T) {
 				Token:           token,
 				AutomaticLogout: 60,
 				Code:            "USER123",
-				Notifications:   5,
+				UnreadNotificationsCount: 5,
 			}, nil
 		}
 

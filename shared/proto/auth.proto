@@ -205,7 +205,7 @@ message UserResponse {
   string code = 6;
   Level level = 7;
   string image = 8;
-  int32 notifications = 9;
+  int32 unread_notifications_count = 9;
   // CRITICAL: Preserve Laravel typos for API compatibility!
   // Laravel has "socre" not "score" and "unasnwered" not "unanswered"
   double socre_percentage_to_next_level = 10;

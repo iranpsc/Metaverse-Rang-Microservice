@@ -191,8 +191,8 @@ func main() {
 	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(authClient)
 	guestMiddleware := middleware.GuestMiddleware(authClient)
 
-	// Create handlers
-	authHandler := handler.NewAuthHandler(authConn, cfg.Locale)
+	// Create handlers (levels optional: enriches /api/auth/me level.fbx_file from level gem via levels-service)
+	authHandler := handler.NewAuthHandler(authConn, levelsConn, cfg.Locale)
 
 	var calendarHandler *handler.CalendarHandler
 	if calendarConn != nil {

@@ -62,10 +62,12 @@ func (r *LevelRepository) formatJalaliDateTime(t time.Time) string {
 func (r *LevelRepository) GetUserLatestLevel(ctx context.Context, userID uint64) (*pb.Level, error) {
 	query := `
 		SELECT l.id, l.name, l.slug, CAST(l.score AS UNSIGNED) as score, l.background_image,
-		       COALESCE(i.url, '') as image_url
+		       COALESCE(i.url, '') as image_url,
+		       COALESCE(lg.fbx_file, '') as gem_fbx_file
 		FROM levels l
 		INNER JOIN level_user lu ON l.id = lu.level_id
 		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
+		LEFT JOIN level_gems lg ON lg.level_id = l.id
 		WHERE lu.user_id = ?
 		ORDER BY l.id DESC
 		LIMIT 1
@@ -74,6 +76,7 @@ func (r *LevelRepository) GetUserLatestLevel(ctx context.Context, userID uint64)
 	var level pb.Level
 	var imageURL sql.NullString
 	var backgroundImage sql.NullString
+	var gemFbxFile string
 
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
 		&level.Id,
@@ -82,6 +85,7 @@ func (r *LevelRepository) GetUserLatestLevel(ctx context.Context, userID uint64)
 		&level.Score,
 		&backgroundImage,
 		&imageURL,
+		&gemFbxFile,
 	)
 
 	if err != nil {
@@ -96,6 +100,11 @@ func (r *LevelRepository) GetUserLatestLevel(ctx context.Context, userID uint64)
 	}
 	if backgroundImage.Valid {
 		level.BackgroundImage = backgroundImage.String
+	}
+
+	level.Gem = &pb.LevelGem{
+		LevelId: level.Id,
+		FbxFile: gemFbxFile,
 	}
 
 	return &level, nil

@@ -118,7 +118,7 @@ func (h *authHandler) GetMe(ctx context.Context, req *pb.GetMeRequest) (*pb.User
 		AutomaticLogout:            automaticLogout,
 		Level:                      nil, // Set below if available
 		Image:                      h.profilePhotoHandler.PrependGatewayURL(userDetails.Image),
-		Notifications:              userDetails.Notifications,
+		UnreadNotificationsCount:   userDetails.UnreadNotificationsCount,
 		SocrePercentageToNextLevel: userDetails.ScorePercentageToNextLevel, // TYPO PRESERVED!
 		UnasnweredQuestionsCount:   userDetails.UnansweredQuestionsCount,   // TYPO PRESERVED!
 		HourlyProfitTimePercentage: userDetails.HourlyProfitTimePercentage,

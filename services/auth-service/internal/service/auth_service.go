@@ -68,7 +68,7 @@ type UserDetails struct {
 	Code                       string
 	Level                      *LevelInfo
 	Image                      string
-	Notifications              int32
+	UnreadNotificationsCount   int32
 	ScorePercentageToNextLevel float64
 	UnansweredQuestionsCount   int32
 	HourlyProfitTimePercentage float64
@@ -409,7 +409,7 @@ func (s *authService) GetMe(ctx context.Context, token string) (*UserDetails, er
 		Token:           token,
 		Code:            user.Code,
 		AutomaticLogout: settings.AutomaticLogout,
-		Notifications:   notificationsCount,
+		UnreadNotificationsCount: notificationsCount,
 		VerifiedKYC:     kyc != nil && kyc.Status == 1,
 	}
 

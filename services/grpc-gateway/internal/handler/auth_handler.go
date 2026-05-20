@@ -17,6 +17,7 @@ import (
 
 	"metargb/grpc-gateway/internal/middleware"
 	pb "metargb/shared/pb/auth"
+	levelspb "metargb/shared/pb/levels"
 	"metargb/shared/pkg/helpers"
 )
 
@@ -31,11 +32,12 @@ type AuthHandler struct {
 	settingsClient          pb.SettingsServiceClient
 	userEventsClient        pb.UserEventsServiceClient
 	searchClient            pb.SearchServiceClient
+	levelClient             levelspb.LevelServiceClient
 	locale                  string
 }
 
-func NewAuthHandler(conn *grpc.ClientConn, locale string) *AuthHandler {
-	return &AuthHandler{
+func NewAuthHandler(conn *grpc.ClientConn, levelConn *grpc.ClientConn, locale string) *AuthHandler {
+	h := &AuthHandler{
 		authClient:              pb.NewAuthServiceClient(conn),
 		userClient:              pb.NewUserServiceClient(conn),
 		kycClient:               pb.NewKYCServiceClient(conn),
@@ -48,6 +50,10 @@ func NewAuthHandler(conn *grpc.ClientConn, locale string) *AuthHandler {
 		searchClient:            pb.NewSearchServiceClient(conn),
 		locale:                  locale,
 	}
+	if levelConn != nil {
+		h.levelClient = levelspb.NewLevelServiceClient(levelConn)
+	}
+	return h
 }
 
 // writeGRPCErrorLocale writes gRPC errors using the handler's locale
@@ -160,7 +166,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 			"automatic_logout":               resp.AutomaticLogout,
 			"code":                           resp.Code,
 			"image":                          resp.Image,
-			"notifications":                  resp.Notifications,
+			"unread_notifications_count":     resp.UnreadNotificationsCount,
 			"socre_percentage_to_next_level": resp.SocrePercentageToNextLevel,
 			"unasnwered_questions_count":     resp.UnasnweredQuestionsCount,
 			"hourly_profit_time_percentage":  resp.HourlyProfitTimePercentage,
@@ -170,12 +176,22 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resp.Level != nil {
-		response["data"].(map[string]interface{})["level"] = map[string]interface{}{
+		levelPayload := map[string]interface{}{
 			"id":          resp.Level.Id,
 			"title":       resp.Level.Title,
 			"description": resp.Level.Description,
 			"score":       resp.Level.Score,
+			"fbx_file":    "",
 		}
+
+		if h.levelClient != nil {
+			lvlResp, err := h.levelClient.GetUserLevel(r.Context(), &levelspb.GetUserLevelRequest{UserId: resp.Id})
+			if err == nil && lvlResp != nil && lvlResp.LatestLevel != nil && lvlResp.LatestLevel.Gem != nil {
+				levelPayload["fbx_file"] = lvlResp.LatestLevel.Gem.FbxFile
+			}
+		}
+
+		response["data"].(map[string]interface{})["level"] = levelPayload
 	}
 
 	writeJSON(w, http.StatusOK, response)
