@@ -10,7 +10,7 @@ ENV GOSUMDB=off
 RUN apk add --no-cache git make protoc protobuf-dev
 
 # Install protoc-gen-go and protoc-gen-go-grpc plugins
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.6 && \
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 && \
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 
 WORKDIR /workspace
@@ -34,9 +34,9 @@ RUN mkdir -p /workspace/metargb/shared/pb/auth && \
         --go-grpc_out=/workspace/metargb/shared/pb/auth --go-grpc_opt=paths=source_relative \
         -I=/workspace/metargb/shared/proto /workspace/metargb/shared/proto/auth.proto
 
-# Copy shared module first
+# Copy shared module (pkg, helpers, etc.) but keep Docker-generated pb/ in sync with proto
 COPY ./shared/go.mod /workspace/metargb/shared/
-COPY ./shared/ /workspace/metargb/shared/
+COPY ./shared/pkg/ /workspace/metargb/shared/pkg/
 
 # Copy commercial service
 COPY ./services/commercial-service/go.mod ./services/commercial-service/go.sum* /workspace/metargb/commercial-service/
