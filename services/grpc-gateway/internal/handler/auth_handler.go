@@ -1989,10 +1989,10 @@ func (h *AuthHandler) GetCitizenReferrals(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, buildCitizenReferralsHTTPResponse(r, resp))
 }
 
-// GetCitizenReferralChart handles GET /api/citizen/{code}/referral-chart
+// GetCitizenReferralChart handles GET /api/citizen/{code}/referrals/chart
 func (h *AuthHandler) GetCitizenReferralChart(w http.ResponseWriter, r *http.Request, code string) {
 	rangeType := r.URL.Query().Get("range")
 	if rangeType == "" {
@@ -2010,7 +2010,99 @@ func (h *AuthHandler) GetCitizenReferralChart(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, buildCitizenReferralChartHTTPResponse(resp))
+}
+
+// buildCitizenReferralsHTTPResponse formats referrals as Laravel simplePaginate JSON.
+func buildCitizenReferralsHTTPResponse(r *http.Request, resp *pb.CitizenReferralsResponse) map[string]interface{} {
+	const perPage int32 = 10
+
+	currentPage := int32(1)
+	hasMore := false
+	if resp.Meta != nil {
+		currentPage = resp.Meta.CurrentPage
+		if currentPage <= 0 {
+			currentPage = 1
+		}
+		hasMore = resp.Meta.NextPageUrl != ""
+	}
+
+	referrals := make([]map[string]interface{}, 0, len(resp.Data))
+	for _, ref := range resp.Data {
+		item := map[string]interface{}{
+			"id":   ref.Id,
+			"code": ref.Code,
+			"name": ref.Name,
+		}
+		if ref.Image != "" {
+			item["image"] = ref.Image
+		}
+		if len(ref.ReferrerOrders) > 0 {
+			orders := make([]map[string]interface{}, 0, len(ref.ReferrerOrders))
+			for _, order := range ref.ReferrerOrders {
+				orders = append(orders, map[string]interface{}{
+					"id":         order.Id,
+					"amount":     order.Amount,
+					"created_at": order.CreatedAt,
+				})
+			}
+			item["referrerOrders"] = orders
+		}
+		referrals = append(referrals, item)
+	}
+
+	response := map[string]interface{}{
+		"data": referrals,
+	}
+
+	response["links"] = buildSimplePaginationLinks(r, currentPage, hasMore)
+
+	itemCount := len(referrals)
+	var from interface{}
+	var to interface{}
+	if itemCount > 0 {
+		fromVal := int((currentPage-1)*perPage) + 1
+		from = fromVal
+		to = fromVal + itemCount - 1
+	}
+
+	response["meta"] = map[string]interface{}{
+		"current_page": currentPage,
+		"from":         from,
+		"path":         requestPath(r),
+		"per_page":     perPage,
+		"to":           to,
+	}
+
+	return response
+}
+
+// buildCitizenReferralChartHTTPResponse formats chart stats with a single Laravel-style data wrapper.
+func buildCitizenReferralChartHTTPResponse(resp *pb.CitizenReferralChartResponse) map[string]interface{} {
+	chartPayload := map[string]interface{}{
+		"total_referrals_count":        "0",
+		"total_referral_orders_amount": "0",
+		"chart_data":                   []interface{}{},
+	}
+
+	if resp.Data != nil {
+		chartPayload["total_referrals_count"] = resp.Data.TotalReferralsCount
+		chartPayload["total_referral_orders_amount"] = resp.Data.TotalReferralOrdersAmount
+
+		chartData := make([]map[string]interface{}, 0, len(resp.Data.ChartData))
+		for _, point := range resp.Data.ChartData {
+			chartData = append(chartData, map[string]interface{}{
+				"label":        point.Label,
+				"count":        point.Count,
+				"total_amount": point.TotalAmount,
+			})
+		}
+		chartPayload["chart_data"] = chartData
+	}
+
+	return map[string]interface{}{
+		"data": chartPayload,
+	}
 }
 
 // ============================================================================

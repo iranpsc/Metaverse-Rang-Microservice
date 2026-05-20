@@ -44,3 +44,7 @@ vendor/
 
 # Local uploads symlink target at repo root (make link-uploads)
 /uploads
+
+# Assembled upload files (directory kept via uploads/.gitkeep)
+uploads/*
+!uploads/.gitkeep

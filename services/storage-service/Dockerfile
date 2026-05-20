@@ -55,23 +55,25 @@ FROM docker.arvancloud.ir/alpine:3.21
 
 # Iran-accessible Alpine package mirror (MobinHost)
 RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
-RUN apk update && apk --no-cache add ca-certificates tzdata
+RUN apk update && apk --no-cache add ca-certificates tzdata su-exec
 
 WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /app/storage-service .
 
+# Entrypoint fixes bind-mount permissions before dropping to appuser
+COPY ./services/storage-service/docker-entrypoint.sh /docker-entrypoint.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
+
 # Create non-root user
 RUN addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser && \
     chown -R appuser:appuser /app
 
-# Create uploads directory with proper permissions
+# Create uploads directory with proper permissions (overridden by bind mounts at runtime)
 RUN mkdir -p /app/uploads && \
     chown -R appuser:appuser /app/uploads
-
-USER appuser
 
 # Expose gRPC port
 EXPOSE 50060
@@ -80,5 +82,6 @@ EXPOSE 50060
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD nc -z localhost 50060 || exit 1
 
-# Run the application
-ENTRYPOINT ["/app/storage-service"]
+# Run as root briefly so entrypoint can chown bind-mounted uploads, then exec as appuser
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["/app/storage-service"]

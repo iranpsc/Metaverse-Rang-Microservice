@@ -1,4 +1,4 @@
-.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads
+.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads
 
 # Proto generation
 PROTO_DIR=shared/proto
@@ -49,6 +49,7 @@ help:
 	@echo ""
 	@echo "Local dev:"
 	@echo "  link-uploads     - Symlink ./uploads -> $(UPLOADS_SRC)"
+	@echo "  init-storage-uploads - Create local storage-service uploads directory"
 	@echo ""
 	@echo "Docker:"
 	@echo "  up, down, build, logs, ps - Compose lifecycle"
@@ -129,13 +130,23 @@ else
 	@echo "Created symlink: $(UPLOADS_LINK) -> $(UPLOADS_SRC)"
 endif
 
+.PHONY: init-storage-uploads
+
+init-storage-uploads:
+	@echo "Ensuring storage upload directory exists: $(UPLOADS_SRC)"
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(UPLOADS_SRC)' | Out-Null"
+else
+	@mkdir -p $(UPLOADS_SRC)
+endif
+
 # =============================================================================
 # Docker Compose Management
 # =============================================================================
 
 .PHONY: up down restart logs ps build clean import-schema import-database help-docker dev-up dev-down dev-build dev-logs dev-restart dev-ps
 
-up:
+up: init-storage-uploads
 	@echo "🚀 Starting all microservices..."
 	$(DOCKER_COMPOSE) up -d
 	@echo "✅ All services started!"
@@ -278,11 +289,20 @@ logs-service:
 	fi
 	$(DOCKER_COMPOSE) logs -f $(SERVICE)
 
+# Ensure storage-service upload bind mount exists before Docker creates a root-owned dir
+.PHONY: init-storage-uploads
+init-storage-uploads:
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "if (-not (Test-Path -LiteralPath '$(UPLOADS_SRC)')) { New-Item -ItemType Directory -Force -Path '$(UPLOADS_SRC)' | Out-Null }"
+else
+	@mkdir -p $(UPLOADS_SRC)
+endif
+
 # =============================================================================
 # Development with Hot Reloading
 # =============================================================================
 
-dev-up:
+dev-up: init-storage-uploads
 	@echo "🚀 Starting development environment with Docker Compose Watch..."
 	@echo "ℹ️  File changes will automatically trigger rebuilds (Go) or restarts (Node.js)"
 	@echo ""
