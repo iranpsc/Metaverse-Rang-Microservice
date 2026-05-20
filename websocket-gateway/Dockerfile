@@ -1,5 +1,5 @@
 # WebSocket Gateway Dockerfile
-FROM node:18-alpine
+FROM docker.arvancloud.ir/node:18-alpine
 
 # Iran-accessible Alpine package mirror (MobinHost)
 RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories

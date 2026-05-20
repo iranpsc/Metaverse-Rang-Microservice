@@ -44,27 +44,10 @@ func (h *FeaturesHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse query parameters - handle both points[] (array notation) and points
+	// Parse query parameters (Laravel: points[0]=x,y&points[1]=..., points[]=..., or JSON array)
 	query := r.URL.Query()
-	var points []string
-
-	// Check for array notation first (points[]=...)
-	if pointsArray, ok := query["points[]"]; ok && len(pointsArray) > 0 {
-		// Handle multiple points[] values
-		points = pointsArray
-	} else if pointsParam := query.Get("points"); pointsParam != "" {
-		// Handle single points parameter (backward compatibility)
-		if strings.HasPrefix(pointsParam, "[") {
-			// JSON array format
-			if err := json.Unmarshal([]byte(pointsParam), &points); err != nil {
-				writeValidationErrorWithLocale(w, "invalid points format: expected array of 'x,y' strings", h.locale)
-				return
-			}
-		} else {
-			// Comma-separated format
-			points = strings.Split(pointsParam, ",")
-		}
-	} else {
+	points, ok := parsePointsFromQuery(query)
+	if !ok {
 		writeValidationErrorWithLocale(w, "points parameter is required", h.locale)
 		return
 	}

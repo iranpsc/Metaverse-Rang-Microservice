@@ -43,6 +43,12 @@ func UnaryServerInterceptor(validator TokenValidator) grpc.UnaryServerIntercepto
 			return handler(ctx, req)
 		}
 
+		// Optional auth: proceed without a token; attach user context when a valid token is sent
+		if shouldUseOptionalAuth(info.FullMethod) {
+			ctx = contextWithOptionalAuth(ctx, validator)
+			return handler(ctx, req)
+		}
+
 		// Extract token from metadata
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
@@ -87,6 +93,16 @@ func StreamServerInterceptor(validator TokenValidator) grpc.StreamServerIntercep
 
 		ctx := stream.Context()
 
+		// Optional auth: proceed without a token; attach user context when a valid token is sent
+		if shouldUseOptionalAuth(info.FullMethod) {
+			ctx = contextWithOptionalAuth(ctx, validator)
+			wrappedStream := &wrappedServerStream{
+				ServerStream: stream,
+				ctx:          ctx,
+			}
+			return handler(srv, wrappedStream)
+		}
+
 		// Extract token from metadata
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
@@ -129,6 +145,50 @@ func extractToken(authHeader string) string {
 		return ""
 	}
 	return parts[1]
+}
+
+// shouldUseOptionalAuth checks if authentication is optional for a method.
+// Matches Laravel routes that work without auth but enrich the response when a bearer token is present.
+func shouldUseOptionalAuth(fullMethod string) bool {
+	optionalMethods := []string{
+		"/features.FeatureService/ListFeatures",
+		"/features.FeatureService/GetFeature",
+		"/features.MapsService/ListMaps",
+		"/features.MapsService/GetMap",
+		"/features.MapsService/GetMapBorder",
+	}
+
+	for _, method := range optionalMethods {
+		if fullMethod == method {
+			return true
+		}
+	}
+	return false
+}
+
+// contextWithOptionalAuth validates the token when present and ignores missing/invalid tokens.
+func contextWithOptionalAuth(ctx context.Context, validator TokenValidator) context.Context {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ctx
+	}
+
+	authHeader := md.Get("authorization")
+	if len(authHeader) == 0 {
+		return ctx
+	}
+
+	token := extractToken(authHeader[0])
+	if token == "" {
+		return ctx
+	}
+
+	userCtx, err := validator.ValidateToken(ctx, token)
+	if err != nil {
+		return ctx
+	}
+
+	return context.WithValue(ctx, UserContextKey{}, userCtx)
 }
 
 // shouldSkipAuth checks if authentication should be skipped for a method

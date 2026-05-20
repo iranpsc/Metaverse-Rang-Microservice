@@ -841,26 +841,7 @@ func (h *AuthHandler) GetKYC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Format response to match Laravel KycResource
-	response := map[string]interface{}{
-		"id":         fmt.Sprintf("%d", resp.Id),
-		"melli_card": resp.MelliCard,
-		"fname":      resp.Fname,
-		"lname":      resp.Lname,
-		"melli_code": resp.MelliCode,
-		"birthdate":  resp.Birthdate,
-		"province":   resp.Province,
-		"status":     resp.Status,
-		"video":      resp.Video,
-		"gender":     resp.Gender,
-	}
-
-	// Only include errors if present
-	if resp.Errors != "" {
-		response["errors"] = resp.Errors
-	}
-
-	writeJSON(w, http.StatusOK, response)
+	writeJSON(w, http.StatusOK, formatKYCResponse(resp))
 }
 
 // UpdateKYC handles PUT/PATCH /api/kyc
@@ -948,7 +929,11 @@ func (h *AuthHandler) UpdateKYC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Format response to match Laravel KycResource
+	writeJSON(w, http.StatusOK, formatKYCResponse(resp))
+}
+
+// formatKYCResponse builds a Laravel KycResource-compatible JSON object.
+func formatKYCResponse(resp *pb.KYCResponse) map[string]interface{} {
 	response := map[string]interface{}{
 		"id":         fmt.Sprintf("%d", resp.Id),
 		"melli_card": resp.MelliCard,
@@ -961,13 +946,15 @@ func (h *AuthHandler) UpdateKYC(w http.ResponseWriter, r *http.Request) {
 		"video":      resp.Video,
 		"gender":     resp.Gender,
 	}
-
-	// Only include errors if present
 	if resp.Errors != "" {
-		response["errors"] = resp.Errors
+		var errorsField interface{}
+		if err := json.Unmarshal([]byte(resp.Errors), &errorsField); err == nil {
+			response["errors"] = errorsField
+		} else {
+			response["errors"] = resp.Errors
+		}
 	}
-
-	writeJSON(w, http.StatusOK, response)
+	return response
 }
 
 // ListBankAccounts handles GET /api/bank-accounts

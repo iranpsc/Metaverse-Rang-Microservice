@@ -1,5 +1,5 @@
 # Multi-stage build for Levels Service
-FROM golang:1.24-alpine AS builder
+FROM docker.arvancloud.ir/golang:1.24-alpine AS builder
 
 # Iran-accessible Alpine package mirror (MobinHost)
 RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
@@ -65,7 +65,7 @@ ENV GOWORK=/workspace/go.work
 RUN cd /workspace/metargb/levels-service && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o /app/levels-service ./cmd/server
 
 # Final stage
-FROM alpine:latest
+FROM docker.arvancloud.ir/alpine:3.21
 
 # Iran-accessible Alpine package mirror (MobinHost)
 RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -26,16 +28,17 @@ func (h *kycHandler) GetKYC(ctx context.Context, req *pb.GetKYCRequest) (*pb.KYC
 		return nil, mapKYCServiceError(err, getProjectLocale())
 	}
 
-	// If KYC not found, return empty response (matches Laravel behavior)
+	// If KYC not found or policy denies view, return empty response (matches Laravel {})
 	if kyc == nil {
 		return &pb.KYCResponse{}, nil
 	}
 
-	return convertKYCToProto(kyc), nil
+	return h.convertKYCToProto(kyc), nil
 }
 
 func (h *kycHandler) UpdateKYC(ctx context.Context, req *pb.UpdateKYCRequest) (*pb.KYCResponse, error) {
 	locale := getProjectLocale()
+
 	// Validate melli_card file
 	if len(req.MelliCardData) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "melli_card_data is required"))
@@ -112,12 +115,19 @@ func (h *kycHandler) UpdateKYC(ctx context.Context, req *pb.UpdateKYCRequest) (*
 		return nil, status.Errorf(codes.Internal, lang.T(locale, "storage service not available"))
 	}
 
-	videoPath := ""
-	videoName := ""
-	if req.Video != nil {
-		videoPath = req.Video.Path
-		videoName = req.Video.Name
+	if req.Video == nil || req.Video.Path == "" || req.Video.Name == "" {
+		if fields, ok := mapServiceErrorToValidationFields(service.ErrVideoRequired, locale); ok {
+			return nil, returnValidationError(fields)
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "%s", service.ErrVideoRequired.Error())
 	}
+
+	videoURL, err := h.promoteKYCVideo(ctx, req.Video.Path, req.Video.Name)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, lang.Tf(locale, "failed to promote kyc video: %v", err))
+	}
+	melliCardURL = h.prependGatewayURL(melliCardURL)
+	videoURL = h.prependGatewayURL(videoURL)
 
 	kyc, err := h.kycService.UpdateKYC(
 		ctx,
@@ -128,8 +138,7 @@ func (h *kycHandler) UpdateKYC(ctx context.Context, req *pb.UpdateKYCRequest) (*
 		req.Birthdate,
 		req.Province,
 		melliCardURL,
-		videoPath,
-		videoName,
+		videoURL,
 		req.VerifyTextId,
 		req.Gender,
 	)
@@ -137,11 +146,135 @@ func (h *kycHandler) UpdateKYC(ctx context.Context, req *pb.UpdateKYCRequest) (*
 		return nil, mapKYCServiceError(err, getProjectLocale())
 	}
 
-	return convertKYCToProto(kyc), nil
+	return h.convertKYCToProto(kyc), nil
+}
+
+// prependGatewayURL prepends APP_URL to relative upload paths (matches Laravel url() helper).
+func (h *kycHandler) prependGatewayURL(url string) string {
+	if url == "" {
+		return url
+	}
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	}
+	if h.apiGatewayURL == "" {
+		return url
+	}
+	url = strings.TrimPrefix(url, "/")
+	return strings.TrimSuffix(h.apiGatewayURL, "/") + "/" + url
+}
+
+// promoteKYCVideo moves a staged upload into public kyc storage (Laravel KycController@update).
+func (h *kycHandler) promoteKYCVideo(ctx context.Context, videoPath, videoName string) (string, error) {
+	if h.storageClient == nil {
+		return "", fmt.Errorf("storage service not available")
+	}
+
+	fileData, contentType, err := h.readStagedVideo(ctx, videoPath, videoName)
+	if err != nil {
+		return "", err
+	}
+
+	finalName := filepath.Base(videoName)
+	uploadID := fmt.Sprintf("kyc_video_%d", time.Now().UnixNano())
+	chunkReq := &storagepb.ChunkUploadRequest{
+		UploadId:    uploadID,
+		ChunkData:   fileData,
+		ChunkIndex:  0,
+		TotalChunks: 1,
+		Filename:    finalName,
+		ContentType: contentType,
+		TotalSize:   int64(len(fileData)),
+		UploadPath:  "/uploads/kyc",
+	}
+
+	chunkResp, err := h.storageClient.ChunkUpload(ctx, chunkReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload kyc video: %w", err)
+	}
+	if !chunkResp.Success || !chunkResp.IsFinished {
+		return "", fmt.Errorf("kyc video upload did not complete: %s", chunkResp.Message)
+	}
+
+	dirPath := chunkResp.FileUrl
+	filename := chunkResp.FilePath
+	if filename == "" {
+		filename = chunkResp.FinalFilename
+	}
+	if dirPath == "" || filename == "" {
+		return "", fmt.Errorf("storage service did not return kyc video path")
+	}
+
+	return strings.TrimSuffix(dirPath, "/") + "/" + filename, nil
+}
+
+func (h *kycHandler) readStagedVideo(ctx context.Context, videoPath, videoName string) ([]byte, string, error) {
+	contentType := contentTypeFromFilename(videoName)
+	for _, sourcePath := range stagedVideoPaths(videoPath, videoName) {
+		stream, err := h.storageClient.GetFile(ctx, &storagepb.GetFileRequest{FilePath: sourcePath})
+		if err != nil {
+			continue
+		}
+		var data []byte
+		for {
+			resp, recvErr := stream.Recv()
+			if recvErr == io.EOF {
+				break
+			}
+			if recvErr != nil {
+				data = nil
+				break
+			}
+			if resp.ContentType != "" {
+				contentType = resp.ContentType
+			}
+			data = append(data, resp.Data...)
+		}
+		if len(data) > 0 {
+			return data, contentType, nil
+		}
+	}
+	return nil, "", fmt.Errorf("staged video not found at path %q name %q", videoPath, videoName)
+}
+
+func contentTypeFromFilename(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".webm":
+		return "video/webm"
+	case ".mov":
+		return "video/quicktime"
+	default:
+		return "video/mp4"
+	}
+}
+
+// stagedVideoPaths returns candidate storage paths for a staged upload.
+// Supports Laravel (upload/...) and microservice (uploads/...) chunk upload layouts.
+func stagedVideoPaths(videoPath, videoName string) []string {
+	dir := strings.Trim(videoPath, "/")
+	name := strings.TrimPrefix(videoName, "/")
+	seen := make(map[string]struct{})
+	var paths []string
+	add := func(p string) {
+		p = strings.ReplaceAll(p, "\\", "/")
+		if _, ok := seen[p]; ok || p == "" {
+			return
+		}
+		seen[p] = struct{}{}
+		paths = append(paths, p)
+	}
+	add(dir + "/" + name)
+	if strings.HasPrefix(dir, "upload/") && !strings.HasPrefix(dir, "uploads/") {
+		add("uploads/" + strings.TrimPrefix(dir, "upload/") + "/" + name)
+	}
+	if !strings.HasPrefix(dir, "uploads/") {
+		add("uploads/" + dir + "/" + name)
+	}
+	return paths
 }
 
 // convertKYCToProto converts a KYC model to proto response
-func convertKYCToProto(kyc *models.KYC) *pb.KYCResponse {
+func (h *kycHandler) convertKYCToProto(kyc *models.KYC) *pb.KYCResponse {
 	birthdate := ""
 	if kyc.Birthdate.Valid {
 		birthdate = jalali.CarbonToJalali(kyc.Birthdate.Time)
@@ -164,14 +297,14 @@ func convertKYCToProto(kyc *models.KYC) *pb.KYCResponse {
 
 	return &pb.KYCResponse{
 		Id:        kyc.ID,
-		MelliCard: kyc.MelliCard,
+		MelliCard: h.prependGatewayURL(kyc.MelliCard),
 		Fname:     kyc.Fname,
 		Lname:     kyc.Lname,
 		MelliCode: kyc.MelliCode,
 		Birthdate: birthdate,
 		Province:  kyc.Province,
 		Status:    kyc.Status,
-		Video:     video,
+		Video:     h.prependGatewayURL(video),
 		Errors:    errorStr,
 		Gender:    gender,
 	}
@@ -185,7 +318,7 @@ func mapKYCServiceError(err error, locale string) error {
 	case errors.Is(err, service.ErrKYCNotOwned):
 		return status.Errorf(codes.PermissionDenied, "%s", err.Error())
 	case errors.Is(err, service.ErrKYCNotRejected):
-		return status.Errorf(codes.FailedPrecondition, "%s", err.Error())
+		return status.Errorf(codes.PermissionDenied, "%s", err.Error())
 	case errors.Is(err, service.ErrInvalidFname),
 		errors.Is(err, service.ErrInvalidLname),
 		errors.Is(err, service.ErrInvalidMelliCode),
@@ -212,12 +345,14 @@ type kycHandler struct {
 	pb.UnimplementedKYCServiceServer
 	kycService    service.KYCService
 	storageClient storagepb.FileStorageServiceClient
+	apiGatewayURL string
 }
 
-func RegisterKYCHandler(grpcServer *grpc.Server, kycService service.KYCService, storageClient storagepb.FileStorageServiceClient) {
+func RegisterKYCHandler(grpcServer *grpc.Server, kycService service.KYCService, storageClient storagepb.FileStorageServiceClient, apiGatewayURL string) {
 	pb.RegisterKYCServiceServer(grpcServer, &kycHandler{
 		kycService:    kycService,
 		storageClient: storageClient,
+		apiGatewayURL: apiGatewayURL,
 	})
 }
 

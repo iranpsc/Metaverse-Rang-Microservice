@@ -270,6 +270,29 @@ func TestGetKYC_NotFound(t *testing.T) {
 	}
 }
 
+func TestGetKYC_NotOwned(t *testing.T) {
+	ctx := context.Background()
+	kycRepo := newFakeKYCRepository()
+	existingKYC := &models.KYC{
+		ID:     1,
+		UserID: 2,
+		Fname:  "Other",
+		Lname:  "User",
+		Status: 0,
+	}
+	kycRepo.kycs[2] = existingKYC
+	userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
+	service := NewKYCService(kycRepo, userRepo)
+
+	kyc, err := service.GetKYC(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetKYC returned error: %v", err)
+	}
+	if kyc != nil {
+		t.Errorf("expected nil when user does not own KYC, got %v", kyc)
+	}
+}
+
 func TestGetKYC_Found(t *testing.T) {
 	ctx := context.Background()
 	kycRepo := newFakeKYCRepository()
@@ -313,8 +336,7 @@ func TestUpdateKYC_CreateNew(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -361,8 +383,7 @@ func TestUpdateKYC_UpdateRejected(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -408,8 +429,7 @@ func TestUpdateKYC_RejectPendingUpdate(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -446,8 +466,7 @@ func TestUpdateKYC_RejectApprovedUpdate(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -474,8 +493,7 @@ func TestUpdateKYC_InvalidFname(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -502,8 +520,7 @@ func TestUpdateKYC_InvalidLname(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -530,8 +547,7 @@ func TestUpdateKYC_InvalidGender(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"invalid", // Invalid gender
 	)
@@ -558,8 +574,7 @@ func TestUpdateKYC_InvalidBirthdate(t *testing.T) {
 		"invalid-date", // Invalid date format
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -594,8 +609,7 @@ func TestUpdateKYC_DuplicateMelliCode(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -653,8 +667,7 @@ func TestUpdateKYC_TrimsWhitespace(t *testing.T) {
 		"1403/01/15",
 		"  Tehran  ",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"  male  ",
 	)
@@ -764,8 +777,7 @@ func TestUpdateKYC_VerifyTextIDRequired(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		0, // Zero verify_text_id
 		"male",
 	)
@@ -792,8 +804,7 @@ func TestUpdateKYC_VerifyTextIDNotFound(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		999, // Non-existent verify_text_id
 		"male",
 	)
@@ -903,8 +914,7 @@ func TestUpdateKYC_ProvinceMaxLength(t *testing.T) {
 		"1403/01/15",
 		longProvince,
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -931,8 +941,7 @@ func TestUpdateKYC_AllRequiredFieldsSet(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"female",
 	)
@@ -987,8 +996,7 @@ func TestUpdateKYC_StatusAndErrorsReset(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -1022,8 +1030,7 @@ func TestUpdateKYC_BirthdateConversion(t *testing.T) {
 		"1403/01/15", // Jalali date
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -1104,8 +1111,7 @@ func TestUpdateKYC_FnameMaxLength(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)
@@ -1135,8 +1141,7 @@ func TestUpdateKYC_LnameMaxLength(t *testing.T) {
 		"1403/01/15",
 		"Tehran",
 		"/uploads/kyc/melli-card.jpg",
-		"tmp/uploads",
-		"video.mp4",
+		"http://localhost/uploads/kyc/video.mp4",
 		1,
 		"male",
 	)

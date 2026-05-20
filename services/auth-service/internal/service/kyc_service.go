@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"metargb/auth-service/internal/models"
@@ -44,7 +43,7 @@ var (
 
 type KYCService interface {
 	GetKYC(ctx context.Context, userID uint64) (*models.KYC, error)
-	UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoPath, videoName string, verifyTextID uint64, gender string) (*models.KYC, error)
+	UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoURL string, verifyTextID uint64, gender string) (*models.KYC, error)
 	ListBankAccounts(ctx context.Context, userID uint64) ([]*models.BankAccount, error)
 	CreateBankAccount(ctx context.Context, userID uint64, bankName, shabaNum, cardNum string) (*models.BankAccount, error)
 	GetBankAccount(ctx context.Context, userID uint64, bankAccountID uint64) (*models.BankAccount, error)
@@ -69,16 +68,22 @@ func (s *kycService) GetKYC(ctx context.Context, userID uint64) (*models.KYC, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kyc: %w", err)
 	}
-	// Return nil if not found (handler will return empty object)
+	if kyc == nil {
+		return nil, nil
+	}
+	// KycPolicy::view — only the owner may view their record
+	if kyc.UserID != userID {
+		return nil, nil
+	}
 	return kyc, nil
 }
 
-func (s *kycService) UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoPath, videoName string, verifyTextID uint64, gender string) (*models.KYC, error) {
+func (s *kycService) UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoURL string, verifyTextID uint64, gender string) (*models.KYC, error) {
 	// Validate required fields
 	if melliCard == "" {
 		return nil, ErrMelliCardRequired
 	}
-	if videoPath == "" || videoName == "" {
+	if videoURL == "" {
 		return nil, ErrVideoRequired
 	}
 	if verifyTextID == 0 {
@@ -130,15 +135,6 @@ func (s *kycService) UpdateKYC(ctx context.Context, userID uint64, fname, lname,
 	}
 	if !unique {
 		return nil, ErrMelliCodeNotUnique
-	}
-
-	// Process video path - move from temp to public storage
-	videoURL := ""
-	if videoPath != "" && videoName != "" {
-		// In a real implementation, this would move the file from storage/app/<path>/<name>
-		// to storage/app/public/kyc/<name> and return /uploads/kyc/<name>
-		// For now, we'll construct the public URL
-		videoURL = fmt.Sprintf("/uploads/kyc/%s", filepath.Base(videoName))
 	}
 
 	if existing != nil {
@@ -205,8 +201,11 @@ func (s *kycService) validateKYCInput(fname, lname, melliCode, birthdate, provin
 		return ErrInvalidMelliCode
 	}
 
-	// Validate birthdate format (Jalali: Y/m/d)
+	// Validate birthdate format (Jalali: Y/m/d) — matches Laravel shamsi_date rule
 	if birthdate == "" {
+		return ErrInvalidBirthdate
+	}
+	if _, err := jalali.JalaliToCarbon(birthdate); err != nil {
 		return ErrInvalidBirthdate
 	}
 

@@ -71,7 +71,7 @@ func (m *mockKYCService) GetKYC(ctx context.Context, userID uint64) (*models.KYC
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockKYCService) UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoPath, videoName string, verifyTextID uint64, gender string) (*models.KYC, error) {
+func (m *mockKYCService) UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoURL string, verifyTextID uint64, gender string) (*models.KYC, error) {
 	return nil, errors.New("not implemented")
 }
 

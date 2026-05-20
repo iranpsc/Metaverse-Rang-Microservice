@@ -271,7 +271,7 @@ func main() {
 	handler.SetProjectLocale(projectLocale)
 	handler.RegisterAuthHandler(grpcServer, authService, tokenRepo, profilePhotoHandler, projectLocale)
 	handler.RegisterUserHandler(grpcServer, userService, profileLimitationService, helperService)
-	handler.RegisterKYCHandler(grpcServer, kycService, storageClient)
+	handler.RegisterKYCHandler(grpcServer, kycService, storageClient, apiGatewayURL)
 	handler.RegisterCitizenHandler(grpcServer, citizenService)
 	handler.RegisterPersonalInfoHandler(grpcServer, personalInfoService)
 	handler.RegisterProfileLimitationHandler(grpcServer, profileLimitationService)

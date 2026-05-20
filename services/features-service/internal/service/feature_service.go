@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -73,27 +74,24 @@ func (s *FeatureService) ListFeatures(ctx context.Context, points []string, load
 	for i, feature := range features {
 		properties := propertiesList[i]
 
-		// Load geometry coordinates
+		// Load geometry coordinates (Laravel: geometry.coordinates:id,geometry_id,x,y)
 		geometry, err := s.geometryRepo.GetByFeatureID(ctx, feature.ID)
 		if err != nil {
 			geometry = nil
 		}
 
-		// Build geometry with coordinates
 		var pbGeometry *pb.Geometry
 		if geometry != nil {
-			coordinates, err := s.geometryRepo.GetCoordinatesByFeatureID(ctx, feature.ID)
-			if err == nil {
+			coordinates, err := s.geometryRepo.GetCoordinatesWithIDs(ctx, feature.ID)
+			if err == nil && len(coordinates) > 0 {
 				pbCoordinates := make([]*pb.Coordinate, 0, len(coordinates))
-				for _, coordStr := range coordinates {
-					// Parse "x,y" string
-					parts := strings.Split(coordStr, ",")
-					if len(parts) == 2 {
-						pbCoordinates = append(pbCoordinates, &pb.Coordinate{
-							X: parts[0],
-							Y: parts[1],
-						})
-					}
+				for _, coord := range coordinates {
+					pbCoordinates = append(pbCoordinates, &pb.Coordinate{
+						Id:         coord.ID,
+						GeometryId: coord.GeometryID,
+						X:          formatCoordValue(coord.X),
+						Y:          formatCoordValue(coord.Y),
+					})
 				}
 				pbGeometry = &pb.Geometry{
 					Id:          geometry.ID,
@@ -483,4 +481,8 @@ func (s *FeatureService) UpdateMyFeature(ctx context.Context, userID, featureID 
 	}
 
 	return nil
+}
+
+func formatCoordValue(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }

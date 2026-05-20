@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"metargb/features-service/internal/models"
@@ -49,42 +48,46 @@ func (r *FeatureRepository) FindByID(ctx context.Context, id uint64) (*models.Fe
 	return feature, properties, nil
 }
 
-// FindByBoundingBox implements Laravel's FeatureRepository@all logic
-// Points format: ["minX,minY", "maxX,minY", "maxX,maxY", "minX,maxY"]
-func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []string, loadBuildings bool) ([]*models.Feature, error) {
-	if len(points) != 4 {
-		return nil, fmt.Errorf("expected 4 points, got %d", len(points))
+// bboxBoundsFromPoints matches Laravel FeatureRepository@all:
+// x between points[0].x and points[1].x, y between points[0].y and points[2].y
+func bboxBoundsFromPoints(points []string) (minX, maxX, minY, maxY string, err error) {
+	if len(points) < 4 {
+		return "", "", "", "", fmt.Errorf("expected at least 4 points, got %d", len(points))
 	}
 
-	// Parse points
-	parsePoint := func(point string) (float64, float64, error) {
+	parsePoint := func(point string) (string, string, error) {
 		parts := strings.Split(point, ",")
 		if len(parts) != 2 {
-			return 0, 0, fmt.Errorf("invalid point format: %s", point)
+			return "", "", fmt.Errorf("invalid point format: %s", point)
 		}
-		x, err := strconv.ParseFloat(parts[0], 64)
-		if err != nil {
-			return 0, 0, err
-		}
-		y, err := strconv.ParseFloat(parts[1], 64)
-		if err != nil {
-			return 0, 0, err
-		}
-		return x, y, nil
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
 	}
 
-	// Extract bounds
-	minX, minY, err := parsePoint(points[0])
+	x0, y0, err := parsePoint(points[0])
+	if err != nil {
+		return "", "", "", "", err
+	}
+	x1, _, err := parsePoint(points[1])
+	if err != nil {
+		return "", "", "", "", err
+	}
+	_, y2, err := parsePoint(points[2])
+	if err != nil {
+		return "", "", "", "", err
+	}
+
+	return x0, x1, y0, y2, nil
+}
+
+// FindByBoundingBox implements Laravel's FeatureRepository@all logic
+// Points format: four "x,y" strings (bbox corners)
+func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []string, loadBuildings bool) ([]*models.Feature, error) {
+	minX, maxX, minY, maxY, err := bboxBoundsFromPoints(points)
 	if err != nil {
 		return nil, err
 	}
-	maxX, maxY, err := parsePoint(points[2])
-	if err != nil {
-		return nil, err
-	}
 
-	// Query coordinates table for features within bounds
-	// Matches Laravel: whereBetween('x', [minX, maxX])->whereBetween('y', [minY, maxY])
+	// Query coordinates table for geometries within bounds (Laravel FeatureRepository@all)
 	query := `
 		SELECT DISTINCT c.geometry_id
 		FROM coordinates c
@@ -117,17 +120,15 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 		idStrs[i] = fmt.Sprintf("%d", id)
 	}
 
-	// Load features with properties
-	// Join with geometries table since geometries have feature_id (not features.geometry_id)
+	// Load features with properties (Laravel: Feature::whereIn('id', $geometryIds))
 	featureQuery := `
 		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
 		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
 		FROM features f
-		INNER JOIN geometries g ON g.feature_id = f.id
 		LEFT JOIN feature_properties fp ON f.id = fp.feature_id
-		WHERE g.id IN (` + strings.Join(idStrs, ",") + `)
+		WHERE f.id IN (` + strings.Join(idStrs, ",") + `)
 	`
 
 	featureRows, err := r.db.QueryContext(ctx, featureQuery)
@@ -159,38 +160,11 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 
 // FindByBoundingBoxWithProperties returns features with their properties
 func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context, points []string) ([]*models.Feature, []*models.FeatureProperties, error) {
-	if len(points) != 4 {
-		return nil, nil, fmt.Errorf("expected 4 points, got %d", len(points))
-	}
-
-	// Parse points
-	parsePoint := func(point string) (float64, float64, error) {
-		parts := strings.Split(point, ",")
-		if len(parts) != 2 {
-			return 0, 0, fmt.Errorf("invalid point format: %s", point)
-		}
-		x, err := strconv.ParseFloat(parts[0], 64)
-		if err != nil {
-			return 0, 0, err
-		}
-		y, err := strconv.ParseFloat(parts[1], 64)
-		if err != nil {
-			return 0, 0, err
-		}
-		return x, y, nil
-	}
-
-	// Extract bounds
-	minX, minY, err := parsePoint(points[0])
-	if err != nil {
-		return nil, nil, err
-	}
-	maxX, maxY, err := parsePoint(points[2])
+	minX, maxX, minY, maxY, err := bboxBoundsFromPoints(points)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Query coordinates table for features within bounds
 	query := `
 		SELECT DISTINCT c.geometry_id
 		FROM coordinates c
@@ -223,17 +197,14 @@ func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context,
 		idStrs[i] = fmt.Sprintf("%d", id)
 	}
 
-	// Load features with properties
-	// Join with geometries table since geometries have feature_id (not features.geometry_id)
 	featureQuery := `
 		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
 		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
 		FROM features f
-		INNER JOIN geometries g ON g.feature_id = f.id
 		LEFT JOIN feature_properties fp ON f.id = fp.feature_id
-		WHERE g.id IN (` + strings.Join(idStrs, ",") + `)
+		WHERE f.id IN (` + strings.Join(idStrs, ",") + `)
 	`
 
 	featureRows, err := r.db.QueryContext(ctx, featureQuery)

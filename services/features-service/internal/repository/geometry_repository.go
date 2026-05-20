@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"metargb/features-service/internal/models"
 )
@@ -70,6 +72,11 @@ func formatCoordinate(x, y float64) string {
 	return fmt.Sprintf("%.6f,%.6f", x, y)
 }
 
+func parseCoordString(s string) float64 {
+	v, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return v
+}
+
 // GetCoordinatesWithIDs retrieves coordinates for a feature with IDs
 func (r *GeometryRepository) GetCoordinatesWithIDs(ctx context.Context, featureID uint64) ([]*models.Coordinate, error) {
 	query := `
@@ -89,12 +96,12 @@ func (r *GeometryRepository) GetCoordinatesWithIDs(ctx context.Context, featureI
 	coordinates := []*models.Coordinate{}
 	for rows.Next() {
 		coord := &models.Coordinate{}
-		var x, y float64
+		var x, y string
 		if err := rows.Scan(&coord.ID, &coord.GeometryID, &x, &y); err != nil {
 			continue
 		}
-		coord.X = x
-		coord.Y = y
+		coord.X = parseCoordString(x)
+		coord.Y = parseCoordString(y)
 		coordinates = append(coordinates, coord)
 	}
 

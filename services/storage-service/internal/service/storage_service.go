@@ -51,8 +51,12 @@ func (s *StorageService) UploadFile(filename, contentType string, data []byte, u
 	return url, nil
 }
 
-// GetFile retrieves a file from FTP server
+// GetFile retrieves a file from local chunk uploads or FTP.
 func (s *StorageService) GetFile(filePath string) ([]byte, string, error) {
+	if data, contentType, ok := s.readLocalUploadFile(filePath); ok {
+		return data, contentType, nil
+	}
+
 	// Download from FTP
 	reader, err := s.ftpClient.DownloadFile(filePath)
 	if err != nil {
@@ -60,16 +64,54 @@ func (s *StorageService) GetFile(filePath string) ([]byte, string, error) {
 	}
 	defer reader.Close()
 
-	// Read file content
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Determine content type from extension
+	return data, contentTypeForPath(filePath), nil
+}
+
+// readLocalUploadFile reads a file written by HandleChunkUpload from the local uploads directory.
+func (s *StorageService) readLocalUploadFile(filePath string) ([]byte, string, bool) {
+	for _, candidate := range localUploadPathCandidates(s.uploadBaseDir, filePath) {
+		data, err := os.ReadFile(candidate)
+		if err != nil {
+			continue
+		}
+		return data, contentTypeForPath(candidate), true
+	}
+	return nil, "", false
+}
+
+func localUploadPathCandidates(uploadBaseDir, filePath string) []string {
+	filePath = strings.TrimPrefix(strings.ReplaceAll(filePath, "\\", "/"), "/")
+	seen := make(map[string]struct{})
+	var out []string
+	add := func(p string) {
+		if p == "" {
+			return
+		}
+		if _, ok := seen[p]; ok {
+			return
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	add(filepath.Join(uploadBaseDir, filePath))
+	// Laravel chunk uploads use storage/app/upload/...; microservice uses uploads/...
+	if strings.HasPrefix(filePath, "upload/") && !strings.HasPrefix(filePath, "uploads/") {
+		add(filepath.Join(uploadBaseDir, "uploads", strings.TrimPrefix(filePath, "upload/")))
+	}
+	if !strings.HasPrefix(filePath, "uploads/") {
+		add(filepath.Join(uploadBaseDir, "uploads", filePath))
+	}
+	return out
+}
+
+func contentTypeForPath(filePath string) string {
 	contentType := "application/octet-stream"
-	ext := filepath.Ext(filePath)
-	switch ext {
+	switch strings.ToLower(filepath.Ext(filePath)) {
 	case ".jpg", ".jpeg":
 		contentType = "image/jpeg"
 	case ".png":
@@ -80,9 +122,12 @@ func (s *StorageService) GetFile(filePath string) ([]byte, string, error) {
 		contentType = "application/pdf"
 	case ".mp4":
 		contentType = "video/mp4"
+	case ".webm":
+		contentType = "video/webm"
+	case ".mov":
+		contentType = "video/quicktime"
 	}
-
-	return data, contentType, nil
+	return contentType
 }
 
 // DeleteFile deletes a file from FTP server
