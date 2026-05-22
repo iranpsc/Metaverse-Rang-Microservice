@@ -1060,21 +1060,14 @@ func buildCategoryResponse(category *trainingpb.CategoryResponse) map[string]int
 		resp["icon"] = category.IconUrl
 	}
 
-	if category.VideosCount > 0 {
-		resp["videos_count"] = category.VideosCount
-	}
+	applyCategoryCountsToJSON(resp, category.VideosCount, category.Stats)
 
-	// Add subcategories
 	if len(category.SubCategories) > 0 {
 		subCats := make([]map[string]interface{}, 0, len(category.SubCategories))
 		for _, subCat := range category.SubCategories {
-			subCats = append(subCats, map[string]interface{}{
-				"id":   subCat.Id,
-				"name": subCat.Name,
-				"slug": subCat.Slug,
-			})
+			subCats = append(subCats, buildSubCategoryInfoJSON(subCat))
 		}
-		resp["sub_categories"] = subCats
+		resp["subcategories"] = subCats
 	}
 
 	return resp
@@ -1104,13 +1097,10 @@ func buildCategoriesResponse(resp *trainingpb.CategoriesResponse) map[string]int
 
 func buildSubCategoryResponse(subCategory *trainingpb.SubCategoryResponse) map[string]interface{} {
 	resp := map[string]interface{}{
-		"id":   subCategory.Id,
-		"name": subCategory.Name,
-		"slug": subCategory.Slug,
-	}
-
-	if subCategory.Description != "" {
-		resp["description"] = subCategory.Description
+		"id":          subCategory.Id,
+		"name":        subCategory.Name,
+		"slug":        subCategory.Slug,
+		"description": subCategory.Description,
 	}
 
 	if subCategory.ImageUrl != "" {
@@ -1128,11 +1118,38 @@ func buildSubCategoryResponse(subCategory *trainingpb.SubCategoryResponse) map[s
 		}
 	}
 
-	if subCategory.VideosCount > 0 {
-		resp["videos_count"] = subCategory.VideosCount
-	}
+	applyCategoryCountsToJSON(resp, subCategory.VideosCount, subCategory.Stats)
 
 	return resp
+}
+
+func buildSubCategoryInfoJSON(subCategory *trainingpb.SubCategoryInfo) map[string]interface{} {
+	resp := map[string]interface{}{
+		"id":          subCategory.Id,
+		"name":        subCategory.Name,
+		"slug":        subCategory.Slug,
+		"description": subCategory.Description,
+	}
+
+	if subCategory.ImageUrl != "" {
+		resp["image"] = subCategory.ImageUrl
+	}
+	if subCategory.IconUrl != "" {
+		resp["icon"] = subCategory.IconUrl
+	}
+
+	applyCategoryCountsToJSON(resp, subCategory.VideosCount, subCategory.Stats)
+
+	return resp
+}
+
+func applyCategoryCountsToJSON(resp map[string]interface{}, videosCount int32, stats *trainingpb.VideoStats) {
+	if stats != nil {
+		resp["views_count"] = stats.ViewsCount
+		resp["likes_count"] = stats.LikesCount
+		resp["dislikes_count"] = stats.DislikesCount
+	}
+	resp["videos_count"] = videosCount
 }
 
 func buildCommentResponse(comment *trainingpb.CommentResponse) map[string]interface{} {

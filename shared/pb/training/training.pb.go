@@ -830,6 +830,7 @@ type CategoryResponse struct {
 	SubCategories []*SubCategoryInfo     `protobuf:"bytes,6,rep,name=sub_categories,json=subCategories,proto3" json:"sub_categories,omitempty"`
 	ImageUrl      string                 `protobuf:"bytes,7,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
 	IconUrl       string                 `protobuf:"bytes,8,opt,name=icon_url,json=iconUrl,proto3" json:"icon_url,omitempty"`
+	Stats         *VideoStats            `protobuf:"bytes,9,opt,name=stats,proto3" json:"stats,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -920,6 +921,13 @@ func (x *CategoryResponse) GetIconUrl() string {
 	return ""
 }
 
+func (x *CategoryResponse) GetStats() *VideoStats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
 type CategoriesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Categories    []*CategoryResponse    `protobuf:"bytes,1,rep,name=categories,proto3" json:"categories,omitempty"`
@@ -982,6 +990,7 @@ type SubCategoryResponse struct {
 	VideosCount   int32                  `protobuf:"varint,6,opt,name=videos_count,json=videosCount,proto3" json:"videos_count,omitempty"`
 	ImageUrl      string                 `protobuf:"bytes,7,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
 	IconUrl       string                 `protobuf:"bytes,8,opt,name=icon_url,json=iconUrl,proto3" json:"icon_url,omitempty"`
+	Stats         *VideoStats            `protobuf:"bytes,9,opt,name=stats,proto3" json:"stats,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1072,6 +1081,13 @@ func (x *SubCategoryResponse) GetIconUrl() string {
 	return ""
 }
 
+func (x *SubCategoryResponse) GetStats() *VideoStats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
+}
+
 type CategoryInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1137,6 +1153,11 @@ type SubCategoryInfo struct {
 	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Slug          string                 `protobuf:"bytes,3,opt,name=slug,proto3" json:"slug,omitempty"`
+	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	VideosCount   int32                  `protobuf:"varint,5,opt,name=videos_count,json=videosCount,proto3" json:"videos_count,omitempty"`
+	ImageUrl      string                 `protobuf:"bytes,6,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
+	IconUrl       string                 `protobuf:"bytes,7,opt,name=icon_url,json=iconUrl,proto3" json:"icon_url,omitempty"`
+	Stats         *VideoStats            `protobuf:"bytes,8,opt,name=stats,proto3" json:"stats,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1190,6 +1211,41 @@ func (x *SubCategoryInfo) GetSlug() string {
 		return x.Slug
 	}
 	return ""
+}
+
+func (x *SubCategoryInfo) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *SubCategoryInfo) GetVideosCount() int32 {
+	if x != nil {
+		return x.VideosCount
+	}
+	return 0
+}
+
+func (x *SubCategoryInfo) GetImageUrl() string {
+	if x != nil {
+		return x.ImageUrl
+	}
+	return ""
+}
+
+func (x *SubCategoryInfo) GetIconUrl() string {
+	if x != nil {
+		return x.IconUrl
+	}
+	return ""
+}
+
+func (x *SubCategoryInfo) GetStats() *VideoStats {
+	if x != nil {
+		return x.Stats
+	}
+	return nil
 }
 
 // Comment Messages

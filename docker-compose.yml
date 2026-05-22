@@ -172,10 +172,9 @@ services:
       DB_DATABASE: metargb_db
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
+      AUTH_SERVICE_ADDR: auth-service:50051
     depends_on:
       mysql:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "50052"]

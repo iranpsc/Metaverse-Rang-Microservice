@@ -77,11 +77,11 @@ func (h *CategoryHandler) GetCategory(ctx context.Context, req *trainingpb.GetCa
 	if len(details.SubCategories) > 0 {
 		resp.SubCategories = make([]*trainingpb.SubCategoryInfo, 0, len(details.SubCategories))
 		for _, subCat := range details.SubCategories {
-			resp.SubCategories = append(resp.SubCategories, &trainingpb.SubCategoryInfo{
-				Id:   subCat.ID,
-				Name: subCat.Name,
-				Slug: subCat.Slug,
-			})
+			var stats *models.SubCategoryStats
+			if details.SubCategoryStats != nil {
+				stats = details.SubCategoryStats[subCat.ID]
+			}
+			resp.SubCategories = append(resp.SubCategories, buildSubCategoryInfoProto(subCat, stats))
 		}
 	}
 
@@ -156,9 +156,7 @@ func buildCategoryProto(category *models.VideoCategory, stats *models.CategorySt
 	if category.Icon != nil {
 		resp.IconUrl = buildUploadURL(*category.Icon)
 	}
-	if stats != nil {
-		resp.VideosCount = stats.VideosCount
-	}
+	applyCategoryStats(resp, stats)
 	return resp
 }
 
@@ -183,8 +181,55 @@ func buildSubCategoryProto(subCategory *models.VideoSubCategory, category *model
 			Slug: category.Slug,
 		}
 	}
-	if stats != nil {
-		resp.VideosCount = stats.VideosCount
-	}
+	applySubCategoryStats(resp, stats)
 	return resp
+}
+
+func buildSubCategoryInfoProto(subCategory *models.VideoSubCategory, stats *models.SubCategoryStats) *trainingpb.SubCategoryInfo {
+	if subCategory == nil {
+		return &trainingpb.SubCategoryInfo{}
+	}
+	info := &trainingpb.SubCategoryInfo{
+		Id:          subCategory.ID,
+		Name:        subCategory.Name,
+		Slug:        subCategory.Slug,
+		Description: subCategory.Description,
+		ImageUrl:    buildUploadURL(subCategory.Image),
+	}
+	if subCategory.Icon != nil {
+		info.IconUrl = buildUploadURL(*subCategory.Icon)
+	}
+	if stats != nil {
+		info.VideosCount = stats.VideosCount
+		info.Stats = &trainingpb.VideoStats{
+			ViewsCount:    stats.ViewsCount,
+			LikesCount:    stats.LikesCount,
+			DislikesCount: stats.DislikesCount,
+		}
+	}
+	return info
+}
+
+func applyCategoryStats(resp *trainingpb.CategoryResponse, stats *models.CategoryStats) {
+	if resp == nil || stats == nil {
+		return
+	}
+	resp.VideosCount = stats.VideosCount
+	resp.Stats = &trainingpb.VideoStats{
+		ViewsCount:    stats.ViewsCount,
+		LikesCount:    stats.LikesCount,
+		DislikesCount: stats.DislikesCount,
+	}
+}
+
+func applySubCategoryStats(resp *trainingpb.SubCategoryResponse, stats *models.SubCategoryStats) {
+	if resp == nil || stats == nil {
+		return
+	}
+	resp.VideosCount = stats.VideosCount
+	resp.Stats = &trainingpb.VideoStats{
+		ViewsCount:    stats.ViewsCount,
+		LikesCount:    stats.LikesCount,
+		DislikesCount: stats.DislikesCount,
+	}
 }

@@ -55,7 +55,7 @@ func LoadConfig() *Config {
 			LoanAccountPIN:        getEnv("PARSIAN_LOAN_ACCOUNT_PIN", ""),
 		},
 		Server: ServerConfig{
-			GRPCPort: getEnv("GRPC_PORT", "50051"),
+			GRPCPort: getEnv("GRPC_PORT", "50052"),
 			HTTPPort: getEnv("HTTP_PORT", "8080"),
 			Locale:   getEnv("LOCALE", "en"),
 		},

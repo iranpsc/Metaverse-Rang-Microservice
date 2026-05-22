@@ -9,14 +9,25 @@ ENV GOSUMDB=off
 # Install build dependencies
 RUN apk add --no-cache git make protoc protobuf-dev
 
+# Install protoc-gen-go and protoc-gen-go-grpc plugins
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+
 WORKDIR /workspace
 
 # Create the proper directory structure
 RUN mkdir -p /workspace/metargb/training-service /workspace/metargb/shared
 
-# Copy shared module first
+# Copy shared module first (proto generated before full shared copy)
 COPY ./shared/go.mod /workspace/metargb/shared/
-COPY ./shared/ /workspace/metargb/shared/
+COPY ./shared/go.sum /workspace/metargb/shared/
+COPY ./shared/proto/ /workspace/metargb/shared/proto/
+COPY ./shared/pkg/ /workspace/metargb/shared/pkg/
+COPY ./shared/pb/ /workspace/metargb/shared/pb/
+ENV PATH="${PATH}:/root/go/bin"
+RUN protoc --go_out=/workspace/metargb/shared/pb/training --go_opt=paths=source_relative \
+        --go-grpc_out=/workspace/metargb/shared/pb/training --go-grpc_opt=paths=source_relative \
+        -I=/workspace/metargb/shared/proto /workspace/metargb/shared/proto/training.proto
 
 # Copy training service
 COPY ./services/training-service/go.mod ./services/training-service/go.sum* /workspace/metargb/training-service/

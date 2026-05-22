@@ -136,6 +136,7 @@ message CategoryResponse {
   repeated SubCategoryInfo sub_categories = 6;
   string image_url = 7;
   string icon_url = 8;
+  VideoStats stats = 9;
 }
 
 message CategoriesResponse {
@@ -152,6 +153,7 @@ message SubCategoryResponse {
   int32 videos_count = 6;
   string image_url = 7;
   string icon_url = 8;
+  VideoStats stats = 9;
 }
 
 message CategoryInfo {
@@ -164,6 +166,11 @@ message SubCategoryInfo {
   uint64 id = 1;
   string name = 2;
   string slug = 3;
+  string description = 4;
+  int32 videos_count = 5;
+  string image_url = 6;
+  string icon_url = 7;
+  VideoStats stats = 8;
 }
 
 // Comment Messages

@@ -79,6 +79,9 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/commercial-service .
 
+# Default config for local paths inside the container (compose env vars take precedence)
+COPY ./services/commercial-service/config.env.sample ./config.env
+
 # Create non-root user
 RUN addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser && \
