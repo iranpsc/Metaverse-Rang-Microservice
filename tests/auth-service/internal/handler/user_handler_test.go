@@ -204,6 +204,10 @@ func TestUserHandler_GetUserLevels(t *testing.T) {
 			t.Errorf("Expected level ID 1, got %d", resp.Data.LatestLevel.Id)
 		}
 
+		if resp.Data.LatestLevel.ImageUrl != "https://admin.example.com/uploads/level1.png" {
+			t.Errorf("Expected level image URL, got %q", resp.Data.LatestLevel.ImageUrl)
+		}
+
 		if resp.Data.ScorePercentageToNextLevel != 42.5 {
 			t.Errorf("Expected score percentage 42.5, got %f", resp.Data.ScorePercentageToNextLevel)
 		}

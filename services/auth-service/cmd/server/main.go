@@ -160,7 +160,8 @@ func main() {
 	}
 
 	// Initialize repositories
-	userRepo := repository.NewUserRepository(db)
+	adminPanelURL := getEnv("ADMIN_PANEL_URL", "")
+	userRepo := repository.NewUserRepository(db, adminPanelURL)
 	tokenRepo := repository.NewTokenRepository(db)
 	cacheRepo := repository.NewCacheRepository(redisClient)
 	accountSecurityRepo := repository.NewAccountSecurityRepository(db)

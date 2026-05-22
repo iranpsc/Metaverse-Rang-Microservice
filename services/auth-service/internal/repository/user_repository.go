@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"metargb/auth-service/internal/models"
@@ -57,11 +58,38 @@ type UserWithRelations struct {
 }
 
 type userRepository struct {
-	db *sql.DB
+	db            *sql.DB
+	adminPanelURL string
 }
 
-func NewUserRepository(db *sql.DB) UserRepository {
-	return &userRepository{db: db}
+func NewUserRepository(db *sql.DB, adminPanelURL string) UserRepository {
+	return &userRepository{
+		db:            db,
+		adminPanelURL: strings.TrimSuffix(adminPanelURL, "/"),
+	}
+}
+
+// formatImageURL formats image URL with admin_panel_url + /uploads/ prefix.
+// Implements Laravel: config('app.admin_panel_url') . '/uploads/' . $this->image->url
+func (r *userRepository) formatImageURL(imageURL string) string {
+	if imageURL == "" {
+		return ""
+	}
+	if strings.HasPrefix(imageURL, "http://") || strings.HasPrefix(imageURL, "https://") {
+		return imageURL
+	}
+	if r.adminPanelURL == "" {
+		path := strings.TrimPrefix(imageURL, "/")
+		if !strings.HasPrefix(path, "uploads/") {
+			return "/uploads/" + path
+		}
+		return "/" + path
+	}
+	path := strings.TrimPrefix(imageURL, "/")
+	if !strings.HasPrefix(path, "uploads/") {
+		path = "uploads/" + path
+	}
+	return r.adminPanelURL + "/" + path
 }
 
 func (r *userRepository) Create(ctx context.Context, user *models.User) error {
@@ -487,6 +515,7 @@ func (r *userRepository) GetUserLatestLevel(ctx context.Context, userID uint64) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest level: %w", err)
 	}
+	level.Image = r.formatImageURL(level.Image)
 	return &level, nil
 }
 
@@ -513,6 +542,7 @@ func (r *userRepository) GetLevelsBelowScore(ctx context.Context, score int32) (
 		if err := rows.Scan(&level.ID, &level.Name, &level.Slug, &level.Score, &level.Image); err != nil {
 			return nil, fmt.Errorf("failed to scan level: %w", err)
 		}
+		level.Image = r.formatImageURL(level.Image)
 		levels = append(levels, &level)
 	}
 

@@ -33,7 +33,7 @@ func setupProfileLimitationTestService(t *testing.T) (ProfileLimitationService, 
 	_, _ = db.Exec("INSERT INTO users (id, name, email, phone, password, code, created_at, updated_at) VALUES (3, 'User 3', 'user3@test.com', '09123456791', 'password', 'USER3', NOW(), NOW())")
 
 	limitationRepo := repository.NewProfileLimitationRepository(db)
-	userRepo := repository.NewUserRepository(db)
+	userRepo := repository.NewUserRepository(db, "")
 	service := NewProfileLimitationService(limitationRepo, userRepo)
 
 	return service, db
