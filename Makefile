@@ -154,7 +154,7 @@ up: init-storage-uploads
 	@echo "Services available at:"
 	@echo "  Kong API Gateway: http://localhost:8000"
 	@echo "  Kong Admin:       http://localhost:8001"
-	@echo "  WebSocket:        http://localhost:3000"
+	@echo "  WebSocket:        http://localhost:3002"
 	@echo ""
 	@echo "Run 'make ps' to check service status"
 	@echo "Run 'make logs' to view logs"
@@ -221,7 +221,11 @@ import-schema:
 	@echo "✅ Schema imported successfully"
 	@echo ""
 	@echo "Verifying tables..."
+ifeq ($(OS),Windows_NT)
+	@docker exec metargb-mysql mysql -uroot -proot_password metargb_db -e "SELECT COUNT(*) as table_count FROM information_schema.tables WHERE table_schema='metargb_db';" 2>nul | findstr /v table_count || echo "Could not verify"
+else
 	@docker exec metargb-mysql mysql -uroot -proot_password metargb_db -e "SELECT COUNT(*) as table_count FROM information_schema.tables WHERE table_schema='metargb_db';" 2>/dev/null | grep -v table_count || echo "Could not verify"
+endif
 
 import-database:
 	@echo "Importing database (schema + data) from metargb_db.sql..."
@@ -252,6 +256,11 @@ dev:
 	@echo "Starting MySQL and Redis..."
 	$(DOCKER_COMPOSE) up -d mysql redis
 	@echo "Waiting for database to be ready..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "Start-Sleep -Seconds 10"
+	@echo "Checking if schema needs to be imported..."
+	@powershell -NoProfile -Command "$$ErrorActionPreference='Continue'; $$tableCount = (docker exec metargb-mysql mysql -uroot -proot_password metargb_db -e \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='metargb_db';\" 2>$$null | Select-Object -Last 1).Trim(); if ($$tableCount -eq '0') { Write-Host 'Importing schema...'; make import-schema } else { Write-Host (\"✅ Database already initialized ({0} tables)\" -f $$tableCount) }"
+else
 	@sleep 10
 	@echo "Checking if schema needs to be imported..."
 	@TABLE_COUNT=$$(docker exec metargb-mysql mysql -uroot -proot_password metargb_db -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='metargb_db';" 2>/dev/null | tail -1); \
@@ -261,6 +270,7 @@ dev:
 	else \
 		echo "✅ Database already initialized ($$TABLE_COUNT tables)"; \
 	fi
+endif
 	@echo ""
 	@echo "Starting all services..."
 	$(DOCKER_COMPOSE) up -d
@@ -279,7 +289,7 @@ start-service:
 	@if [ -z "$(SERVICE)" ]; then \
 		echo "❌ Please specify SERVICE=service-name"; \
 		exit 1; \
-	fif
+	fi
 	$(DOCKER_COMPOSE) start $(SERVICE)
 
 logs-service:

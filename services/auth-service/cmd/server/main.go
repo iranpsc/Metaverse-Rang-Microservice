@@ -14,6 +14,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9/maintnotifications"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -137,6 +138,9 @@ func main() {
 	if err != nil {
 		cancel()
 		log.Fatalf("Failed to parse Redis URL: %v", err)
+	}
+	redisOpts.MaintNotificationsConfig = &maintnotifications.Config{
+		Mode: maintnotifications.ModeDisabled,
 	}
 	redisClient := redis.NewClient(redisOpts)
 

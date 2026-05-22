@@ -16,6 +16,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9/maintnotifications"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -204,6 +205,7 @@ func main() {
 	// Start background goroutine to track uptime
 	go trackUptime()
 
+	http.HandleFunc("/live", liveHandler)
 	http.HandleFunc("/health", healthCheckHandler)
 	http.HandleFunc("/api/health", healthCheckHandler)
 	http.HandleFunc("/metrics", metricsHandler)
@@ -224,6 +226,9 @@ func initRedisClient() {
 	if err != nil {
 		log.Printf("⚠️  Warning: Failed to parse Redis URL: %v", err)
 		return
+	}
+	opts.MaintNotificationsConfig = &maintnotifications.Config{
+		Mode: maintnotifications.ModeDisabled,
 	}
 	redisClient = redis.NewClient(opts)
 
@@ -388,6 +393,13 @@ func getOrCreateUptimeTracker(serviceName string) *ServiceUptime {
 	}
 	serviceUptimes[serviceName] = uptime
 	return uptime
+}
+
+// liveHandler is a fast liveness probe for Docker healthchecks (no dependency checks).
+func liveHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
