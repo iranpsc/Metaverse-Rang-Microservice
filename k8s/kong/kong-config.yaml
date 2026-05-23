@@ -156,6 +156,14 @@ services:
           - name: cors
 
 plugins:
+  # Prometheus metrics (required for Grafana golden signals / API traffic dashboards)
+  - name: prometheus
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+
   # Global rate limiting
   - name: rate-limiting
     config:

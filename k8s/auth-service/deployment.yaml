@@ -21,6 +21,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
+        traffic.sidecar.istio.io/excludeInboundPorts: "9090"
     spec:
       containers:
       - name: auth-service
@@ -76,6 +77,8 @@ spec:
               key: oauth.client.secret
         - name: GRPC_PORT
           value: "50051"
+        - name: METRICS_PORT
+          value: "9090"
         - name: REDIS_HOST
           valueFrom:
             configMapKeyRef:

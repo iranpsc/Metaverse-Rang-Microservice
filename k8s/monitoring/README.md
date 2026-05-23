@@ -1,5 +1,7 @@
 # MetaRGB Monitoring Stack
 
+> **Production Grafana empty but local works?** See **[PRODUCTION.md](./PRODUCTION.md)** for the full fix guide (Istio scrape blocking, Kong plugin, dashboard metric mismatch, image rollout).
+
 ## Quick Reference
 
 ### Access Dashboards

@@ -21,6 +21,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
+        traffic.sidecar.istio.io/excludeInboundPorts: "9090"
     spec:
       containers:
       - name: commercial-service
