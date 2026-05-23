@@ -48,21 +48,24 @@ func NewUserServiceWithDependencies(
 	}
 }
 
-// UserListItem represents a user in the list
+// UserListItem represents a user in the list (Laravel UserResource)
 type UserListItem struct {
-	ID            uint64
-	Name          string
-	Code          string
-	Score         int32
-	CurrentLevel  *LevelSummary
-	PreviousLevel *LevelSummary
-	ProfilePhoto  string
+	ID             uint64
+	Name           string
+	Code           string
+	Score          int32
+	CurrentLevel   *LevelSummary
+	PreviousLevels []*LevelSummary
+	ProfilePhoto   string
 }
 
-// LevelSummary represents basic level information
+// LevelSummary represents level information for list/cards
 type LevelSummary struct {
-	ID   uint64
-	Name string
+	ID    uint64
+	Name  string
+	Slug  string
+	Score int32
+	Image string
 }
 
 // UserLevelsData represents user level ladder data
@@ -142,6 +145,16 @@ func (s *userService) ListUsers(ctx context.Context, search string, orderBy stri
 		return nil, 0, 0, fmt.Errorf("failed to list users: %w", err)
 	}
 
+	userIDs := make([]uint64, 0, len(users))
+	for _, ur := range users {
+		userIDs = append(userIDs, ur.User.ID)
+	}
+
+	levelsByUser, err := s.userRepo.GetUsersLevelsForList(ctx, userIDs)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to load user levels: %w", err)
+	}
+
 	result := make([]*UserListItem, 0, len(users))
 	for _, ur := range users {
 		item := &UserListItem{
@@ -150,38 +163,42 @@ func (s *userService) ListUsers(ctx context.Context, search string, orderBy stri
 			Score: ur.User.Score,
 		}
 
-		// Prefer KYC name if available
 		if ur.KYCName != nil {
 			item.Name = *ur.KYCName
 		} else {
 			item.Name = ur.User.Name
 		}
 
-		// Set current level
-		if ur.CurrentLevelID != nil && ur.CurrentLevelName != nil {
-			item.CurrentLevel = &LevelSummary{
-				ID:   *ur.CurrentLevelID,
-				Name: *ur.CurrentLevelName,
-			}
-		}
-
-		// Set previous level
-		if ur.PreviousLevelID != nil && ur.PreviousLevelName != nil {
-			item.PreviousLevel = &LevelSummary{
-				ID:   *ur.PreviousLevelID,
-				Name: *ur.PreviousLevelName,
-			}
-		}
-
-		// Set profile photo URL
 		if ur.ProfilePhotoURL != nil {
 			item.ProfilePhoto = *ur.ProfilePhotoURL
+		}
+
+		if bundle := levelsByUser[ur.User.ID]; bundle != nil {
+			if bundle.Current != nil {
+				item.CurrentLevel = levelSummaryFromRepo(bundle.Current)
+			}
+			for _, lvl := range bundle.Previous {
+				item.PreviousLevels = append(item.PreviousLevels, levelSummaryFromRepo(lvl))
+			}
 		}
 
 		result = append(result, item)
 	}
 
 	return result, totalCount, limit, nil
+}
+
+func levelSummaryFromRepo(lvl *repository.UserListLevel) *LevelSummary {
+	if lvl == nil {
+		return nil
+	}
+	return &LevelSummary{
+		ID:    lvl.ID,
+		Name:  lvl.Name,
+		Slug:  lvl.Slug,
+		Score: lvl.Score,
+		Image: lvl.Image,
+	}
 }
 
 // GetUserLevels returns user's level ladder data

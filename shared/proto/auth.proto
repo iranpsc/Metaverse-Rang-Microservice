@@ -396,15 +396,21 @@ message CitizenKYC {
 message CitizenCustoms {
   string occupation = 1;
   string education = 2;
-  string prediction = 3;
-  map<string, string> passions = 4; // passion_key -> icon_url
+  string loved_city = 3;
+  string loved_country = 4;
+  string loved_language = 5;
+  string prediction = 6;
+  string memory = 7;
+  string about = 8;
+  map<string, string> passions = 9; // passion_key -> icon_url (Laravel: /uploads/favorites/{key}.png)
 }
 
 message CitizenLevel {
   uint64 id = 1;
-  string title = 2;
-  string description = 3;
+  string name = 2;
+  string slug = 3;
   int32 score = 4;
+  string image = 5;
 }
 
 message GetCitizenReferralsRequest {
@@ -757,10 +763,10 @@ message UserListItem {
   string profile_photo = 6;     // Latest profile photo URL
 }
 
-// UserLevelInfo - level information for user list
+// UserLevelInfo - level information for user list (Laravel UserResource)
 message UserLevelInfo {
-  Level current = 1;            // Current level
-  Level previous = 2;           // Previous level
+  Level current = 1;            // Latest level (orderByDesc levels.id)
+  repeated Level previous = 2;  // All achieved levels from level_user pivot
 }
 
 // PaginationLinks - pagination links for simple pagination

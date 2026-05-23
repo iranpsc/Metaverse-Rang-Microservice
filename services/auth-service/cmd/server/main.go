@@ -225,7 +225,12 @@ func main() {
 		profilePhotoRepo,
 	)
 	kycService := service.NewKYCService(kycRepo, userRepo)
-	citizenService := service.NewCitizenService(citizenRepo, userRepo)
+	citizenService := service.NewCitizenService(
+		citizenRepo,
+		userRepo,
+		helperService,
+		getEnv("APP_URL", "http://localhost:8000"),
+	)
 	personalInfoService := service.NewPersonalInfoService(personalInfoRepo)
 	profileLimitationRepo := repository.NewProfileLimitationRepository(db)
 	profileLimitationService := service.NewProfileLimitationService(profileLimitationRepo, userRepo)

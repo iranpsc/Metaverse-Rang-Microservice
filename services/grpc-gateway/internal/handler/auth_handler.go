@@ -536,20 +536,19 @@ func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 			"score": item.Score,
 		}
 
-		// Add levels if available
 		if item.Levels != nil {
 			levelsData := map[string]interface{}{}
 			if item.Levels.Current != nil {
-				levelsData["current"] = map[string]interface{}{
-					"id":   item.Levels.Current.Id,
-					"name": item.Levels.Current.Title,
-				}
+				levelsData["current"] = userListLevelToHTTP(item.Levels.Current)
 			}
-			if item.Levels.Previous != nil {
-				levelsData["previous"] = map[string]interface{}{
-					"id":   item.Levels.Previous.Id,
-					"name": item.Levels.Previous.Title,
+			if len(item.Levels.Previous) > 0 {
+				previous := make([]map[string]interface{}, 0, len(item.Levels.Previous))
+				for _, lvl := range item.Levels.Previous {
+					if lvl != nil {
+						previous = append(previous, userListLevelToHTTP(lvl))
+					}
 				}
+				levelsData["previous"] = previous
 			}
 			if len(levelsData) > 0 {
 				userData["levels"] = levelsData
@@ -1979,7 +1978,7 @@ func (h *AuthHandler) GetCitizenProfile(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, citizenProfileJSONRoundTrip(buildCitizenProfileHTTPResponse(resp)))
 }
 
 // GetCitizenReferrals handles GET /api/citizen/{code}/referrals

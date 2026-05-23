@@ -8,76 +8,104 @@ import (
 
 	"metargb/auth-service/internal/models"
 	"metargb/auth-service/internal/repository"
-	"metargb/shared/pkg/helpers"
+)
+
+const (
+	citizenPositionValue = "مدیریت موازی"
+	citizenAvatarURL     = "https://irpsc.com/gb.glb"
 )
 
 type CitizenService interface {
 	GetCitizenProfile(ctx context.Context, code string) (*models.CitizenProfile, error)
 	GetCitizenReferrals(ctx context.Context, code string, search string, page int32) ([]*models.CitizenReferral, *models.PaginationMeta, error)
 	GetCitizenReferralChart(ctx context.Context, code string, rangeType string) (*models.ReferralChartData, error)
+	ScorePercentageToNextLevel(ctx context.Context, userID uint64, score int32) float64
+	AbsoluteURL(path string) string
+	PassionIconURL(passion string) string
+	NationalityFlagURL() string
+	CitizenPosition() string
+	CitizenAvatar() string
 }
 
 type citizenService struct {
 	citizenRepo repository.CitizenRepository
 	userRepo    repository.UserRepository
+	helperSvc   HelperService
+	appURL      string
 }
 
-func NewCitizenService(citizenRepo repository.CitizenRepository, userRepo repository.UserRepository) CitizenService {
+func NewCitizenService(
+	citizenRepo repository.CitizenRepository,
+	userRepo repository.UserRepository,
+	helperSvc HelperService,
+	appURL string,
+) CitizenService {
 	return &citizenService{
 		citizenRepo: citizenRepo,
 		userRepo:    userRepo,
+		helperSvc:   helperSvc,
+		appURL:      strings.TrimSuffix(appURL, "/"),
 	}
 }
 
-// GetCitizenProfile retrieves a citizen's public profile with privacy filtering
+// GetCitizenProfile retrieves a citizen's public profile (privacy applied in handler).
 func (s *citizenService) GetCitizenProfile(ctx context.Context, code string) (*models.CitizenProfile, error) {
 	profile, err := s.citizenRepo.GetCitizenByCode(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get citizen profile: %w", err)
 	}
 	if profile == nil {
-		return nil, nil // Not found
+		return nil, nil
 	}
 
-	// Get levels if privacy allows
 	if s.checkPrivacy(profile.Privacy, "level") {
-		currentLevel, achievedLevels, err := s.citizenRepo.GetCitizenLevels(ctx, profile.ID)
-		if err == nil {
-			profile.CurrentLevel = currentLevel
-			profile.AchievedLevels = achievedLevels
+		currentLevel, err := s.userRepo.GetUserLatestLevel(ctx, profile.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current level: %w", err)
+		}
+		if currentLevel != nil {
+			profile.CurrentLevel = &models.CitizenLevel{
+				ID:    currentLevel.ID,
+				Name:  currentLevel.Name,
+				Slug:  currentLevel.Slug,
+				Score: currentLevel.Score,
+				Image: currentLevel.Image,
+			}
+
+			subLevels, err := s.userRepo.GetLevelsBelowScore(ctx, currentLevel.Score)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get achieved levels: %w", err)
+			}
+			for _, level := range subLevels {
+				profile.AchievedLevels = append(profile.AchievedLevels, &models.CitizenLevel{
+					ID:    level.ID,
+					Name:  level.Name,
+					Slug:  level.Slug,
+					Score: level.Score,
+					Image: level.Image,
+				})
+			}
 		}
 	}
-
-	// Set avatar URL if privacy allows
-	if s.checkPrivacy(profile.Privacy, "avatar") {
-		// Avatar URL format: /uploads/avatars/{user_id}.svg
-		profile.Avatar = fmt.Sprintf("/uploads/avatars/%d.svg", profile.ID)
-	}
-
-	// Apply privacy filtering
-	s.applyPrivacyFilters(profile)
 
 	return profile, nil
 }
 
 // GetCitizenReferrals retrieves referrals for a citizen with pagination and search
 func (s *citizenService) GetCitizenReferrals(ctx context.Context, code string, search string, page int32) ([]*models.CitizenReferral, *models.PaginationMeta, error) {
-	// Get user by code to get referrer_id
 	user, err := s.userRepo.FindByCode(ctx, code)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find user: %w", err)
 	}
 	if user == nil {
-		return nil, nil, nil // Not found
+		return nil, nil, nil
 	}
 
-	// Get referrals
 	referrals, meta, err := s.citizenRepo.GetCitizenReferrals(ctx, user.ID, search, int(page), 10)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get referrals: %w", err)
 	}
 
-	// Get referral orders for each referral
 	for _, referral := range referrals {
 		orders, err := s.citizenRepo.GetCitizenReferralOrders(ctx, referral.ID)
 		if err == nil {
@@ -90,16 +118,14 @@ func (s *citizenService) GetCitizenReferrals(ctx context.Context, code string, s
 
 // GetCitizenReferralChart retrieves referral chart data for a citizen
 func (s *citizenService) GetCitizenReferralChart(ctx context.Context, code string, rangeType string) (*models.ReferralChartData, error) {
-	// Get user by code to get referrer_id
 	user, err := s.userRepo.FindByCode(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find user: %w", err)
 	}
 	if user == nil {
-		return nil, nil // Not found
+		return nil, nil
 	}
 
-	// Validate and normalize range type
 	if rangeType == "" {
 		rangeType = "daily"
 	}
@@ -108,97 +134,73 @@ func (s *citizenService) GetCitizenReferralChart(ctx context.Context, code strin
 		rangeType = "daily"
 	}
 
-	// Get chart data
 	chartData, err := s.citizenRepo.GetCitizenReferralChartData(ctx, user.ID, rangeType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chart data: %w", err)
 	}
 
-	// Chart labels will be converted to Jalali format in the handler
-	// The repository returns Gregorian dates that need conversion
-
 	return chartData, nil
 }
 
-// applyPrivacyFilters applies privacy settings to filter profile data
-func (s *citizenService) applyPrivacyFilters(profile *models.CitizenProfile) {
-	if profile.Privacy == nil {
-		// Default: show all if no privacy settings
-		return
+// ScorePercentageToNextLevel returns Laravel getScorePercentageToNextLevel for a citizen.
+func (s *citizenService) ScorePercentageToNextLevel(ctx context.Context, userID uint64, score int32) float64 {
+	if s.helperSvc == nil {
+		return 0
 	}
-
-	// Filter KYC data based on privacy flags
-	if profile.KYC != nil {
-		if !s.checkPrivacy(profile.Privacy, "nationality") {
-			// Don't show nationality
-		}
-		if !s.checkPrivacy(profile.Privacy, "fname") {
-			profile.KYC.Fname = ""
-		}
-		if !s.checkPrivacy(profile.Privacy, "lname") {
-			profile.KYC.Lname = ""
-		}
-		if !s.checkPrivacy(profile.Privacy, "birth_date") {
-			profile.KYC.Birthdate = time.Time{}
-		}
-		if !s.checkPrivacy(profile.Privacy, "phone") {
-			profile.Phone = ""
-		}
-		if !s.checkPrivacy(profile.Privacy, "email") {
-			profile.Email = ""
-		}
-		if !s.checkPrivacy(profile.Privacy, "address") {
-			profile.KYC.Address = ""
-		}
+	pct, err := s.helperSvc.GetScorePercentageToNextLevel(ctx, userID, score)
+	if err != nil {
+		return 0
 	}
-
-	// Filter profile photos
-	if !s.checkPrivacy(profile.Privacy, "profile_photos") {
-		profile.ProfilePhotos = []*models.ProfilePhoto{}
-	}
-
-	// Filter score and level data
-	if !s.checkPrivacy(profile.Privacy, "score") {
-		profile.Score = 0
-	}
-
-	// Filter avatar
-	if !s.checkPrivacy(profile.Privacy, "avatar") {
-		profile.Avatar = ""
-	}
-
-	// Filter level data
-	if !s.checkPrivacy(profile.Privacy, "level") {
-		profile.CurrentLevel = nil
-		profile.AchievedLevels = []*models.CitizenLevel{}
-	}
+	return pct
 }
 
-// checkPrivacy checks if a privacy flag allows showing the field
-// Returns true if the field should be shown (privacy allows it)
+// AbsoluteURL prepends APP_URL to a relative path (Laravel url() helper).
+func (s *citizenService) AbsoluteURL(path string) string {
+	if path == "" {
+		return ""
+	}
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		return path
+	}
+	path = strings.TrimPrefix(path, "/")
+	if s.appURL == "" {
+		return "/" + path
+	}
+	return s.appURL + "/" + path
+}
+
+// PassionIconURL returns the Laravel favorites icon URL for an enabled passion.
+func (s *citizenService) PassionIconURL(passion string) string {
+	return s.AbsoluteURL("uploads/favorites/" + passion + ".png")
+}
+
+// NationalityFlagURL returns the Laravel nationality flag URL.
+func (s *citizenService) NationalityFlagURL() string {
+	return s.AbsoluteURL("uploads/flags/iran.svg")
+}
+
+// CitizenPosition returns the hardcoded position when privacy allows.
+func (s *citizenService) CitizenPosition() string {
+	return citizenPositionValue
+}
+
+// CitizenAvatar returns the hardcoded 3D avatar URL when privacy allows.
+func (s *citizenService) CitizenAvatar() string {
+	return citizenAvatarURL
+}
+
+// checkPrivacy mirrors Laravel PersonalInfo::checkFilter — default hidden.
 func (s *citizenService) checkPrivacy(privacy map[string]bool, field string) bool {
 	if privacy == nil {
-		return true // Default: show all
+		return false
 	}
-
-	// Check if field exists in privacy map
-	// If it exists and is false, hide it
-	// If it exists and is true, show it
-	// If it doesn't exist, default to showing it
-	if value, exists := privacy[field]; exists {
-		return value
-	}
-
-	// Default: show if not explicitly set
-	return true
+	return privacy[field]
 }
 
-// FormatJalaliDateTime formats a time.Time to Jalali format Y-m-d H:i:s
-func FormatJalaliDateTime(t time.Time) string {
-	return helpers.FormatJalaliDateTime(t)
-}
-
-// FormatJalaliDate formats a time.Time to Jalali format Y/m/d
-func FormatJalaliDate(t time.Time) string {
-	return helpers.FormatJalaliDate(t)
+// FormatRegisteredAt formats email_verified_at as Jalali Y/m/d (Laravel PersonalInfo).
+func FormatRegisteredAt(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return FormatJalaliDate(t)
 }

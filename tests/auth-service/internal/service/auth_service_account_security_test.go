@@ -824,6 +824,10 @@ func (f *fakeUserRepository) ListUsers(context.Context, string, string, int32, i
 	panic("unexpected call to ListUsers")
 }
 
+func (f *fakeUserRepository) GetUsersLevelsForList(context.Context, []uint64) (map[uint64]*repository.UserListLevels, error) {
+	panic("unexpected call to GetUsersLevelsForList")
+}
+
 func (f *fakeUserRepository) GetFollowersCount(context.Context, uint64) (int32, error) {
 	panic("unexpected call to GetFollowersCount")
 }

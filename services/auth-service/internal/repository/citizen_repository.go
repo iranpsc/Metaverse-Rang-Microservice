@@ -31,26 +31,26 @@ func NewCitizenRepository(db *sql.DB) CitizenRepository {
 func (r *citizenRepository) GetCitizenByCode(ctx context.Context, code string) (*models.CitizenProfile, error) {
 	// Get user by code (case-insensitive)
 	query := `
-		SELECT id, name, email, phone, code, score, created_at
+		SELECT id, name, email, phone, code, score, email_verified_at
 		FROM users
 		WHERE LOWER(code) = LOWER(?)
 		LIMIT 1
 	`
 
 	user := &models.CitizenProfile{}
-	var createdAt time.Time
+	var emailVerifiedAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, query, code).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Phone, &user.Code, &user.Score, &createdAt,
+		&user.ID, &user.Name, &user.Email, &user.Phone, &user.Code, &user.Score, &emailVerifiedAt,
 	)
-	// Position is not stored in the database; it's a privacy-controlled field with a hardcoded value in Laravel
-	// Leave it empty here - privacy filtering will control if it's included in the response
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to find citizen by code: %w", err)
 	}
-	user.RegisteredAt = createdAt
+	if emailVerifiedAt.Valid {
+		user.EmailVerifiedAt = emailVerifiedAt.Time
+	}
 
 	// Get KYC data
 	kycQuery := `
@@ -432,71 +432,9 @@ func (r *citizenRepository) GetCitizenReferralChartData(ctx context.Context, ref
 	}, nil
 }
 
-// GetCitizenLevels retrieves current level and all achieved levels for a user
+// GetCitizenLevels is deprecated; use UserRepository.GetUserLatestLevel and GetLevelsBelowScore.
 func (r *citizenRepository) GetCitizenLevels(ctx context.Context, userID uint64) (*models.CitizenLevel, []*models.CitizenLevel, error) {
-	// Get current level (latest level_user entry)
-	currentLevelQuery := `
-		SELECT l.id, l.name, l.description, l.score
-		FROM levels l
-		INNER JOIN level_user lu ON lu.level_id = l.id
-		WHERE lu.user_id = ?
-		ORDER BY lu.id DESC
-		LIMIT 1
-	`
-
-	var currentLevel *models.CitizenLevel
-	var levelID uint64
-	var name, description sql.NullString
-	var score sql.NullInt32
-	err := r.db.QueryRowContext(ctx, currentLevelQuery, userID).Scan(&levelID, &name, &description, &score)
-	if err == nil {
-		currentLevel = &models.CitizenLevel{
-			ID: levelID,
-		}
-		if name.Valid {
-			currentLevel.Title = name.String
-		}
-		if description.Valid {
-			currentLevel.Description = description.String
-		}
-		if score.Valid {
-			currentLevel.Score = score.Int32
-		}
-	}
-
-	// Get all achieved levels (all level_user entries for this user)
-	achievedLevelsQuery := `
-		SELECT l.id, l.name, l.description, l.score
-		FROM levels l
-		INNER JOIN level_user lu ON lu.level_id = l.id
-		WHERE lu.user_id = ?
-		ORDER BY l.score ASC
-	`
-
-	var achievedLevels []*models.CitizenLevel
-	rows, err := r.db.QueryContext(ctx, achievedLevelsQuery, userID)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var level models.CitizenLevel
-			var name, description sql.NullString
-			var score sql.NullInt32
-			if err := rows.Scan(&level.ID, &name, &description, &score); err == nil {
-				if name.Valid {
-					level.Title = name.String
-				}
-				if description.Valid {
-					level.Description = description.String
-				}
-				if score.Valid {
-					level.Score = score.Int32
-				}
-				achievedLevels = append(achievedLevels, &level)
-			}
-		}
-	}
-
-	return currentLevel, achievedLevels, nil
+	return nil, nil, nil
 }
 
 func buildPlaceholders(count int) string {

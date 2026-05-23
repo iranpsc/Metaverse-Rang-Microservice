@@ -228,24 +228,13 @@ func (h *userHandler) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (
 			Score: user.Score,
 		}
 
-		// Set current level
-		if user.CurrentLevel != nil {
-			item.Levels = &pb.UserLevelInfo{
-				Current: &pb.Level{
-					Id:    user.CurrentLevel.ID,
-					Title: user.CurrentLevel.Name, // Level uses Title field
-				},
+		if user.CurrentLevel != nil || len(user.PreviousLevels) > 0 {
+			item.Levels = &pb.UserLevelInfo{}
+			if user.CurrentLevel != nil {
+				item.Levels.Current = userListLevelToProto(user.CurrentLevel)
 			}
-		}
-
-		// Set previous level
-		if user.PreviousLevel != nil {
-			if item.Levels == nil {
-				item.Levels = &pb.UserLevelInfo{}
-			}
-			item.Levels.Previous = &pb.Level{
-				Id:    user.PreviousLevel.ID,
-				Title: user.PreviousLevel.Name, // Level uses Title field
+			for _, lvl := range user.PreviousLevels {
+				item.Levels.Previous = append(item.Levels.Previous, userListLevelToProto(lvl))
 			}
 		}
 
@@ -388,6 +377,19 @@ func (h *userHandler) GetUserFeaturesCount(ctx context.Context, req *pb.GetUserF
 	}
 
 	return response, nil
+}
+
+func userListLevelToProto(lvl *service.LevelSummary) *pb.Level {
+	if lvl == nil {
+		return nil
+	}
+	return &pb.Level{
+		Id:       lvl.ID,
+		Title:    lvl.Name,
+		Score:    lvl.Score,
+		Slug:     lvl.Slug,
+		ImageUrl: lvl.Image,
+	}
 }
 
 // convertProfileLimitationToProtoForUser converts a ProfileLimitation model to proto for user service

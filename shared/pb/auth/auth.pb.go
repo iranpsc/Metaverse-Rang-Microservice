@@ -2858,13 +2858,18 @@ func (x *CitizenKYC) GetAddress() string {
 }
 
 type CitizenCustoms struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Occupation    string                 `protobuf:"bytes,1,opt,name=occupation,proto3" json:"occupation,omitempty"`
-	Education     string                 `protobuf:"bytes,2,opt,name=education,proto3" json:"education,omitempty"`
-	Prediction    string                 `protobuf:"bytes,3,opt,name=prediction,proto3" json:"prediction,omitempty"`
-	Passions      map[string]string      `protobuf:"bytes,4,rep,name=passions,proto3" json:"passions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // passion_key -> icon_url
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Occupation     string                 `protobuf:"bytes,1,opt,name=occupation,proto3" json:"occupation,omitempty"`
+	Education      string                 `protobuf:"bytes,2,opt,name=education,proto3" json:"education,omitempty"`
+	LovedCity      string                 `protobuf:"bytes,3,opt,name=loved_city,json=lovedCity,proto3" json:"loved_city,omitempty"`
+	LovedCountry   string                 `protobuf:"bytes,4,opt,name=loved_country,json=lovedCountry,proto3" json:"loved_country,omitempty"`
+	LovedLanguage  string                 `protobuf:"bytes,5,opt,name=loved_language,json=lovedLanguage,proto3" json:"loved_language,omitempty"`
+	Prediction     string                 `protobuf:"bytes,6,opt,name=prediction,proto3" json:"prediction,omitempty"`
+	Memory         string                 `protobuf:"bytes,7,opt,name=memory,proto3" json:"memory,omitempty"`
+	About          string                 `protobuf:"bytes,8,opt,name=about,proto3" json:"about,omitempty"`
+	Passions       map[string]string      `protobuf:"bytes,9,rep,name=passions,proto3" json:"passions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CitizenCustoms) Reset() {
@@ -2911,9 +2916,44 @@ func (x *CitizenCustoms) GetEducation() string {
 	return ""
 }
 
+func (x *CitizenCustoms) GetLovedCity() string {
+	if x != nil {
+		return x.LovedCity
+	}
+	return ""
+}
+
+func (x *CitizenCustoms) GetLovedCountry() string {
+	if x != nil {
+		return x.LovedCountry
+	}
+	return ""
+}
+
+func (x *CitizenCustoms) GetLovedLanguage() string {
+	if x != nil {
+		return x.LovedLanguage
+	}
+	return ""
+}
+
 func (x *CitizenCustoms) GetPrediction() string {
 	if x != nil {
 		return x.Prediction
+	}
+	return ""
+}
+
+func (x *CitizenCustoms) GetMemory() string {
+	if x != nil {
+		return x.Memory
+	}
+	return ""
+}
+
+func (x *CitizenCustoms) GetAbout() string {
+	if x != nil {
+		return x.About
 	}
 	return ""
 }
@@ -2928,9 +2968,10 @@ func (x *CitizenCustoms) GetPassions() map[string]string {
 type CitizenLevel struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Slug          string                 `protobuf:"bytes,3,opt,name=slug,proto3" json:"slug,omitempty"`
 	Score         int32                  `protobuf:"varint,4,opt,name=score,proto3" json:"score,omitempty"`
+	Image         string                 `protobuf:"bytes,5,opt,name=image,proto3" json:"image,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2972,16 +3013,16 @@ func (x *CitizenLevel) GetId() uint64 {
 	return 0
 }
 
-func (x *CitizenLevel) GetTitle() string {
+func (x *CitizenLevel) GetName() string {
 	if x != nil {
-		return x.Title
+		return x.Name
 	}
 	return ""
 }
 
-func (x *CitizenLevel) GetDescription() string {
+func (x *CitizenLevel) GetSlug() string {
 	if x != nil {
-		return x.Description
+		return x.Slug
 	}
 	return ""
 }
@@ -2991,6 +3032,13 @@ func (x *CitizenLevel) GetScore() int32 {
 		return x.Score
 	}
 	return 0
+}
+
+func (x *CitizenLevel) GetImage() string {
+	if x != nil {
+		return x.Image
+	}
+	return ""
 }
 
 type GetCitizenReferralsRequest struct {
@@ -6325,8 +6373,8 @@ func (x *UserListItem) GetProfilePhoto() string {
 // UserLevelInfo - level information for user list
 type UserLevelInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Current       *Level                 `protobuf:"bytes,1,opt,name=current,proto3" json:"current,omitempty"`   // Current level
-	Previous      *Level                 `protobuf:"bytes,2,opt,name=previous,proto3" json:"previous,omitempty"` // Previous level
+	Current       *Level                 `protobuf:"bytes,1,opt,name=current,proto3" json:"current,omitempty"`     // Current level
+	Previous      []*Level               `protobuf:"bytes,2,rep,name=previous,proto3" json:"previous,omitempty"` // All achieved levels
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6368,7 +6416,7 @@ func (x *UserLevelInfo) GetCurrent() *Level {
 	return nil
 }
 
-func (x *UserLevelInfo) GetPrevious() *Level {
+func (x *UserLevelInfo) GetPrevious() []*Level {
 	if x != nil {
 		return x.Previous
 	}

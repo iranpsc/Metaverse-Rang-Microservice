@@ -6,14 +6,13 @@ import (
 
 // CitizenProfile represents a citizen's public profile data
 type CitizenProfile struct {
-	ID             uint64
-	Name           string
-	Email          string
-	Phone          string
-	Code           string
-	Position       string // User position field
-	Score          int32
-	RegisteredAt   time.Time
+	ID              uint64
+	Name            string
+	Email           string
+	Phone           string
+	Code            string
+	Score           int32
+	EmailVerifiedAt time.Time
 	KYC            *CitizenKYC
 	Privacy        map[string]bool
 	ProfilePhotos  []*ProfilePhoto
@@ -95,10 +94,11 @@ type ChartDataPoint struct {
 	TotalAmount int64
 }
 
-// CitizenLevel represents level information for citizen profile
+// CitizenLevel represents level information for citizen profile (Laravel PersonalInfo)
 type CitizenLevel struct {
-	ID          uint64
-	Title       string
-	Description string
-	Score       int32
+	ID    uint64
+	Name  string
+	Slug  string
+	Score int32
+	Image string
 }

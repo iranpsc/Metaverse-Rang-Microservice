@@ -27,6 +27,7 @@ type UserRepository interface {
 	IsPhoneTaken(ctx context.Context, phone string, excludeUserID uint64) (bool, error)
 	// Users API methods
 	ListUsers(ctx context.Context, search string, orderBy string, page int32, limit int32) ([]*UserWithRelations, int32, error)
+	GetUsersLevelsForList(ctx context.Context, userIDs []uint64) (map[uint64]*UserListLevels, error)
 	GetFollowersCount(ctx context.Context, userID uint64) (int32, error)
 	GetFollowingCount(ctx context.Context, userID uint64) (int32, error)
 	GetLatestProfilePhotoURL(ctx context.Context, userID uint64) (string, error)
@@ -48,13 +49,24 @@ type UserLevel struct {
 
 // UserWithRelations represents a user with related data for listing
 type UserWithRelations struct {
-	User              *models.User
-	KYCName           *string // Full name from KYC if available
-	CurrentLevelID    *uint64
-	CurrentLevelName  *string
-	PreviousLevelID   *uint64
-	PreviousLevelName *string
-	ProfilePhotoURL   *string
+	User            *models.User
+	KYCName         *string // Full name from KYC if available
+	ProfilePhotoURL *string
+}
+
+// UserListLevel is a level row for GET /api/users (Laravel UserResource levels)
+type UserListLevel struct {
+	ID    uint64
+	Name  string
+	Slug  string
+	Score int32
+	Image string
+}
+
+// UserListLevels holds current + all achieved levels for one user in the list endpoint
+type UserListLevels struct {
+	Current  *UserListLevel
+	Previous []*UserListLevel
 }
 
 type userRepository struct {
@@ -317,22 +329,18 @@ func (r *userRepository) ListUsers(ctx context.Context, search string, orderBy s
 	case "score":
 		orderClause = "ORDER BY u.score DESC"
 	case "registered_at_asc":
-		orderClause = "ORDER BY u.created_at ASC"
+		orderClause = "ORDER BY u.email_verified_at ASC"
 	case "registered_at_desc":
-		orderClause = "ORDER BY u.created_at DESC"
+		orderClause = "ORDER BY u.email_verified_at DESC"
 	}
 
-	// Query to get users with relations
+	// Query to get users with relations (levels loaded in batch via GetUsersLevelsForList)
 	query := fmt.Sprintf(`
 		SELECT 
 			u.id, u.name, u.email, u.phone, u.password, u.code, u.referrer_id, u.score, u.ip,
 			u.last_seen, u.email_verified_at, u.phone_verified_at, u.access_token,
 			u.refresh_token, u.token_type, u.expires_in, u.created_at, u.updated_at,
 			k.fname, k.lname,
-			(SELECT level_id FROM level_user WHERE user_id = u.id ORDER BY id DESC LIMIT 1) as current_level_id,
-			(SELECT name FROM levels WHERE id = (SELECT level_id FROM level_user WHERE user_id = u.id ORDER BY id DESC LIMIT 1)) as current_level_name,
-			(SELECT level_id FROM level_user WHERE user_id = u.id ORDER BY id DESC LIMIT 1 OFFSET 1) as previous_level_id,
-			(SELECT name FROM levels WHERE id = (SELECT level_id FROM level_user WHERE user_id = u.id ORDER BY id DESC LIMIT 1 OFFSET 1)) as previous_level_name,
 			(SELECT url FROM images WHERE imageable_type = 'App\\Models\\User' AND imageable_id = u.id ORDER BY created_at DESC LIMIT 1) as profile_photo_url
 		FROM users u
 		LEFT JOIN kycs k ON k.user_id = u.id AND k.status = 1
@@ -355,8 +363,6 @@ func (r *userRepository) ListUsers(ctx context.Context, search string, orderBy s
 		ur := &UserWithRelations{User: user}
 
 		var kycFname, kycLname sql.NullString
-		var currentLevelID, previousLevelID sql.NullInt64
-		var currentLevelName, previousLevelName sql.NullString
 		var profilePhotoURL sql.NullString
 
 		err := rows.Scan(
@@ -366,8 +372,6 @@ func (r *userRepository) ListUsers(ctx context.Context, search string, orderBy s
 			&user.RefreshToken, &user.TokenType, &user.ExpiresIn,
 			&user.CreatedAt, &user.UpdatedAt,
 			&kycFname, &kycLname,
-			&currentLevelID, &currentLevelName,
-			&previousLevelID, &previousLevelName,
 			&profilePhotoURL,
 		)
 		if err != nil {
@@ -380,26 +384,6 @@ func (r *userRepository) ListUsers(ctx context.Context, search string, orderBy s
 			ur.KYCName = &fullName
 		}
 
-		// Set level info
-		if currentLevelID.Valid {
-			id := uint64(currentLevelID.Int64)
-			ur.CurrentLevelID = &id
-			if currentLevelName.Valid {
-				name := currentLevelName.String
-				ur.CurrentLevelName = &name
-			}
-		}
-
-		if previousLevelID.Valid {
-			id := uint64(previousLevelID.Int64)
-			ur.PreviousLevelID = &id
-			if previousLevelName.Valid {
-				name := previousLevelName.String
-				ur.PreviousLevelName = &name
-			}
-		}
-
-		// Set profile photo
 		if profilePhotoURL.Valid {
 			url := profilePhotoURL.String
 			ur.ProfilePhotoURL = &url
@@ -421,6 +405,87 @@ func (r *userRepository) ListUsers(ctx context.Context, search string, orderBy s
 	}
 
 	return users, totalCount, nil
+}
+
+// GetUsersLevelsForList loads all achieved levels per user for GET /api/users (Laravel UserResource).
+func (r *userRepository) GetUsersLevelsForList(ctx context.Context, userIDs []uint64) (map[uint64]*UserListLevels, error) {
+	result := make(map[uint64]*UserListLevels)
+	if len(userIDs) == 0 {
+		return result, nil
+	}
+
+	placeholders := buildUserIDPlaceholders(len(userIDs))
+	query := fmt.Sprintf(`
+		SELECT lu.user_id, l.id, l.name, l.slug, CAST(l.score AS SIGNED) as score,
+		       COALESCE(i.url, '') as image_url
+		FROM level_user lu
+		INNER JOIN levels l ON l.id = lu.level_id
+		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
+		WHERE lu.user_id IN (%s)
+		ORDER BY lu.user_id ASC, l.id ASC
+	`, placeholders)
+
+	args := make([]interface{}, len(userIDs))
+	for i, id := range userIDs {
+		args[i] = id
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users levels for list: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var userID uint64
+		var level UserListLevel
+		var name, slug, imageURL sql.NullString
+		var score sql.NullInt32
+
+		if err := rows.Scan(&userID, &level.ID, &name, &slug, &score, &imageURL); err != nil {
+			return nil, fmt.Errorf("failed to scan user level: %w", err)
+		}
+		if name.Valid {
+			level.Name = name.String
+		}
+		if slug.Valid {
+			level.Slug = slug.String
+		}
+		if score.Valid {
+			level.Score = score.Int32
+		}
+		if imageURL.Valid {
+			level.Image = r.formatImageURL(imageURL.String)
+		}
+
+		bundle, ok := result[userID]
+		if !ok {
+			bundle = &UserListLevels{Previous: []*UserListLevel{}}
+			result[userID] = bundle
+		}
+		lvl := level
+		bundle.Previous = append(bundle.Previous, &lvl)
+
+		// Laravel latest_level: levels()->orderByDesc('id')->first()
+		if bundle.Current == nil || level.ID > bundle.Current.ID {
+			currentCopy := lvl
+			bundle.Current = &currentCopy
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating user levels: %w", err)
+	}
+
+	return result, nil
+}
+
+func buildUserIDPlaceholders(count int) string {
+	placeholders := make([]string, count)
+	for i := range placeholders {
+		placeholders[i] = "?"
+	}
+	return strings.Join(placeholders, ",")
 }
 
 // GetFollowersCount returns the number of followers for a user

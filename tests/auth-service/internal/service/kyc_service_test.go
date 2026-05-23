@@ -223,6 +223,10 @@ func (r *fakeKYCUserRepository) ListUsers(ctx context.Context, search, orderBy s
 	return nil, 0, nil
 }
 
+func (r *fakeKYCUserRepository) GetUsersLevelsForList(ctx context.Context, userIDs []uint64) (map[uint64]*repository.UserListLevels, error) {
+	return map[uint64]*repository.UserListLevels{}, nil
+}
+
 func (r *fakeKYCUserRepository) GetFollowersCount(ctx context.Context, userID uint64) (int32, error) {
 	return 0, nil
 }

@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"metargb/auth-service/internal/models"
 	"metargb/auth-service/internal/service"
 	pb "metargb/shared/pb/auth"
 	"metargb/shared/pkg/helpers"
@@ -25,10 +26,11 @@ func RegisterCitizenHandler(grpcServer *grpc.Server, citizenService service.Citi
 	})
 }
 
-// GetCitizenProfile returns the public profile for a citizen identified by code
+// GetCitizenProfile returns the public profile for a citizen identified by code.
+// Response shape matches Laravel App\Http\Resources\PublicProfile\PersonalInfo.
 func (h *citizenHandler) GetCitizenProfile(ctx context.Context, req *pb.GetCitizenProfileRequest) (*pb.CitizenProfileResponse, error) {
 	if req.Code == "" {
-		locale := "en" // TODO: Get locale from config or context
+		locale := "en"
 		t := helpers.GetLocaleTranslations(locale)
 		validationErrors := map[string]string{
 			"code": fmt.Sprintf(t.Required, "code"),
@@ -44,117 +46,190 @@ func (h *citizenHandler) GetCitizenProfile(ctx context.Context, req *pb.GetCitiz
 		return nil, status.Errorf(codes.NotFound, "citizen not found")
 	}
 
-	response := &pb.CitizenProfileResponse{
-		Code:     profile.Code,
-		Name:     profile.Name,
-		Position: profile.Position,
-		Score:    profile.Score,
+	return buildCitizenProfileResponse(ctx, h.citizenService, profile), nil
+}
+
+func buildCitizenProfileResponse(ctx context.Context, svc service.CitizenService, profile *models.CitizenProfile) *pb.CitizenProfileResponse {
+	privacy := profile.Privacy
+	check := func(field string) bool {
+		if privacy == nil {
+			return false
+		}
+		return privacy[field]
 	}
 
-	// Convert profile photos
+	resp := &pb.CitizenProfileResponse{
+		ScorePercentageToNextLevel: svc.ScorePercentageToNextLevel(ctx, profile.ID, profile.Score),
+	}
+
 	for _, photo := range profile.ProfilePhotos {
-		response.ProfilePhotos = append(response.ProfilePhotos, &pb.ProfilePhoto{
+		resp.ProfilePhotos = append(resp.ProfilePhotos, &pb.ProfilePhoto{
 			Id:  photo.ID,
 			Url: photo.URL,
 		})
 	}
 
-	// Convert KYC data
 	if profile.KYC != nil {
-		kyc := &pb.CitizenKYC{
-			Fname: profile.KYC.Fname,
-			Lname: profile.KYC.Lname,
+		kyc := &pb.CitizenKYC{}
+		hasKYC := false
+		if check("nationality") {
+			kyc.Nationality = svc.NationalityFlagURL()
+			hasKYC = true
 		}
-
-		// Add nationality flag URL if privacy allows
-		if profile.Privacy == nil || h.checkPrivacy(profile.Privacy, "nationality") {
-			kyc.Nationality = "/uploads/flags/iran.svg" // Default flag URL
+		if check("fname") && profile.KYC.Fname != "" {
+			kyc.Fname = profile.KYC.Fname
+			hasKYC = true
 		}
-
-		// Add birth date if privacy allows
-		if !profile.KYC.Birthdate.IsZero() && (profile.Privacy == nil || h.checkPrivacy(profile.Privacy, "birth_date")) {
-			kyc.BirthDate = formatJalaliDate(profile.KYC.Birthdate)
+		if check("lname") && profile.KYC.Lname != "" {
+			kyc.Lname = profile.KYC.Lname
+			hasKYC = true
 		}
-
-		// Add phone if privacy allows
-		if profile.Phone != "" && (profile.Privacy == nil || h.checkPrivacy(profile.Privacy, "phone")) {
+		if check("birthdate") && !profile.KYC.Birthdate.IsZero() {
+			kyc.BirthDate = service.FormatJalaliDate(profile.KYC.Birthdate)
+			hasKYC = true
+		}
+		if check("phone") && profile.Phone != "" {
 			kyc.Phone = profile.Phone
+			hasKYC = true
 		}
-
-		// Add email if privacy allows
-		if profile.Email != "" && (profile.Privacy == nil || h.checkPrivacy(profile.Privacy, "email")) {
+		if check("email") && profile.Email != "" {
 			kyc.Email = profile.Email
+			hasKYC = true
 		}
-
-		// Add address if privacy allows
-		if profile.KYC.Address != "" && (profile.Privacy == nil || h.checkPrivacy(profile.Privacy, "address")) {
+		if check("address") && profile.KYC.Address != "" {
 			kyc.Address = profile.KYC.Address
+			hasKYC = true
 		}
-
-		response.Kyc = kyc
+		if hasKYC {
+			resp.Kyc = kyc
+		}
 	}
 
-	// Add registered_at in Jalali format
-	response.RegisteredAt = formatJalaliDate(profile.RegisteredAt)
+	if check("code") {
+		resp.Code = profile.Code
+	}
+	if check("name") {
+		resp.Name = profile.Name
+	}
+	if check("position") {
+		resp.Position = svc.CitizenPosition()
+	}
+	if check("registered_at") && !profile.EmailVerifiedAt.IsZero() {
+		resp.RegisteredAt = service.FormatRegisteredAt(profile.EmailVerifiedAt)
+	}
 
-	// Convert personal info (customs)
 	if profile.PersonalInfo != nil {
-		customs := &pb.CitizenCustoms{
-			Occupation: profile.PersonalInfo.Occupation,
-			Education:  profile.PersonalInfo.Education,
-			Prediction: profile.PersonalInfo.Prediction,
+		customs := buildCitizenCustoms(profile.PersonalInfo, check, svc)
+		if customs != nil {
+			resp.Customs = customs
 		}
+	}
 
-		// Convert passions map (passion_key -> icon_url)
-		if profile.PersonalInfo.Passions != nil {
-			customs.Passions = make(map[string]string)
-			for key, enabled := range profile.PersonalInfo.Passions {
-				if enabled {
-					// Generate icon URL (this would typically come from a config or service)
-					customs.Passions[key] = fmt.Sprintf("/uploads/passions/%s.svg", key)
-				}
+	if check("score") {
+		resp.Score = profile.Score
+	} else {
+		resp.Score = -1 // sentinel: hidden from public profile (gateway omits score key)
+	}
+
+	if profile.CurrentLevel != nil && check("level") {
+		resp.CurrentLevel = citizenLevelToProto(profile.CurrentLevel)
+		for _, level := range profile.AchievedLevels {
+			resp.AchievedLevels = append(resp.AchievedLevels, citizenLevelToProto(level))
+		}
+	}
+
+	if check("avatar") {
+		resp.Avatar = svc.CitizenAvatar()
+	}
+
+	return resp
+}
+
+func buildCitizenCustoms(
+	pi *models.CitizenPersonalInfo,
+	check func(string) bool,
+	svc service.CitizenService,
+) *pb.CitizenCustoms {
+	customs := &pb.CitizenCustoms{}
+	hasField := false
+
+	if check("occupation") && pi.Occupation != "" {
+		customs.Occupation = pi.Occupation
+		hasField = true
+	}
+	if check("education") && pi.Education != "" {
+		customs.Education = pi.Education
+		hasField = true
+	}
+	if check("loved_city") && pi.LovedCity != "" {
+		customs.LovedCity = pi.LovedCity
+		hasField = true
+	}
+	if check("loved_country") && pi.LovedCountry != "" {
+		customs.LovedCountry = pi.LovedCountry
+		hasField = true
+	}
+	if check("loved_language") && pi.LovedLanguage != "" {
+		customs.LovedLanguage = pi.LovedLanguage
+		hasField = true
+	}
+	if check("prediction") && pi.Prediction != "" {
+		customs.Prediction = pi.Prediction
+		hasField = true
+	}
+	if check("memory") && pi.Memory != "" {
+		customs.Memory = pi.Memory
+		hasField = true
+	}
+	if check("about") && pi.About != "" {
+		customs.About = pi.About
+		hasField = true
+	}
+
+	if check("passions") && pi.Passions != nil {
+		passions := make(map[string]string)
+		for _, key := range passionKeysList() {
+			if pi.Passions[key] {
+				passions[key] = svc.PassionIconURL(key)
 			}
 		}
-
-		response.Customs = customs
-	}
-
-	// Add score percentage to next level (would need level service call)
-	// For now, set to 0
-	response.ScorePercentageToNextLevel = 0
-
-	// Add current_level if privacy allows
-	if profile.CurrentLevel != nil {
-		response.CurrentLevel = &pb.CitizenLevel{
-			Id:          profile.CurrentLevel.ID,
-			Title:       profile.CurrentLevel.Title,
-			Description: profile.CurrentLevel.Description,
-			Score:       profile.CurrentLevel.Score,
+		if len(passions) > 0 {
+			customs.Passions = passions
+			hasField = true
 		}
 	}
 
-	// Add achieved_levels if privacy allows
-	for _, level := range profile.AchievedLevels {
-		response.AchievedLevels = append(response.AchievedLevels, &pb.CitizenLevel{
-			Id:          level.ID,
-			Title:       level.Title,
-			Description: level.Description,
-			Score:       level.Score,
-		})
+	if !hasField {
+		return nil
 	}
+	return customs
+}
 
-	// Add avatar if privacy allows
-	if profile.Avatar != "" {
-		response.Avatar = profile.Avatar
+func citizenLevelToProto(level *models.CitizenLevel) *pb.CitizenLevel {
+	if level == nil {
+		return nil
 	}
+	return &pb.CitizenLevel{
+		Id:    level.ID,
+		Name:  level.Name,
+		Slug:  level.Slug,
+		Score: level.Score,
+		Image: level.Image,
+	}
+}
 
-	return response, nil
+func passionKeysList() []string {
+	return []string{
+		"music", "sport_health", "art", "language_culture", "philosophy",
+		"animals_nature", "aliens", "food_cooking", "travel_leature", "manufacturing",
+		"science_technology", "space_time", "history", "politics_economy",
+	}
 }
 
 // GetCitizenReferrals lists referrals for a citizen with pagination
 func (h *citizenHandler) GetCitizenReferrals(ctx context.Context, req *pb.GetCitizenReferralsRequest) (*pb.CitizenReferralsResponse, error) {
 	if req.Code == "" {
-		locale := "en" // TODO: Get locale from config or context
+		locale := "en"
 		t := helpers.GetLocaleTranslations(locale)
 		validationErrors := map[string]string{
 			"code": fmt.Sprintf(t.Required, "code"),
@@ -172,12 +247,9 @@ func (h *citizenHandler) GetCitizenReferrals(ctx context.Context, req *pb.GetCit
 		return nil, status.Errorf(codes.Internal, "failed to get referrals: %v", err)
 	}
 	if referrals == nil {
-		// User not found
 		return &pb.CitizenReferralsResponse{
 			Data: []*pb.CitizenReferral{},
-			Meta: &pb.PaginationMeta{
-				CurrentPage: 1,
-			},
+			Meta: &pb.PaginationMeta{CurrentPage: 1},
 		}, nil
 	}
 
@@ -189,19 +261,15 @@ func (h *citizenHandler) GetCitizenReferrals(ctx context.Context, req *pb.GetCit
 		},
 	}
 
-	// Convert referrals
 	for _, ref := range referrals {
 		pbRef := &pb.CitizenReferral{
 			Id:   ref.ID,
 			Code: ref.Code,
 			Name: ref.Name,
 		}
-
 		if ref.Image != "" {
 			pbRef.Image = ref.Image
 		}
-
-		// Convert referrer orders
 		for _, order := range ref.ReferrerOrders {
 			pbRef.ReferrerOrders = append(pbRef.ReferrerOrders, &pb.ReferrerOrder{
 				Id:        order.ID,
@@ -209,7 +277,6 @@ func (h *citizenHandler) GetCitizenReferrals(ctx context.Context, req *pb.GetCit
 				CreatedAt: formatJalaliDateTime(order.CreatedAt),
 			})
 		}
-
 		response.Data = append(response.Data, pbRef)
 	}
 
@@ -219,7 +286,7 @@ func (h *citizenHandler) GetCitizenReferrals(ctx context.Context, req *pb.GetCit
 // GetCitizenReferralChart provides aggregated referral analytics
 func (h *citizenHandler) GetCitizenReferralChart(ctx context.Context, req *pb.GetCitizenReferralChartRequest) (*pb.CitizenReferralChartResponse, error) {
 	if req.Code == "" {
-		locale := "en" // TODO: Get locale from config or context
+		locale := "en"
 		t := helpers.GetLocaleTranslations(locale)
 		validationErrors := map[string]string{
 			"code": fmt.Sprintf(t.Required, "code"),
@@ -237,7 +304,6 @@ func (h *citizenHandler) GetCitizenReferralChart(ctx context.Context, req *pb.Ge
 		return nil, status.Errorf(codes.Internal, "failed to get chart data: %v", err)
 	}
 	if chartData == nil {
-		// User not found
 		return &pb.CitizenReferralChartResponse{
 			Data: &pb.ReferralChartData{
 				TotalReferralsCount:       "0",
@@ -254,7 +320,6 @@ func (h *citizenHandler) GetCitizenReferralChart(ctx context.Context, req *pb.Ge
 		},
 	}
 
-	// Convert chart data points
 	for _, point := range chartData.ChartData {
 		response.Data.ChartData = append(response.Data.ChartData, &pb.ChartDataPoint{
 			Label:       point.Label,
@@ -266,30 +331,9 @@ func (h *citizenHandler) GetCitizenReferralChart(ctx context.Context, req *pb.Ge
 	return response, nil
 }
 
-// Helper functions
-
-func formatJalaliDate(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	// Use the helper from service package
-	return service.FormatJalaliDate(t)
-}
-
 func formatJalaliDateTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	// Format as Y-m-d H:i:s (Jalali)
 	return service.FormatJalaliDateTime(t)
-}
-
-func (h *citizenHandler) checkPrivacy(privacy map[string]bool, field string) bool {
-	if privacy == nil {
-		return true
-	}
-	if value, exists := privacy[field]; exists {
-		return value
-	}
-	return true
 }
