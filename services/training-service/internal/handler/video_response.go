@@ -67,6 +67,7 @@ func buildVideoResponse(video *service.VideoDetails) (*trainingpb.VideoResponse,
 	return resp, nil
 }
 
+// buildUploadURL prefixes resource paths with ADMIN_PANEL_URL/uploads/ (Laravel admin_panel_url).
 func buildUploadURL(path string) string {
 	if path == "" {
 		return ""
@@ -75,25 +76,14 @@ func buildUploadURL(path string) string {
 		return path
 	}
 
-	appURL := strings.TrimSuffix(os.Getenv("APP_URL"), "/")
-	imagePath := strings.TrimPrefix(path, "/")
-	if !strings.HasPrefix(imagePath, "uploads/") {
-		imagePath = "uploads/" + imagePath
+	adminURL := strings.TrimSuffix(os.Getenv("ADMIN_PANEL_URL"), "/")
+	resourcePath := strings.TrimPrefix(path, "/")
+	if adminURL != "" {
+		return fmt.Sprintf("%s/uploads/%s", adminURL, resourcePath)
 	}
-	if appURL != "" {
-		return fmt.Sprintf("%s/%s", appURL, imagePath)
-	}
-	return "/" + imagePath
+	return fmt.Sprintf("/uploads/%s", resourcePath)
 }
 
 func buildVideoFileURL(fileName string) string {
-	if fileName == "" {
-		return ""
-	}
-	appURL := strings.TrimSuffix(os.Getenv("APP_URL"), "/")
-	videoPath := "/uploads/videos/" + fileName
-	if appURL != "" {
-		return fmt.Sprintf("%s%s", appURL, videoPath)
-	}
-	return videoPath
+	return buildUploadURL(fileName)
 }
