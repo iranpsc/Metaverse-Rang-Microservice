@@ -526,64 +526,7 @@ func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Format response according to Laravel API spec
-	responseData := make([]map[string]interface{}, 0, len(resp.Data))
-	for _, item := range resp.Data {
-		userData := map[string]interface{}{
-			"id":    item.Id,
-			"name":  item.Name,
-			"code":  item.Code,
-			"score": item.Score,
-		}
-
-		if item.Levels != nil {
-			levelsData := map[string]interface{}{}
-			if item.Levels.Current != nil {
-				levelsData["current"] = userListLevelToHTTP(item.Levels.Current)
-			}
-			if len(item.Levels.Previous) > 0 {
-				previous := make([]map[string]interface{}, 0, len(item.Levels.Previous))
-				for _, lvl := range item.Levels.Previous {
-					if lvl != nil {
-						previous = append(previous, userListLevelToHTTP(lvl))
-					}
-				}
-				levelsData["previous"] = previous
-			}
-			if len(levelsData) > 0 {
-				userData["levels"] = levelsData
-			}
-		}
-
-		// Add profile photo
-		if item.ProfilePhoto != "" {
-			userData["profile_photo"] = item.ProfilePhoto
-		}
-
-		responseData = append(responseData, userData)
-	}
-
-	// Build pagination response
-	response := map[string]interface{}{
-		"data": responseData,
-	}
-
-	if resp.Links != nil {
-		response["links"] = map[string]interface{}{
-			"first": resp.Links.First,
-			"last":  resp.Links.Last,
-			"prev":  resp.Links.Prev,
-			"next":  resp.Links.Next,
-		}
-	}
-
-	if resp.Meta != nil {
-		response["meta"] = map[string]interface{}{
-			"current_page": resp.Meta.CurrentPage,
-		}
-	}
-
-	writeJSON(w, http.StatusOK, response)
+	writeJSON(w, http.StatusOK, buildListUsersHTTPResponse(r, resp))
 }
 
 // GetUserLevels handles GET /api/users/{user}/levels

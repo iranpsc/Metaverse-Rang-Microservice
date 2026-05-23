@@ -228,14 +228,12 @@ func (h *userHandler) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (
 			Score: user.Score,
 		}
 
-		if user.CurrentLevel != nil || len(user.PreviousLevels) > 0 {
-			item.Levels = &pb.UserLevelInfo{}
-			if user.CurrentLevel != nil {
-				item.Levels.Current = userListLevelToProto(user.CurrentLevel)
-			}
-			for _, lvl := range user.PreviousLevels {
-				item.Levels.Previous = append(item.Levels.Previous, userListLevelToProto(lvl))
-			}
+		item.Levels = &pb.UserLevelInfo{}
+		if user.CurrentLevel != nil {
+			item.Levels.Current = userListLevelToProto(user.CurrentLevel)
+		}
+		for _, lvl := range user.PreviousLevels {
+			item.Levels.Previous = append(item.Levels.Previous, userListLevelToProto(lvl))
 		}
 
 		// Set profile photo (prepend admin panel URL if needed)
@@ -246,25 +244,18 @@ func (h *userHandler) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (
 		response.Data = append(response.Data, item)
 	}
 
-	// Build pagination links and meta
+	// Laravel simplePaginate: signal next page when this page is full.
 	currentPage := int32(page)
-	totalPages := (totalCount + limit - 1) / limit // Ceiling division
-
-	response.Links = &pb.PaginationLinks{}
-	if currentPage > 1 {
-		response.Links.Prev = fmt.Sprintf("?page=%d", currentPage-1)
-	}
-	if currentPage < totalPages {
-		response.Links.Next = fmt.Sprintf("?page=%d", currentPage+1)
-	}
-	response.Links.First = "?page=1"
-	if totalPages > 0 {
-		response.Links.Last = fmt.Sprintf("?page=%d", totalPages)
-	}
+	hasMore := int32(len(users)) >= limit
 
 	response.Meta = &pb.PaginationMeta{
 		CurrentPage: currentPage,
 	}
+	if hasMore {
+		response.Meta.NextPageUrl = fmt.Sprintf("?page=%d", currentPage+1)
+	}
+
+	_ = totalCount // total count is not exposed in Laravel simplePaginate meta
 
 	return response, nil
 }
