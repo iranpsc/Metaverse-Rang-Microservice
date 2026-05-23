@@ -108,9 +108,11 @@ func (s *citizenService) GetCitizenReferrals(ctx context.Context, code string, s
 
 	for _, referral := range referrals {
 		orders, err := s.citizenRepo.GetCitizenReferralOrders(ctx, referral.ID)
-		if err == nil {
-			referral.ReferrerOrders = orders
+		if err != nil || orders == nil {
+			referral.ReferrerOrders = []*models.ReferrerOrder{}
+			continue
 		}
+		referral.ReferrerOrders = orders
 	}
 
 	return referrals, meta, nil

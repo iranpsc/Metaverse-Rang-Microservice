@@ -263,9 +263,10 @@ func (h *citizenHandler) GetCitizenReferrals(ctx context.Context, req *pb.GetCit
 
 	for _, ref := range referrals {
 		pbRef := &pb.CitizenReferral{
-			Id:   ref.ID,
-			Code: ref.Code,
-			Name: ref.Name,
+			Id:             ref.ID,
+			Code:           ref.Code,
+			Name:           ref.Name,
+			ReferrerOrders: []*pb.ReferrerOrder{},
 		}
 		if ref.Image != "" {
 			pbRef.Image = ref.Image

@@ -1995,17 +1995,15 @@ func buildCitizenReferralsHTTPResponse(r *http.Request, resp *pb.CitizenReferral
 		if ref.Image != "" {
 			item["image"] = ref.Image
 		}
-		if len(ref.ReferrerOrders) > 0 {
-			orders := make([]map[string]interface{}, 0, len(ref.ReferrerOrders))
-			for _, order := range ref.ReferrerOrders {
-				orders = append(orders, map[string]interface{}{
-					"id":         order.Id,
-					"amount":     order.Amount,
-					"created_at": order.CreatedAt,
-				})
-			}
-			item["referrerOrders"] = orders
+		orders := make([]map[string]interface{}, 0, len(ref.ReferrerOrders))
+		for _, order := range ref.ReferrerOrders {
+			orders = append(orders, map[string]interface{}{
+				"id":         order.Id,
+				"amount":     order.Amount,
+				"created_at": order.CreatedAt,
+			})
 		}
+		item["referrerOrders"] = orders
 		referrals = append(referrals, item)
 	}
 

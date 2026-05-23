@@ -175,13 +175,10 @@ func (r *citizenRepository) GetCitizenReferrals(ctx context.Context, referrerID 
 		return nil, nil, fmt.Errorf("failed to count referrals: %w", err)
 	}
 
-	// Add ordering and pagination
-	// Order by most recent referral order activity
+	// Ordering matches Laravel ReferralService::getReferrals (subquery on referrer_id).
 	query := `
-		SELECT u.id, u.code, u.name, u.created_at,
-			COALESCE(MAX(roh.created_at), u.created_at) as last_order_date
+		SELECT u.id, u.code, u.name, u.created_at
 		FROM users u
-		LEFT JOIN referral_order_histories roh ON roh.referral_id = u.id
 		WHERE u.referrer_id = ?
 	`
 
@@ -194,8 +191,13 @@ func (r *citizenRepository) GetCitizenReferrals(ctx context.Context, referrerID 
 	}
 
 	query += `
-		GROUP BY u.id, u.code, u.name, u.created_at
-		ORDER BY last_order_date DESC
+		ORDER BY (
+			SELECT roh.created_at
+			FROM referral_order_histories roh
+			WHERE roh.referral_id = u.referrer_id
+			ORDER BY roh.created_at DESC
+			LIMIT 1
+		) DESC, u.id DESC
 		LIMIT ? OFFSET ?
 	`
 
@@ -212,12 +214,12 @@ func (r *citizenRepository) GetCitizenReferrals(ctx context.Context, referrerID 
 	for rows.Next() {
 		ref := &models.CitizenReferral{}
 		var createdAt time.Time
-		var lastOrderDate sql.NullTime
-		err := rows.Scan(&ref.ID, &ref.Code, &ref.Name, &createdAt, &lastOrderDate)
+		err := rows.Scan(&ref.ID, &ref.Code, &ref.Name, &createdAt)
 		if err != nil {
 			continue
 		}
 		ref.CreatedAt = createdAt
+		ref.ReferrerOrders = []*models.ReferrerOrder{}
 
 		// Get KYC for name
 		kycQuery := `
@@ -297,6 +299,10 @@ func (r *citizenRepository) GetCitizenReferralOrders(ctx context.Context, referr
 		}
 		order.CreatedAt = createdAt
 		orders = append(orders, order)
+	}
+
+	if orders == nil {
+		return []*models.ReferrerOrder{}, nil
 	}
 
 	return orders, nil

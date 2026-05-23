@@ -42,7 +42,7 @@ func TestBuildCitizenReferralsHTTPResponse(t *testing.T) {
 		assert.Equal(t, uint64(1), data[0]["id"])
 		assert.Equal(t, "hm-2", data[0]["code"])
 		orders, ok := data[0]["referrerOrders"].([]map[string]interface{})
-		require.True(t, ok)
+		require.True(t, ok, "referrerOrders must always be present")
 		require.Len(t, orders, 1)
 
 		links, ok := out["links"].(map[string]interface{})
@@ -92,6 +92,22 @@ func TestBuildCitizenReferralChartHTTPResponse(t *testing.T) {
 		_, hasNestedData := payload["data"]
 		assert.False(t, hasNestedData)
 	})
+}
+
+func TestBuildCitizenReferralsHTTPResponse_EmptyReferrerOrders(t *testing.T) {
+	req := httptest.NewRequest("GET", "/api/citizen/hm-2000001/referrals?page=1", nil)
+	resp := &pb.CitizenReferralsResponse{
+		Data: []*pb.CitizenReferral{
+			{Id: 1, Code: "hm-2", Name: "User", ReferrerOrders: []*pb.ReferrerOrder{}},
+		},
+		Meta: &pb.PaginationMeta{CurrentPage: 1},
+	}
+
+	out := buildCitizenReferralsHTTPResponse(req, resp)
+	data := out["data"].([]map[string]interface{})
+	orders, ok := data[0]["referrerOrders"].([]map[string]interface{})
+	require.True(t, ok)
+	assert.Empty(t, orders)
 }
 
 func TestWriteJSONSkipsDoubleWrapForCitizenReferrals(t *testing.T) {
