@@ -239,7 +239,8 @@ func main() {
 	}
 
 	// Create gRPC server with interceptors
-	serviceMetrics := sharedmetrics.NewMetrics("features")
+	serviceMetrics := sharedmetrics.NewMetrics("features_service")
+	sharedmetrics.StartHTTPServer(metricsPort)
 
 	// Build interceptor chain
 	interceptors := []grpc.UnaryServerInterceptor{
@@ -265,10 +266,6 @@ func main() {
 
 	// Enable reflection for debugging
 	reflection.Register(grpcServer)
-
-	// Metrics are exposed via Prometheus client library
-	// Start HTTP server for metrics endpoint if needed
-	log.Info("Metrics available on /metrics endpoint", "port", metricsPort)
 
 	// Start hourly profit calculator background job
 	ctx, cancel := context.WithCancel(context.Background())

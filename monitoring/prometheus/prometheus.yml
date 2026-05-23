@@ -55,18 +55,7 @@ scrape_configs:
           service: 'node-exporter'
           type: 'infrastructure'
 
-  # gRPC Gateway HTTP metrics (when METRICS_PORT is exposed)
-  - job_name: 'grpc-gateway'
-    scrape_interval: 15s
-    scrape_timeout: 10s
-    static_configs:
-      - targets: ['grpc-gateway:9090']
-        labels:
-          service: 'grpc-gateway'
-          type: 'gateway'
-    metrics_path: '/metrics'
-
-  # Individual microservices — enable as each service exposes /metrics on port 9090
+  # Individual microservices expose /metrics on port 9090 (METRICS_PORT)
   - job_name: 'auth-service'
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -175,11 +164,3 @@ scrape_configs:
           service: 'training-service'
     metrics_path: '/metrics'
 
-  - job_name: 'websocket-gateway'
-    scrape_interval: 15s
-    scrape_timeout: 10s
-    static_configs:
-      - targets: ['websocket-gateway:9090']
-        labels:
-          service: 'websocket-gateway'
-    metrics_path: '/metrics'

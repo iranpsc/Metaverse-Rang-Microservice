@@ -19,6 +19,7 @@ import (
 	"metargb/commercial-service/internal/service"
 	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/db"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -132,13 +133,17 @@ func main() {
 	}
 
 	// Build gRPC server options with interceptors
-	var serverOpts []grpc.ServerOption
+	serviceMetrics := metrics.NewMetrics("commercial_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+
+	var interceptors []grpc.UnaryServerInterceptor
+	interceptors = append(interceptors, metrics.UnaryServerInterceptor(serviceMetrics))
 	if tokenValidator != nil {
-		serverOpts = append(serverOpts, grpc.UnaryInterceptor(auth.UnaryServerInterceptor(tokenValidator)))
+		interceptors = append(interceptors, auth.UnaryServerInterceptor(tokenValidator))
 	}
 
 	// Create gRPC server
-	grpcServer := grpc.NewServer(serverOpts...)
+	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptors...))
 
 	// Register handlers
 	handler.RegisterWalletHandler(grpcServer, walletService)

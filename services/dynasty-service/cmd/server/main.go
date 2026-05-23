@@ -20,6 +20,7 @@ import (
 	"metargb/dynasty-service/internal/service"
 
 	dynastypb "metargb/shared/pb/dynasty"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -89,7 +90,11 @@ func main() {
 	userSearchService := service.NewUserSearchService(db)
 
 	// Create gRPC server
-	grpcServer := grpc.NewServer()
+	serviceMetrics := metrics.NewMetrics("dynasty_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+	)
 
 	// Create dedicated handlers for each service
 	dynastyHandler := handler.NewDynastyHandler(dynastyService)

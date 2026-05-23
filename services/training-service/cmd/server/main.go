@@ -19,6 +19,7 @@ import (
 	"metargb/training-service/internal/handler"
 	"metargb/training-service/internal/repository"
 	"metargb/training-service/internal/service"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -131,7 +132,11 @@ func main() {
 	replyService := service.NewReplyService(commentRepo, userRepo)
 
 	// Create gRPC server
-	grpcServer := grpc.NewServer()
+	serviceMetrics := metrics.NewMetrics("training_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+	)
 
 	// Register handlers
 	handler.RegisterVideoHandler(grpcServer, videoService)

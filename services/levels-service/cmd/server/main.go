@@ -106,7 +106,8 @@ func main() {
 	challengeHandler := handler.NewChallengeHandler(challengeService)
 
 	// Create gRPC server with interceptors
-	serviceMetrics := metrics.NewMetrics("levels")
+	serviceMetrics := metrics.NewMetrics("levels_service")
+	metrics.StartHTTPServer(metricsPort)
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			logger.UnaryServerInterceptor(log),
@@ -121,10 +122,6 @@ func main() {
 
 	// Enable reflection for debugging
 	reflection.Register(grpcServer)
-
-	// Metrics are exposed via Prometheus client library
-	// Start HTTP server for metrics endpoint if needed
-	log.Info("Metrics available on /metrics endpoint", "port", metricsPort)
 
 	// Start gRPC server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))

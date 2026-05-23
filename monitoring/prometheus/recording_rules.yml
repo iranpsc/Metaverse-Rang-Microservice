@@ -25,15 +25,15 @@ groups:
             sum(rate(kong_http_requests_total[5m]))
           ) * 100
 
-      # Latency: P50, P95, P99 (seconds)
+      # Latency: P50, P95, P99 (seconds) from Kong request latency histogram (ms)
       - record: metargb:http_latency_p50:5m
-        expr: histogram_quantile(0.50, sum(rate(kong_http_requests_duration_bucket[5m])) by (le))
+        expr: histogram_quantile(0.50, sum(rate(kong_request_latency_ms_bucket[5m])) by (le)) / 1000
 
       - record: metargb:http_latency_p95:5m
-        expr: histogram_quantile(0.95, sum(rate(kong_http_requests_duration_bucket[5m])) by (le))
+        expr: histogram_quantile(0.95, sum(rate(kong_request_latency_ms_bucket[5m])) by (le)) / 1000
 
       - record: metargb:http_latency_p99:5m
-        expr: histogram_quantile(0.99, sum(rate(kong_http_requests_duration_bucket[5m])) by (le))
+        expr: histogram_quantile(0.99, sum(rate(kong_request_latency_ms_bucket[5m])) by (le)) / 1000
 
       # Service availability from health-check-service
       - record: metargb:service_availability_percentage

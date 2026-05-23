@@ -18,6 +18,7 @@ import (
 	"metargb/calendar-service/internal/handler"
 	"metargb/calendar-service/internal/repository"
 	"metargb/calendar-service/internal/service"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -68,7 +69,11 @@ func main() {
 	calendarRepo := repository.NewCalendarRepository(db)
 	calendarService := service.NewCalendarService(calendarRepo)
 
-	grpcServer := grpc.NewServer()
+	serviceMetrics := metrics.NewMetrics("calendar_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+	)
 	handler.RegisterCalendarHandler(grpcServer, calendarService)
 
 	port := getEnv("GRPC_PORT", "50059")

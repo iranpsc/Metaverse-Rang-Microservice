@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"metargb/shared/pkg/logger"
+	"metargb/shared/pkg/metrics"
 	"metargb/social-service/internal/client"
 	"metargb/social-service/internal/handler"
 	"metargb/social-service/internal/repository"
@@ -89,8 +90,14 @@ func main() {
 	challengeService := service.NewChallengeService(challengeRepo, commercialClient)
 	followService := service.NewFollowService(followRepo, userRepo)
 
+	serviceMetrics := metrics.NewMetrics("social_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(logger.UnaryServerInterceptor(structLog)),
+		grpc.ChainUnaryInterceptor(
+			logger.UnaryServerInterceptor(structLog),
+			metrics.UnaryServerInterceptor(serviceMetrics),
+		),
 	)
 	handler.RegisterChallengeHandler(grpcServer, challengeService)
 	handler.RegisterFollowHandler(grpcServer, followService)

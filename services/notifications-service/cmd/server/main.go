@@ -19,6 +19,7 @@ import (
 	"metargb/notifications-service/internal/handler"
 	"metargb/notifications-service/internal/repository"
 	"metargb/notifications-service/internal/service"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -76,7 +77,11 @@ func main() {
 	smsService := service.NewSMSService(smsChannel)
 	emailService := service.NewEmailService(emailChannel)
 
-	grpcServer := grpc.NewServer()
+	serviceMetrics := metrics.NewMetrics("notifications_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+	)
 
 	handler.RegisterNotificationHandler(grpcServer, notificationService)
 	handler.RegisterSMSHandler(grpcServer, smsService)

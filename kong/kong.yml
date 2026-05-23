@@ -61,7 +61,11 @@ routes:
 
 plugins:
   - name: prometheus
-    config: {}
+    config:
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
   - name: cors
     config:
       origins:

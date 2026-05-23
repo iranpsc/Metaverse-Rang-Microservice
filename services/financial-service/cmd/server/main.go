@@ -21,6 +21,7 @@ import (
 	"metargb/financial-service/internal/repository"
 	"metargb/financial-service/internal/service"
 	commercialpb "metargb/shared/pb/commercial"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -137,7 +138,11 @@ func main() {
 	)
 
 	// Create gRPC server
-	grpcServer := grpc.NewServer()
+	serviceMetrics := metrics.NewMetrics("financial_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+	)
 
 	// Register handlers
 	handler.RegisterOrderHandler(grpcServer, orderService)

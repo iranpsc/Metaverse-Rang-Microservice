@@ -25,6 +25,7 @@ import (
 	notificationspb "metargb/shared/pb/notifications"
 	pb "metargb/shared/pb/auth"
 	storagepb "metargb/shared/pb/storage"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -266,8 +267,12 @@ func main() {
 	// Initialize search service
 	searchService := service.NewSearchService(searchRepo)
 
-	// Create gRPC server
-	grpcServer := grpc.NewServer()
+	// Create gRPC server with Prometheus metrics
+	serviceMetrics := metrics.NewMetrics("auth_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+	)
 
 	// Create profile photo handler instance (needed by auth handler)
 	profilePhotoHandler := &handler.ProfilePhotoHandler{

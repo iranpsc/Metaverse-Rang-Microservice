@@ -442,17 +442,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(kong_http_requests_duration_bucket[5m])) * 1000",
+          "expr": "histogram_quantile(0.50, sum(rate(kong_request_latency_ms_bucket[5m])) by (le))",
           "legendFormat": "P50 Response Time",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(kong_http_requests_duration_bucket[5m])) * 1000",
+          "expr": "histogram_quantile(0.95, sum(rate(kong_request_latency_ms_bucket[5m])) by (le))",
           "legendFormat": "P95 Response Time",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(kong_http_requests_duration_bucket[5m])) * 1000",
+          "expr": "histogram_quantile(0.99, sum(rate(kong_request_latency_ms_bucket[5m])) by (le))",
           "legendFormat": "P99 Response Time",
           "refId": "C"
         }

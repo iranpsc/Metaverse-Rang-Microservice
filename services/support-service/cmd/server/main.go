@@ -18,6 +18,7 @@ import (
 	"metargb/support-service/internal/handler"
 	"metargb/support-service/internal/repository"
 	"metargb/support-service/internal/service"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -77,7 +78,11 @@ func main() {
 	userEventService := service.NewUserEventService(userEventRepo)
 	noteService := service.NewNoteService(noteRepo)
 
-	grpcServer := grpc.NewServer()
+	serviceMetrics := metrics.NewMetrics("support_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+	)
 
 	handler.RegisterTicketHandler(grpcServer, ticketService)
 	handler.RegisterReportHandler(grpcServer, reportService)

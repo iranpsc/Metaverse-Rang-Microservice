@@ -19,6 +19,7 @@ import (
 	"metargb/storage-service/internal/handler"
 	"metargb/storage-service/internal/repository"
 	"metargb/storage-service/internal/service"
+	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -97,8 +98,11 @@ func main() {
 	imageService := service.NewImageService(imageRepo, ftpClient)
 
 	// Create gRPC server
+	serviceMetrics := metrics.NewMetrics("storage_service")
+	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 	grpcServer := grpc.NewServer(
 		grpc.MaxRecvMsgSize(100 * 1024 * 1024), // 100MB for file uploads
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
 	)
 
 	// Register gRPC handlers

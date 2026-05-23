@@ -108,6 +108,21 @@ Start an HTTP server on port 9090 with `promhttp.Handler()` for Prometheus to sc
 
 **Prometheus rules not loading:** Ensure the full `monitoring/prometheus/` directory is mounted (not only `prometheus.yml`).
 
-**Grafana empty panels:** Check http://localhost:9090/targets — `health-check-service`, `kong`, and `node-exporter` must be UP.
+**Grafana empty panels:** Check http://localhost:9090/targets — all scrape targets should be UP. After config changes, reload Prometheus: `POST http://localhost:9090/-/reload`.
 
 **Grafana cannot reach Prometheus:** Use `http://prometheus:9090` as datasource URL inside Docker.
+
+**Kong golden signals empty (Traffic/Latency/Errors):** The Kong Prometheus plugin must enable optional metrics in `kong/kong.yml`:
+
+```yaml
+- name: prometheus
+  config:
+    status_code_metrics: true
+    latency_metrics: true
+    bandwidth_metrics: true
+    upstream_health_metrics: true
+```
+
+Restart Kong after changes. Metrics like `kong_http_requests_total` only appear after traffic flows through the gateway.
+
+**Per-service gRPC metrics empty:** Services must expose `/metrics` on port 9090 via `metargb/shared/pkg/metrics`. Rebuild and restart services after code changes: `docker compose build <service> && docker compose up -d <service>`.
