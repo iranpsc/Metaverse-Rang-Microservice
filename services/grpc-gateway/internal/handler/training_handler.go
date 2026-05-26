@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"metargb/grpc-gateway/internal/middleware"
@@ -87,13 +88,16 @@ func (h *TrainingHandler) GetVideo(w http.ResponseWriter, r *http.Request) {
 		IpAddress: ipAddress,
 	}
 
-	resp, err := h.trainingClient.GetVideo(r.Context(), grpcReq)
+	var header metadata.MD
+	resp, err := h.trainingClient.GetVideo(h.trainingContextWithUser(r), grpcReq, grpc.Header(&header))
 	if err != nil {
 		writeGRPCErrorTraining(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildVideoResponse(resp))
+	videoResp := buildVideoResponse(resp)
+	applyVideoInteractionHeader(videoResp, header)
+	writeJSON(w, http.StatusOK, videoResp)
 }
 
 // SearchVideos handles POST /api/tutorials/search
@@ -168,16 +172,9 @@ func (h *TrainingHandler) AddInteraction(w http.ResponseWriter, r *http.Request)
 	likedStr := r.URL.Query().Get("liked")
 	if likedStr != "" {
 		req.Liked = likedStr == "1" || likedStr == "true"
-	} else {
-		// Try request body (JSON or form-data)
-		if err := decodeRequestBody(r, &req); err != nil {
-			if err == io.EOF {
-				writeError(w, http.StatusBadRequest, "request body is required")
-			} else {
-				writeError(w, http.StatusBadRequest, "invalid request body")
-			}
-			return
-		}
+	} else if err := decodeRequestBody(r, &req); err != nil && err != io.EOF {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
 	}
 
 	ipAddress := getIPAddress(r)
@@ -391,13 +388,18 @@ func (h *TrainingHandler) GetComments(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	resp, err := h.commentClient.GetComments(r.Context(), grpcReq)
+	var header metadata.MD
+	resp, err := h.commentClient.GetComments(h.trainingContextWithUser(r), grpcReq, grpc.Header(&header))
 	if err != nil {
 		writeGRPCErrorTraining(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, buildCommentsResponse(resp))
+	result := buildCommentsResponse(resp)
+	if comments, ok := result["data"].([]map[string]interface{}); ok {
+		applyCommentInteractionsHeader(comments, header)
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 // AddComment handles POST /api/tutorials/{video}/comments
@@ -453,9 +455,25 @@ func (h *TrainingHandler) AddComment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, buildCommentResponse(resp))
 }
 
-// UpdateComment handles PUT /api/tutorials/{video}/comments/{comment}
+// AddCommentLike handles POST /api/tutorials/{video}/comments/{comment}/like
+func (h *TrainingHandler) AddCommentLike(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	q.Set("liked", "1")
+	r.URL.RawQuery = q.Encode()
+	h.AddCommentInteraction(w, r)
+}
+
+// AddCommentDislike handles POST /api/tutorials/{video}/comments/{comment}/dislike
+func (h *TrainingHandler) AddCommentDislike(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	q.Set("liked", "0")
+	r.URL.RawQuery = q.Encode()
+	h.AddCommentInteraction(w, r)
+}
+
+// UpdateComment handles PUT/POST /api/tutorials/{video}/comments/{comment}
 func (h *TrainingHandler) UpdateComment(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
+	if r.Method != http.MethodPut && r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -476,6 +494,7 @@ func (h *TrainingHandler) UpdateComment(w http.ResponseWriter, r *http.Request) 
 
 	var req struct {
 		Content string `json:"content"`
+		Method  string `json:"_method"`
 	}
 
 	if err := decodeRequestBody(r, &req); err != nil {
@@ -484,6 +503,11 @@ func (h *TrainingHandler) UpdateComment(w http.ResponseWriter, r *http.Request) 
 		} else {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 		}
+		return
+	}
+
+	if r.Method == http.MethodPost && req.Method != "" && !strings.EqualFold(req.Method, "put") {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
@@ -561,13 +585,10 @@ func (h *TrainingHandler) AddCommentInteraction(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req struct {
-		Liked bool `json:"liked"`
-	}
-
-	if err := decodeRequestBody(r, &req); err != nil {
+	liked, err := parseLikedFromRequest(r)
+	if err != nil {
 		if err == io.EOF {
-			writeError(w, http.StatusBadRequest, "request body is required")
+			writeError(w, http.StatusBadRequest, "liked query parameter or request body is required")
 		} else {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 		}
@@ -579,7 +600,7 @@ func (h *TrainingHandler) AddCommentInteraction(w http.ResponseWriter, r *http.R
 	grpcReq := &trainingpb.AddCommentInteractionRequest{
 		CommentId: commentID,
 		UserId:    userCtx.UserID,
-		Liked:     req.Liked,
+		Liked:     liked,
 		IpAddress: ipAddress,
 	}
 

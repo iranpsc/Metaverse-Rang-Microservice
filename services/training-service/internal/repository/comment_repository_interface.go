@@ -18,6 +18,7 @@ type CommentRepositoryInterface interface {
 	UpdateReply(ctx context.Context, replyID, userID uint64, content string) error
 	DeleteReply(ctx context.Context, replyID, userID uint64) error
 	GetCommentStats(ctx context.Context, commentID uint64) (*models.CommentStats, error)
+	GetUserInteractionsForComments(ctx context.Context, commentIDs []uint64, userID uint64) (map[uint64]bool, error)
 	AddCommentInteraction(ctx context.Context, commentID, userID uint64, liked bool, ipAddress string) error
 	AddReplyInteraction(ctx context.Context, replyID, userID uint64, liked bool, ipAddress string) error
 	ReportComment(ctx context.Context, videoID, commentID, userID uint64, content string) error

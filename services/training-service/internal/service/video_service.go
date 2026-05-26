@@ -90,7 +90,7 @@ func (s *VideoService) IncrementView(ctx context.Context, videoID uint64, ipAddr
 }
 
 // GetVideoWithDetails retrieves a video with all related information (creator, category, stats)
-func (s *VideoService) GetVideoWithDetails(ctx context.Context, video *models.Video) (*VideoDetails, error) {
+func (s *VideoService) GetVideoWithDetails(ctx context.Context, video *models.Video, userID *uint64) (*VideoDetails, error) {
 	details := &VideoDetails{
 		Video: video,
 	}
@@ -125,6 +125,13 @@ func (s *VideoService) GetVideoWithDetails(ctx context.Context, video *models.Vi
 		details.CreatedAtJalali = jalali.CarbonToJalali(video.CreatedAt)
 	}
 
+	if userID != nil && *userID > 0 {
+		interaction, err := s.videoRepo.GetUserInteraction(ctx, video.ID, *userID)
+		if err == nil {
+			details.UserInteraction = interaction
+		}
+	}
+
 	return details, nil
 }
 
@@ -136,4 +143,5 @@ type VideoDetails struct {
 	SubCategory     *models.VideoSubCategory
 	Stats           *models.VideoStats
 	CreatedAtJalali string
+	UserInteraction *bool // true=liked, false=disliked, nil=no interaction
 }

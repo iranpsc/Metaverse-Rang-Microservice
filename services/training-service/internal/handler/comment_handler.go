@@ -37,7 +37,8 @@ func (h *CommentHandler) GetComments(ctx context.Context, req *trainingpb.GetCom
 		}
 	}
 
-	comments, total, err := h.service.GetComments(ctx, req.VideoId, page, perPage)
+	userID := userIDFromContext(ctx, 0)
+	comments, total, err := h.service.GetComments(ctx, req.VideoId, page, perPage, userID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get comments: %v", err)
 	}
@@ -56,6 +57,7 @@ func (h *CommentHandler) GetComments(ctx context.Context, req *trainingpb.GetCom
 		response.Comments = append(response.Comments, h.buildCommentResponse(comment))
 	}
 
+	setCommentInteractionsHeader(ctx, comments)
 	return response, nil
 }
 
@@ -146,7 +148,7 @@ func (h *CommentHandler) buildCommentResponse(comment *service.CommentDetails) *
 			Email: comment.User.Email,
 		}
 		if comment.User.ProfilePhoto != "" {
-			resp.User.ProfilePhoto = comment.User.ProfilePhoto
+			resp.User.ProfilePhoto = buildUploadURL(comment.User.ProfilePhoto)
 		}
 	}
 

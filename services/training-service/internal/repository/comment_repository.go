@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"metargb/training-service/internal/models"
 )
@@ -293,6 +294,50 @@ func (r *CommentRepository) GetCommentStats(ctx context.Context, commentID uint6
 	r.db.QueryRowContext(ctx, replyQuery, commentID).Scan(&stats.RepliesCount)
 
 	return stats, nil
+}
+
+// GetUserInteractionsForComments returns liked state per comment for the given user.
+func (r *CommentRepository) GetUserInteractionsForComments(ctx context.Context, commentIDs []uint64, userID uint64) (map[uint64]bool, error) {
+	result := make(map[uint64]bool)
+	if len(commentIDs) == 0 || userID == 0 {
+		return result, nil
+	}
+
+	placeholders := make([]string, len(commentIDs))
+	args := make([]interface{}, 0, len(commentIDs)+1)
+	args = append(args, userID)
+	for i, id := range commentIDs {
+		placeholders[i] = "?"
+		args = append(args, id)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT likeable_id, liked
+		FROM interactions
+		WHERE likeable_type = 'App\\Models\\Comment'
+		  AND user_id = ?
+		  AND likeable_id IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get comment interactions: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var commentID uint64
+		var liked bool
+		if err := rows.Scan(&commentID, &liked); err != nil {
+			return nil, fmt.Errorf("failed to scan comment interaction: %w", err)
+		}
+		result[commentID] = liked
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate comment interactions: %w", err)
+	}
+
+	return result, nil
 }
 
 // AddCommentInteraction adds or updates a user's interaction on a comment

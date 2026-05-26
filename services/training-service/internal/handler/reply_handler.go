@@ -125,7 +125,7 @@ func (h *ReplyHandler) buildReplyResponse(reply *service.CommentDetails) *traini
 			Email: reply.User.Email,
 		}
 		if reply.User.ProfilePhoto != "" {
-			resp.User.ProfilePhoto = reply.User.ProfilePhoto
+			resp.User.ProfilePhoto = buildUploadURL(reply.User.ProfilePhoto)
 		}
 	}
 

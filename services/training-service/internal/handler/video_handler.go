@@ -61,7 +61,7 @@ func (h *VideoHandler) GetVideos(ctx context.Context, req *trainingpb.GetVideosR
 	}
 
 	for _, video := range videos {
-		details, err := h.service.GetVideoWithDetails(ctx, video)
+		details, err := h.service.GetVideoWithDetails(ctx, video, nil)
 		if err != nil {
 			continue // Skip videos with errors
 		}
@@ -88,7 +88,7 @@ func (h *VideoHandler) GetVideo(ctx context.Context, req *trainingpb.GetVideoReq
 		return nil, status.Errorf(codes.NotFound, "video not found: %v", err)
 	}
 
-	details, err := h.service.GetVideoWithDetails(ctx, video)
+	details, err := h.service.GetVideoWithDetails(ctx, video, userID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get video details: %v", err)
 	}
@@ -97,6 +97,7 @@ func (h *VideoHandler) GetVideo(ctx context.Context, req *trainingpb.GetVideoReq
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "%v", err)
 	}
+	setVideoInteractionHeader(ctx, details.UserInteraction)
 	return resp, nil
 }
 
@@ -112,7 +113,7 @@ func (h *VideoHandler) GetVideoByFileName(ctx context.Context, req *trainingpb.G
 		return nil, status.Errorf(codes.NotFound, "video not found: %v", err)
 	}
 
-	details, err := h.service.GetVideoWithDetails(ctx, video)
+	details, err := h.service.GetVideoWithDetails(ctx, video, nil)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get video details: %v", err)
 	}
@@ -159,7 +160,7 @@ func (h *VideoHandler) SearchVideos(ctx context.Context, req *trainingpb.SearchV
 	}
 
 	for _, video := range videos {
-		details, err := h.service.GetVideoWithDetails(ctx, video)
+		details, err := h.service.GetVideoWithDetails(ctx, video, nil)
 		if err != nil {
 			continue
 		}

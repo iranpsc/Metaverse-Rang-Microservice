@@ -128,7 +128,7 @@ func (h *CategoryHandler) GetCategoryVideos(ctx context.Context, req *trainingpb
 	}
 
 	for _, video := range videos {
-		details, err := h.videoService.GetVideoWithDetails(ctx, video)
+		details, err := h.videoService.GetVideoWithDetails(ctx, video, nil)
 		if err != nil {
 			continue
 		}

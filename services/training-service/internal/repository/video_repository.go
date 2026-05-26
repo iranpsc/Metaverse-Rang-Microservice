@@ -15,6 +15,7 @@ type VideoRepositoryInterface interface {
 	GetVideoByFileName(ctx context.Context, fileName string) (*models.Video, error)
 	SearchVideos(ctx context.Context, searchTerm string, page, perPage int32) ([]*models.Video, int32, error)
 	GetVideoStats(ctx context.Context, videoID uint64) (*models.VideoStats, error)
+	GetUserInteraction(ctx context.Context, videoID, userID uint64) (*bool, error)
 	IncrementView(ctx context.Context, videoID uint64, ipAddress string) error
 	AddInteraction(ctx context.Context, videoID, userID uint64, liked bool, ipAddress string) error
 }
@@ -230,6 +231,25 @@ func (r *VideoRepository) GetVideoStats(ctx context.Context, videoID uint64) (*m
 	r.db.QueryRowContext(ctx, commentQuery, videoID).Scan(&stats.CommentsCount)
 
 	return stats, nil
+}
+
+// GetUserInteraction returns the user's like state for a video (nil = no interaction).
+func (r *VideoRepository) GetUserInteraction(ctx context.Context, videoID, userID uint64) (*bool, error) {
+	query := `
+		SELECT liked
+		FROM interactions
+		WHERE likeable_type = 'App\\Models\\Video' AND likeable_id = ? AND user_id = ?
+		LIMIT 1
+	`
+	var liked bool
+	err := r.db.QueryRowContext(ctx, query, videoID, userID).Scan(&liked)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user interaction: %w", err)
+	}
+	return &liked, nil
 }
 
 // IncrementView adds a view for a video

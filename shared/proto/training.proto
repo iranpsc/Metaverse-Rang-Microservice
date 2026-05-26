@@ -82,6 +82,7 @@ message VideoResponse {
   SubCategoryInfo sub_category = 11;
   VideoStats stats = 12;
   string created_at = 13; // Jalali formatted
+  optional bool user_interaction = 14; // true=liked, false=disliked; unset when guest or no interaction
 }
 
 message VideosResponse {
@@ -177,6 +178,7 @@ message SubCategoryInfo {
 message GetCommentsRequest {
   uint64 video_id = 1;
   common.PaginationRequest pagination = 2;
+  uint64 user_id = 3; // optional: include per-comment user_interaction when authenticated
 }
 
 message AddCommentRequest {
@@ -206,6 +208,7 @@ message CommentResponse {
   CommentStats stats = 7;
   string created_at = 8; // Jalali formatted
   string updated_at = 9; // Jalali formatted
+  optional bool user_interaction = 10; // true=liked, false=disliked; unset when guest or no interaction
 }
 
 message CommentsResponse {

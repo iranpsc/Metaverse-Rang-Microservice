@@ -36,7 +36,7 @@ func buildVideoResponse(video *service.VideoDetails) (*trainingpb.VideoResponse,
 			Email: video.Creator.Email,
 		}
 		if video.Creator.ProfilePhoto != "" {
-			resp.Creator.ProfilePhoto = video.Creator.ProfilePhoto
+			resp.Creator.ProfilePhoto = buildUploadURL(video.Creator.ProfilePhoto)
 		}
 	}
 

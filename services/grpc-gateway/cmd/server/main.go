@@ -623,7 +623,7 @@ func main() {
 		mux.Handle("/api/my-features", authMiddleware(http.HandlerFunc(featuresHandler.ListMyFeatures)))
 		mux.Handle("/api/my-features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleMyFeaturesRoutes)))
 
-		mux.Handle("/api/v2/features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleV2FeaturesRoutes)))
+		mux.Handle("/api/features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleV2FeaturesRoutes)))
 
 		mux.Handle("/api/buy-requests", authMiddleware(http.HandlerFunc(featuresHandler.HandleBuyRequestsRoutes)))
 		mux.Handle("/api/buy-requests/", authMiddleware(http.HandlerFunc(featuresHandler.HandleBuyRequestsRoutes)))
@@ -653,8 +653,8 @@ func main() {
 	}
 
 	if mapsHandler != nil {
-		mux.Handle("/api/v2/maps", optionalAuthMiddleware(http.HandlerFunc(mapsHandler.ListMaps)))
-		mux.Handle("/api/v2/maps/", optionalAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.Handle("/api/maps", optionalAuthMiddleware(http.HandlerFunc(mapsHandler.ListMaps)))
+		mux.Handle("/api/maps/", optionalAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
 			if strings.HasSuffix(path, "/border") {
 				mapsHandler.GetMapBorder(w, r)
@@ -678,8 +678,8 @@ func main() {
 		// Register catch-all router for all other routes (nested paths)
 		mux.Handle("/api/levels/", http.HandlerFunc(levelsHandler.HandleLevelsRoutes)) // Public
 		// v2 routes - for backward compatibility
-		mux.Handle("/api/v2/levels", http.HandlerFunc(levelsHandler.GetAllLevels)) // Public
-		mux.Handle("/api/v2/levels/", http.HandlerFunc(levelsHandler.HandleLevelsRoutes)) // Public
+		mux.Handle("/api/levels", http.HandlerFunc(levelsHandler.GetAllLevels)) // Public
+		mux.Handle("/api/levels/", http.HandlerFunc(levelsHandler.HandleLevelsRoutes)) // Public
 	}
 
 	// Training routes
@@ -745,11 +745,8 @@ func main() {
 			videoPath = strings.Trim(videoPath, "/")
 			parts := strings.Split(videoPath, "/")
 
-			// Check if this is an authenticated route that requires authMiddleware
-			isAuthenticatedRoute := len(parts) == 2 && parts[1] == "interactions" && r.Method == http.MethodPost
-
-			// Apply appropriate middleware based on route
-			if isAuthenticatedRoute {
+			// Video like/dislike requires auth
+			if len(parts) == 2 && parts[1] == "interactions" && r.Method == http.MethodPost {
 				authMiddleware(http.HandlerFunc(trainingHandler.AddInteraction)).ServeHTTP(w, r)
 				return
 			}
@@ -775,29 +772,34 @@ func main() {
 						switch action {
 						case "interactions":
 							if r.Method == http.MethodPost {
-								trainingHandler.AddCommentInteraction(w, r)
+								authMiddleware(http.HandlerFunc(trainingHandler.AddCommentInteraction)).ServeHTTP(w, r)
+							} else {
+								http.NotFound(w, r)
+							}
+						case "like":
+							if r.Method == http.MethodPost {
+								authMiddleware(http.HandlerFunc(trainingHandler.AddCommentLike)).ServeHTTP(w, r)
+							} else {
+								http.NotFound(w, r)
+							}
+						case "dislike":
+							if r.Method == http.MethodPost {
+								authMiddleware(http.HandlerFunc(trainingHandler.AddCommentDislike)).ServeHTTP(w, r)
 							} else {
 								http.NotFound(w, r)
 							}
 						case "report":
 							if r.Method == http.MethodPost {
-								trainingHandler.ReportComment(w, r)
+								authMiddleware(http.HandlerFunc(trainingHandler.ReportComment)).ServeHTTP(w, r)
 							} else {
 								http.NotFound(w, r)
 							}
 						default:
-							// Update or delete: /api/tutorials/{video}/comments/{comment}
-							if r.Method == http.MethodPut {
-								trainingHandler.UpdateComment(w, r)
-							} else if r.Method == http.MethodDelete {
-								trainingHandler.DeleteComment(w, r)
-							} else {
-								http.NotFound(w, r)
-							}
+							http.NotFound(w, r)
 						}
 					} else if len(parts) == 3 && parts[1] == "comments" {
 						// /api/tutorials/{video}/comments/{comment}
-						if r.Method == http.MethodPut {
+						if r.Method == http.MethodPut || r.Method == http.MethodPost {
 							authMiddleware(http.HandlerFunc(trainingHandler.UpdateComment)).ServeHTTP(w, r)
 						} else if r.Method == http.MethodDelete {
 							authMiddleware(http.HandlerFunc(trainingHandler.DeleteComment)).ServeHTTP(w, r)

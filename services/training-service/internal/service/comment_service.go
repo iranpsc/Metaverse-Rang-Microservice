@@ -22,10 +22,20 @@ func NewCommentService(commentRepo repository.CommentRepositoryInterface, userRe
 }
 
 // GetComments retrieves top-level comments for a video
-func (s *CommentService) GetComments(ctx context.Context, videoID uint64, page, perPage int32) ([]*CommentDetails, int32, error) {
+func (s *CommentService) GetComments(ctx context.Context, videoID uint64, page, perPage int32, userID uint64) ([]*CommentDetails, int32, error) {
 	comments, total, err := s.commentRepo.GetComments(ctx, videoID, page, perPage)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get comments: %w", err)
+	}
+
+	commentIDs := make([]uint64, 0, len(comments))
+	for _, comment := range comments {
+		commentIDs = append(commentIDs, comment.ID)
+	}
+
+	var userInteractions map[uint64]bool
+	if userID > 0 && len(commentIDs) > 0 {
+		userInteractions, _ = s.commentRepo.GetUserInteractionsForComments(ctx, commentIDs, userID)
 	}
 
 	details := make([]*CommentDetails, 0, len(comments))
@@ -33,6 +43,11 @@ func (s *CommentService) GetComments(ctx context.Context, videoID uint64, page, 
 		detail, err := s.getCommentDetails(ctx, comment)
 		if err != nil {
 			continue // Skip comments with errors
+		}
+		if userInteractions != nil {
+			if liked, ok := userInteractions[comment.ID]; ok {
+				detail.UserInteraction = &liked
+			}
 		}
 		details = append(details, detail)
 	}
@@ -188,4 +203,5 @@ type CommentDetails struct {
 	Stats           *models.CommentStats
 	CreatedAtJalali string
 	UpdatedAtJalali string
+	UserInteraction *bool // true=liked, false=disliked, nil=no interaction
 }
