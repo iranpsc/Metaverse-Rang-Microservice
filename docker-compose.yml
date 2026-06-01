@@ -552,33 +552,21 @@ services:
       context: ./services/article-service
       dockerfile: Dockerfile
     container_name: metargb-article-service
-    command: sh -c "python manage.py collectstatic --noinput && python manage.py makemigrations && python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:8003 --workers 4"
+    command: sh -c "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:8003 --workers 4"
     volumes:
       - static_volume:/app/static
       - media_volume:/app/media
     ports:
       - "8003:8003"
+    env_file:
+      - ./services/article-service/config.env
     environment:
-      - SECRET_KEY=test
-      - DEBUG=False
-      - ALLOWED_HOSTS=article-service,localhost,127.0.0.1  
       - DJANGO_SETTINGS_MODULE=core.settings
-
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_NAME=metargb_db
-      - DB_USER=metargb_user
-      - DB_PASSWORD=metargb_password
-      - KONG_GATEWAY_URL=http://kong:8000
-      - STATIC_URL=/static/
-      - MEDIA_URL=/media/
-      - STATIC_ROOT=/app/static
-      - MEDIA_ROOT=/app/media
     depends_on:
       mysql:
         condition: service_healthy
-      # kong:
-      #   condition: service_healthy
+      kong:
+        condition: service_healthy
     networks:
       - metargb-network
     restart: unless-stopped
