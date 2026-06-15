@@ -9,6 +9,9 @@ import (
 	"metargb/shared/pkg/jalali"
 )
 
+// Laravel morph map class name stored in likeable_type / viewable_type columns.
+const calendarMorphType = "App\\Models\\Calendar"
+
 // CalendarRepositoryInterface defines the interface for calendar repository operations
 type CalendarRepositoryInterface interface {
 	GetEvents(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, bool, error)
@@ -81,27 +84,11 @@ func (r *CalendarRepository) GetEvents(ctx context.Context, eventType, search, d
 
 	var events []*models.Calendar
 	for rows.Next() {
-		var event models.Calendar
-		if err := rows.Scan(
-			&event.ID,
-			&event.Slug,
-			&event.Title,
-			&event.Content,
-			&event.Color,
-			&event.Writer,
-			&event.IsVersion,
-			&event.VersionTitle,
-			&event.BtnName,
-			&event.BtnLink,
-			&event.Image,
-			&event.StartsAt,
-			&event.EndsAt,
-			&event.CreatedAt,
-			&event.UpdatedAt,
-		); err != nil {
+		event, err := scanCalendarRow(rows)
+		if err != nil {
 			return nil, false, fmt.Errorf("failed to scan event: %w", err)
 		}
-		events = append(events, &event)
+		events = append(events, event)
 	}
 
 	if !hasDateFilter && int32(len(events)) > perPage {
@@ -116,25 +103,8 @@ func (r *CalendarRepository) GetEvents(ctx context.Context, eventType, search, d
 func (r *CalendarRepository) GetEventByID(ctx context.Context, id uint64) (*models.Calendar, error) {
 	query := "SELECT id, slug, title, content, color, writer, is_version, version_title, btn_name, btn_link, image, starts_at, ends_at, created_at, updated_at FROM calendars WHERE id = ?"
 
-	var event models.Calendar
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&event.ID,
-		&event.Slug,
-		&event.Title,
-		&event.Content,
-		&event.Color,
-		&event.Writer,
-		&event.IsVersion,
-		&event.VersionTitle,
-		&event.BtnName,
-		&event.BtnLink,
-		&event.Image,
-		&event.StartsAt,
-		&event.EndsAt,
-		&event.CreatedAt,
-		&event.UpdatedAt,
-	)
-
+	row := r.db.QueryRowContext(ctx, query, id)
+	eventPtr, err := scanCalendarRow(row)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -142,7 +112,7 @@ func (r *CalendarRepository) GetEventByID(ctx context.Context, id uint64) (*mode
 		return nil, fmt.Errorf("failed to get event: %w", err)
 	}
 
-	return &event, nil
+	return eventPtr, nil
 }
 
 // FilterByDateRange retrieves events within a date range
@@ -187,27 +157,11 @@ func (r *CalendarRepository) FilterByDateRange(ctx context.Context, startDate, e
 
 	var events []*models.Calendar
 	for rows.Next() {
-		var event models.Calendar
-		if err := rows.Scan(
-			&event.ID,
-			&event.Slug,
-			&event.Title,
-			&event.Content,
-			&event.Color,
-			&event.Writer,
-			&event.IsVersion,
-			&event.VersionTitle,
-			&event.BtnName,
-			&event.BtnLink,
-			&event.Image,
-			&event.StartsAt,
-			&event.EndsAt,
-			&event.CreatedAt,
-			&event.UpdatedAt,
-		); err != nil {
+		event, err := scanCalendarRow(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan event: %w", err)
 		}
-		events = append(events, &event)
+		events = append(events, event)
 	}
 
 	return events, nil
@@ -237,14 +191,14 @@ func (r *CalendarRepository) GetLatestVersionTitle(ctx context.Context) (string,
 func (r *CalendarRepository) GetEventStats(ctx context.Context, eventID uint64) (*models.CalendarStats, error) {
 	stats := &models.CalendarStats{}
 
-	viewQuery := "SELECT COUNT(*) FROM views WHERE viewable_type = 'App\\\\Models\\\\Calendar' AND viewable_id = ?"
-	r.db.QueryRowContext(ctx, viewQuery, eventID).Scan(&stats.ViewsCount)
+	viewQuery := "SELECT COUNT(*) FROM views WHERE viewable_type = ? AND viewable_id = ?"
+	r.db.QueryRowContext(ctx, viewQuery, calendarMorphType, eventID).Scan(&stats.ViewsCount)
 
-	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\\\Models\\\\Calendar' AND likeable_id = ? AND liked = 1"
-	r.db.QueryRowContext(ctx, likeQuery, eventID).Scan(&stats.LikesCount)
+	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND liked = 1"
+	r.db.QueryRowContext(ctx, likeQuery, calendarMorphType, eventID).Scan(&stats.LikesCount)
 
-	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\\\Models\\\\Calendar' AND likeable_id = ? AND liked = 0"
-	r.db.QueryRowContext(ctx, dislikeQuery, eventID).Scan(&stats.DislikesCount)
+	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND liked = 0"
+	r.db.QueryRowContext(ctx, dislikeQuery, calendarMorphType, eventID).Scan(&stats.DislikesCount)
 
 	return stats, nil
 }
@@ -253,21 +207,21 @@ func (r *CalendarRepository) GetEventStats(ctx context.Context, eventID uint64) 
 func (r *CalendarRepository) GetInteractionStats(ctx context.Context, eventID uint64) (*models.CalendarStats, error) {
 	stats := &models.CalendarStats{}
 
-	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\\\Models\\\\Calendar' AND likeable_id = ? AND liked = 1"
-	r.db.QueryRowContext(ctx, likeQuery, eventID).Scan(&stats.LikesCount)
+	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND liked = 1"
+	r.db.QueryRowContext(ctx, likeQuery, calendarMorphType, eventID).Scan(&stats.LikesCount)
 
-	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\\\Models\\\\Calendar' AND likeable_id = ? AND liked = 0"
-	r.db.QueryRowContext(ctx, dislikeQuery, eventID).Scan(&stats.DislikesCount)
+	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND liked = 0"
+	r.db.QueryRowContext(ctx, dislikeQuery, calendarMorphType, eventID).Scan(&stats.DislikesCount)
 
 	return stats, nil
 }
 
 // GetUserInteraction retrieves user's interaction with an event
 func (r *CalendarRepository) GetUserInteraction(ctx context.Context, eventID, userID uint64) (*models.Interaction, error) {
-	query := "SELECT id, likeable_type, likeable_id, user_id, liked, ip_address, created_at, updated_at FROM interactions WHERE likeable_type = 'App\\\\Models\\\\Calendar' AND likeable_id = ? AND user_id = ?"
+	query := "SELECT id, likeable_type, likeable_id, user_id, liked, ip_address, created_at, updated_at FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND user_id = ?"
 
 	var interaction models.Interaction
-	err := r.db.QueryRowContext(ctx, query, eventID, userID).Scan(
+	err := r.db.QueryRowContext(ctx, query, calendarMorphType, eventID, userID).Scan(
 		&interaction.ID,
 		&interaction.LikeableType,
 		&interaction.LikeableID,
@@ -292,20 +246,20 @@ func (r *CalendarRepository) GetUserInteraction(ctx context.Context, eventID, us
 func (r *CalendarRepository) AddInteraction(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error {
 	if liked == -1 {
 		// Remove interaction
-		query := "DELETE FROM interactions WHERE likeable_type = 'App\\\\Models\\\\Calendar' AND likeable_id = ? AND user_id = ?"
-		_, err := r.db.ExecContext(ctx, query, eventID, userID)
+		query := "DELETE FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND user_id = ?"
+		_, err := r.db.ExecContext(ctx, query, calendarMorphType, eventID, userID)
 		return err
 	}
 
 	// Upsert interaction
 	query := `
 		INSERT INTO interactions (likeable_type, likeable_id, user_id, liked, ip_address, created_at, updated_at) 
-		VALUES ('App\\Models\\Calendar', ?, ?, ?, ?, NOW(), NOW())
+		VALUES (?, ?, ?, ?, ?, NOW(), NOW())
 		ON DUPLICATE KEY UPDATE liked = ?, ip_address = ?, updated_at = NOW()
 	`
 
 	likedBool := liked == 1
-	_, err := r.db.ExecContext(ctx, query, eventID, userID, likedBool, ipAddress, likedBool, ipAddress)
+	_, err := r.db.ExecContext(ctx, query, calendarMorphType, eventID, userID, likedBool, ipAddress, likedBool, ipAddress)
 	if err != nil {
 		return fmt.Errorf("failed to add interaction: %w", err)
 	}
@@ -315,19 +269,52 @@ func (r *CalendarRepository) AddInteraction(ctx context.Context, eventID, userID
 
 // IncrementView adds a view for an event (one view per IP, matching Laravel)
 func (r *CalendarRepository) IncrementView(ctx context.Context, eventID uint64, ipAddress string) error {
-	checkQuery := "SELECT COUNT(*) FROM views WHERE viewable_type = 'App\\\\Models\\\\Calendar' AND viewable_id = ? AND ip_address = ?"
+	checkQuery := "SELECT COUNT(*) FROM views WHERE viewable_type = ? AND viewable_id = ? AND ip_address = ?"
 	var count int
-	if err := r.db.QueryRowContext(ctx, checkQuery, eventID, ipAddress).Scan(&count); err != nil {
+	if err := r.db.QueryRowContext(ctx, checkQuery, calendarMorphType, eventID, ipAddress).Scan(&count); err != nil {
 		return fmt.Errorf("failed to check existing view: %w", err)
 	}
 	if count > 0 {
 		return nil
 	}
 
-	query := "INSERT INTO views (viewable_type, viewable_id, ip_address, created_at, updated_at) VALUES ('App\\\\Models\\\\Calendar', ?, ?, NOW(), NOW())"
-	_, err := r.db.ExecContext(ctx, query, eventID, ipAddress)
+	query := "INSERT INTO views (viewable_type, viewable_id, ip_address, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())"
+	_, err := r.db.ExecContext(ctx, query, calendarMorphType, eventID, ipAddress)
 	if err != nil {
 		return fmt.Errorf("failed to increment view: %w", err)
 	}
 	return nil
+}
+
+type calendarRowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanCalendarRow(scanner calendarRowScanner) (*models.Calendar, error) {
+	var event models.Calendar
+	var isVersion int64
+
+	err := scanner.Scan(
+		&event.ID,
+		&event.Slug,
+		&event.Title,
+		&event.Content,
+		&event.Color,
+		&event.Writer,
+		&isVersion,
+		&event.VersionTitle,
+		&event.BtnName,
+		&event.BtnLink,
+		&event.Image,
+		&event.StartsAt,
+		&event.EndsAt,
+		&event.CreatedAt,
+		&event.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	event.IsVersion = isVersion != 0
+	return &event, nil
 }

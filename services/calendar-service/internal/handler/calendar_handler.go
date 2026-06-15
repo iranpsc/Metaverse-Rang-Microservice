@@ -174,16 +174,28 @@ func buildUserInteraction(interaction *models.Interaction) *calendarpb.UserInter
 	}
 }
 
+func calendarIsVersion(event *models.Calendar) bool {
+	if event == nil {
+		return false
+	}
+	if event.IsVersion {
+		return true
+	}
+	return event.VersionTitle != nil && *event.VersionTitle != ""
+}
+
 func buildEventResponse(event *models.Calendar, stats *models.CalendarStats, userInteraction *calendarpb.UserInteraction, includeViews bool) *calendarpb.EventResponse {
+	isVersion := calendarIsVersion(event)
+
 	response := &calendarpb.EventResponse{
 		Id:          event.ID,
 		Title:       event.Title,
 		Description: event.Content,
 		StartsAt:    jalali.CarbonToJalaliDateTime(event.StartsAt),
-		IsVersion:   event.IsVersion,
+		IsVersion:   isVersion,
 	}
 
-	if !event.IsVersion {
+	if !isVersion {
 		if event.EndsAt != nil {
 			response.EndsAt = jalali.CarbonToJalaliDateTime(*event.EndsAt)
 		}
@@ -208,7 +220,7 @@ func buildEventResponse(event *models.Calendar, stats *models.CalendarStats, use
 		}
 
 		response.UserInteraction = userInteraction
-	} else if event.VersionTitle != nil {
+	} else if event.VersionTitle != nil && *event.VersionTitle != "" {
 		response.VersionTitle = *event.VersionTitle
 	}
 

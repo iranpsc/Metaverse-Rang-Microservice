@@ -1,4 +1,3 @@
-# syntax=docker.arvancloud.ir/docker/dockerfile:1
 # Multi-stage build for Calendar Service
 FROM docker.arvancloud.ir/golang:1.24-alpine AS builder
 

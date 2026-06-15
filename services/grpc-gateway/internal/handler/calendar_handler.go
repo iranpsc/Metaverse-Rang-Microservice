@@ -83,7 +83,7 @@ func (h *CalendarHandler) GetEvents(w http.ResponseWriter, r *http.Request) {
 
 	events := make([]map[string]interface{}, 0, len(resp.Events))
 	for _, event := range resp.Events {
-		events = append(events, buildCalendarEventMap(event, true))
+		events = append(events, buildCalendarEventMap(event, true, eventType))
 	}
 
 	response := map[string]interface{}{
@@ -142,7 +142,7 @@ func (h *CalendarHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"data": buildCalendarEventMap(resp, true),
+		"data": buildCalendarEventMap(resp, true, ""),
 	})
 }
 
@@ -304,11 +304,26 @@ func (h *CalendarHandler) AddInteraction(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"data": buildCalendarEventMap(resp, false),
+		"data": buildCalendarEventMap(resp, false, ""),
 	})
 }
 
-func buildCalendarEventMap(event *calendarpb.EventResponse, includeViews bool) map[string]interface{} {
+func calendarEventIsVersion(event *calendarpb.EventResponse, requestType string) bool {
+	if event == nil {
+		return false
+	}
+	if event.IsVersion {
+		return true
+	}
+	if event.VersionTitle != "" {
+		return true
+	}
+	return requestType == "version"
+}
+
+func buildCalendarEventMap(event *calendarpb.EventResponse, includeViews bool, requestType string) map[string]interface{} {
+	isVersion := calendarEventIsVersion(event, requestType)
+
 	eventMap := map[string]interface{}{
 		"id":          event.Id,
 		"title":       event.Title,
@@ -316,7 +331,7 @@ func buildCalendarEventMap(event *calendarpb.EventResponse, includeViews bool) m
 		"starts_at":   event.StartsAt,
 	}
 
-	if event.IsVersion {
+	if isVersion {
 		if event.VersionTitle != "" {
 			eventMap["version_title"] = event.VersionTitle
 		}

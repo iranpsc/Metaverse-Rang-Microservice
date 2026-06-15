@@ -623,7 +623,7 @@ func main() {
 		mux.Handle("/api/my-features", authMiddleware(http.HandlerFunc(featuresHandler.ListMyFeatures)))
 		mux.Handle("/api/my-features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleMyFeaturesRoutes)))
 
-		mux.Handle("/api/features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleV2FeaturesRoutes)))
+		mux.Handle("/api/v2/features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleV2FeaturesRoutes)))
 
 		mux.Handle("/api/buy-requests", authMiddleware(http.HandlerFunc(featuresHandler.HandleBuyRequestsRoutes)))
 		mux.Handle("/api/buy-requests/", authMiddleware(http.HandlerFunc(featuresHandler.HandleBuyRequestsRoutes)))
@@ -673,11 +673,6 @@ func main() {
 
 	// Levels routes - using router function to handle all nested routes
 	if levelsHandler != nil {
-		// Register exact match for list endpoint
-		mux.Handle("/api/levels", http.HandlerFunc(levelsHandler.GetAllLevels)) // Public
-		// Register catch-all router for all other routes (nested paths)
-		mux.Handle("/api/levels/", http.HandlerFunc(levelsHandler.HandleLevelsRoutes)) // Public
-		// v2 routes - for backward compatibility
 		mux.Handle("/api/levels", http.HandlerFunc(levelsHandler.GetAllLevels)) // Public
 		mux.Handle("/api/levels/", http.HandlerFunc(levelsHandler.HandleLevelsRoutes)) // Public
 	}

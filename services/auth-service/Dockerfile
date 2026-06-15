@@ -87,7 +87,8 @@ RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /
 # Build the application  
 WORKDIR /workspace
 ENV GOWORK=/workspace/go.work
-RUN cd /workspace/metargb/auth-service && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o /app/auth-service ./cmd/server
+ARG CACHEBUST=1
+RUN echo "cachebust=$CACHEBUST" && cd /workspace/metargb/auth-service && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o /app/auth-service ./cmd/server
 
 # Final stage
 FROM docker.arvancloud.ir/alpine:3.21

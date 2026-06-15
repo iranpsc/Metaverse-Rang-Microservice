@@ -54,7 +54,7 @@ func (r *citizenRepository) GetCitizenByCode(ctx context.Context, code string) (
 
 	// Get KYC data
 	kycQuery := `
-		SELECT id, user_id, fname, lname, melli_code, status, birthdate, address
+		SELECT id, user_id, fname, lname, melli_code, status, birthdate
 		FROM kycs
 		WHERE user_id = ?
 		LIMIT 1
@@ -62,13 +62,9 @@ func (r *citizenRepository) GetCitizenByCode(ctx context.Context, code string) (
 	kyc := &models.CitizenKYC{}
 	var birthdate sql.NullTime
 	var nationalCode string
-	var address sql.NullString
 	err = r.db.QueryRowContext(ctx, kycQuery, user.ID).Scan(
-		&kyc.ID, &kyc.UserID, &kyc.Fname, &kyc.Lname, &nationalCode, &kyc.Status, &birthdate, &address,
+		&kyc.ID, &kyc.UserID, &kyc.Fname, &kyc.Lname, &nationalCode, &kyc.Status, &birthdate,
 	)
-	if err == nil && address.Valid {
-		kyc.Address = address.String
-	}
 	kyc.NationalCode = nationalCode
 	if err == nil {
 		if birthdate.Valid {
@@ -85,9 +81,9 @@ func (r *citizenRepository) GetCitizenByCode(ctx context.Context, code string) (
 		LIMIT 1
 	`
 	var privacyJSON sql.NullString
-	var settingsID uint64
+	var settingsID, settingsUserID uint64
 	err = r.db.QueryRowContext(ctx, settingsQuery, user.ID).Scan(
-		&settingsID, &user.ID, &privacyJSON,
+		&settingsID, &settingsUserID, &privacyJSON,
 	)
 	if err == nil && privacyJSON.Valid {
 		var privacy map[string]bool

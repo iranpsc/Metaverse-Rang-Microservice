@@ -100,7 +100,8 @@ RUN go mod download
 # Build the application
 WORKDIR /workspace
 ENV GOWORK=/workspace/go.work
-RUN cd /workspace/metargb/grpc-gateway && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o /app/grpc-gateway ./cmd/server
+ARG CACHEBUST=1
+RUN echo "cachebust=$CACHEBUST" && cd /workspace/metargb/grpc-gateway && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o /app/grpc-gateway ./cmd/server
 
 # Final stage
 FROM docker.arvancloud.ir/alpine:3.21
