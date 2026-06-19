@@ -1,45 +1,20 @@
-# WebSocket Gateway Dockerfile
-FROM docker.arvancloud.ir/node:18-alpine
-
-# Iran-accessible Alpine package mirror (ArvanCloud)
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.arvancloud.ir|g' /etc/apk/repositories
+# WebSocket Gateway - multi-stage build
+FROM node:18-alpine AS deps
 
 WORKDIR /app
 
-COPY ./websocket-gateway/package*.json ./
+COPY websocket-gateway/package*.json ./
+RUN npm install --omit=dev --no-audit --no-fund
 
-# Iranian npm mirrors (tried in order). Override one registry:
-#   docker compose build --build-arg NPM_REGISTRY=https://mirror-npm.runflare.com websocket-gateway
-ARG NPM_REGISTRY=
-RUN set -e; \
-    if [ -n "${NPM_REGISTRY}" ]; then \
-      mirrors="${NPM_REGISTRY}"; \
-    else \
-      mirrors="https://package-mirror.liara.ir/repository/npm/ https://registry.npm.ir/ https://mirror-npm.runflare.com"; \
-    fi; \
-    success=0; \
-    for reg in $mirrors; do \
-      echo ">>> npm install via ${reg}"; \
-      npm config set registry "${reg}"; \
-      npm config set strict-ssl false; \
-      npm config set fetch-retries 3; \
-      npm config set fetch-retry-mintimeout 10000; \
-      npm config set fetch-retry-maxtimeout 60000; \
-      rm -rf node_modules package-lock.json 2>/dev/null || true; \
-      if npm install --omit=dev --no-audit --no-fund; then \
-        echo ">>> succeeded: ${reg}"; \
-        success=1; \
-        break; \
-      fi; \
-      echo ">>> failed: ${reg}"; \
-    done; \
-    if [ "$success" -ne 1 ]; then \
-      echo "ERROR: npm install failed on all registries"; \
-      exit 1; \
-    fi
+FROM node:18-alpine
 
-COPY ./websocket-gateway/ .
-COPY ./shared/proto ./shared/proto
+WORKDIR /app
+
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node websocket-gateway/ .
+COPY --chown=node:node shared/proto ./shared/proto
+
+USER node
 
 EXPOSE 3002
 

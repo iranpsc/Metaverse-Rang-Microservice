@@ -1,79 +1,46 @@
 # Multi-stage build for Notifications Service
-FROM docker.arvancloud.ir/golang:1.24-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
-# Iran-accessible Alpine package mirror (MobinHost)
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
-# Iran-accessible Go module proxy (ParsPack Abrha mirror)
-ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
-ENV GOSUMDB=off
-# Install build dependencies
-RUN apk add --no-cache git make protoc protobuf-dev
+ENV CGO_ENABLED=0
+
+RUN apk add --no-cache git
 
 WORKDIR /workspace
 
-# Create the proper directory structure
 RUN mkdir -p /workspace/metargb/notifications-service /workspace/metargb/shared
 
-# Copy shared module first
 COPY ./shared/go.mod /workspace/metargb/shared/
 COPY ./shared/ /workspace/metargb/shared/
 
-# Copy notifications service
 COPY ./services/notifications-service/go.mod ./services/notifications-service/go.sum* /workspace/metargb/notifications-service/
 COPY ./services/notifications-service/ /workspace/metargb/notifications-service/
 
-# Setup go workspace
 WORKDIR /workspace
 RUN echo 'go 1.24.0' > go.work && \
-    echo '' >> go.work && \
-    echo 'use (' >> go.work && \
-    echo '    ./metargb/notifications-service' >> go.work && \
-    echo '    ./metargb/shared' >> go.work && \
-    echo ')' >> go.work
+    printf '\nuse (\n\t./metargb/notifications-service\n\t./metargb/shared\n)\n' >> go.work
 
-# Download dependencies
 WORKDIR /workspace/metargb/notifications-service
+RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /workspace/metargb/shared|g' go.mod && \
+    go mod download
 
-# Update replace directive for Docker context
-RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /workspace/metargb/shared|g' go.mod
-
-# Iran-accessible Go module proxy (ParsPack Abrha mirror)
-ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct
-ENV GOSUMDB=off
-RUN go mod download
-
-# Build the application  
-WORKDIR /workspace
 ENV GOWORK=/workspace/go.work
-RUN cd /workspace/metargb/notifications-service && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o /app/notifications-service ./cmd/server
+RUN go build -trimpath -ldflags="-s -w" -o /app/notifications-service ./cmd/server
 
-# Final stage
-FROM docker.arvancloud.ir/alpine:3.21
+FROM alpine:3.21
 
-# Iran-accessible Alpine package mirror (MobinHost)
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
-RUN apk update && apk --no-cache add ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata netcat-openbsd && \
+    addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser
 
 WORKDIR /app
 
-# Copy binary from builder
-COPY --from=builder /app/notifications-service .
-
-# Create non-root user
-RUN addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser && \
-    chown -R appuser:appuser /app
+COPY --from=builder --chown=appuser:appuser /app/notifications-service .
 
 USER appuser
 
-# Expose gRPC port
 EXPOSE 50058
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD nc -z localhost 50058 || exit 1
 
-# Run the application
 ENTRYPOINT ["/app/notifications-service"]
-
-

@@ -1,0 +1,53 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Documentation (not needed in images)
+*.md
+docs/
+
+# Local secrets and runtime config (mounted via compose env_file)
+**/.env
+**/config.env
+
+# Dependencies (reinstalled during build)
+**/node_modules
+npm-debug.log
+yarn-error.log
+
+# Local uploads and runtime data
+**/uploads
+services/storage-service/uploads
+
+# Test and temp artifacts
+**/tmp
+**/*_test.go
+coverage.out
+*.test
+
+# Build outputs
+**/bin
+**/dist
+
+# Infrastructure not used in service image builds
+k8s/
+monitoring/
+tests/
+scripts/
+
+# Compose and local tooling
+docker-compose*.yml
+docker-compose*.yaml
+Makefile
+
+# OS files
+.DS_Store
+Thumbs.db

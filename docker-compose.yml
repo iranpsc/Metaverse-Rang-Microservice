@@ -5,7 +5,7 @@ services:
   
   # MySQL Database (shared)
   mysql:
-    image: docker.arvancloud.ir/mysql:8.0
+    image: mysql:8.0
     container_name: metargb-mysql
     environment:
       MYSQL_ROOT_PASSWORD: root_password
@@ -31,7 +31,7 @@ services:
 
   # Redis (for pub/sub and caching)
   redis:
-    image: docker.arvancloud.ir/redis:7-alpine
+    image: redis:7-alpine
     container_name: metargb-redis
     ports:
       - "6379:6379"
@@ -660,7 +660,7 @@ services:
 
   # Kong API Gateway - HTTP to gRPC Translation
   kong:
-    image: docker.arvancloud.ir/kong:3.4
+    image: kong:3.4
     container_name: metargb-kong
     environment:
       KONG_DATABASE: "off"
@@ -719,7 +719,7 @@ services:
 
   # Prometheus - Metrics Collection
   prometheus:
-    image: docker.arvancloud.ir/prom/prometheus:v2.53.0
+    image: prom/prometheus:v2.53.0
     container_name: metargb-prometheus
     ports:
       - "9090:9090"
@@ -744,7 +744,7 @@ services:
 
   # Grafana - Visualization & Dashboards
   grafana:
-    image: docker.arvancloud.ir/grafana/grafana:10.1.5
+    image: grafana/grafana:10.1.5
     container_name: metargb-grafana
     ports:
       - "3001:3001"
@@ -773,7 +773,7 @@ services:
 
   # Node Exporter - Host-level infrastructure metrics (CPU, Memory, Disk, Network)
   node-exporter:
-    image: docker.arvancloud.ir/prom/node-exporter:v1.6.1
+    image: prom/node-exporter:v1.6.1
     container_name: metargb-node-exporter
     command:
       - '--path.procfs=/host/proc'

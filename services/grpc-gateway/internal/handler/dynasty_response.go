@@ -93,9 +93,6 @@ func buildFamilyMembersHTTPResponse(resp *dynastypb.FamilyResponse) []map[string
 			if member.UserInfo.ProfilePhoto != "" {
 				item["profile_photo"] = member.UserInfo.ProfilePhoto
 			}
-			if member.UserInfo.Level != "" {
-				item["level"] = member.UserInfo.Level
-			}
 		} else if member.UserId > 0 {
 			item["id"] = member.UserId
 		}

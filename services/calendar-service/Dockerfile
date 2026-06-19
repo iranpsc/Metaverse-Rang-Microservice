@@ -1,11 +1,7 @@
 # Multi-stage build for Calendar Service
-FROM docker.arvancloud.ir/golang:1.24-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories
-
-ENV GOPROXY=https://mirror.abrha.net/repository/go/,direct \
-    GOSUMDB=off \
-    CGO_ENABLED=0
+ENV CGO_ENABLED=0
 
 RUN apk add --no-cache git
 
@@ -33,10 +29,9 @@ RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /
 ENV GOWORK=/workspace/go.work
 RUN go build -trimpath -ldflags="-s -w" -o /app/calendar-service ./cmd/server
 
-FROM docker.arvancloud.ir/alpine:3.21
+FROM alpine:3.21
 
-RUN sed -i 's|https://dl-cdn.alpinelinux.org|https://mirror.mobinhost.com|g' /etc/apk/repositories && \
-    apk add --no-cache ca-certificates tzdata netcat-openbsd && \
+RUN apk add --no-cache ca-certificates tzdata netcat-openbsd && \
     addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser
 
