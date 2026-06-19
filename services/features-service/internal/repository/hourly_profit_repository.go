@@ -326,15 +326,18 @@ func (r *HourlyProfitRepository) GetByFeatureAndUser(ctx context.Context, featur
 	return profit, err
 }
 
-// GetAllByUserAndKarbari gets all profits for user filtered by karbari
-func (r *HourlyProfitRepository) GetAllByUserAndKarbari(ctx context.Context, userID uint64, asset string) ([]*models.FeatureHourlyProfit, error) {
+// GetAllByUserAndKarbari gets all profits for user filtered by feature_properties.karbari
+func (r *HourlyProfitRepository) GetAllByUserAndKarbari(ctx context.Context, userID uint64, karbari string) ([]*models.FeatureHourlyProfit, error) {
 	query := `
-		SELECT id, user_id, feature_id, asset, amount, dead_line, is_active, created_at, updated_at
-		FROM feature_hourly_profits
-		WHERE user_id = ? AND asset = ?
+		SELECT fhp.id, fhp.user_id, fhp.feature_id, fhp.asset, fhp.amount, fhp.dead_line, fhp.is_active, fhp.created_at, fhp.updated_at
+		FROM feature_hourly_profits fhp
+		INNER JOIN features f ON fhp.feature_id = f.id
+		LEFT JOIN feature_properties fp ON fhp.feature_id = fp.feature_id
+		WHERE fhp.user_id = ? AND fp.karbari = ?
+		ORDER BY fhp.id
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, userID, asset)
+	rows, err := r.db.QueryContext(ctx, query, userID, karbari)
 	if err != nil {
 		return nil, err
 	}

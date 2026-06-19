@@ -206,6 +206,12 @@ func shouldSkipAuth(fullMethod string) bool {
 		"/auth.AuthService/ValidateToken", // Other services call this to validate tokens
 		// Commercial service public endpoints
 		"/commercial.WalletService/GetWallet", // Public endpoint - anyone can view any user's wallet
+		// Commercial service internal wallet mutations (called by other microservices)
+		"/commercial.WalletService/AddBalance",
+		"/commercial.WalletService/DeductBalance",
+		"/commercial.WalletService/LockBalance",
+		"/commercial.WalletService/UnlockBalance",
+		"/commercial.TransactionService/CreateTransaction",
 	}
 
 	for _, method := range publicMethods {

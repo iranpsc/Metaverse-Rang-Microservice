@@ -116,7 +116,6 @@ func (s *ProfitService) GetProfitsByApplication(ctx context.Context, userID uint
 		return 0, fmt.Errorf("invalid karbari: must be m, t, or a")
 	}
 
-	// Map karbari to asset
 	asset := constants.GetColor(karbari)
 
 	// Get user's withdraw_profit days
@@ -125,8 +124,8 @@ func (s *ProfitService) GetProfitsByApplication(ctx context.Context, userID uint
 		withdrawProfitDays = 10
 	}
 
-	// Get all profits for this user and karbari
-	profits, err := s.profitRepo.GetAllByUserAndKarbari(ctx, userID, asset)
+	// Get all profits for this user and karbari (matches Laravel properties.karbari filter)
+	profits, err := s.profitRepo.GetAllByUserAndKarbari(ctx, userID, karbari)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get profits: %w", err)
 	}
@@ -143,17 +142,17 @@ func (s *ProfitService) GetProfitsByApplication(ctx context.Context, userID uint
 
 		chunk := profits[i:end]
 		for _, profit := range chunk {
-			totalAmount += profit.Amount
-
-			// Add to wallet via gRPC
-			if profit.Amount > 0 && s.commercialClient != nil {
+			if profit.Amount > 0 {
+				if s.commercialClient == nil {
+					continue
+				}
 				if err := s.commercialClient.AddBalance(ctx, userID, profit.Asset, profit.Amount); err != nil {
 					s.log.Error("Failed to add profit to wallet", "profit_id", profit.ID, "error", err)
 					continue
 				}
+				totalAmount += profit.Amount
 			}
 
-			// Reset profit
 			if err := s.profitRepo.ResetProfitAndUpdateDeadline(ctx, profit.ID, withdrawProfitDays); err != nil {
 				s.log.Error("Failed to reset profit", "profit_id", profit.ID, "error", err)
 			}

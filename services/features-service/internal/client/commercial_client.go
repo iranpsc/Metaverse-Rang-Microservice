@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	pb "metargb/shared/pb/commercial"
+	"metargb/shared/pkg/auth"
 )
 
 // CommercialClient wraps gRPC clients for Commercial Service
@@ -143,7 +144,12 @@ func (c *CommercialClient) retryWithBackoff(ctx context.Context, fn func() error
 
 // withTimeout creates a context with timeout
 func (c *CommercialClient) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(ctx, c.timeout)
+	return context.WithTimeout(auth.AttachOutgoingAuth(ctx), c.timeout)
+}
+
+// withAuth attaches the caller's bearer token for downstream commercial-service RPCs.
+func (c *CommercialClient) withAuth(ctx context.Context) context.Context {
+	return auth.AttachOutgoingAuth(ctx)
 }
 
 // Close closes the gRPC connection
@@ -261,7 +267,7 @@ func (c *CommercialClient) GetWallet(ctx context.Context, userID uint64) (*pb.Wa
 		UserId: userID,
 	}
 
-	resp, err := c.walletClient.GetWallet(ctx, req)
+	resp, err := c.walletClient.GetWallet(c.withAuth(ctx), req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get wallet: %w", err)
 	}
@@ -281,7 +287,7 @@ func (c *CommercialClient) CreateTransaction(ctx context.Context, userID uint64,
 		PayableId:   payableID,
 	}
 
-	resp, err := c.transactionClient.CreateTransaction(ctx, req)
+	resp, err := c.transactionClient.CreateTransaction(c.withAuth(ctx), req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
@@ -298,7 +304,7 @@ func (c *CommercialClient) LockBalance(ctx context.Context, userID uint64, asset
 		Reason: reason,
 	}
 
-	_, err := c.walletClient.LockBalance(ctx, req)
+	_, err := c.walletClient.LockBalance(c.withAuth(ctx), req)
 	if err != nil {
 		return fmt.Errorf("failed to lock balance: %w", err)
 	}
@@ -314,7 +320,7 @@ func (c *CommercialClient) UnlockBalance(ctx context.Context, userID uint64, ass
 		Amount: amount,
 	}
 
-	_, err := c.walletClient.UnlockBalance(ctx, req)
+	_, err := c.walletClient.UnlockBalance(c.withAuth(ctx), req)
 	if err != nil {
 		return fmt.Errorf("failed to unlock balance: %w", err)
 	}

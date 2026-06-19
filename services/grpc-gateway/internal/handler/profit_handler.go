@@ -72,19 +72,13 @@ func (h *ProfitHandler) GetHourlyProfits(w http.ResponseWriter, r *http.Request)
 	// Convert to Laravel HourlyProfitResource format
 	profits := make([]map[string]interface{}, 0, len(resp.Profits))
 	for _, profit := range resp.Profits {
-		profitMap := map[string]interface{}{
-			"id":         profit.Id,
-			"feature_id": profit.FeatureId,
-			"amount":     profit.Amount,
-			"dead_line":  profit.DeadLine,
-			"is_active":  profit.IsActive,
-		}
-		profits = append(profits, profitMap)
+		profits = append(profits, formatHourlyProfitResource(profit))
 	}
 
-	// Build response matching Laravel format
+	// Build response matching Laravel simplePaginate + additional totals format
 	responseData := map[string]interface{}{
-		"data": profits,
+		"data":  profits,
+		"links": buildSimplePaginationLinks(r, page, resp.HasMore),
 		"additional": map[string]interface{}{
 			"total_maskoni_profit":  resp.TotalMaskoniProfit,
 			"total_tejari_profit":   resp.TotalTejariProfit,
@@ -147,8 +141,10 @@ func (h *ProfitHandler) GetProfitsByApplication(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Return empty JSON object {} (matching Laravel implementation)
-	writeJSON(w, http.StatusOK, map[string]interface{}{})
+	// Return empty JSON array [] (matching Laravel implementation)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("[]"))
 }
 
 // GetSingleProfit handles POST /api/hourly-profits/{featureHourlyProfit}
@@ -192,16 +188,23 @@ func (h *ProfitHandler) GetSingleProfit(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Convert to Laravel HourlyProfitResource format
-	profitMap := map[string]interface{}{
-		"id":         resp.Profit.Id,
-		"feature_id": resp.Profit.FeatureId,
-		"amount":     resp.Profit.Amount,
-		"dead_line":  resp.Profit.DeadLine,
-		"is_active":  resp.Profit.IsActive,
-	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"data": formatHourlyProfitResource(resp.Profit),
+	})
+}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": profitMap})
+// formatHourlyProfitResource maps gRPC HourlyProfit to Laravel HourlyProfitResource JSON.
+func formatHourlyProfitResource(profit *featurespb.HourlyProfit) map[string]interface{} {
+	return map[string]interface{}{
+		"id":              profit.Id,
+		"user_id":         profit.UserId,
+		"feature_db_id":   profit.FeatureDbId,
+		"feature_id":      profit.PropertiesId,
+		"is_active":       profit.IsActive,
+		"amount":          profit.Amount,
+		"karbari":         profit.Karbari,
+		"dead_line":       profit.DeadLine,
+	}
 }
 
 // getAuthenticatedUserID extracts user ID from context (set by auth middleware)
