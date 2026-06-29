@@ -156,6 +156,7 @@ func shouldUseOptionalAuth(fullMethod string) bool {
 		"/features.MapsService/ListMaps",
 		"/features.MapsService/GetMap",
 		"/features.MapsService/GetMapBorder",
+		"/financial.StoreService/GetStorePackages",
 	}
 
 	for _, method := range optionalMethods {
@@ -212,6 +213,13 @@ func shouldSkipAuth(fullMethod string) bool {
 		"/commercial.WalletService/LockBalance",
 		"/commercial.WalletService/UnlockBalance",
 		"/commercial.TransactionService/CreateTransaction",
+		// Financial service public endpoints (payment gateway callbacks, internal wallet RPC)
+		"/financial.OrderService/HandleCallback",
+		"/financial.WalletService/GetWallet",
+		"/financial.WalletService/AddBalance",
+		"/financial.WalletService/DeductBalance",
+		"/financial.WalletService/LockBalance",
+		"/financial.WalletService/UnlockBalance",
 	}
 
 	for _, method := range publicMethods {
