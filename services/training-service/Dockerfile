@@ -27,7 +27,7 @@ COPY ./services/training-service/go.mod ./services/training-service/go.sum* /wor
 COPY ./services/training-service/ /workspace/metargb/training-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.24.0' > go.work && \
+RUN echo 'go 1.25.0' > go.work && \
     printf '\nuse (\n\t./metargb/training-service\n\t./metargb/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metargb/training-service

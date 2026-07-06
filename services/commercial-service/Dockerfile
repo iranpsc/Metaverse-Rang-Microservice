@@ -31,7 +31,7 @@ COPY ./services/commercial-service/go.mod ./services/commercial-service/go.sum* 
 COPY ./services/commercial-service/ /workspace/metargb/commercial-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.24.0' > go.work && \
+RUN echo 'go 1.25.0' > go.work && \
     printf '\nuse (\n\t./metargb/commercial-service\n\t./metargb/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metargb/commercial-service

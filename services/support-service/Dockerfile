@@ -16,7 +16,7 @@ COPY ./services/support-service/go.mod ./services/support-service/go.sum* /works
 COPY ./services/support-service/ /workspace/metargb/support-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.24.0' > go.work && \
+RUN echo 'go 1.25.0' > go.work && \
     printf '\nuse (\n\t./metargb/support-service\n\t./metargb/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metargb/support-service

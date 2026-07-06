@@ -13,7 +13,7 @@ COPY ./shared/go.mod /workspace/metargb/shared/
 COPY ./services/calendar-service/go.mod ./services/calendar-service/go.sum* /workspace/metargb/calendar-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.24.0' > go.work && \
+RUN echo 'go 1.25.0' > go.work && \
     printf '\nuse (\n\t./metargb/calendar-service\n\t./metargb/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metargb/calendar-service

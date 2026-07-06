@@ -27,7 +27,7 @@ COPY ./services/levels-service/go.mod ./services/levels-service/go.sum* /workspa
 COPY ./services/levels-service/ /workspace/metargb/levels-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.24.0' > go.work && \
+RUN echo 'go 1.25.0' > go.work && \
     printf '\nuse (\n\t./metargb/levels-service\n\t./metargb/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metargb/levels-service

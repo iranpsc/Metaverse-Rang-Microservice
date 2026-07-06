@@ -16,7 +16,7 @@ COPY ./services/notifications-service/go.mod ./services/notifications-service/go
 COPY ./services/notifications-service/ /workspace/metargb/notifications-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.24.0' > go.work && \
+RUN echo 'go 1.25.0' > go.work && \
     printf '\nuse (\n\t./metargb/notifications-service\n\t./metargb/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metargb/notifications-service

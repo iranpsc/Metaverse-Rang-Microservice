@@ -47,7 +47,7 @@ COPY ./shared/go.mod /workspace/metargb/shared/
 COPY ./services/auth-service/go.mod ./services/auth-service/go.sum* /workspace/metargb/auth-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.24.0' > go.work && \
+RUN echo 'go 1.25.0' > go.work && \
     printf '\nuse (\n\t./metargb/auth-service\n\t./metargb/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metargb/auth-service
