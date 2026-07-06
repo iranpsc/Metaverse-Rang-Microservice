@@ -54,7 +54,7 @@ jobs:
           go mod verify
 
       - name: Run linter
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           working-directory: shared
@@ -72,7 +72,7 @@ jobs:
           go test ./pkg/... -v -race -coverprofile=coverage.out -covermode=atomic
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           files: ./shared/coverage.out
           flags: shared
@@ -100,7 +100,7 @@ jobs:
 
     steps:
       - name: Trigger ${{ matrix.service }} workflow
-        uses: peter-evans/repository-dispatch@v2
+        uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           event-type: rebuild-${{ matrix.service }}
