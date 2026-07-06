@@ -1,12 +1,12 @@
 # WebSocket Gateway - multi-stage build
-FROM node:18-alpine AS deps
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
 COPY websocket-gateway/package*.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
