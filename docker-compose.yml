@@ -34,7 +34,7 @@ services:
     image: redis:7-alpine
     container_name: metargb-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - metargb-network
     healthcheck:
@@ -107,8 +107,7 @@ services:
       context: .
       dockerfile: ./services/grpc-gateway/Dockerfile
     container_name: metargb-grpc-gateway
-    ports:
-      - "8080:8080"
+    # No host port mapping — API is exposed via Kong on :8000
     env_file:
       - ./services/grpc-gateway/config.env
     environment:
@@ -124,7 +123,6 @@ services:
       SUPPORT_SERVICE_ADDR: support-service:50056
       SOCIAL_SERVICE_ADDR: social-service:50061
       NOTIFICATION_SERVICE_ADDR: notifications-service:50058
-      SOCIAL_SERVICE_ADDR: social-service:50061
       STORAGE_SERVICE_ADDR: storage-service:8059
     depends_on:
       auth-service:
@@ -508,48 +506,6 @@ services:
       watch:
         - action: rebuild
           path: ./services/notifications-service
-          ignore:
-            - "**/_test.go"
-            - "**/tmp"
-            - "**/.git"
-        - action: rebuild
-          path: ./shared
-
-  # Social Service - Follow relationships & Challenge quiz
-  social-service:
-    build:
-      context: .
-      dockerfile: ./services/social-service/Dockerfile
-    container_name: metargb-social-service
-    ports:
-      - "50061:50061"
-    env_file:
-      - ./services/social-service/config.env
-    environment:
-      GRPC_PORT: 50061
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_DATABASE: metargb_db
-      DB_USER: metargb_user
-      DB_PASSWORD: metargb_password
-      COMMERCIAL_SERVICE_ADDR: commercial-service:50052
-    depends_on:
-      mysql:
-        condition: service_healthy
-      commercial-service:
-        condition: service_started
-    networks:
-      - metargb-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "50061"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-    develop:
-      watch:
-        - action: rebuild
-          path: ./services/social-service
           ignore:
             - "**/_test.go"
             - "**/tmp"

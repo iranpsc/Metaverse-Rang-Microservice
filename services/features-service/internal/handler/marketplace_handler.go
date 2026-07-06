@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"metargb/features-service/internal/models"
@@ -416,7 +417,13 @@ func (h *MarketplaceHandler) RequestGracePeriod(ctx context.Context, req *pb.Req
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "buy request not found: %v", err)
 	}
-	err = h.service.UpdateGracePeriod(ctx, req.RequestId, sellerID, int32(gracePeriodDays))
+
+	graceDays, err := strconv.Atoi(strings.TrimSpace(req.GracePeriod))
+	if err != nil || graceDays < 1 || graceDays > 30 {
+		return nil, status.Errorf(codes.InvalidArgument, "grace_period must be an integer between 1 and 30")
+	}
+
+	err = h.service.UpdateGracePeriod(ctx, req.RequestId, sellerID, int32(graceDays))
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			return nil, status.Errorf(codes.PermissionDenied, "%v", err)

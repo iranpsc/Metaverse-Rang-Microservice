@@ -45,14 +45,6 @@ func (h *SupportHandler) getAuthUserID(r *http.Request) (uint64, error) {
 	return userCtx.UserID, nil
 }
 
-func splitJalaliDateTime(s string) (date, clock string) {
-	parts := strings.SplitN(strings.TrimSpace(s), " ", 2)
-	if len(parts) == 2 {
-		return parts[0], parts[1]
-	}
-	return s, s
-}
-
 func userEventStatusLabel(ok bool) string {
 	if ok {
 		return "موفق"
@@ -510,6 +502,7 @@ func (h *SupportHandler) AddTicketResponse(w http.ResponseWriter, r *http.Reques
 
 // formatTicketResponse converts a proto ticket to Laravel TicketResource-compatible JSON.
 func formatTicketResponse(resp *pbSupport.TicketResponse) map[string]interface{} {
+	dateStr, timeStr := splitJalaliDateTime(resp.CreatedAt)
 	ticketMap := map[string]interface{}{
 		"id":      resp.Id,
 		"title":   resp.Title,
@@ -882,10 +875,12 @@ func (h *SupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	grpcReq := &pbSupport.CreateNoteRequest{
-		UserId:     userID,
-		Title:      title,
-		Content:    content,
-		Attachment: attachment,
+		UserId:  userID,
+		Title:   title,
+		Content: content,
+	}
+	if attachment != "" {
+		grpcReq.Attachments = []string{attachment}
 	}
 
 	resp, err := h.noteClient.CreateNote(r.Context(), grpcReq)
@@ -1010,7 +1005,11 @@ func (h *SupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 		Content: content,
 	}
 	if updateAttachment {
-		grpcReq.Attachment = attachment
+		if attachment != "" {
+			grpcReq.Attachments = []string{attachment}
+		} else {
+			grpcReq.Attachments = []string{}
+		}
 	} else {
 		existing, getErr := h.noteClient.GetNote(r.Context(), &pbSupport.GetNoteRequest{
 			NoteId: noteID,
@@ -1020,7 +1019,7 @@ func (h *SupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) {
 			writeGRPCError(w, getErr)
 			return
 		}
-		grpcReq.Attachment = existing.Attachment
+		grpcReq.Attachments = existing.Attachments
 	}
 
 	resp, err := h.noteClient.UpdateNote(r.Context(), grpcReq)
@@ -1082,9 +1081,9 @@ func formatNoteResponse(resp *pbSupport.NoteResponse) map[string]interface{} {
 		"time":        resp.Time,
 		"attachments": []string{},
 	}
-	if resp.Attachment != "" {
-		noteMap["attachment"] = resp.Attachment
-		noteMap["attachments"] = []string{resp.Attachment}
+	if len(resp.Attachments) > 0 {
+		noteMap["attachment"] = resp.Attachments[0]
+		noteMap["attachments"] = resp.Attachments
 	}
 	return noteMap
 }

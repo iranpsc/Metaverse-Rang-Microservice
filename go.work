@@ -3,5 +3,6 @@ go 1.24.0
 use (
 	./services/commercial-service
 	./services/financial-service
+	./services/support-service
 	./shared
 )

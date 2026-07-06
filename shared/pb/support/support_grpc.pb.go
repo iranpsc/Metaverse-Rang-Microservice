@@ -622,11 +622,11 @@ func (UnimplementedUserEventReportServiceServer) GetUserEvent(context.Context, *
 func (UnimplementedUserEventReportServiceServer) ReportUserEvent(context.Context, *ReportUserEventRequest) (*UserEventReportResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportUserEvent not implemented")
 }
-func (UnimplementedUserEventReportServiceServer) SendEventReportResponse(context.Context, *SendEventReportResponseRequest) (*common.Empty, error) {
+func (UnimplementedUserEventReportServiceServer) SendEventReportResponse(context.Context, *SendEventReportResponseRequest) (*SendEventReportResponseReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendEventReportResponse not implemented")
 }
 func (UnimplementedUserEventReportServiceServer) CloseUserEventReport(context.Context, *CloseUserEventReportRequest) (*common.Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method CloseUserEventReport not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method CloseUserEventReport not implemented")
 }
 func (UnimplementedUserEventReportServiceServer) mustEmbedUnimplementedUserEventReportServiceServer() {
 }

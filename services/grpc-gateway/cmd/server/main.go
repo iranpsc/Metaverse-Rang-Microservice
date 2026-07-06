@@ -275,14 +275,6 @@ func main() {
 		log.Printf("⚠️  Social handler NOT created - socialConn is nil (check SOCIAL_SERVICE_ADDR config)")
 	}
 
-	var socialHandler *handler.SocialHandler
-	if socialConn != nil {
-		socialHandler = handler.NewSocialHandler(socialConn, authConn)
-		log.Printf("✅ Social handler created (challenge + follow routes)")
-	} else {
-		log.Printf("⚠️  Social handler NOT created — set SOCIAL_SERVICE_ADDR or start social-service")
-	}
-
 	var notificationHandler *handler.NotificationHandler
 	if notificationConn != nil {
 		notificationHandler = handler.NewNotificationHandler(notificationConn, authConn)
@@ -327,10 +319,6 @@ func main() {
 	mux.Handle("/api/user", optionalAuthMiddleware(http.HandlerFunc(authHandler.GetUser)))
 	mux.Handle("/api/user/wallet", authMiddleware(http.HandlerFunc(authHandler.GetAuthenticatedUserWallet)))
 	mux.Handle("/api/user/profile", authMiddleware(http.HandlerFunc(authHandler.UpdateProfile)))
-	if commercialHandler != nil {
-		mux.Handle("/api/user/transactions/latest", authMiddleware(http.HandlerFunc(commercialHandler.GetLatestTransaction)))
-		mux.Handle("/api/user/transactions", authMiddleware(http.HandlerFunc(commercialHandler.ListTransactions)))
-	}
 
 	// Dynamic /api/users/{user}/... routes
 	// Must be registered AFTER /api/users to avoid prefix matching conflicts
@@ -502,48 +490,26 @@ func main() {
 		}
 	})))
 
-	// User Events routes (support-service when available, else auth-service)
-	if supportHandler != nil {
-		mux.Handle("/api/events", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				supportHandler.ListUserEvents(w, r)
-			} else {
-				http.NotFound(w, r)
-			}
-		})))
-		mux.Handle("/api/events/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path := r.URL.Path
-			if strings.Contains(path, "/report/response/") {
-				supportHandler.SendUserEventReportResponse(w, r)
-			} else if strings.Contains(path, "/report/close/") {
-				supportHandler.CloseUserEventReport(w, r)
-			} else if strings.Contains(path, "/report/") {
-				supportHandler.ReportUserEvent(w, r)
-			} else {
-				supportHandler.GetUserEvent(w, r)
-			}
-		})))
-	} else {
-		mux.Handle("/api/events", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				authHandler.ListUserEvents(w, r)
-			} else {
-				http.NotFound(w, r)
-			}
-		})))
-		mux.Handle("/api/events/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path := r.URL.Path
-			if strings.Contains(path, "/report/response/") {
-				authHandler.SendReportResponse(w, r)
-			} else if strings.Contains(path, "/report/close/") {
-				authHandler.CloseEventReport(w, r)
-			} else if strings.Contains(path, "/report/") {
-				authHandler.ReportUserEvent(w, r)
-			} else {
-				authHandler.GetUserEvent(w, r)
-			}
-		})))
-	}
+	// User Events routes (auth-service)
+	mux.Handle("/api/events", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			authHandler.ListUserEvents(w, r)
+		} else {
+			http.NotFound(w, r)
+		}
+	})))
+	mux.Handle("/api/events/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.Contains(path, "/report/response/") {
+			authHandler.SendReportResponse(w, r)
+		} else if strings.Contains(path, "/report/close/") {
+			authHandler.CloseEventReport(w, r)
+		} else if strings.Contains(path, "/report/") {
+			authHandler.ReportUserEvent(w, r)
+		} else {
+			authHandler.GetUserEvent(w, r)
+		}
+	})))
 
 	// Calendar routes
 	if calendarHandler != nil {
@@ -741,7 +707,6 @@ func main() {
 	if commercialHandler != nil {
 		mux.Handle("/api/user/transactions/latest", authMiddleware(http.HandlerFunc(commercialHandler.GetLatestTransaction)))
 		mux.Handle("/api/user/transactions", authMiddleware(http.HandlerFunc(commercialHandler.ListTransactions)))
-		mux.Handle("/api/user/wallet", authMiddleware(http.HandlerFunc(commercialHandler.GetCurrentUserWallet)))
 	}
 
 	// Levels routes - using router function to handle all nested routes
@@ -1074,19 +1039,6 @@ func main() {
 				http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 			}
 		})))
-	}
-
-	// Social routes (follow & challenge)
-	if socialHandler != nil {
-		mux.Handle("/api/followers", authMiddleware(http.HandlerFunc(socialHandler.GetFollowers)))
-		mux.Handle("/api/following", authMiddleware(http.HandlerFunc(socialHandler.GetFollowing)))
-		mux.Handle("/api/follow/", authMiddleware(http.HandlerFunc(socialHandler.Follow)))
-		mux.Handle("/api/unfollow/", authMiddleware(http.HandlerFunc(socialHandler.Unfollow)))
-		mux.Handle("/api/remove/", authMiddleware(http.HandlerFunc(socialHandler.Remove)))
-		mux.Handle("/api/challenge/timings", authMiddleware(http.HandlerFunc(socialHandler.GetTimings)))
-		mux.Handle("/api/challenge/question", authMiddleware(http.HandlerFunc(socialHandler.GetQuestion)))
-		mux.Handle("/api/challenge/answer", authMiddleware(http.HandlerFunc(socialHandler.SubmitAnswer)))
-		log.Printf("✅ Registered social service routes")
 	}
 
 	// Notification routes

@@ -54,7 +54,7 @@ func (h *ReportHandler) CreateReport(ctx context.Context, req *pb.CreateReportRe
 		validateMaxLen("description", req.Description, 2000, locale),
 		validateRequired("url", req.Url, locale),
 	)
-	if len(req.ImageUrls) > 5 {
+	if len(req.ImagePaths) > 5 {
 		validationErrors = mergeValidationErrors(validationErrors, map[string]string{
 			"attachments": "The attachments field must not have more than 5 items",
 		})
@@ -146,7 +146,6 @@ func convertReportToProto(report *models.Report) *pb.ReportResponse {
 		Description:    report.Content,
 		Url:            report.URL,
 		CreatedAt:      utils.FormatJalaliDateTime(report.CreatedAt),
-		Url:            report.URL,
 	}
 }
 

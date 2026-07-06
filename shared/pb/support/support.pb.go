@@ -2450,7 +2450,8 @@ const file_support_proto_rawDesc = "" +
 	"pagination\x18\x02 \x01(\v2\x19.common.PaginationRequestR\n" +
 	"pagination\"H\n" +
 	"\x10GetReportRequest\x12\x1b\n" +
-	"\treport_id\x18\x01 \x01(\x04R\breportId\"\x93\x02\n" +
+	"\treport_id\x18\x01 \x01(\x04R\breportId\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\x04R\x06userId\"\x93\x02\n" +
 	"\x0eReportResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\x04R\x06userId\x12'\n" +

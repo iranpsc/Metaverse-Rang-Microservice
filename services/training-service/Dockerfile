@@ -33,7 +33,7 @@ RUN echo 'go 1.24.0' > go.work && \
 WORKDIR /workspace/metargb/training-service
 RUN sed -i 's|replace metargb/shared => ../../shared|replace metargb/shared => /workspace/metargb/shared|g' go.mod || true && \
     go get metargb/shared@v0.0.0 || true && \
-    go mod download
+    GOSUMDB=off go mod download
 
 ENV GOWORK=/workspace/go.work
 RUN go build -trimpath -ldflags="-s -w" -o /app/training-service ./cmd/server

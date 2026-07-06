@@ -35,6 +35,7 @@ type MarketplaceServicePort interface {
 	RejectBuyRequest(ctx context.Context, requestID, sellerID uint64) error
 	DeleteBuyRequest(ctx context.Context, requestID, buyerID uint64) error
 	UpdateGracePeriod(ctx context.Context, requestID, sellerID uint64, gracePeriodDays int32) error
+	GetBuyRequestSellerID(ctx context.Context, requestID uint64) (uint64, error)
 	GetUserCode(ctx context.Context, userID uint64) (string, error)
 	GetLatestProfilePhoto(ctx context.Context, userID uint64) (string, error)
 }
@@ -55,5 +56,5 @@ type BuildingServicePort interface {
 	BuildFeature(ctx context.Context, req *pb.BuildFeatureRequest) (*pb.Feature, error)
 	GetBuildings(ctx context.Context, featureID uint64) ([]*pb.Building, error)
 	UpdateBuilding(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.Building, error)
-	DestroyBuilding(ctx context.Context, featureID uint64, buildingModelID uint64) error
+	DestroyBuilding(ctx context.Context, featureID uint64, buildingModelID string) error
 }

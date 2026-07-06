@@ -14,14 +14,47 @@ import (
 
 type CommercialHandler struct {
 	transactionClient commercialpb.TransactionServiceClient
+	walletClient      commercialpb.WalletServiceClient
 	locale            string
 }
 
 func NewCommercialHandler(commercialConn *grpc.ClientConn, locale string) *CommercialHandler {
 	return &CommercialHandler{
 		transactionClient: commercialpb.NewTransactionServiceClient(commercialConn),
+		walletClient:      commercialpb.NewWalletServiceClient(commercialConn),
 		locale:            locale,
 	}
+}
+
+// GetCurrentUserWallet handles GET /api/user/wallet (Laravel WalletController@index)
+func (h *CommercialHandler) GetCurrentUserWallet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	userCtx, err := middleware.GetUserFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+
+	resp, err := h.walletClient.GetWallet(r.Context(), &commercialpb.GetWalletRequest{UserId: userCtx.UserID})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+
+	// Laravel returns wallet fields as strings.
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"psc":          resp.Psc,
+		"irr":          resp.Irr,
+		"red":          resp.Red,
+		"blue":         resp.Blue,
+		"yellow":       resp.Yellow,
+		"satisfaction": resp.Satisfaction,
+		"effect":       resp.Effect,
+	})
 }
 
 // ListTransactions handles GET /api/user/transactions (Laravel TransactionController@index)

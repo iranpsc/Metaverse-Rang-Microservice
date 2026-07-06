@@ -79,7 +79,7 @@ func TestReportHandler_CreateReport_Success(t *testing.T) {
 		Reason:         "r",
 		Description:    "d",
 		Url:            "https://u.test",
-		ImageUrls:      []string{"pic.png"},
+		ImagePaths:     []string{"pic.png"},
 	})
 	if err != nil || resp.Id != 12 || resp.Url != "https://u.test" {
 		t.Fatalf("err=%v resp=%+v", err, resp)
@@ -132,7 +132,7 @@ func TestReportHandler_GetReport_Success(t *testing.T) {
 	defer cleanup()
 	client := pb.NewReportServiceClient(conn)
 	resp, err := client.GetReport(context.Background(), &pb.GetReportRequest{ReportId: 9, UserId: 3})
-	if err != nil || resp.Id != 9 || len(resp.AttachmentUrls) != 1 {
+	if err != nil || resp.Id != 9 || len(resp.ImagePaths) != 1 {
 		t.Fatalf("err=%v resp=%+v", err, resp)
 	}
 }

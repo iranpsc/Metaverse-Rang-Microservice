@@ -136,7 +136,7 @@ func (h *BuildingHandler) DestroyBuilding(ctx context.Context, req *pb.DestroyBu
 	}
 
 	// Get authenticated user (ownership check should be done in service)
-	err := h.service.DestroyBuilding(ctx, req.FeatureId, req.BuildingModelId)
+	err := h.service.DestroyBuilding(ctx, req.FeatureId, strings.TrimSpace(req.BuildingModelId))
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") || strings.Contains(err.Error(), "does not own") {
 			return nil, status.Errorf(codes.PermissionDenied, "%s", err.Error())

@@ -24,6 +24,7 @@ type CommentRepositoryInterface interface {
 	AddCommentInteraction(ctx context.Context, commentID, userID uint64, liked bool, ipAddress string) error
 	AddReplyInteraction(ctx context.Context, replyID, userID uint64, liked bool, ipAddress string) error
 	ReportComment(ctx context.Context, videoID, commentID, userID uint64, content string) error
+	GetUserInteractionsForComments(ctx context.Context, commentIDs []uint64, userID uint64) (map[uint64]bool, error)
 }
 
 type CommentRepository struct {

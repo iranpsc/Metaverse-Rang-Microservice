@@ -23,6 +23,11 @@ service TransactionService {
   rpc CreateTransaction(CreateTransactionRequest) returns (Transaction);
 }
 
+// Referral Service - processes referral commissions after successful payments
+service ReferralService {
+  rpc ProcessReferral(ProcessReferralRequest) returns (google.protobuf.Empty);
+}
+
 // ============== Messages ==============
 
 message Wallet {
@@ -175,4 +180,11 @@ message CreateTransactionRequest {
   int32 status = 5;
   string payable_type = 6;
   uint64 payable_id = 7;
+}
+
+message ProcessReferralRequest {
+  uint64 buyer_user_id = 1;
+  uint64 order_id = 2;
+  string asset = 3;
+  double amount = 4;
 }

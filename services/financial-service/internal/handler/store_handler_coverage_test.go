@@ -43,6 +43,6 @@ func (stubOrderSvc) CreateOrder(ctx context.Context, userID uint64, amount int32
 	return "https://pay.example", nil
 }
 
-func (stubOrderSvc) HandleCallback(ctx context.Context, orderID uint64, status int32, token int64, additionalParams map[string]string) (string, error) {
+func (stubOrderSvc) HandleCallback(ctx context.Context, orderID uint64, token string, resCode string, additionalParams map[string]string) (string, error) {
 	return "https://example.com/verify", nil
 }

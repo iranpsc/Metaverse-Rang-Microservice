@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"metargb/financial-service/internal/grpcclients"
 	"metargb/financial-service/internal/handler"
 	"metargb/financial-service/internal/sadad"
 	"metargb/financial-service/internal/repository"
@@ -85,30 +84,16 @@ func main() {
 	cancel()
 	log.Println("Successfully connected to database")
 
-	// Downstream gRPC clients (commercial-service, notifications-service)
-	var walletAdapter *grpcclients.WalletAdapter
-	var referralAdapter *grpcclients.ReferralAdapter
-	var notifyAdapter *grpcclients.NotifyAdapter
-
+	// Commercial-service client for wallet balance updates after payment
+	var walletClient commercialpb.WalletServiceClient
 	commercialAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052")
 	commercialConn, err := grpc.NewClient(commercialAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("Warning: failed to dial commercial service at %s — wallet/referral callbacks disabled: %v", commercialAddr, err)
+		log.Printf("Warning: failed to dial commercial service at %s — wallet updates disabled: %v", commercialAddr, err)
 	} else {
 		defer commercialConn.Close()
 		log.Printf("Connected to commercial service at %s", commercialAddr)
-		walletAdapter = &grpcclients.WalletAdapter{Client: commercialpb.NewWalletServiceClient(commercialConn)}
-		referralAdapter = &grpcclients.ReferralAdapter{Client: commercialpb.NewReferralServiceClient(commercialConn)}
-	}
-
-	notificationsAddr := getEnv("NOTIFICATIONS_SERVICE_ADDR", "notifications-service:50058")
-	notifConn, err := grpc.NewClient(notificationsAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Printf("Warning: failed to dial notifications service at %s — purchase notifications disabled: %v", notificationsAddr, err)
-	} else {
-		defer notifConn.Close()
-		log.Printf("Connected to notifications service at %s", notificationsAddr)
-		notifyAdapter = &grpcclients.NotifyAdapter{Client: notificationpb.NewNotificationServiceClient(notifConn)}
+		walletClient = commercialpb.NewWalletServiceClient(commercialConn)
 	}
 
 	// Initialize repositories
@@ -139,18 +124,6 @@ func main() {
 
 	// Initialize Jalali converter
 	jalaliConverter := service.NewJalaliConverter()
-
-	// Connect to commercial-service for wallet balance updates
-	var walletClient commercialpb.WalletServiceClient
-	commercialAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052")
-	commercialConn, err := grpc.Dial(commercialAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Printf("Warning: Failed to connect to commercial service at %s - wallet updates disabled: %v", commercialAddr, err)
-	} else {
-		defer commercialConn.Close()
-		walletClient = commercialpb.NewWalletServiceClient(commercialConn)
-		log.Printf("Connected to commercial service at %s", commercialAddr)
-	}
 
 	// Initialize order service
 	orderService := service.NewOrderService(

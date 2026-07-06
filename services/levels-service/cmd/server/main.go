@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"metargb/levels-service/internal/client"
 	"metargb/levels-service/internal/handler"
 	"metargb/levels-service/internal/repository"
 	"metargb/levels-service/internal/service"
