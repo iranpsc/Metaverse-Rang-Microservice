@@ -30,6 +30,12 @@ type CacheRepository interface {
 
 	// TryAcquireAccountSecurityVerificationSlot returns true when the user may request a new verification code.
 	TryAcquireAccountSecurityVerificationSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error)
+
+	// Web3 wallet nonce cache (Laravel WalletController)
+	SetWeb3LinkNonce(ctx context.Context, userID uint64, address, nonce string, ttl time.Duration) error
+	PullWeb3LinkNonce(ctx context.Context, userID uint64, address string) (string, error)
+	SetWeb3SecurityNonce(ctx context.Context, userID uint64, address, nonce string, ttl time.Duration) error
+	PullWeb3SecurityNonce(ctx context.Context, userID uint64, address string) (string, error)
 }
 
 type cacheRepository struct {
@@ -110,4 +116,38 @@ func (r *cacheRepository) TryAcquireAccountSecurityVerificationSlot(ctx context.
 		return false, fmt.Errorf("failed to check verification request rate limit: %w", err)
 	}
 	return ok, nil
+}
+
+func (r *cacheRepository) SetWeb3LinkNonce(ctx context.Context, userID uint64, address, nonce string, ttl time.Duration) error {
+	key := fmt.Sprintf("web3_nonce_link_%d_%s", userID, address)
+	return r.client.Set(ctx, key, nonce, ttl).Err()
+}
+
+func (r *cacheRepository) PullWeb3LinkNonce(ctx context.Context, userID uint64, address string) (string, error) {
+	key := fmt.Sprintf("web3_nonce_link_%d_%s", userID, address)
+	val, err := r.client.GetDel(ctx, key).Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to pull web3 link nonce: %w", err)
+	}
+	return val, nil
+}
+
+func (r *cacheRepository) SetWeb3SecurityNonce(ctx context.Context, userID uint64, address, nonce string, ttl time.Duration) error {
+	key := fmt.Sprintf("web3_nonce_security_%d_%s", userID, address)
+	return r.client.Set(ctx, key, nonce, ttl).Err()
+}
+
+func (r *cacheRepository) PullWeb3SecurityNonce(ctx context.Context, userID uint64, address string) (string, error) {
+	key := fmt.Sprintf("web3_nonce_security_%d_%s", userID, address)
+	val, err := r.client.GetDel(ctx, key).Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to pull web3 security nonce: %w", err)
+	}
+	return val, nil
 }

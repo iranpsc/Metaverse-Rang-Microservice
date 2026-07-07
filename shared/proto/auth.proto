@@ -833,6 +833,54 @@ message UserFeaturesCountData {
   int32 amoozeshi_features_count = 3;    // karbari = 'a'
 }
 
+// Wallet Connection Service - Web3 wallet link and account security bypass
+service WalletConnectionService {
+  rpc GetLinkNonce(GetWalletLinkNonceRequest) returns (GetWalletNonceResponse);
+  rpc LinkWallet(LinkWalletRequest) returns (LinkWalletResponse);
+  rpc GetSecurityNonce(GetWalletSecurityNonceRequest) returns (GetWalletNonceResponse);
+  rpc VerifySecuritySignature(VerifyWalletSecuritySignatureRequest) returns (VerifyWalletSecuritySignatureResponse);
+}
+
+message GetWalletLinkNonceRequest {
+  uint64 user_id = 1;
+  string address = 2;
+}
+
+message GetWalletSecurityNonceRequest {
+  uint64 user_id = 1;
+  string address = 2;
+}
+
+message GetWalletNonceResponse {
+  string nonce = 1;
+}
+
+message LinkWalletRequest {
+  uint64 user_id = 1;
+  string address = 2;
+  string signature = 3;
+  string ip = 4;
+}
+
+message LinkWalletResponse {
+  string message = 1;
+  string wallet_address = 2;
+}
+
+message VerifyWalletSecuritySignatureRequest {
+  uint64 user_id = 1;
+  string address = 2;
+  string signature = 3;
+  int32 duration = 4;
+  string ip = 5;
+  string user_agent = 6;
+}
+
+message VerifyWalletSecuritySignatureResponse {
+  string message = 1;
+  int64 until = 2;
+}
+
 // ============== Search Service ==============
 // Search Service - handles search endpoints (no authentication required)
 service SearchService {

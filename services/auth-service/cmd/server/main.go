@@ -202,6 +202,14 @@ func main() {
 	}
 
 	// Initialize services
+	walletConnectionService := service.NewWalletConnectionService(
+		userRepo,
+		cacheRepo,
+		accountSecurityRepo,
+		activityRepo,
+		getEnv("APP_NAME", "Laravel"),
+		getEnv("APP_URL", "http://localhost:8000"),
+	)
 	authService := service.NewAuthService(
 		userRepo,
 		tokenRepo,
@@ -285,6 +293,7 @@ func main() {
 	projectLocale := getEnv("PROJECT_LOCALE", "EN")
 	handler.SetProjectLocale(projectLocale)
 	handler.RegisterAuthHandler(grpcServer, authService, tokenRepo, profilePhotoHandler, projectLocale)
+	handler.RegisterWalletConnectionHandler(grpcServer, walletConnectionService, projectLocale)
 	handler.RegisterUserHandler(grpcServer, userService, profileLimitationService, helperService)
 	handler.RegisterKYCHandler(grpcServer, kycService, storageClient, apiGatewayURL)
 	handler.RegisterCitizenHandler(grpcServer, citizenService)

@@ -22,6 +22,7 @@ type User struct {
 	RefreshToken    sql.NullString `db:"refresh_token"`
 	TokenType       sql.NullString `db:"token_type"`
 	ExpiresIn       sql.NullInt64  `db:"expires_in"`
+	WalletAddress   sql.NullString `db:"wallet_address"`
 	CreatedAt       time.Time      `db:"created_at"`
 	UpdatedAt       time.Time      `db:"updated_at"`
 }

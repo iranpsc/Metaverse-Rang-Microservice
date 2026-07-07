@@ -219,6 +219,7 @@ func main() {
 
 	// Create handlers (levels optional: enriches /api/auth/me level.fbx_file from level gem via levels-service)
 	authHandler := handler.NewAuthHandler(authConn, levelsConn, cfg.Locale)
+	walletHandler := handler.NewWalletHandler(authConn, cfg.Locale)
 
 	var calendarHandler *handler.CalendarHandler
 	if calendarConn != nil {
@@ -313,6 +314,12 @@ func main() {
 	// Account security verification requests are rate limited in auth-service (production only).
 	mux.Handle("/api/account/security", authMiddleware(http.HandlerFunc(authHandler.RequestAccountSecurity)))
 	mux.Handle("/api/account/security/verify", authMiddleware(http.HandlerFunc(authHandler.VerifyAccountSecurity)))
+
+	// Web3 wallet connection routes (Laravel WalletController)
+	mux.Handle("/api/wallet/link/nonce", authMiddleware(http.HandlerFunc(walletHandler.GetLinkNonce)))
+	mux.Handle("/api/wallet/link", authMiddleware(http.HandlerFunc(walletHandler.LinkWallet)))
+	mux.Handle("/api/wallet/security/nonce", authMiddleware(http.HandlerFunc(walletHandler.GetSecurityNonce)))
+	mux.Handle("/api/wallet/security/verify", authMiddleware(http.HandlerFunc(walletHandler.VerifySecuritySignature)))
 
 	// User routes - register /api/users FIRST before any other user routes
 	mux.Handle("/api/users", optionalAuthMiddleware(http.HandlerFunc(authHandler.ListUsers)))
@@ -711,7 +718,7 @@ func main() {
 
 	// Levels routes - using router function to handle all nested routes
 	if levelsHandler != nil {
-		mux.Handle("/api/levels", http.HandlerFunc(levelsHandler.GetAllLevels)) // Public
+		mux.Handle("/api/levels", http.HandlerFunc(levelsHandler.GetAllLevels))        // Public
 		mux.Handle("/api/levels/", http.HandlerFunc(levelsHandler.HandleLevelsRoutes)) // Public
 	}
 

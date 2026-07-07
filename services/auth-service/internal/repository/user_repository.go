@@ -25,6 +25,8 @@ type UserRepository interface {
 	UpdatePhone(ctx context.Context, userID uint64, phone string) error
 	MarkPhoneAsVerified(ctx context.Context, userID uint64) error
 	IsPhoneTaken(ctx context.Context, phone string, excludeUserID uint64) (bool, error)
+	ExistsByWalletAddress(ctx context.Context, address string, excludeUserID uint64) (bool, error)
+	LinkWalletAddress(ctx context.Context, userID uint64, address string) (LinkWalletResult, error)
 	// Users API methods
 	ListUsers(ctx context.Context, search string, orderBy string, page int32, limit int32) ([]*UserWithRelations, int32, error)
 	GetUsersLevelsForList(ctx context.Context, userIDs []uint64) (map[uint64]*UserListLevels, error)
@@ -68,6 +70,14 @@ type UserListLevels struct {
 	Current  *UserListLevel
 	Previous []*UserListLevel
 }
+
+type LinkWalletResult string
+
+const (
+	LinkWalletSuccess          LinkWalletResult = "success"
+	LinkWalletAlreadyConnected LinkWalletResult = "already_connected"
+	LinkWalletAlreadyLinked    LinkWalletResult = "already_linked"
+)
 
 type userRepository struct {
 	db            *sql.DB
@@ -137,7 +147,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*models
 	query := `
 		SELECT id, name, email, phone, password, code, referrer_id, score, ip, 
 			last_seen, email_verified_at, phone_verified_at, access_token, 
-			refresh_token, token_type, expires_in, created_at, updated_at
+			refresh_token, token_type, expires_in, wallet_address, created_at, updated_at
 		FROM users
 		WHERE email = ?
 	`
@@ -146,7 +156,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*models
 		&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password,
 		&user.Code, &user.ReferrerID, &user.Score, &user.IP, &user.LastSeen,
 		&user.EmailVerifiedAt, &user.PhoneVerifiedAt, &user.AccessToken,
-		&user.RefreshToken, &user.TokenType, &user.ExpiresIn,
+		&user.RefreshToken, &user.TokenType, &user.ExpiresIn, &user.WalletAddress,
 		&user.CreatedAt, &user.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -162,7 +172,7 @@ func (r *userRepository) FindByID(ctx context.Context, id uint64) (*models.User,
 	query := `
 		SELECT id, name, email, phone, password, code, referrer_id, score, ip, 
 			last_seen, email_verified_at, phone_verified_at, access_token, 
-			refresh_token, token_type, expires_in, created_at, updated_at
+			refresh_token, token_type, expires_in, wallet_address, created_at, updated_at
 		FROM users
 		WHERE id = ?
 	`
@@ -171,7 +181,7 @@ func (r *userRepository) FindByID(ctx context.Context, id uint64) (*models.User,
 		&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password,
 		&user.Code, &user.ReferrerID, &user.Score, &user.IP, &user.LastSeen,
 		&user.EmailVerifiedAt, &user.PhoneVerifiedAt, &user.AccessToken,
-		&user.RefreshToken, &user.TokenType, &user.ExpiresIn,
+		&user.RefreshToken, &user.TokenType, &user.ExpiresIn, &user.WalletAddress,
 		&user.CreatedAt, &user.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -307,6 +317,65 @@ func (r *userRepository) IsPhoneTaken(ctx context.Context, phone string, exclude
 		return false, fmt.Errorf("failed to check phone uniqueness: %w", err)
 	}
 	return count > 0, nil
+}
+
+func (r *userRepository) ExistsByWalletAddress(ctx context.Context, address string, excludeUserID uint64) (bool, error) {
+	query := `SELECT COUNT(*) FROM users WHERE wallet_address = ?`
+	args := []interface{}{address}
+	if excludeUserID > 0 {
+		query += ` AND id != ?`
+		args = append(args, excludeUserID)
+	}
+
+	var count int
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
+		return false, fmt.Errorf("failed to check wallet address uniqueness: %w", err)
+	}
+	return count > 0, nil
+}
+
+func (r *userRepository) LinkWalletAddress(ctx context.Context, userID uint64, address string) (LinkWalletResult, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var existingWallet sql.NullString
+	err = tx.QueryRowContext(ctx, `
+		SELECT wallet_address FROM users WHERE id = ? FOR UPDATE
+	`, userID).Scan(&existingWallet)
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to lock user row: %w", err)
+	}
+	if existingWallet.Valid && existingWallet.String != "" {
+		return LinkWalletAlreadyConnected, nil
+	}
+
+	var linkedCount int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM users WHERE wallet_address = ? FOR UPDATE
+	`, address).Scan(&linkedCount); err != nil {
+		return "", fmt.Errorf("failed to lock wallet address row: %w", err)
+	}
+	if linkedCount > 0 {
+		return LinkWalletAlreadyLinked, nil
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE users SET wallet_address = ?, updated_at = ? WHERE id = ?
+	`, address, time.Now(), userID); err != nil {
+		return "", fmt.Errorf("failed to update wallet address: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("failed to commit wallet link transaction: %w", err)
+	}
+
+	return LinkWalletSuccess, nil
 }
 
 // ListUsers returns paginated list of users with search and ordering

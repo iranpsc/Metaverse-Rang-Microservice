@@ -2184,6 +2184,8 @@ CREATE TABLE `users` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(191) NOT NULL,
   `email` varchar(191) NOT NULL,
+  `wallet_address` varchar(191) DEFAULT NULL,
+  `nonce` varchar(191) DEFAULT NULL,
   `phone` varchar(191) DEFAULT NULL,
   `phone_verified_at` timestamp NULL DEFAULT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,
@@ -2203,6 +2205,7 @@ CREATE TABLE `users` (
   `expires_in` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `users_email_unique` (`email`),
+  UNIQUE KEY `users_wallet_address_unique` (`wallet_address`),
   KEY `users_code_index` (`code`),
   KEY `users_name_index` (`name`)
 ) ENGINE=InnoDB AUTO_INCREMENT=670 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
