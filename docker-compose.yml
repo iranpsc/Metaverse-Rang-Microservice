@@ -54,11 +54,11 @@ services:
       context: .
       dockerfile: ./services/auth-service/Dockerfile
     container_name: metargb-auth-service
-    ports:
-      - "50051:50051"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/auth-service/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       GRPC_PORT: 50051
       DB_HOST: mysql
       DB_PORT: 3306
@@ -111,6 +111,7 @@ services:
     env_file:
       - ./services/grpc-gateway/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       HTTP_PORT: 8080
       AUTH_SERVICE_ADDR: auth-service:50051
       CALENDAR_SERVICE_ADDR: calendar-service:50059
@@ -163,11 +164,11 @@ services:
       context: .
       dockerfile: ./services/commercial-service/Dockerfile
     container_name: metargb-commercial-service
-    ports:
-      - "50052:50052"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/commercial-service/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       GRPC_PORT: 50052
       DB_HOST: mysql
       DB_PORT: 3306
@@ -204,11 +205,11 @@ services:
       context: .
       dockerfile: ./services/features-service/Dockerfile
     container_name: metargb-features-service
-    ports:
-      - "50053:50053"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/features-service/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       GRPC_PORT: 50053
       DB_HOST: mysql
       DB_PORT: 3306
@@ -245,8 +246,7 @@ services:
       context: .
       dockerfile: ./services/levels-service/Dockerfile
     container_name: metargb-levels-service
-    ports:
-      - "50054:50054"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/levels-service/config.env
     environment:
@@ -279,11 +279,11 @@ services:
       context: .
       dockerfile: ./services/dynasty-service/Dockerfile
     container_name: metargb-dynasty-service
-    ports:
-      - "50055:50055"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/dynasty-service/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       GRPC_PORT: 50055
       DB_HOST: mysql
       DB_PORT: 3306
@@ -313,11 +313,11 @@ services:
       context: .
       dockerfile: ./services/calendar-service/Dockerfile
     container_name: metargb-calendar-service
-    ports:
-      - "50059:50059"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/calendar-service/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       GRPC_PORT: 50059
       DB_HOST: mysql
       DB_PORT: 3306
@@ -347,11 +347,11 @@ services:
       context: .
       dockerfile: ./services/support-service/Dockerfile
     container_name: metargb-support-service
-    ports:
-      - "50056:50056"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/support-service/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       GRPC_PORT: 50056
       DB_HOST: mysql
       DB_PORT: 3306
@@ -389,8 +389,7 @@ services:
       context: .
       dockerfile: ./services/social-service/Dockerfile
     container_name: metargb-social-service
-    ports:
-      - "50061:50061"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/social-service/config.env
     environment:
@@ -431,8 +430,7 @@ services:
       context: .
       dockerfile: ./services/training-service/Dockerfile
     container_name: metargb-training-service
-    ports:
-      - "50057:50057"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/training-service/config.env
     environment:
@@ -473,8 +471,7 @@ services:
       context: .
       dockerfile: ./services/notifications-service/Dockerfile
     container_name: metargb-notifications-service
-    ports:
-      - "50058:50058"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/notifications-service/config.env
     environment:
@@ -519,11 +516,11 @@ services:
       context: .
       dockerfile: ./services/financial-service/Dockerfile
     container_name: metargb-financial-service
-    ports:
-      - "50062:50062"
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     env_file:
       - ./services/financial-service/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       GRPC_PORT: 50062
       DB_HOST: mysql
       DB_PORT: 3306
@@ -559,9 +556,7 @@ services:
       context: .
       dockerfile: ./services/storage-service/Dockerfile
     container_name: metargb-storage-service
-    ports:
-      - "50060:50060"  # gRPC port
-      - "8059:8059"    # HTTP REST API port
+    # gRPC/HTTP service ports are not exposed on the host; use Kong (:8000) or the internal Docker network.
     volumes:
       - ./services/storage-service/uploads:/app/uploads
     env_file:
@@ -609,6 +604,7 @@ services:
     env_file:
       - ./websocket-gateway/config.env
     environment:
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-dev-internal-service-secret-change-me}
       PORT: 3002
       REDIS_URL: redis://redis:6379
       AUTH_SERVICE_ADDR: auth-service:50051

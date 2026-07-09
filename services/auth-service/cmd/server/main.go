@@ -16,7 +16,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"metargb/auth-service/internal/handler"
 	"metargb/auth-service/internal/pubsub"
@@ -25,6 +24,8 @@ import (
 	pb "metargb/shared/pb/auth"
 	notificationspb "metargb/shared/pb/notifications"
 	storagepb "metargb/shared/pb/storage"
+	"metargb/shared/pkg/auth"
+	authlocal "metargb/auth-service/internal/auth"
 	"metargb/shared/pkg/metrics"
 )
 
@@ -192,7 +193,7 @@ func main() {
 	// Initialize notifications SMS client (optional - service can work without it)
 	var smsClient notificationspb.SMSServiceClient
 	notificationsAddr := getEnv("NOTIFICATIONS_SERVICE_ADDR", "notifications-service:50058")
-	notificationsConn, err := grpc.Dial(notificationsAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	notificationsConn, err := grpc.Dial(notificationsAddr, auth.ClientDialOptions()...)
 	if err != nil {
 		log.Printf("Warning: Failed to connect to notifications service: %v (continuing without SMS support)", err)
 	} else {
@@ -259,7 +260,7 @@ func main() {
 	// Initialize storage service client for profile photo uploads
 	storageServiceAddr := getEnv("STORAGE_SERVICE_ADDR", "storage-service:50060")
 	var storageClient storagepb.FileStorageServiceClient
-	storageConn, err := grpc.NewClient(storageServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	storageConn, err := grpc.NewClient(storageServiceAddr, auth.ClientDialOptions()...)
 	if err != nil {
 		log.Printf("Warning: Failed to connect to storage service: %v (profile photo uploads will fail)", err)
 		storageClient = nil
@@ -275,11 +276,12 @@ func main() {
 	// Initialize search service
 	searchService := service.NewSearchService(searchRepo)
 
-	// Create gRPC server with Prometheus metrics
+	// Create gRPC server with Prometheus metrics and authentication
 	serviceMetrics := metrics.NewMetrics("auth_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+	tokenValidator := authlocal.NewLocalTokenValidator(tokenRepo)
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(auth.ServerInterceptors(metrics.UnaryServerInterceptor(serviceMetrics), tokenValidator)...),
 	)
 
 	// Create profile photo handler instance (needed by auth handler)

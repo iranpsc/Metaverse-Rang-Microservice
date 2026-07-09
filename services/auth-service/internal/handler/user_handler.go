@@ -13,6 +13,7 @@ import (
 	"metargb/auth-service/internal/models"
 	"metargb/auth-service/internal/service"
 	pb "metargb/shared/pb/auth"
+	"metargb/shared/pkg/auth"
 )
 
 type userHandler struct {
@@ -86,7 +87,15 @@ func (h *userHandler) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.
 }
 
 func (h *userHandler) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.User, error) {
-	user, err := h.userService.UpdateProfile(ctx, req.UserId, req.Name, req.Email, req.Phone)
+	userCtx, err := auth.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+	if req.UserId != 0 && req.UserId != userCtx.UserID {
+		return nil, status.Error(codes.PermissionDenied, "access denied")
+	}
+
+	user, err := h.userService.UpdateProfile(ctx, userCtx.UserID, req.Name, req.Email, req.Phone)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update profile: %v", err)
 	}

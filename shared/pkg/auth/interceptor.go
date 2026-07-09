@@ -12,6 +12,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const permissionDeniedMessage = "forbidden"
+
 // ErrInvalidToken is returned when a token validation fails
 var ErrInvalidToken = errors.New("invalid token")
 
@@ -40,6 +42,21 @@ func UnaryServerInterceptor(validator TokenValidator) grpc.UnaryServerIntercepto
 	) (interface{}, error) {
 		// Skip authentication for certain methods (e.g., health checks, public endpoints)
 		if shouldSkipAuth(info.FullMethod) {
+			return handler(ctx, req)
+		}
+
+		// Internal service-only RPCs (wallet mutations, etc.)
+		if requiresInternalServiceOnly(info.FullMethod) {
+			if !validateInternalServiceSecret(ctx) {
+				return nil, status.Error(codes.PermissionDenied, permissionDeniedMessage)
+			}
+			ctx = contextWithInternalService(ctx)
+			return handler(ctx, req)
+		}
+
+		// Service-to-service calls authenticated with the internal secret
+		if validateInternalServiceSecret(ctx) {
+			ctx = contextWithInternalService(ctx)
 			return handler(ctx, req)
 		}
 
@@ -92,6 +109,21 @@ func StreamServerInterceptor(validator TokenValidator) grpc.StreamServerIntercep
 		}
 
 		ctx := stream.Context()
+
+		if requiresInternalServiceOnly(info.FullMethod) {
+			if !validateInternalServiceSecret(ctx) {
+				return status.Error(codes.PermissionDenied, permissionDeniedMessage)
+			}
+			ctx = contextWithInternalService(ctx)
+			wrappedStream := &wrappedServerStream{ServerStream: stream, ctx: ctx}
+			return handler(srv, wrappedStream)
+		}
+
+		if validateInternalServiceSecret(ctx) {
+			ctx = contextWithInternalService(ctx)
+			wrappedStream := &wrappedServerStream{ServerStream: stream, ctx: ctx}
+			return handler(srv, wrappedStream)
+		}
 
 		// Optional auth: proceed without a token; attach user context when a valid token is sent
 		if shouldUseOptionalAuth(info.FullMethod) {
@@ -205,21 +237,8 @@ func shouldSkipAuth(fullMethod string) bool {
 		"/auth.AuthService/Redirect",
 		"/auth.AuthService/Callback",
 		"/auth.AuthService/ValidateToken", // Other services call this to validate tokens
-		// Commercial service public endpoints
-		"/commercial.WalletService/GetWallet", // Public endpoint - anyone can view any user's wallet
-		// Commercial service internal wallet mutations (called by other microservices)
-		"/commercial.WalletService/AddBalance",
-		"/commercial.WalletService/DeductBalance",
-		"/commercial.WalletService/LockBalance",
-		"/commercial.WalletService/UnlockBalance",
-		"/commercial.TransactionService/CreateTransaction",
-		// Financial service public endpoints (payment gateway callbacks, internal wallet RPC)
+		// Financial service payment gateway callback (verified with Sadad before crediting)
 		"/financial.OrderService/HandleCallback",
-		"/financial.WalletService/GetWallet",
-		"/financial.WalletService/AddBalance",
-		"/financial.WalletService/DeductBalance",
-		"/financial.WalletService/LockBalance",
-		"/financial.WalletService/UnlockBalance",
 	}
 
 	for _, method := range publicMethods {

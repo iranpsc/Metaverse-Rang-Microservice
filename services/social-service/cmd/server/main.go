@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/logger"
 	"metargb/shared/pkg/metrics"
 	"metargb/social-service/internal/client"
@@ -93,10 +94,17 @@ func main() {
 	serviceMetrics := metrics.NewMetrics("social_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 
+	authConn, tokenValidator, err := auth.DialAuthService(getEnv("AUTH_SERVICE_ADDR", "auth-service:50051"))
+	if err != nil {
+		structLog.Fatal("Failed to connect to auth service", "error", err)
+	}
+	defer authConn.Close()
+
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			logger.UnaryServerInterceptor(structLog),
 			metrics.UnaryServerInterceptor(serviceMetrics),
+			auth.UnaryServerInterceptor(tokenValidator),
 		),
 	)
 	handler.RegisterChallengeHandler(grpcServer, challengeService)

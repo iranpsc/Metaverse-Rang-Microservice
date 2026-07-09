@@ -15,6 +15,7 @@ import (
 	"metargb/levels-service/internal/repository"
 	"metargb/levels-service/internal/service"
 	pb "metargb/shared/pb/levels"
+	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/db"
 	"metargb/shared/pkg/logger"
 	"metargb/shared/pkg/metrics"
@@ -116,10 +117,18 @@ func main() {
 	// Create gRPC server with interceptors
 	serviceMetrics := metrics.NewMetrics("levels_service")
 	metrics.StartHTTPServer(metricsPort)
+
+	authConn, tokenValidator, err := auth.DialAuthService(getEnv("AUTH_SERVICE_ADDR", "auth-service:50051"))
+	if err != nil {
+		log.Fatal("Failed to connect to auth service", "error", err)
+	}
+	defer authConn.Close()
+
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			logger.UnaryServerInterceptor(log),
 			metrics.UnaryServerInterceptor(serviceMetrics),
+			auth.UnaryServerInterceptor(tokenValidator),
 		),
 	)
 

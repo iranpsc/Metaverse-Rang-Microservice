@@ -18,6 +18,7 @@ import (
 	"metargb/support-service/internal/handler"
 	"metargb/support-service/internal/repository"
 	"metargb/support-service/internal/service"
+	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/metrics"
 )
 
@@ -80,8 +81,15 @@ func main() {
 
 	serviceMetrics := metrics.NewMetrics("support_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+
+	authConn, tokenValidator, err := auth.DialAuthService(getEnv("AUTH_SERVICE_ADDR", "auth-service:50051"))
+	if err != nil {
+		log.Fatalf("Failed to connect to auth service: %v", err)
+	}
+	defer authConn.Close()
+
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(auth.ServerInterceptors(metrics.UnaryServerInterceptor(serviceMetrics), tokenValidator)...),
 	)
 
 	handler.RegisterTicketHandler(grpcServer, ticketService)

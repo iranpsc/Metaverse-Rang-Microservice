@@ -138,10 +138,17 @@ func (s *StorageService) DeleteFile(filePath string) error {
 // HandleChunkUpload processes a chunk upload
 // Returns: isFinished, progress, filePath (relative path like "uploads/mime/date/"), finalFilename, mimeType, error
 func (s *StorageService) HandleChunkUpload(uploadID, filename, contentType string, chunkData []byte, chunkIndex, totalChunks int32, totalSize int64, uploadPath string) (bool, float64, string, string, string, error) {
-	uploadSubdir := normalizeUploadSubdir(uploadPath)
+	uploadSubdir, err := normalizeUploadSubdir(uploadPath)
+	if err != nil {
+		return false, 0, "", "", "", err
+	}
 	customUpload := uploadSubdir != ""
 
 	// Get or create session
+	if err := sanitizeUploadID(uploadID); err != nil {
+		return false, 0, "", "", "", err
+	}
+
 	session, err := s.chunkManager.GetOrCreateSession(uploadID, filename, contentType, totalChunks, totalSize, uploadSubdir)
 	if err != nil {
 		return false, 0, "", "", "", fmt.Errorf("failed to create session: %w", err)
@@ -167,7 +174,11 @@ func (s *StorageService) HandleChunkUpload(uploadID, filename, contentType strin
 		return false, 0, "", "", "", fmt.Errorf("failed to assemble file: %w", err)
 	}
 
-	localPath := resolveChunkLocalPath(s.uploadBaseDir, relativePath, customUpload)
+	localPath, err := resolveChunkLocalPath(s.uploadBaseDir, relativePath, customUpload)
+	if err != nil {
+		s.chunkManager.CleanupSession(uploadID)
+		return false, 0, "", "", "", err
+	}
 	localDir := filepath.Dir(localPath)
 
 	// Create directory if it doesn't exist

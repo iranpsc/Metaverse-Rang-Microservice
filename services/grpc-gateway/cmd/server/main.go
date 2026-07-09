@@ -1064,9 +1064,9 @@ func main() {
 		mux.Handle("/api/notifications/mark-all-read", authMiddleware(http.HandlerFunc(notificationHandler.MarkAllAsRead)))
 	}
 
-	// Storage routes (public endpoint, no authentication required)
+	// Storage routes (authenticated)
 	if storageHandler != nil {
-		mux.HandleFunc("/api/upload", storageHandler.HandleUpload)
+		mux.Handle("/api/upload", authMiddleware(http.HandlerFunc(storageHandler.HandleUpload)))
 		log.Printf("✅ Registered storage upload route: /api/upload")
 	}
 

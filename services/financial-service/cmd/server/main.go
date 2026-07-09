@@ -16,13 +16,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"metargb/financial-service/internal/handler"
 	"metargb/financial-service/internal/sadad"
 	"metargb/financial-service/internal/repository"
 	"metargb/financial-service/internal/service"
 	commercialpb "metargb/shared/pb/commercial"
+	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/metrics"
 )
 
@@ -87,7 +87,7 @@ func main() {
 	// Commercial-service client for wallet balance updates after payment
 	var walletClient commercialpb.WalletServiceClient
 	commercialAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052")
-	commercialConn, err := grpc.NewClient(commercialAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	commercialConn, err := grpc.NewClient(commercialAddr, auth.ClientDialOptions()...)
 	if err != nil {
 		log.Printf("Warning: failed to dial commercial service at %s — wallet updates disabled: %v", commercialAddr, err)
 	} else {
@@ -158,8 +158,15 @@ func main() {
 	// Create gRPC server
 	serviceMetrics := metrics.NewMetrics("financial_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+
+	authConn, tokenValidator, err := auth.DialAuthService(getEnv("AUTH_SERVICE_ADDR", "auth-service:50051"))
+	if err != nil {
+		log.Fatalf("Failed to connect to auth service: %v", err)
+	}
+	defer authConn.Close()
+
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(auth.ServerInterceptors(metrics.UnaryServerInterceptor(serviceMetrics), tokenValidator)...),
 	)
 
 	// Register handlers

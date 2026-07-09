@@ -19,6 +19,7 @@ import (
 	"metargb/training-service/internal/handler"
 	"metargb/training-service/internal/repository"
 	"metargb/training-service/internal/service"
+	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/metrics"
 )
 
@@ -134,8 +135,15 @@ func main() {
 	// Create gRPC server
 	serviceMetrics := metrics.NewMetrics("training_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+
+	authConn, tokenValidator, err := auth.DialAuthService(getEnv("AUTH_SERVICE_ADDR", "auth-service:50051"))
+	if err != nil {
+		log.Fatalf("Failed to connect to auth service: %v", err)
+	}
+	defer authConn.Close()
+
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(auth.ServerInterceptors(metrics.UnaryServerInterceptor(serviceMetrics), tokenValidator)...),
 	)
 
 	// Register handlers

@@ -13,6 +13,7 @@ import (
 	commercialpb "metargb/shared/pb/commercial"
 	featurespb "metargb/shared/pb/features"
 	levelspb "metargb/shared/pb/levels"
+	"metargb/shared/pkg/auth"
 )
 
 // HelperService provides helper methods that integrate with other microservices
@@ -105,19 +106,17 @@ func NewHelperService(levelsAddr, featuresAddr, commercialAddr string) HelperSer
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Create client interceptor to forward authorization header
-		interceptor := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-			// Check if authorization is already in outgoing metadata
+		// Forward bearer tokens and attach internal service credentials for wallet RPCs.
+		forwardAuthInterceptor := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+			ctx = auth.AttachInternalServiceAuth(ctx)
+
 			outMd, hasOutgoing := metadata.FromOutgoingContext(ctx)
 			if hasOutgoing && len(outMd.Get("authorization")) > 0 {
-				// Already has authorization, proceed
 				return invoker(ctx, method, req, reply, cc, opts...)
 			}
 
-			// Try to get authorization from incoming metadata
 			if inMd, ok := metadata.FromIncomingContext(ctx); ok {
 				if authHeaders := inMd.Get("authorization"); len(authHeaders) > 0 {
-					// Forward authorization header to outgoing call
 					ctx = metadata.AppendToOutgoingContext(ctx, "authorization", authHeaders[0])
 				}
 			}
@@ -126,8 +125,8 @@ func NewHelperService(levelsAddr, featuresAddr, commercialAddr string) HelperSer
 		}
 
 		conn, err := grpc.DialContext(ctx, commercialAddr,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithUnaryInterceptor(interceptor))
+			append(auth.ClientDialOptions(), grpc.WithUnaryInterceptor(forwardAuthInterceptor), grpc.WithBlock())...,
+		)
 		if err != nil {
 			log.Printf("Warning: Failed to connect to commercial service at %s: %v (will use stub implementations)", commercialAddr, err)
 		} else {

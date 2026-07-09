@@ -11,6 +11,7 @@ import (
 
 	"metargb/commercial-service/internal/service"
 	pb "metargb/shared/pb/commercial"
+	"metargb/shared/pkg/auth"
 )
 
 type WalletHandler struct {
@@ -30,6 +31,16 @@ func RegisterWalletHandler(grpcServer *grpc.Server, walletService service.Wallet
 }
 
 func (h *WalletHandler) GetWallet(ctx context.Context, req *pb.GetWalletRequest) (*pb.WalletResponse, error) {
+	if !auth.IsInternalServiceCall(ctx) {
+		userCtx, err := auth.GetUserFromContext(ctx)
+		if err != nil {
+			return nil, status.Error(codes.Unauthenticated, "authentication required")
+		}
+		if req.UserId != userCtx.UserID {
+			return nil, status.Error(codes.PermissionDenied, "access denied")
+		}
+	}
+
 	wallet, err := h.walletService.GetWallet(ctx, req.UserId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get wallet: %v", err)

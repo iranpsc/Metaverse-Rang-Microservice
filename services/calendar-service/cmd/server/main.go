@@ -18,6 +18,7 @@ import (
 	"metargb/calendar-service/internal/handler"
 	"metargb/calendar-service/internal/repository"
 	"metargb/calendar-service/internal/service"
+	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/metrics"
 )
 
@@ -71,8 +72,15 @@ func main() {
 
 	serviceMetrics := metrics.NewMetrics("calendar_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+
+	authConn, tokenValidator, err := auth.DialAuthService(getEnv("AUTH_SERVICE_ADDR", "auth-service:50051"))
+	if err != nil {
+		log.Fatalf("Failed to connect to auth service: %v", err)
+	}
+	defer authConn.Close()
+
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(auth.ServerInterceptors(metrics.UnaryServerInterceptor(serviceMetrics), tokenValidator)...),
 	)
 	handler.RegisterCalendarHandler(grpcServer, calendarService)
 

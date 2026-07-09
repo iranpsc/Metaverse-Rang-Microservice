@@ -387,11 +387,16 @@ func (h *AuthHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 // UpdateProfile handles PUT/PATCH /api/user/profile
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userCtx, err := middleware.GetUserFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+
 	var req struct {
-		UserID uint64 `json:"user_id"`
-		Name   string `json:"name"`
-		Email  string `json:"email"`
-		Phone  string `json:"phone"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+		Phone string `json:"phone"`
 	}
 
 	if err := decodeRequestBody(r, &req); err != nil {
@@ -404,7 +409,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	grpcReq := &pb.UpdateProfileRequest{
-		UserId: req.UserID,
+		UserId: userCtx.UserID,
 		Name:   req.Name,
 		Email:  req.Email,
 		Phone:  req.Phone,

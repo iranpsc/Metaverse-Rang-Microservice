@@ -21,6 +21,7 @@ import (
 	"metargb/dynasty-service/internal/service"
 
 	dynastypb "metargb/shared/pb/dynasty"
+	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/metrics"
 )
 
@@ -119,8 +120,15 @@ func main() {
 	// Create gRPC server
 	serviceMetrics := metrics.NewMetrics("dynasty_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
+
+	authConn, tokenValidator, err := auth.DialAuthService(getEnv("AUTH_SERVICE_ADDR", "auth-service:50051"))
+	if err != nil {
+		log.Fatalf("Failed to connect to auth service: %v", err)
+	}
+	defer authConn.Close()
+
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(auth.ServerInterceptors(metrics.UnaryServerInterceptor(serviceMetrics), tokenValidator)...),
 	)
 
 	// Create dedicated handlers for each service

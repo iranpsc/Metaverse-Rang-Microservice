@@ -26,7 +26,6 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -221,36 +220,22 @@ func main() {
 	buildingHandler := handler.NewBuildingHandler(buildingService)
 	mapHandler := handler.NewMapHandler(mapService)
 
-	// Initialize token validator for authentication
-	// Connect to auth service for token validation
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:50051")
-	authConn, err := grpc.NewClient(authServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authConn, tokenValidator, err := auth.DialAuthService(authServiceAddr)
 	if err != nil {
-		log.Warn("Failed to connect to auth service - authentication disabled", "error", err)
-	} else {
-		defer authConn.Close()
-		log.Info("Connected to auth service", "addr", authServiceAddr)
+		log.Fatal("Failed to connect to auth service", "error", err)
 	}
-
-	// Create token validator using auth service
-	var tokenValidator auth.TokenValidator
-	if authConn != nil {
-		tokenValidator = auth.NewAuthServiceTokenValidator(authConn)
-	}
+	defer authConn.Close()
+	log.Info("Connected to auth service", "addr", authServiceAddr)
 
 	// Create gRPC server with interceptors
 	serviceMetrics := sharedmetrics.NewMetrics("features_service")
 	sharedmetrics.StartHTTPServer(metricsPort)
 
-	// Build interceptor chain
 	interceptors := []grpc.UnaryServerInterceptor{
 		logger.UnaryServerInterceptor(log),
 		sharedmetrics.UnaryServerInterceptor(serviceMetrics),
-	}
-
-	// Add auth interceptor if token validator is available
-	if tokenValidator != nil {
-		interceptors = append(interceptors, auth.UnaryServerInterceptor(tokenValidator))
+		auth.UnaryServerInterceptor(tokenValidator),
 	}
 
 	grpcServer := grpc.NewServer(

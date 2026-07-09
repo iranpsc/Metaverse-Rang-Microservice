@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	pb "metargb/shared/pb/commercial"
+	"metargb/shared/pkg/auth"
 )
 
 // CommercialClient wraps gRPC client for Commercial Service (wallet operations)
@@ -22,8 +22,7 @@ func NewCommercialClient(address string) (*CommercialClient, error) {
 	defer cancel()
 
 	conn, err := grpc.DialContext(ctx, address,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+		append(auth.ClientDialOptions(), grpc.WithBlock())...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to commercial service at %s: %w", address, err)

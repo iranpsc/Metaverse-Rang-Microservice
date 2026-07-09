@@ -11,7 +11,6 @@ import (
 
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"metargb/commercial-service/internal/handler"
 	"metargb/commercial-service/internal/repository"
@@ -73,29 +72,19 @@ func main() {
 	referralService := service.NewReferralService(referralRepo, variableRepo, userVariableRepo, walletRepo)
 
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:50051")
-	authConn, err := grpc.Dial(authServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authConn, tokenValidator, err := auth.DialAuthService(authServiceAddr)
 	if err != nil {
-		log.Printf("Warning: Failed to connect to auth service - authentication disabled: %v", err)
-	} else {
-		defer authConn.Close()
-		log.Printf("Connected to auth service at %s", authServiceAddr)
+		log.Fatalf("Failed to connect to auth service: %v", err)
 	}
-
-	var tokenValidator auth.TokenValidator
-	if authConn != nil {
-		tokenValidator = auth.NewAuthServiceTokenValidator(authConn)
-	}
+	defer authConn.Close()
+	log.Printf("Connected to auth service at %s", authServiceAddr)
 
 	serviceMetrics := metrics.NewMetrics("commercial_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 
-	var interceptors []grpc.UnaryServerInterceptor
-	interceptors = append(interceptors, metrics.UnaryServerInterceptor(serviceMetrics))
-	if tokenValidator != nil {
-		interceptors = append(interceptors, auth.UnaryServerInterceptor(tokenValidator))
-	}
-
-	grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptors...))
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(auth.ServerInterceptors(metrics.UnaryServerInterceptor(serviceMetrics), tokenValidator)...),
+	)
 
 	handler.RegisterWalletHandler(grpcServer, walletService)
 	handler.RegisterTransactionHandler(grpcServer, transactionService)

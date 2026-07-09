@@ -21,6 +21,7 @@ import (
 
 	"metargb/auth-service/internal/models"
 	"metargb/auth-service/internal/repository"
+	authlocal "metargb/auth-service/internal/auth"
 	notificationspb "metargb/shared/pb/notifications"
 )
 
@@ -184,6 +185,13 @@ func (s *authService) Register(ctx context.Context, backURL, referral string) (s
 }
 
 func (s *authService) Redirect(ctx context.Context, redirectTo, backURL string) (string, string, error) {
+	if err := authlocal.ValidateRedirectURL(redirectTo); err != nil {
+		return "", "", fmt.Errorf("invalid redirect_to: %w", err)
+	}
+	if err := authlocal.ValidateRedirectURL(backURL); err != nil {
+		return "", "", fmt.Errorf("invalid back_url: %w", err)
+	}
+
 	// Generate cryptographically random state (40 characters)
 	state, err := generateState()
 	if err != nil {
@@ -363,12 +371,15 @@ func (s *authService) Callback(ctx context.Context, state, code, ip string) (*Ca
 		}
 	}
 
-	// Construct redirect URL with token and expires_at query parameters
-	// Match Laravel format: base_url + '/?' + query_string
+	if err := authlocal.ValidateRedirectURL(redirectBaseURL); err != nil {
+		return nil, fmt.Errorf("invalid redirect URL: %w", err)
+	}
+
+	// Deliver token in URL fragment so it is not sent to the server or logged in Referer.
 	redirectParams := url.Values{}
 	redirectParams.Set("token", plainToken)
 	redirectParams.Set("expires_at", fmt.Sprintf("%d", int32(time.Until(expiresAt).Minutes())))
-	redirectURL := fmt.Sprintf("%s/?%s", redirectBaseURL, redirectParams.Encode())
+	redirectURL := fmt.Sprintf("%s#%s", strings.TrimRight(redirectBaseURL, "/"), redirectParams.Encode())
 
 	log.Printf("Callback successful for user %d, redirecting to: %s", user.ID, redirectURL)
 
