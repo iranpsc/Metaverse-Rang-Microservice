@@ -1,0 +1,29 @@
+name: Close Unrelated Issues
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  close-unrelated:
+    name: Close issues unrelated to microservices
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close unrelated Aikido issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          COMMENT="Closing as unrelated to this microservices repository. This Aikido issue targets other projects (Laravel, Next.js, PHP, or frontend repos), not \`metaverse-rang-microservice\`."
+
+          for issue in 3 4 7 10 11 12 13 14 15; do
+            state=$(gh issue view "$issue" --json state --jq .state 2>/dev/null || echo "MISSING")
+            if [ "$state" = "OPEN" ]; then
+              echo "Closing issue #${issue}..."
+              gh issue close "$issue" --comment "$COMMENT"
+            else
+              echo "Skipping issue #${issue} (state: ${state})"
+            fi
+          done
