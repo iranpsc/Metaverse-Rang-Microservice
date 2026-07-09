@@ -2,6 +2,11 @@ name: Close Unrelated Issues
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - cursor/close-unrelated-issues-4706
+    paths:
+      - .github/workflows/close-unrelated-issues.yml
 
 permissions:
   issues: write
