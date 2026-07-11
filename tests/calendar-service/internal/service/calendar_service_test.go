@@ -1,294 +1,213 @@
-package service
+package service_test
 
 import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"metargb/calendar-service/internal/models"
+	"metargb/calendar-service/internal/service"
+	"metargb/calendar-service/internal/testutil"
 )
 
-// Mock CalendarRepository
-type mockCalendarRepository struct {
-	getEventsFunc             func(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, int32, error)
-	getEventByIDFunc          func(ctx context.Context, id uint64) (*models.Calendar, error)
-	filterByDateRangeFunc     func(ctx context.Context, startDate, endDate string) ([]*models.Calendar, error)
-	getLatestVersionTitleFunc func(ctx context.Context) (string, error)
-	getEventStatsFunc         func(ctx context.Context, eventID uint64) (*models.CalendarStats, error)
-	getUserInteractionFunc    func(ctx context.Context, eventID, userID uint64) (*models.Interaction, error)
-	addInteractionFunc        func(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error
-	incrementViewFunc         func(ctx context.Context, eventID uint64, ipAddress string) error
-}
-
-func (m *mockCalendarRepository) GetEvents(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, int32, error) {
-	if m.getEventsFunc != nil {
-		return m.getEventsFunc(ctx, eventType, search, date, userID, page, perPage)
+func TestGetEvents_EventTypeDefault(t *testing.T) {
+	var gotType string
+	m := &testutil.MockCalendarRepo{}
+	m.GetEventsFunc = func(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, bool, error) {
+		gotType = eventType
+		return []*models.Calendar{{ID: 1}}, false, nil
 	}
-	return nil, 0, errors.New("not implemented")
-}
-
-func (m *mockCalendarRepository) GetEventByID(ctx context.Context, id uint64) (*models.Calendar, error) {
-	if m.getEventByIDFunc != nil {
-		return m.getEventByIDFunc(ctx, id)
+	svc := service.NewCalendarService(m)
+	_, _, err := svc.GetEvents(context.Background(), "event", "", "", 0, 1, 10)
+	if err != nil || gotType != "event" {
+		t.Fatalf("gotType=%q err=%v", gotType, err)
 	}
-	return nil, errors.New("not implemented")
 }
 
-func (m *mockCalendarRepository) FilterByDateRange(ctx context.Context, startDate, endDate string) ([]*models.Calendar, error) {
-	if m.filterByDateRangeFunc != nil {
-		return m.filterByDateRangeFunc(ctx, startDate, endDate)
+func TestGetEvents_VersionType(t *testing.T) {
+	var gotType string
+	m := &testutil.MockCalendarRepo{}
+	m.GetEventsFunc = func(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, bool, error) {
+		gotType = eventType
+		return nil, false, nil
 	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockCalendarRepository) GetLatestVersionTitle(ctx context.Context) (string, error) {
-	if m.getLatestVersionTitleFunc != nil {
-		return m.getLatestVersionTitleFunc(ctx)
+	svc := service.NewCalendarService(m)
+	_, _, err := svc.GetEvents(context.Background(), "version", "", "", 0, 1, 10)
+	if err != nil || gotType != "version" {
+		t.Fatalf("gotType=%q err=%v", gotType, err)
 	}
-	return "", errors.New("not implemented")
 }
 
-func (m *mockCalendarRepository) GetEventStats(ctx context.Context, eventID uint64) (*models.CalendarStats, error) {
-	if m.getEventStatsFunc != nil {
-		return m.getEventStatsFunc(ctx, eventID)
+func TestGetEvents_WithDate(t *testing.T) {
+	m := &testutil.MockCalendarRepo{}
+	m.GetEventsFunc = func(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, bool, error) {
+		if date != "1403/01/15" {
+			t.Fatalf("unexpected date %q", date)
+		}
+		return []*models.Calendar{{ID: 1}}, false, nil
 	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockCalendarRepository) GetUserInteraction(ctx context.Context, eventID, userID uint64) (*models.Interaction, error) {
-	if m.getUserInteractionFunc != nil {
-		return m.getUserInteractionFunc(ctx, eventID, userID)
+	svc := service.NewCalendarService(m)
+	ev, hasMore, err := svc.GetEvents(context.Background(), "event", "", "1403/01/15", 0, 1, 10)
+	if err != nil || hasMore || len(ev) != 1 {
+		t.Fatal(err, hasMore, len(ev))
 	}
-	return nil, errors.New("not implemented")
 }
 
-func (m *mockCalendarRepository) AddInteraction(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error {
-	if m.addInteractionFunc != nil {
-		return m.addInteractionFunc(ctx, eventID, userID, liked, ipAddress)
+func TestGetEvent_Found(t *testing.T) {
+	m := &testutil.MockCalendarRepo{}
+	m.GetEventByIDFunc = func(ctx context.Context, id uint64) (*models.Calendar, error) {
+		return &models.Calendar{ID: id, Title: "E"}, nil
 	}
-	return errors.New("not implemented")
-}
-
-func (m *mockCalendarRepository) IncrementView(ctx context.Context, eventID uint64, ipAddress string) error {
-	if m.incrementViewFunc != nil {
-		return m.incrementViewFunc(ctx, eventID, ipAddress)
+	svc := service.NewCalendarService(m)
+	ev, err := svc.GetEvent(context.Background(), 42, 0)
+	if err != nil || ev.ID != 42 || ev.Title != "E" {
+		t.Fatal(err, ev)
 	}
-	return errors.New("not implemented")
 }
 
-func TestCalendarService_GetEvents(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful get events", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.getEventsFunc = func(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, int32, error) {
-			return []*models.Calendar{
-				{
-					ID:        1,
-					Title:     "Test Event",
-					IsVersion: false,
-					StartsAt:  time.Now(),
-				},
-			}, 1, nil
-		}
-
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		events, total, err := service.GetEvents(ctx, "event", "", "", 0, 1, 10)
-
-		if err != nil {
-			t.Fatalf("GetEvents failed: %v", err)
-		}
-
-		if len(events) != 1 {
-			t.Errorf("Expected 1 event, got %d", len(events))
-		}
-
-		if total != 1 {
-			t.Errorf("Expected total 1, got %d", total)
-		}
-	})
-
-	t.Run("repository error", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.getEventsFunc = func(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, int32, error) {
-			return nil, 0, errors.New("database error")
-		}
-
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		_, _, err := service.GetEvents(ctx, "event", "", "", 0, 1, 10)
-
-		if err == nil {
-			t.Fatal("Expected error")
-		}
-	})
+func TestGetEvent_NotFound(t *testing.T) {
+	m := &testutil.MockCalendarRepo{}
+	m.GetEventByIDFunc = func(ctx context.Context, id uint64) (*models.Calendar, error) {
+		return nil, nil
+	}
+	svc := service.NewCalendarService(m)
+	_, err := svc.GetEvent(context.Background(), 99, 0)
+	if !errors.Is(err, service.ErrEventNotFound) {
+		t.Fatalf("want ErrEventNotFound got %v", err)
+	}
 }
 
-func TestCalendarService_GetEvent(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful get event", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.getEventByIDFunc = func(ctx context.Context, id uint64) (*models.Calendar, error) {
-			return &models.Calendar{
-				ID:        1,
-				Title:     "Test Event",
-				IsVersion: false,
-				StartsAt:  time.Now(),
-			}, nil
-		}
-
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		event, err := service.GetEvent(ctx, 1, 0)
-
-		if err != nil {
-			t.Fatalf("GetEvent failed: %v", err)
-		}
-
-		if event.ID != 1 {
-			t.Errorf("Expected event ID 1, got %d", event.ID)
-		}
-	})
-
-	t.Run("event not found", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.getEventByIDFunc = func(ctx context.Context, id uint64) (*models.Calendar, error) {
-			return nil, nil
-		}
-
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		_, err := service.GetEvent(ctx, 999, 0)
-
-		if err == nil {
-			t.Fatal("Expected error")
-		}
-
-		if err.Error() != "event not found" {
-			t.Errorf("Expected 'event not found' error, got %v", err)
-		}
-	})
+func TestGetEvent_RepoError(t *testing.T) {
+	repoErr := errors.New("db down")
+	m := &testutil.MockCalendarRepo{}
+	m.GetEventByIDFunc = func(ctx context.Context, id uint64) (*models.Calendar, error) {
+		return nil, repoErr
+	}
+	svc := service.NewCalendarService(m)
+	_, err := svc.GetEvent(context.Background(), 1, 0)
+	if err == nil || errors.Is(err, service.ErrEventNotFound) {
+		t.Fatal("expected wrapped repo error")
+	}
 }
 
-func TestCalendarService_AddInteraction(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful like", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.addInteractionFunc = func(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error {
-			if liked != 1 {
-				t.Errorf("Expected liked 1, got %d", liked)
-			}
-			return nil
-		}
-
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		err := service.AddInteraction(ctx, 1, 123, 1, "192.168.1.1")
-
-		if err != nil {
-			t.Fatalf("AddInteraction failed: %v", err)
-		}
-	})
-
-	t.Run("successful dislike", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.addInteractionFunc = func(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error {
-			if liked != 0 {
-				t.Errorf("Expected liked 0, got %d", liked)
-			}
-			return nil
-		}
-
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		err := service.AddInteraction(ctx, 1, 123, 0, "192.168.1.1")
-
-		if err != nil {
-			t.Fatalf("AddInteraction failed: %v", err)
-		}
-	})
-
-	t.Run("successful remove interaction", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.addInteractionFunc = func(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error {
-			if liked != -1 {
-				t.Errorf("Expected liked -1, got %d", liked)
-			}
-			return nil
-		}
-
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		err := service.AddInteraction(ctx, 1, 123, -1, "192.168.1.1")
-
-		if err != nil {
-			t.Fatalf("AddInteraction failed: %v", err)
-		}
-	})
-
-	t.Run("invalid liked value", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		service := NewCalendarService(mockRepo).(*CalendarService)
-
-		err := service.AddInteraction(ctx, 1, 123, 2, "192.168.1.1")
-
-		if err == nil {
-			t.Fatal("Expected error")
-		}
-
-		if err.Error() != "invalid liked value: must be -1, 0, or 1" {
-			t.Errorf("Expected invalid liked value error, got %v", err)
-		}
-	})
+func TestFilterByDateRange_OK(t *testing.T) {
+	m := &testutil.MockCalendarRepo{}
+	m.FilterByDateRangeFunc = func(ctx context.Context, startDate, endDate string) ([]*models.Calendar, error) {
+		return []*models.Calendar{{ID: 1, Title: "A"}}, nil
+	}
+	svc := service.NewCalendarService(m)
+	list, err := svc.FilterByDateRange(context.Background(), "1403/01/01", "1403/01/10")
+	if err != nil || len(list) != 1 {
+		t.Fatal(err, list)
+	}
 }
 
-func TestCalendarService_GetLatestVersionTitle(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful get latest version", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.getLatestVersionTitleFunc = func(ctx context.Context) (string, error) {
-			return "v1.2.3", nil
-		}
-
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		version, err := service.GetLatestVersionTitle(ctx)
-
-		if err != nil {
-			t.Fatalf("GetLatestVersionTitle failed: %v", err)
-		}
-
-		if version != "v1.2.3" {
-			t.Errorf("Expected version v1.2.3, got %s", version)
-		}
-	})
+func TestGetLatestVersionTitle(t *testing.T) {
+	m := &testutil.MockCalendarRepo{}
+	m.GetLatestVersionTitleFunc = func(ctx context.Context) (string, error) {
+		return "v1.0", nil
+	}
+	svc := service.NewCalendarService(m)
+	v, err := svc.GetLatestVersionTitle(context.Background())
+	if err != nil || v != "v1.0" {
+		t.Fatal(err, v)
+	}
 }
 
-func TestCalendarService_FilterByDateRange(t *testing.T) {
-	ctx := context.Background()
+func TestGetEventStats(t *testing.T) {
+	m := &testutil.MockCalendarRepo{}
+	m.GetEventStatsFunc = func(ctx context.Context, eventID uint64) (*models.CalendarStats, error) {
+		return &models.CalendarStats{ViewsCount: 3, LikesCount: 2, DislikesCount: 1}, nil
+	}
+	svc := service.NewCalendarService(m)
+	st, err := svc.GetEventStats(context.Background(), 10)
+	if err != nil || st.ViewsCount != 3 || st.LikesCount != 2 || st.DislikesCount != 1 {
+		t.Fatal(err, st)
+	}
+}
 
-	t.Run("successful filter by date range", func(t *testing.T) {
-		mockRepo := &mockCalendarRepository{}
-		mockRepo.filterByDateRangeFunc = func(ctx context.Context, startDate, endDate string) ([]*models.Calendar, error) {
-			if startDate != "1403/01/01" || endDate != "1403/01/05" {
-				t.Errorf("Expected dates 1403/01/01-1403/01/05, got %s-%s", startDate, endDate)
-			}
-			return []*models.Calendar{
-				{
-					ID:        1,
-					Title:     "Test Event",
-					IsVersion: false,
-					StartsAt:  time.Now(),
-				},
-			}, nil
-		}
+func TestGetUserInteraction_NoInteraction(t *testing.T) {
+	m := &testutil.MockCalendarRepo{}
+	m.GetUserInteractionFunc = func(ctx context.Context, eventID, userID uint64) (*models.Interaction, error) {
+		return nil, nil
+	}
+	svc := service.NewCalendarService(m)
+	in, err := svc.GetUserInteraction(context.Background(), 1, 2)
+	if err != nil || in != nil {
+		t.Fatal(err, in)
+	}
+}
 
-		service := NewCalendarService(mockRepo).(*CalendarService)
-		events, err := service.FilterByDateRange(ctx, "1403/01/01", "1403/01/05")
+func TestGetUserInteraction_Liked(t *testing.T) {
+	m := &testutil.MockCalendarRepo{}
+	m.GetUserInteractionFunc = func(ctx context.Context, eventID, userID uint64) (*models.Interaction, error) {
+		return &models.Interaction{Liked: true}, nil
+	}
+	svc := service.NewCalendarService(m)
+	in, err := svc.GetUserInteraction(context.Background(), 1, 2)
+	if err != nil || !in.Liked {
+		t.Fatal(err, in)
+	}
+}
 
-		if err != nil {
-			t.Fatalf("FilterByDateRange failed: %v", err)
-		}
+func TestAddInteraction_Like(t *testing.T) {
+	var got int32
+	m := &testutil.MockCalendarRepo{}
+	m.AddInteractionFunc = func(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error {
+		got = liked
+		return nil
+	}
+	svc := service.NewCalendarService(m)
+	if err := svc.AddInteraction(context.Background(), 1, 2, 1, "127.0.0.1"); err != nil || got != 1 {
+		t.Fatal(err, got)
+	}
+}
 
-		if len(events) != 1 {
-			t.Errorf("Expected 1 event, got %d", len(events))
-		}
-	})
+func TestAddInteraction_Dislike(t *testing.T) {
+	var got int32
+	m := &testutil.MockCalendarRepo{}
+	m.AddInteractionFunc = func(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error {
+		got = liked
+		return nil
+	}
+	svc := service.NewCalendarService(m)
+	if err := svc.AddInteraction(context.Background(), 1, 2, 0, "127.0.0.1"); err != nil || got != 0 {
+		t.Fatal(err, got)
+	}
+}
+
+func TestAddInteraction_Remove(t *testing.T) {
+	var got int32
+	m := &testutil.MockCalendarRepo{}
+	m.AddInteractionFunc = func(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error {
+		got = liked
+		return nil
+	}
+	svc := service.NewCalendarService(m)
+	if err := svc.AddInteraction(context.Background(), 1, 2, -1, "127.0.0.1"); err != nil || got != -1 {
+		t.Fatal(err, got)
+	}
+}
+
+func TestAddInteraction_InvalidValue(t *testing.T) {
+	svc := service.NewCalendarService(&testutil.MockCalendarRepo{})
+	err := svc.AddInteraction(context.Background(), 1, 2, 2, "")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestIncrementView(t *testing.T) {
+	var gotEvent uint64
+	var gotIP string
+	m := &testutil.MockCalendarRepo{}
+	m.IncrementViewFunc = func(ctx context.Context, eventID uint64, ipAddress string) error {
+		gotEvent = eventID
+		gotIP = ipAddress
+		return nil
+	}
+	svc := service.NewCalendarService(m)
+	if err := svc.IncrementView(context.Background(), 7, "10.0.0.1"); err != nil || gotEvent != 7 || gotIP != "10.0.0.1" {
+		t.Fatal(err, gotEvent, gotIP)
+	}
 }

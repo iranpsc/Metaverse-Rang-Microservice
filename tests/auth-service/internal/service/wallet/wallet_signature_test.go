@@ -1,4 +1,4 @@
-package service
+package wallet_test
 
 import (
 	"encoding/hex"
@@ -7,18 +7,21 @@ import (
 
 	secp256k1 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4/ecdsa"
+	"golang.org/x/crypto/sha3"
+
+	"metargb/auth-service/internal/service"
 )
 
 func TestIsValidWalletSignatureAcceptsPersonalSign(t *testing.T) {
 	address, signature, message := generateTestWalletSignature(t)
-	if !IsValidWalletSignature(address, signature, message) {
+	if !service.IsValidWalletSignature(address, signature, message) {
 		t.Fatalf("expected signature to verify for derived address")
 	}
 }
 
 func TestIsValidWalletSignatureRejectsWrongAddress(t *testing.T) {
 	_, signature, message := generateTestWalletSignature(t)
-	if IsValidWalletSignature("0x0000000000000000000000000000000000000001", signature, message) {
+	if service.IsValidWalletSignature("0x0000000000000000000000000000000000000001", signature, message) {
 		t.Fatalf("expected signature verification to fail for wrong address")
 	}
 }
@@ -54,4 +57,16 @@ func generateTestWalletSignature(t *testing.T) (string, string, string) {
 
 	signature := "0x" + hex.EncodeToString(ethSig)
 	return address, signature, message
+}
+
+func keccak256(data []byte) []byte {
+	h := sha3.NewLegacyKeccak256()
+	h.Write(data)
+	return h.Sum(nil)
+}
+
+func pubkeyToAddress(pubKey *secp256k1.PublicKey) string {
+	uncompressed := pubKey.SerializeUncompressed()
+	hash := keccak256(uncompressed[1:])
+	return "0x" + hex.EncodeToString(hash[12:])
 }

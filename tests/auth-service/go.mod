@@ -1,8 +1,9 @@
-module metargb/auth-service-tests
+module metargb/auth-service/tests
 
 go 1.25.0
 
 require (
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/redis/go-redis/v9 v9.16.0
 	github.com/stretchr/testify v1.11.1

@@ -1,4 +1,4 @@
-package service
+package wallet_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"metargb/auth-service/internal/models"
 	"metargb/auth-service/internal/repository"
+	"metargb/auth-service/internal/service"
 )
 
 type fakeWalletCacheRepo struct {
@@ -110,7 +111,7 @@ func (f *fakeWalletUserRepo) ExistsByWalletAddress(_ context.Context, address st
 func (f *fakeWalletUserRepo) LinkWalletAddress(_ context.Context, userID uint64, address string) (repository.LinkWalletResult, error) {
 	user := f.users[userID]
 	if user == nil {
-		return "", ErrUserNotFound
+		return "", service.ErrUserNotFound
 	}
 	if user.WalletAddress.Valid && user.WalletAddress.String != "" {
 		return repository.LinkWalletAlreadyConnected, nil
@@ -159,9 +160,9 @@ func TestGetLinkNonceRejectsAlreadyConnectedUser(t *testing.T) {
 		},
 	}
 
-	svc := NewWalletConnectionService(userRepo, &fakeWalletCacheRepo{}, nil, nil, "Metarang", "http://localhost:8000")
+	svc := service.NewWalletConnectionService(userRepo, &fakeWalletCacheRepo{}, nil, nil, "Metarang", "http://localhost:8000")
 	_, err := svc.GetLinkNonce(context.Background(), 1, address)
-	if err != ErrWalletAlreadyConnected {
+	if err != service.ErrWalletAlreadyConnected {
 		t.Fatalf("expected ErrWalletAlreadyConnected, got %v", err)
 	}
 }
@@ -174,9 +175,9 @@ func TestGetSecurityNonceRequiresConnectedWallet(t *testing.T) {
 		},
 	}
 
-	svc := NewWalletConnectionService(userRepo, &fakeWalletCacheRepo{}, nil, nil, "Metarang", "http://localhost:8000")
+	svc := service.NewWalletConnectionService(userRepo, &fakeWalletCacheRepo{}, nil, nil, "Metarang", "http://localhost:8000")
 	_, err := svc.GetSecurityNonce(context.Background(), 1, address)
-	if err != ErrWalletNotConnectedToAccount {
+	if err != service.ErrWalletNotConnectedToAccount {
 		t.Fatalf("expected ErrWalletNotConnectedToAccount, got %v", err)
 	}
 }

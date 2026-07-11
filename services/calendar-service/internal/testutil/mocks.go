@@ -8,21 +8,22 @@ import (
 
 // MockCalendarRepo implements repository.CalendarRepositoryInterface for tests.
 type MockCalendarRepo struct {
-	GetEventsFunc             func(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, int32, error)
+	GetEventsFunc             func(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, bool, error)
 	GetEventByIDFunc          func(ctx context.Context, id uint64) (*models.Calendar, error)
 	FilterByDateRangeFunc     func(ctx context.Context, startDate, endDate string) ([]*models.Calendar, error)
 	GetLatestVersionTitleFunc func(ctx context.Context) (string, error)
 	GetEventStatsFunc         func(ctx context.Context, eventID uint64) (*models.CalendarStats, error)
+	GetInteractionStatsFunc   func(ctx context.Context, eventID uint64) (*models.CalendarStats, error)
 	GetUserInteractionFunc    func(ctx context.Context, eventID, userID uint64) (*models.Interaction, error)
 	AddInteractionFunc        func(ctx context.Context, eventID, userID uint64, liked int32, ipAddress string) error
 	IncrementViewFunc         func(ctx context.Context, eventID uint64, ipAddress string) error
 }
 
-func (m *MockCalendarRepo) GetEvents(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, int32, error) {
+func (m *MockCalendarRepo) GetEvents(ctx context.Context, eventType, search, date string, userID uint64, page, perPage int32) ([]*models.Calendar, bool, error) {
 	if m.GetEventsFunc != nil {
 		return m.GetEventsFunc(ctx, eventType, search, date, userID, page, perPage)
 	}
-	return nil, 0, nil
+	return nil, false, nil
 }
 
 func (m *MockCalendarRepo) GetEventByID(ctx context.Context, id uint64) (*models.Calendar, error) {
@@ -49,6 +50,13 @@ func (m *MockCalendarRepo) GetLatestVersionTitle(ctx context.Context) (string, e
 func (m *MockCalendarRepo) GetEventStats(ctx context.Context, eventID uint64) (*models.CalendarStats, error) {
 	if m.GetEventStatsFunc != nil {
 		return m.GetEventStatsFunc(ctx, eventID)
+	}
+	return &models.CalendarStats{}, nil
+}
+
+func (m *MockCalendarRepo) GetInteractionStats(ctx context.Context, eventID uint64) (*models.CalendarStats, error) {
+	if m.GetInteractionStatsFunc != nil {
+		return m.GetInteractionStatsFunc(ctx, eventID)
 	}
 	return &models.CalendarStats{}, nil
 }
