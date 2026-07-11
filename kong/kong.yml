@@ -24,6 +24,16 @@ services:
     read_timeout: 60000
     retries: 5
 
+  - name: swagger-ui
+    url: http://swagger-ui:8080
+    protocol: http
+    host: swagger-ui
+    port: 8080
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    retries: 3
+
 routes:
   # Higher priority: serve files from storage-service, never grpc-gateway
   - name: uploads-static
@@ -58,6 +68,22 @@ routes:
       - DELETE
       - OPTIONS
     regex_priority: 0
+
+  # OpenAPI documentation (Swagger UI)
+  - name: api-docs
+    service: swagger-ui
+    paths:
+      - /docs
+    strip_path: true
+    preserve_host: false
+    protocols:
+      - http
+      - https
+    methods:
+      - GET
+      - HEAD
+      - OPTIONS
+    regex_priority: 90
 
 plugins:
   - name: prometheus

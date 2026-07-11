@@ -656,6 +656,25 @@ services:
       retries: 3
       start_period: 10s
 
+  # Swagger UI - OpenAPI documentation browser
+  swagger-ui:
+    image: swaggerapi/swagger-ui:v5.18.2
+    container_name: metargb-swagger-ui
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./openapi:/usr/share/nginx/html/openapi:ro
+      - ./openapi/swagger-initializer.js:/usr/share/nginx/html/swagger-initializer.js:ro
+    networks:
+      - metargb-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/openapi/openapi.yaml"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   # Kong API Gateway - HTTP to gRPC Translation
   kong:
     image: kong:3.9.3

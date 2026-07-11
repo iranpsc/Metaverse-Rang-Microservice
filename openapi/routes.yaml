@@ -1,0 +1,618 @@
+# Route registry for MetaRGB REST API (Laravel-compatible paths via grpc-gateway).
+# Run `make openapi` to regenerate openapi/openapi.yaml from this file.
+
+routes:
+  # --- Auth ---
+  - path: /api/auth/register
+    methods: [post]
+    tag: Auth
+    summary: Start OAuth registration flow
+    security: guest
+  - path: /api/auth/redirect
+    methods: [get]
+    tag: Auth
+    summary: Redirect to OAuth provider
+    security: guest
+  - path: /api/auth/callback
+    methods: [get]
+    tag: Auth
+    summary: OAuth callback handler
+    security: none
+  - path: /api/auth/validate
+    methods: [post]
+    tag: Auth
+    summary: Validate bearer token
+    security: none
+  - path: /api/auth/me
+    methods: [get]
+    tag: Auth
+    summary: Get authenticated user profile
+    security: bearer
+  - path: /api/auth/logout
+    methods: [post]
+    tag: Auth
+    summary: Log out current user
+    security: bearer
+
+  # --- Account Security ---
+  - path: /api/account/security
+    methods: [post]
+    tag: Account Security
+    summary: Request account security verification
+    security: bearer
+  - path: /api/account/security/verify
+    methods: [post]
+    tag: Account Security
+    summary: Verify account security code
+    security: bearer
+
+  # --- Wallet (Web3) ---
+  - path: /api/wallet/link/nonce
+    methods: [get]
+    tag: Wallet
+    summary: Get wallet link nonce
+    security: bearer
+  - path: /api/wallet/link
+    methods: [post]
+    tag: Wallet
+    summary: Link Web3 wallet to account
+    security: bearer
+  - path: /api/wallet/security/nonce
+    methods: [get]
+    tag: Wallet
+    summary: Get wallet security nonce
+    security: bearer
+  - path: /api/wallet/security/verify
+    methods: [post]
+    tag: Wallet
+    summary: Verify wallet security signature
+    security: bearer
+
+  # --- Users ---
+  - path: /api/users
+    methods: [get]
+    tag: Users
+    summary: List users
+    security: optional
+  - path: /api/user
+    methods: [get]
+    tag: Users
+    summary: Get user by query parameter
+    security: optional
+  - path: /api/user/wallet
+    methods: [get]
+    tag: Users
+    summary: Get authenticated user wallet
+    security: bearer
+  - path: /api/user/profile
+    methods: [put, patch]
+    tag: Users
+    summary: Update authenticated user profile
+    security: bearer
+  - path: /api/users/{user}
+    methods: [get]
+    tag: Users
+    summary: Get user profile by ID or code
+    security: optional
+  - path: /api/users/{user}/features
+    methods: [get]
+    tag: Users
+    summary: List user features
+    security: optional
+  - path: /api/users/{user}/followers
+    methods: [get]
+    tag: Users
+    summary: List user followers
+    security: optional
+  - path: /api/users/{user}/following
+    methods: [get]
+    tag: Users
+    summary: List users followed by user
+    security: optional
+
+  # --- Citizen ---
+  - path: /api/citizen/{code}
+    methods: [get]
+    tag: Citizen
+    summary: Get citizen public profile
+    security: none
+
+  # --- Search ---
+  - path: /api/search/users
+    methods: [get]
+    tag: Search
+    summary: Search users
+    security: optional
+  - path: /api/search/features
+    methods: [get]
+    tag: Search
+    summary: Search features
+    security: optional
+  - path: /api/search/isic-codes
+    methods: [get]
+    tag: Search
+    summary: Search ISIC codes
+    security: optional
+
+  # --- KYC ---
+  - path: /api/kyc
+    methods: [get, put, patch]
+    tag: KYC
+    summary: Get or update KYC information
+    security: bearer
+  - path: /api/bank-accounts
+    methods: [get, post]
+    tag: KYC
+    summary: List or create bank accounts
+    security: verified_email
+  - path: /api/bank-accounts/{id}
+    methods: [get, put, patch, delete]
+    tag: KYC
+    summary: Manage a bank account
+    security: verified_email
+
+  # --- Personal Info ---
+  - path: /api/personal-info
+    methods: [get, put, patch]
+    tag: Personal Info
+    summary: Get or update personal information
+    security: bearer
+
+  # --- Profile Limitations ---
+  - path: /api/profile-limitations
+    methods: [post]
+    tag: Profile
+    summary: Create profile limitation
+    security: bearer
+  - path: /api/profile-limitations/{id}
+    methods: [get, put, patch, delete]
+    tag: Profile
+    summary: Manage profile limitation
+    security: bearer
+  - path: /api/user/profile-limitations
+    methods: [get]
+    tag: Profile
+    summary: List profile limitations for current user
+    security: bearer
+
+  # --- Profile Photos ---
+  - path: /api/profile-photos
+    methods: [get, post]
+    tag: Profile
+    summary: List or upload profile photos
+    security: bearer
+  - path: /api/profile-photos/{id}
+    methods: [get, delete]
+    tag: Profile
+    summary: Get or delete profile photo
+    security: bearer
+
+  # --- Settings ---
+  - path: /api/settings
+    methods: [get, post]
+    tag: Settings
+    summary: Get or update user settings
+    security: bearer
+  - path: /api/general-settings
+    methods: [get]
+    tag: Settings
+    summary: Get general settings
+    security: bearer
+  - path: /api/general-settings/{key}
+    methods: [put]
+    tag: Settings
+    summary: Update general setting
+    security: bearer
+  - path: /api/privacy
+    methods: [get, post]
+    tag: Settings
+    summary: Get or update privacy settings
+    security: bearer
+
+  # --- User Events ---
+  - path: /api/events
+    methods: [get]
+    tag: Events
+    summary: List user events
+    security: bearer
+  - path: /api/events/{id}
+    methods: [get]
+    tag: Events
+    summary: Get user event
+    security: bearer
+  - path: /api/events/{id}/report/{user}
+    methods: [post]
+    tag: Events
+    summary: Report user event
+    security: bearer
+
+  # --- Calendar ---
+  - path: /api/calendar
+    methods: [get]
+    tag: Calendar
+    summary: List calendar events
+    security: optional
+  - path: /api/calendar/{id}
+    methods: [get]
+    tag: Calendar
+    summary: Get calendar event
+    security: optional
+  - path: /api/calendar/filter
+    methods: [get]
+    tag: Calendar
+    summary: Filter calendar events by date range
+    security: optional
+  - path: /api/calendar/latest-version
+    methods: [get]
+    tag: Calendar
+    summary: Get latest calendar version
+    security: optional
+  - path: /api/calendar/events/{id}/interactions
+    methods: [post]
+    tag: Calendar
+    summary: Add calendar event interaction
+    security: bearer
+
+  # --- Dynasty ---
+  - path: /api/dynasty
+    methods: [get]
+    tag: Dynasty
+    summary: Get user dynasty or available features
+    security: bearer
+  - path: /api/dynasty/create/{feature}
+    methods: [post]
+    tag: Dynasty
+    summary: Create dynasty with feature
+    security: bearer
+  - path: /api/dynasty/{dynasty}/update/{feature}
+    methods: [post]
+    tag: Dynasty
+    summary: Update dynasty feature
+    security: bearer
+  - path: /api/dynasty/{dynasty}/family/{family}
+    methods: [get]
+    tag: Dynasty
+    summary: Get dynasty family
+    security: bearer
+  - path: /api/dynasty/requests/sent
+    methods: [get]
+    tag: Dynasty
+    summary: List sent join requests
+    security: bearer
+  - path: /api/dynasty/requests/sent/{joinRequest}
+    methods: [get, delete]
+    tag: Dynasty
+    summary: View or delete sent join request
+    security: bearer
+  - path: /api/dynasty/requests/recieved
+    methods: [get]
+    tag: Dynasty
+    summary: List received join requests
+    security: bearer
+  - path: /api/dynasty/requests/recieved/{joinRequest}
+    methods: [get, post, delete]
+    tag: Dynasty
+    summary: View, accept, or reject received join request
+    security: bearer
+  - path: /api/dynasty/add/member/get/permissions
+    methods: [post]
+    tag: Dynasty
+    summary: Get default member permissions
+    security: bearer
+  - path: /api/dynasty/add/member
+    methods: [post]
+    tag: Dynasty
+    summary: Send dynasty join request
+    security: bearer
+  - path: /api/dynasty/search
+    methods: [post]
+    tag: Dynasty
+    summary: Search users for dynasty
+    security: bearer
+  - path: /api/dynasty/prizes
+    methods: [get]
+    tag: Dynasty
+    summary: List dynasty prizes
+    security: bearer
+  - path: /api/dynasty/prizes/{recievedPrize}
+    methods: [get, post]
+    tag: Dynasty
+    summary: View or claim dynasty prize
+    security: bearer
+  - path: /api/dynasty/children/{user}
+    methods: [post]
+    tag: Dynasty
+    summary: Update child permissions
+    security: bearer
+
+  # --- Features ---
+  - path: /api/features
+    methods: [get]
+    tag: Features
+    summary: List features
+    security: optional
+  - path: /api/features/{id}
+    methods: [get]
+    tag: Features
+    summary: Get feature details
+    security: optional
+    params:
+      - name: id
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+  - path: /api/my-features
+    methods: [get]
+    tag: Features
+    summary: List authenticated user features
+    security: bearer
+  - path: /api/v2/features/{id}
+    methods: [get]
+    tag: Features
+    summary: Get feature details (v2)
+    security: bearer
+  - path: /api/buy-requests
+    methods: [get, post]
+    tag: Features
+    summary: List or create buy requests
+    security: bearer
+  - path: /api/buy-requests/{id}
+    methods: [get, put, patch, delete]
+    tag: Features
+    summary: Manage buy request
+    security: bearer
+  - path: /api/sell-requests
+    methods: [get, post]
+    tag: Features
+    summary: List or create sell requests
+    security: bearer
+  - path: /api/sell-requests/{id}
+    methods: [get, put, patch, delete]
+    tag: Features
+    summary: Manage sell request
+    security: bearer
+  - path: /api/hourly-profits
+    methods: [get, post]
+    tag: Features
+    summary: List hourly profits or filter by application
+    security: bearer
+  - path: /api/hourly-profits/{id}
+    methods: [post]
+    tag: Features
+    summary: Get single hourly profit
+    security: bearer
+
+  # --- Maps ---
+  - path: /api/maps
+    methods: [get]
+    tag: Maps
+    summary: List maps
+    security: optional
+  - path: /api/maps/{id}
+    methods: [get]
+    tag: Maps
+    summary: Get map details
+    security: optional
+  - path: /api/maps/{id}/border
+    methods: [get]
+    tag: Maps
+    summary: Get map border
+    security: optional
+
+  # --- Financial ---
+  - path: /api/order
+    methods: [post]
+    tag: Financial
+    summary: Create payment order
+    security: bearer
+  - path: /api/payment/callback
+    methods: [get, post]
+    tag: Financial
+    summary: Payment gateway callback
+    security: none
+  - path: /api/store
+    methods: [get]
+    tag: Financial
+    summary: List store packages
+    security: optional
+
+  # --- Commercial ---
+  - path: /api/user/transactions
+    methods: [get]
+    tag: Commercial
+    summary: List user transactions
+    security: bearer
+  - path: /api/user/transactions/latest
+    methods: [get]
+    tag: Commercial
+    summary: Get latest user transaction
+    security: bearer
+
+  # --- Levels ---
+  - path: /api/levels
+    methods: [get]
+    tag: Levels
+    summary: List all levels
+    security: none
+  - path: /api/levels/{id}
+    methods: [get]
+    tag: Levels
+    summary: Get level details
+    security: none
+
+  # --- Training ---
+  - path: /api/video-tutorials
+    methods: [post]
+    tag: Training
+    summary: Get video tutorial by filename
+    security: optional
+  - path: /api/tutorials
+    methods: [get]
+    tag: Training
+    summary: List video tutorials
+    security: optional
+  - path: /api/tutorials/{slug}
+    methods: [get]
+    tag: Training
+    summary: Get video tutorial by slug
+    security: optional
+  - path: /api/tutorials/categories
+    methods: [get]
+    tag: Training
+    summary: List tutorial categories
+    security: optional
+  - path: /api/tutorials/categories/{slug}
+    methods: [get]
+    tag: Training
+    summary: Get tutorial category
+    security: optional
+  - path: /api/tutorials/categories/{slug}/videos
+    methods: [get]
+    tag: Training
+    summary: List category videos
+    security: optional
+  - path: /api/tutorials/search
+    methods: [get]
+    tag: Training
+    summary: Search video tutorials
+    security: optional
+  - path: /api/tutorials/{video}/comments
+    methods: [get, post]
+    tag: Training
+    summary: List or add video comments
+    security: optional
+  - path: /api/comments/{comment}/replies
+    methods: [get]
+    tag: Training
+    summary: List comment replies
+    security: optional
+  - path: /api/comments/{comment}/reply
+    methods: [post]
+    tag: Training
+    summary: Add comment reply
+    security: bearer
+
+  # --- Social ---
+  - path: /api/challenge/timings
+    methods: [get]
+    tag: Social
+    summary: Get challenge timings
+    security: bearer
+  - path: /api/challenge/question
+    methods: [get]
+    tag: Social
+    summary: Get challenge question
+    security: bearer
+  - path: /api/challenge/answer
+    methods: [post]
+    tag: Social
+    summary: Submit challenge answer
+    security: bearer
+  - path: /api/followers
+    methods: [get]
+    tag: Social
+    summary: List followers
+    security: bearer
+  - path: /api/following
+    methods: [get]
+    tag: Social
+    summary: List following
+    security: bearer
+  - path: /api/follow/{user}
+    methods: [post]
+    tag: Social
+    summary: Follow user
+    security: bearer
+  - path: /api/unfollow/{user}
+    methods: [post]
+    tag: Social
+    summary: Unfollow user
+    security: bearer
+  - path: /api/remove/{user}
+    methods: [post]
+    tag: Social
+    summary: Remove follower
+    security: bearer
+
+  # --- Support ---
+  - path: /api/support/tickets
+    methods: [get, post]
+    tag: Support
+    summary: List or create support tickets
+    security: bearer
+  - path: /api/support/tickets/{id}
+    methods: [get, put, patch]
+    tag: Support
+    summary: Get or update support ticket
+    security: bearer
+  - path: /api/support/tickets/{id}/response
+    methods: [post]
+    tag: Support
+    summary: Add ticket response
+    security: bearer
+  - path: /api/support/tickets/{id}/close
+    methods: [post]
+    tag: Support
+    summary: Close support ticket
+    security: bearer
+  - path: /api/support/reports
+    methods: [get, post]
+    tag: Support
+    summary: List or create reports
+    security: bearer
+  - path: /api/support/reports/{id}
+    methods: [get]
+    tag: Support
+    summary: Get report
+    security: bearer
+  - path: /api/tickets
+    methods: [get, post]
+    tag: Support
+    summary: List or create tickets (alias)
+    security: bearer
+  - path: /api/reports
+    methods: [get, post]
+    tag: Support
+    summary: List or create reports (alias)
+    security: bearer
+  - path: /api/notes
+    methods: [get, post]
+    tag: Support
+    summary: List or create notes
+    security: bearer
+  - path: /api/notes/{id}
+    methods: [get, put, patch, delete]
+    tag: Support
+    summary: Manage note
+    security: bearer
+
+  # --- Notifications ---
+  - path: /api/notifications
+    methods: [get]
+    tag: Notifications
+    summary: List notifications
+    security: bearer
+  - path: /api/notifications/{id}
+    methods: [get]
+    tag: Notifications
+    summary: Get notification
+    security: bearer
+  - path: /api/notifications/read/all
+    methods: [post]
+    tag: Notifications
+    summary: Mark all notifications as read
+    security: bearer
+
+  # --- Storage ---
+  - path: /api/upload
+    methods: [post]
+    tag: Storage
+    summary: Upload file
+    security: none
+  - path: /uploads/{path}
+    methods: [get]
+    tag: Storage
+    summary: Serve uploaded static file
+    security: none
