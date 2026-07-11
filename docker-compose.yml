@@ -1,3 +1,9 @@
+x-sentry-environment: &sentry-environment
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
+  SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+  SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
+
 services:
   # ============================================================================
   # Infrastructure Services
@@ -72,7 +78,7 @@ services:
       LEVELS_SERVICE_ADDR: levels-service:50054
       FEATURES_SERVICE_ADDR: features-service:50053
       COMMERCIAL_SERVICE_ADDR: commercial-service:50052
-      # OAUTH_SERVER_URL, OAUTH_CLIENT_ID, and OAUTH_CLIENT_SECRET are loaded from config.env via env_file
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -124,6 +130,7 @@ services:
       SOCIAL_SERVICE_ADDR: social-service:50061
       NOTIFICATION_SERVICE_ADDR: notifications-service:50058
       STORAGE_SERVICE_ADDR: storage-service:8059
+      <<: *sentry-environment
     depends_on:
       auth-service:
         condition: service_started
@@ -175,6 +182,7 @@ services:
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
       AUTH_SERVICE_ADDR: auth-service:50051
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -218,6 +226,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       COMMERCIAL_SERVICE_ADDR: commercial-service:50052
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -256,6 +265,7 @@ services:
       DB_DATABASE: metargb_db
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -290,6 +300,7 @@ services:
       DB_DATABASE: metargb_db
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -324,6 +335,7 @@ services:
       DB_DATABASE: metargb_db
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -359,6 +371,7 @@ services:
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
       NOTIFICATION_SERVICE_ADDR: notifications-service:50058
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -401,6 +414,7 @@ services:
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
       COMMERCIAL_SERVICE_ADDR: commercial-service:50052
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -443,6 +457,7 @@ services:
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
       AUTH_SERVICE_ADDR: auth-service:50051
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -489,6 +504,7 @@ services:
       DB_CONN_MAX_LIFETIME: 5m
       REDIS_ADDR: redis:6379
       REDIS_DB: 0
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -531,6 +547,7 @@ services:
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
       PROJECT_URL: ${PROJECT_URL:-http://localhost:8000}
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -576,6 +593,7 @@ services:
       DB_USER: metargb_user
       DB_PASSWORD: metargb_password
       TEMP_DIR: /tmp/storage-chunks
+      <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
@@ -612,6 +630,7 @@ services:
       PORT: 3002
       REDIS_URL: redis://redis:6379
       AUTH_SERVICE_ADDR: auth-service:50051
+      <<: *sentry-environment
     depends_on:
       redis:
         condition: service_healthy

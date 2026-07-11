@@ -15,11 +15,12 @@ import (
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 
+	"metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
 	"metargb/training-service/internal/client"
 	"metargb/training-service/internal/handler"
 	"metargb/training-service/internal/repository"
 	"metargb/training-service/internal/service"
-	"metargb/shared/pkg/metrics"
 )
 
 func main() {
@@ -49,6 +50,11 @@ func main() {
 	if !configLoaded {
 		log.Printf("Warning: config.env not found, using environment variables only")
 	}
+
+	if err := sentry.InitFromEnv("training-service"); err != nil {
+		log.Printf("Warning: failed to initialize Sentry: %v", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	// Database connection with proper UTF-8 encoding for Persian/Farsi text
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&loc=Local&tls=false&interpolateParams=true",
@@ -135,7 +141,10 @@ func main() {
 	serviceMetrics := metrics.NewMetrics("training_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(
+			sentry.UnaryServerInterceptor(),
+			metrics.UnaryServerInterceptor(serviceMetrics),
+		),
 	)
 
 	// Register handlers

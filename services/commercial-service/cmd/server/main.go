@@ -19,6 +19,7 @@ import (
 	"metargb/shared/pkg/auth"
 	"metargb/shared/pkg/db"
 	"metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
 )
 
 func main() {
@@ -39,6 +40,11 @@ func main() {
 	if !configLoaded {
 		log.Printf("Warning: config.env not found, using environment variables only")
 	}
+
+	if err := sentry.InitFromEnv("commercial-service"); err != nil {
+		log.Printf("Warning: failed to initialize Sentry: %v", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "3306"))
 	if err != nil {
@@ -89,8 +95,10 @@ func main() {
 	serviceMetrics := metrics.NewMetrics("commercial_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 
-	var interceptors []grpc.UnaryServerInterceptor
-	interceptors = append(interceptors, metrics.UnaryServerInterceptor(serviceMetrics))
+	interceptors := []grpc.UnaryServerInterceptor{
+		sentry.UnaryServerInterceptor(),
+		metrics.UnaryServerInterceptor(serviceMetrics),
+	}
 	if tokenValidator != nil {
 		interceptors = append(interceptors, auth.UnaryServerInterceptor(tokenValidator))
 	}

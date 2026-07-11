@@ -24,3 +24,7 @@ data:
   app.environment: "production"
   app.log.level: "info"
 
+  # Sentry Error Monitoring
+  sentry.environment: "production"
+  sentry.release: ""
+  sentry.traces_sample_rate: "0"

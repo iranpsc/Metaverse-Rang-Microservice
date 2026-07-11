@@ -26,6 +26,7 @@ import (
 	notificationspb "metargb/shared/pb/notifications"
 	storagepb "metargb/shared/pb/storage"
 	"metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
 )
 
 func main() {
@@ -55,6 +56,11 @@ func main() {
 	if !configLoaded {
 		log.Printf("Warning: config.env not found, using environment variables only")
 	}
+
+	if err := sentry.InitFromEnv("auth-service"); err != nil {
+		log.Printf("Warning: failed to initialize Sentry: %v", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	// Database connection with proper UTF-8 encoding for Persian/Farsi text
 	// Using utf8mb4 charset for proper Persian/Farsi support
@@ -279,7 +285,10 @@ func main() {
 	serviceMetrics := metrics.NewMetrics("auth_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(
+			sentry.UnaryServerInterceptor(),
+			metrics.UnaryServerInterceptor(serviceMetrics),
+		),
 	)
 
 	// Create profile photo handler instance (needed by auth handler)

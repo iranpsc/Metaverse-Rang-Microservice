@@ -19,6 +19,7 @@ import (
 	"metargb/grpc-gateway/internal/handler"
 	"metargb/grpc-gateway/internal/middleware"
 	pb "metargb/shared/pb/auth"
+	"metargb/shared/pkg/sentry"
 )
 
 func main() {
@@ -41,6 +42,11 @@ func main() {
 	if !configLoaded {
 		log.Println("⚠️  No config.env found, using environment variables")
 	}
+
+	if err := sentry.InitFromEnv("grpc-gateway"); err != nil {
+		log.Printf("Warning: failed to initialize Sentry: %v", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	cfg := config.Load()
 
@@ -1071,8 +1077,8 @@ func main() {
 	// Note: We don't register a catch-all "/" handler because it would interfere with route matching
 	// Instead, unmatched routes will naturally return 404 from ServeMux
 
-	// Chain middleware: logging -> CORS -> mux
-	handler := middleware.LoggingMiddleware(middleware.CORSMiddleware(mux))
+	// Chain middleware: Sentry -> logging -> CORS -> mux
+	handler := sentry.HTTPMiddleware(middleware.LoggingMiddleware(middleware.CORSMiddleware(mux)))
 
 	// Start HTTP server
 	server := &http.Server{

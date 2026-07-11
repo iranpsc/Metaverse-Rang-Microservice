@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"metargb/shared/pkg/sentry"
 	"metargb/storage-service/internal/service"
 )
 
@@ -225,7 +226,7 @@ func StartHTTPServer(handler *HTTPHandler, port string) error {
 
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: mux,
+		Handler: sentry.HTTPMiddleware(mux),
 	}
 
 	return server.ListenAndServe()

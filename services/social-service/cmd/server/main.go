@@ -18,6 +18,7 @@ import (
 
 	"metargb/shared/pkg/logger"
 	"metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
 	"metargb/social-service/internal/client"
 	"metargb/social-service/internal/handler"
 	"metargb/social-service/internal/repository"
@@ -46,6 +47,11 @@ func main() {
 
 	structLog := logger.NewLogger("social-service")
 	structLog.Info("Starting Social Service...")
+
+	if err := sentry.InitFromEnv("social-service"); err != nil {
+		structLog.Warn("Failed to initialize Sentry", "error", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
 		getEnv("DB_USER", "root"),
@@ -95,6 +101,7 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			sentry.UnaryServerInterceptor(),
 			logger.UnaryServerInterceptor(structLog),
 			metrics.UnaryServerInterceptor(serviceMetrics),
 		),

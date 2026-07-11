@@ -19,6 +19,7 @@ import (
 	"metargb/calendar-service/internal/repository"
 	"metargb/calendar-service/internal/service"
 	"metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
 )
 
 func main() {
@@ -40,6 +41,11 @@ func main() {
 	if !configLoaded {
 		log.Printf("Warning: config.env not found, using environment variables only")
 	}
+
+	if err := sentry.InitFromEnv("calendar-service"); err != nil {
+		log.Printf("Warning: failed to initialize Sentry: %v", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
 		getEnv("DB_USER", "root"),
@@ -72,7 +78,10 @@ func main() {
 	serviceMetrics := metrics.NewMetrics("calendar_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(
+			sentry.UnaryServerInterceptor(),
+			metrics.UnaryServerInterceptor(serviceMetrics),
+		),
 	)
 	handler.RegisterCalendarHandler(grpcServer, calendarService)
 

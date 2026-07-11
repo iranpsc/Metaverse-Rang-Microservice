@@ -23,6 +23,7 @@ import (
 	"metargb/shared/pkg/db"
 	"metargb/shared/pkg/logger"
 	sharedmetrics "metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
 
 	_ "github.com/go-sql-driver/mysql"
 	"google.golang.org/grpc"
@@ -34,6 +35,11 @@ func main() {
 	// Initialize logger
 	log := logger.NewLogger("features-service")
 	log.Info("Starting Features Service...")
+
+	if err := sentry.InitFromEnv("features-service"); err != nil {
+		log.Warn("Failed to initialize Sentry", "error", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	// Load configuration from environment
 	// Construct DSN from individual environment variables
@@ -244,6 +250,7 @@ func main() {
 
 	// Build interceptor chain
 	interceptors := []grpc.UnaryServerInterceptor{
+		sentry.UnaryServerInterceptor(),
 		logger.UnaryServerInterceptor(log),
 		sharedmetrics.UnaryServerInterceptor(serviceMetrics),
 	}

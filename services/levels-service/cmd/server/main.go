@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	"metargb/levels-service/internal/client"
 	"metargb/levels-service/internal/handler"
 	"metargb/levels-service/internal/repository"
@@ -18,6 +17,9 @@ import (
 	"metargb/shared/pkg/db"
 	"metargb/shared/pkg/logger"
 	"metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
+
+	"github.com/joho/godotenv"
 
 	_ "github.com/go-sql-driver/mysql"
 	"google.golang.org/grpc"
@@ -42,6 +44,11 @@ func main() {
 	// Initialize logger
 	log := logger.NewLogger("levels-service")
 	log.Info("Starting Levels Service...")
+
+	if err := sentry.InitFromEnv("levels-service"); err != nil {
+		log.Warn("Failed to initialize Sentry", "error", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	// Load configuration from environment
 	// Construct DSN from individual environment variables
@@ -118,6 +125,7 @@ func main() {
 	metrics.StartHTTPServer(metricsPort)
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
+			sentry.UnaryServerInterceptor(),
 			logger.UnaryServerInterceptor(log),
 			metrics.UnaryServerInterceptor(serviceMetrics),
 		),

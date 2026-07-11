@@ -1,0 +1,27 @@
+# Sentry environment variables for Kubernetes deployments
+# Append these entries to each service container env list.
+#
+# Requires k8s/config/configmap.yaml and k8s/config/secrets.yaml sentry keys.
+
+- name: SENTRY_DSN
+  valueFrom:
+    secretKeyRef:
+      name: metargb-secrets
+      key: sentry.dsn
+      optional: true
+- name: SENTRY_ENVIRONMENT
+  valueFrom:
+    configMapKeyRef:
+      name: metargb-config
+      key: sentry.environment
+- name: SENTRY_RELEASE
+  valueFrom:
+    configMapKeyRef:
+      name: metargb-config
+      key: sentry.release
+      optional: true
+- name: SENTRY_TRACES_SAMPLE_RATE
+  valueFrom:
+    configMapKeyRef:
+      name: metargb-config
+      key: sentry.traces_sample_rate

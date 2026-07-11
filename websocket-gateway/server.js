@@ -7,8 +7,10 @@ const socketIo = require('socket.io');
 const Redis = require('ioredis');
 const grpc = require('@grpc/grpc-js');
 const protoLoader = require('@grpc/proto-loader');
+const { Sentry, initSentry, captureException, flush } = require('./sentry');
 
 const app = express();
+initSentry('websocket-gateway', app);
 const server = http.createServer(app);
 
 // Socket.IO configuration with CORS
@@ -108,6 +110,7 @@ io.on('connection', (socket) => {
   // Handle errors
   socket.on('error', (error) => {
     console.error(`Socket error for user ${socket.userId}:`, error);
+    captureException(error);
   });
 });
 
@@ -115,6 +118,7 @@ io.on('connection', (socket) => {
 subscriber.subscribe('user-status', 'feature-status', 'notifications', (err, count) => {
   if (err) {
     console.error('Failed to subscribe to Redis channels:', err);
+    captureException(err);
   } else {
     console.log(`Subscribed to ${count} Redis channels`);
   }
@@ -171,15 +175,18 @@ subscriber.on('message', (channel, message) => {
     }
   } catch (error) {
     console.error(`Error processing message from ${channel}:`, error);
+    captureException(error);
   }
 });
 
 subscriber.on('error', (error) => {
   console.error('Redis subscriber error:', error);
+  captureException(error);
 });
 
 redis.on('error', (error) => {
   console.error('Redis client error:', error);
+  captureException(error);
 });
 
 // Health check endpoint
@@ -205,6 +212,8 @@ app.get('/metrics', (req, res) => {
   res.json(metrics);
 });
 
+Sentry.setupExpressErrorHandler(app);
+
 // Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
@@ -214,24 +223,22 @@ server.listen(PORT, () => {
   console.log(`CORS Origin: ${process.env.CORS_ORIGIN || '*'}`);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
+async function shutdown(signal) {
+  console.log(`${signal} signal received: closing HTTP server`);
+  server.close(async () => {
     console.log('HTTP server closed');
     redis.quit();
     subscriber.quit();
+    await flush(2000);
     process.exit(0);
   });
+}
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  shutdown('SIGTERM');
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    redis.quit();
-    subscriber.quit();
-    process.exit(0);
-  });
+  shutdown('SIGINT');
 });
-

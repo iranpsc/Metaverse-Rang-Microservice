@@ -22,6 +22,7 @@ import (
 
 	dynastypb "metargb/shared/pb/dynasty"
 	"metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
 )
 
 func main() {
@@ -43,6 +44,11 @@ func main() {
 	if !configLoaded {
 		log.Printf("Warning: config.env not found, using environment variables only")
 	}
+
+	if err := sentry.InitFromEnv("dynasty-service"); err != nil {
+		log.Printf("Warning: failed to initialize Sentry: %v", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	// Database connection
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
@@ -120,7 +126,10 @@ func main() {
 	serviceMetrics := metrics.NewMetrics("dynasty_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(
+			sentry.UnaryServerInterceptor(),
+			metrics.UnaryServerInterceptor(serviceMetrics),
+		),
 	)
 
 	// Create dedicated handlers for each service

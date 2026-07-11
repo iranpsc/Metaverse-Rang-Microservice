@@ -20,6 +20,7 @@ import (
 	"metargb/notifications-service/internal/repository"
 	"metargb/notifications-service/internal/service"
 	"metargb/shared/pkg/metrics"
+	"metargb/shared/pkg/sentry"
 )
 
 func main() {
@@ -43,6 +44,11 @@ func main() {
 	if !configLoaded {
 		log.Printf("Warning: config.env not found, using environment variables only")
 	}
+
+	if err := sentry.InitFromEnv("notifications-service"); err != nil {
+		log.Printf("Warning: failed to initialize Sentry: %v", err)
+	}
+	defer sentry.Flush(2 * time.Second)
 
 	db, err := setupDatabase()
 	if err != nil {
@@ -80,7 +86,10 @@ func main() {
 	serviceMetrics := metrics.NewMetrics("notifications_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor(serviceMetrics)),
+		grpc.ChainUnaryInterceptor(
+			sentry.UnaryServerInterceptor(),
+			metrics.UnaryServerInterceptor(serviceMetrics),
+		),
 	)
 
 	handler.RegisterNotificationHandler(grpcServer, notificationService)
