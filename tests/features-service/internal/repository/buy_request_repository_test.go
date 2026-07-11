@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"metargb/features-service/internal/repository"
-	"metargb/features-service/internal/testutil"
+	"metargb/features-service/tests/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

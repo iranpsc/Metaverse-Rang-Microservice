@@ -14,16 +14,16 @@ import (
 
 // mockProfitService implements profit service methods for testing
 type mockProfitService struct {
-	getHourlyProfitsFunc        func(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, error)
+	getHourlyProfitsFunc        func(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, bool, error)
 	getSingleProfitFunc         func(ctx context.Context, profitID, userID uint64) (*models.FeatureHourlyProfit, error)
 	getProfitsByApplicationFunc func(ctx context.Context, userID uint64, karbari string) (float64, error)
 }
 
-func (m *mockProfitService) GetHourlyProfits(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, error) {
+func (m *mockProfitService) GetHourlyProfits(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, bool, error) {
 	if m.getHourlyProfitsFunc != nil {
 		return m.getHourlyProfitsFunc(ctx, userID, page, pageSize)
 	}
-	return nil, "0.00", "0.00", "0.00", errors.New("not implemented")
+	return nil, "0.00", "0.00", "0.00", false, errors.New("not implemented")
 }
 
 func (m *mockProfitService) GetSingleProfit(ctx context.Context, profitID, userID uint64) (*models.FeatureHourlyProfit, error) {
@@ -48,12 +48,16 @@ func (m *mockProfitService) TransferProfitOnSale(ctx context.Context, featureID,
 	return errors.New("not implemented")
 }
 
+func (m *mockProfitService) RunHourlyProfitCalculation(ctx context.Context) (int, error) {
+	return 0, nil
+}
+
 func TestProfitHandler_GetHourlyProfits(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful request with default pagination", func(t *testing.T) {
 		mockService := &mockProfitService{}
-		mockService.getHourlyProfitsFunc = func(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, error) {
+		mockService.getHourlyProfitsFunc = func(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, bool, error) {
 			if userID != 1 {
 				t.Errorf("Expected userID 1, got %d", userID)
 			}
@@ -77,7 +81,7 @@ func TestProfitHandler_GetHourlyProfits(t *testing.T) {
 					FeatureDBID:  100,
 				},
 			}
-			return profits, "100.50", "200.75", "300.25", nil
+			return profits, "100.50", "200.75", "300.25", false, nil
 		}
 
 		handler := handler.NewProfitHandler(mockService)
@@ -146,8 +150,8 @@ func TestProfitHandler_GetHourlyProfits(t *testing.T) {
 
 	t.Run("service error", func(t *testing.T) {
 		mockService := &mockProfitService{}
-		mockService.getHourlyProfitsFunc = func(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, error) {
-			return nil, "0.00", "0.00", "0.00", errors.New("service error")
+		mockService.getHourlyProfitsFunc = func(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, bool, error) {
+			return nil, "0.00", "0.00", "0.00", false, errors.New("service error")
 		}
 
 		handler := handler.NewProfitHandler(mockService)

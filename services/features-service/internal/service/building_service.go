@@ -220,7 +220,7 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	var informationJSON string
 	if req.Information != nil && req.Information.ActivityLine != "" {
 		// Validate BuildingInformation fields
-		if err := s.validateBuildingInformation(req.Information); err != nil {
+		if err := s.ValidateBuildingInformation(req.Information); err != nil {
 			return nil, fmt.Errorf("invalid building information: %w", err)
 		}
 
@@ -263,7 +263,7 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	constructionDurationHours := requiredSatisfaction * 288000.0 / launchedSatisfaction
 	constructionStartDate := time.Now()
 	// Convert hours to seconds for time.Duration
-	constructionEndDate := constructionStartDate.Add(time.Duration(constructionDurationHours * 3600) * time.Second)
+	constructionEndDate := constructionStartDate.Add(time.Duration(constructionDurationHours*3600) * time.Second)
 
 	// 10. Deactivate hourly profits for this feature
 	if err := s.hourlyProfitRepo.DeactivateProfitsForFeature(ctx, req.FeatureId); err != nil {
@@ -274,7 +274,7 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 
 	// 11. Calculate bubble diameter from model attributes
 	// Attributes are stored as JSON string in buildingModel.Attributes
-	bubbleDiameter := s.calculateBubbleDiameter(buildingModel.Attributes)
+	bubbleDiameter := s.CalculateBubbleDiameter(buildingModel.Attributes)
 
 	// 12. Create building record
 	buildingModelIDStr = strings.TrimSpace(req.BuildingModelId)
@@ -299,8 +299,8 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	// Note: We don't have all FeatureService dependencies, so we return minimal Feature
 	// with just the essential fields and building models
 	return &pb.Feature{
-		Id:            feature.ID,
-		OwnerId:      feature.OwnerID,
+		Id:             feature.ID,
+		OwnerId:        feature.OwnerID,
 		BuildingModels: buildings,
 	}, nil
 }
@@ -318,12 +318,12 @@ func ExtractAttributeValue(attributes []map[string]interface{}, slug string) (fl
 	return 0, false
 }
 
-// calculateBubbleDiameter calculates bubble diameter from model attributes
+// CalculateBubbleDiameter calculates bubble diameter from model attributes
 // Expects attributes JSON string with array format: [{"slug": "width", "value": 50}, ...]
 // Formula: perimeter × coefficient where:
 //   - perimeter = 2 × (width + length)
 //   - coefficient = 1 + (0.3 × (density - 1))
-func (s *BuildingService) calculateBubbleDiameter(attributesJSON string) float64 {
+func (s *BuildingService) CalculateBubbleDiameter(attributesJSON string) float64 {
 	var attributes []map[string]interface{}
 	if err := json.Unmarshal([]byte(attributesJSON), &attributes); err != nil {
 		return 0.0
@@ -350,7 +350,7 @@ func (s *BuildingService) calculateBubbleDiameter(attributesJSON string) float64
 	return perimeter * coefficient
 }
 
-// validateBuildingInformation validates BuildingInformation fields according to Laravel rules
+// ValidateBuildingInformation validates BuildingInformation fields according to Laravel rules
 // Rules:
 // - activity_line: nullable, max 255
 // - name: nullable, max 255 (only saved if activity_line provided)
@@ -358,7 +358,7 @@ func (s *BuildingService) calculateBubbleDiameter(attributesJSON string) float64
 // - postal_code: nullable, iranian_postal_code (10 digits)
 // - website: nullable, active_url, max 255 (DNS check)
 // - description: nullable, max 5000
-func (s *BuildingService) validateBuildingInformation(info *pb.BuildingInformation) error {
+func (s *BuildingService) ValidateBuildingInformation(info *pb.BuildingInformation) error {
 	if info == nil {
 		return nil // Nullable, so nil is valid
 	}
@@ -384,7 +384,7 @@ func (s *BuildingService) validateBuildingInformation(info *pb.BuildingInformati
 		postalCode := helpers.NormalizePersianNumbers(info.PostalCode)
 		postalCode = strings.ReplaceAll(postalCode, "-", "")
 		postalCode = strings.ReplaceAll(postalCode, " ", "")
-		
+
 		// Validate 10 digits
 		postalCodeRegex := regexp.MustCompile(`^[0-9]{10}$`)
 		if !postalCodeRegex.MatchString(postalCode) {
@@ -397,18 +397,18 @@ func (s *BuildingService) validateBuildingInformation(info *pb.BuildingInformati
 		if len(info.Website) > 255 {
 			return fmt.Errorf("website must not exceed 255 characters")
 		}
-		
+
 		// Validate URL format
 		parsedURL, err := url.Parse(info.Website)
 		if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
 			return fmt.Errorf("website must be a valid URL")
 		}
-		
+
 		// Check if scheme is http or https
 		if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 			return fmt.Errorf("website must use http or https protocol")
 		}
-		
+
 		// Note: DNS check (active_url) would require network call, which we skip in service layer
 		// The gateway or handler layer can perform DNS check if needed
 	}
@@ -559,7 +559,7 @@ func (s *BuildingService) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 	var informationJSON string
 	if req.Information != nil && req.Information.ActivityLine != "" {
 		// Validate BuildingInformation fields
-		if err := s.validateBuildingInformation(req.Information); err != nil {
+		if err := s.ValidateBuildingInformation(req.Information); err != nil {
 			return nil, fmt.Errorf("invalid building information: %w", err)
 		}
 
@@ -628,7 +628,7 @@ func (s *BuildingService) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 	}
 
 	// Convert hours to seconds for time.Duration
-	constructionEndDate := constructionStartDate.Add(time.Duration(constructionDurationHours * 3600) * time.Second)
+	constructionEndDate := constructionStartDate.Add(time.Duration(constructionDurationHours*3600) * time.Second)
 
 	// 9. Preserve existing bubble diameter (don't recalculate on update)
 	existingBubbleDiameter, _ := strconv.ParseFloat(existingBuilding.BubbleDiameter, 64)

@@ -6,7 +6,7 @@ import (
 
 	"metargb/features-service/internal/repository"
 	"metargb/features-service/internal/service"
-	"metargb/features-service/internal/testutil"
+	"metargb/features-service/tests/internal/testutil"
 	"metargb/shared/pkg/logger"
 
 	"github.com/stretchr/testify/assert"

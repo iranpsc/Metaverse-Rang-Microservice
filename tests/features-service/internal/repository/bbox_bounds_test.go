@@ -1,10 +1,12 @@
-package repository
+package repository_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"metargb/features-service/internal/repository"
 )
 
 func TestBboxBoundsFromPoints(t *testing.T) {
@@ -15,7 +17,7 @@ func TestBboxBoundsFromPoints(t *testing.T) {
 		"10,40",
 	}
 
-	minX, maxX, minY, maxY, err := bboxBoundsFromPoints(points)
+	minX, maxX, minY, maxY, err := repository.BboxBoundsFromPoints(points)
 	require.NoError(t, err)
 	assert.Equal(t, "10", minX)
 	assert.Equal(t, "30", maxX)

@@ -16,8 +16,8 @@ func SetProjectLocale(locale string) {
 	projectLocale = locale
 }
 
-// getProjectLocale returns the project locale, defaulting to "en"
-func getProjectLocale() string {
+// GetProjectLocale returns the project locale, defaulting to "en"
+func GetProjectLocale() string {
 	if projectLocale == "" {
 		return "en"
 	}

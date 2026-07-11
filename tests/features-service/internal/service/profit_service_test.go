@@ -6,7 +6,7 @@ import (
 
 	"metargb/features-service/internal/repository"
 	"metargb/features-service/internal/service"
-	"metargb/features-service/internal/testutil"
+	"metargb/features-service/tests/internal/testutil"
 	"metargb/shared/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
@@ -39,7 +39,7 @@ func TestProfitService_GetHourlyProfits_Integration(t *testing.T) {
 	svc := service.NewProfitService(pr, fr, prepo, nil, nil, db, log)
 	ctx := context.Background()
 
-	profits, m, tj, am, err := svc.GetHourlyProfits(ctx, 1, 1, 10)
+	profits, m, tj, am, _, err := svc.GetHourlyProfits(ctx, 1, 1, 10)
 	require.NoError(t, err)
 	assert.NotNil(t, profits)
 	assert.NotEmpty(t, m)

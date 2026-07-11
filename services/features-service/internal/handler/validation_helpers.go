@@ -9,14 +9,14 @@ import (
 	"metargb/shared/pkg/helpers"
 )
 
-// returnValidationError returns a gRPC InvalidArgument error with encoded validation fields
-func returnValidationError(fields map[string]string) error {
+// ReturnValidationError returns a gRPC InvalidArgument error with encoded validation fields
+func ReturnValidationError(fields map[string]string) error {
 	encodedError := helpers.EncodeValidationError(fields)
 	return status.Errorf(codes.InvalidArgument, "%s", encodedError)
 }
 
-// validateRequired validates that a field is not empty/zero
-func validateRequired(fieldName string, value interface{}, locale string) map[string]string {
+// ValidateRequired validates that a field is not empty/zero
+func ValidateRequired(fieldName string, value interface{}, locale string) map[string]string {
 	validationErrors := make(map[string]string)
 	t := helpers.GetLocaleTranslations(locale)
 
@@ -48,8 +48,8 @@ func validateRequired(fieldName string, value interface{}, locale string) map[st
 	return validationErrors
 }
 
-// validateOneOf validates that a value is one of the allowed values
-func validateOneOf(fieldName string, value string, allowed []string, locale string) map[string]string {
+// ValidateOneOf validates that a value is one of the allowed values
+func ValidateOneOf(fieldName string, value string, allowed []string, locale string) map[string]string {
 	validationErrors := make(map[string]string)
 	t := helpers.GetLocaleTranslations(locale)
 
@@ -75,8 +75,8 @@ func validateOneOf(fieldName string, value string, allowed []string, locale stri
 	return validationErrors
 }
 
-// validateMin validates that a numeric value is at least the minimum
-func validateMin(fieldName string, value int64, min int64, locale string) map[string]string {
+// ValidateMin validates that a numeric value is at least the minimum
+func ValidateMin(fieldName string, value int64, min int64, locale string) map[string]string {
 	validationErrors := make(map[string]string)
 	t := helpers.GetLocaleTranslations(locale)
 
@@ -87,8 +87,8 @@ func validateMin(fieldName string, value int64, min int64, locale string) map[st
 	return validationErrors
 }
 
-// validateMinLength validates that a string has at least the minimum length
-func validateMinLength(fieldName string, value string, minLength int, locale string) map[string]string {
+// ValidateMinLength validates that a string has at least the minimum length
+func ValidateMinLength(fieldName string, value string, minLength int, locale string) map[string]string {
 	validationErrors := make(map[string]string)
 	t := helpers.GetLocaleTranslations(locale)
 
@@ -99,8 +99,8 @@ func validateMinLength(fieldName string, value string, minLength int, locale str
 	return validationErrors
 }
 
-// mergeValidationErrors merges multiple validation error maps
-func mergeValidationErrors(errors ...map[string]string) map[string]string {
+// MergeValidationErrors merges multiple validation error maps
+func MergeValidationErrors(errors ...map[string]string) map[string]string {
 	result := make(map[string]string)
 	for _, errs := range errors {
 		for field, msg := range errs {

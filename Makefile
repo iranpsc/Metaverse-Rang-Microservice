@@ -162,8 +162,8 @@ endif
 # Features-service handler coverage gate (≥70%, no MySQL required; uses GOWORK=off for local replace)
 test-coverage-features:
 	@echo "🧪 features-service handler coverage (min 70%)..."
-	cd services/features-service && GOWORK=off go test ./internal/handler/... -race -coverprofile=coverage.out -covermode=atomic
-	@pct=$$(cd services/features-service && GOWORK=off go tool cover -func=coverage.out | tail -1 | grep -oE '[0-9]+\.[0-9]+' | tail -1); \
+	cd tests/features-service && GOWORK=off go test ./internal/handler/... -race -coverprofile=coverage.out -covermode=atomic
+	@pct=$$(cd tests/features-service && GOWORK=off go tool cover -func=coverage.out | tail -1 | grep -oE '[0-9]+\.[0-9]+' | tail -1); \
 	echo "handler statements coverage: $${pct}%"; \
 	awk -v p="$$pct" 'BEGIN{if (p+0 < 70.0) exit 1}'
 	@echo "✅ features-service handler coverage OK"

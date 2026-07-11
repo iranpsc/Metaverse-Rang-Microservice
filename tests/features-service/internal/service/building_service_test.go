@@ -1,4 +1,4 @@
-package service
+package service_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"metargb/features-service/internal/models"
+	"metargb/features-service/internal/service"
 	pb "metargb/shared/pb/features"
 )
 
@@ -158,7 +159,7 @@ func TestBuildingService_GetBuildPackage(t *testing.T) {
 		// 		OwnerID: 100, // Different owner
 		// 	}, &models.FeatureProperties{}, nil
 		// }
-		// service := NewBuildingService(mockBuildingRepo, mockFeatureRepo, mockGeometryRepo, mockProfitRepo, nil)
+		// service := service.NewBuildingService(mockBuildingRepo, mockFeatureRepo, mockGeometryRepo, mockProfitRepo, nil)
 		// _, _, err := service.GetBuildPackage(ctx, 1, 1) // featureID=1, page=1
 		// if err == nil {
 		// 	t.Error("Expected error for unauthorized user")
@@ -182,10 +183,9 @@ func findSubstring(s, substr string) bool {
 	return false
 }
 
-
-// Test calculateBubbleDiameter function
+// Test CalculateBubbleDiameter function
 func TestBuildingService_CalculateBubbleDiameter(t *testing.T) {
-	service := NewBuildingService(nil, nil, nil, nil, nil)
+	service := service.NewBuildingService(nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		name           string
@@ -242,14 +242,14 @@ func TestBuildingService_CalculateBubbleDiameter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := service.calculateBubbleDiameter(tt.attributesJSON)
+			got := service.CalculateBubbleDiameter(tt.attributesJSON)
 			// Use tolerance for floating point comparison
 			diff := got - tt.want
 			if diff < 0 {
 				diff = -diff
 			}
 			if diff > 0.0001 {
-				t.Errorf("calculateBubbleDiameter() = %v, want %v (diff: %v)", got, tt.want, diff)
+				t.Errorf("CalculateBubbleDiameter() = %v, want %v (diff: %v)", got, tt.want, diff)
 			}
 		})
 	}
@@ -327,12 +327,12 @@ func TestExtractAttributeValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotValue, gotOk := ExtractAttributeValue(tt.attributes, tt.slug)
+			gotValue, gotOk := service.ExtractAttributeValue(tt.attributes, tt.slug)
 			if gotValue != tt.wantValue {
-				t.Errorf("ExtractAttributeValue() value = %v, want %v", gotValue, tt.wantValue)
+				t.Errorf("service.ExtractAttributeValue() value = %v, want %v", gotValue, tt.wantValue)
 			}
 			if gotOk != tt.wantOk {
-				t.Errorf("ExtractAttributeValue() ok = %v, want %v", gotOk, tt.wantOk)
+				t.Errorf("service.ExtractAttributeValue() ok = %v, want %v", gotOk, tt.wantOk)
 			}
 		})
 	}
@@ -386,12 +386,12 @@ func TestBuildingService_ConstructionDuration(t *testing.T) {
 // Test required satisfaction calculation
 func TestBuildingService_RequiredSatisfaction(t *testing.T) {
 	tests := []struct {
-		name            string
-		area            float64
-		karbariCoeff    float64
-		density         int
-		want            float64
-		description     string
+		name         string
+		area         float64
+		karbariCoeff float64
+		density      int
+		want         float64
+		description  string
 	}{
 		{
 			name:         "basic calculation",
@@ -438,9 +438,9 @@ func TestBuildingService_RequiredSatisfaction(t *testing.T) {
 	}
 }
 
-// Test validateBuildingInformation function
+// Test ValidateBuildingInformation function
 func TestBuildingService_ValidateBuildingInformation(t *testing.T) {
-	service := NewBuildingService(nil, nil, nil, nil, nil)
+	service := service.NewBuildingService(nil, nil, nil, nil, nil)
 
 	tests := []struct {
 		name    string
@@ -590,14 +590,14 @@ func TestBuildingService_ValidateBuildingInformation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := service.validateBuildingInformation(tt.info)
+			err := service.ValidateBuildingInformation(tt.info)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("validateBuildingInformation() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ValidateBuildingInformation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.wantErr && tt.errMsg != "" && err != nil {
 				if err.Error()[:len(tt.errMsg)] != tt.errMsg {
-					t.Errorf("validateBuildingInformation() error message = %v, want contains %v", err.Error(), tt.errMsg)
+					t.Errorf("ValidateBuildingInformation() error message = %v, want contains %v", err.Error(), tt.errMsg)
 				}
 			}
 		})

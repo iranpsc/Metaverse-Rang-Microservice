@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"testing"
@@ -7,27 +7,29 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"metargb/features-service/internal/handler"
 )
 
 func TestValidateRequired_uint64Zero(t *testing.T) {
-	errs := validateRequired("fid", uint64(0), "en")
+	errs := handler.ValidateRequired("fid", uint64(0), "en")
 	require.Contains(t, errs, "fid")
 }
 
 func TestValidateRequired_stringEmpty(t *testing.T) {
-	errs := validateRequired("name", "", "en")
+	errs := handler.ValidateRequired("name", "", "en")
 	require.Contains(t, errs, "name")
 }
 
 func TestValidateOneOf(t *testing.T) {
-	errs := validateOneOf("k", "x", []string{"m", "t", "a"}, "en")
+	errs := handler.ValidateOneOf("k", "x", []string{"m", "t", "a"}, "en")
 	require.Contains(t, errs, "k")
-	errsOK := validateOneOf("k", "m", []string{"m", "t", "a"}, "en")
+	errsOK := handler.ValidateOneOf("k", "m", []string{"m", "t", "a"}, "en")
 	assert.Empty(t, errsOK)
 }
 
 func TestMergeValidationErrors(t *testing.T) {
-	m := mergeValidationErrors(
+	m := handler.MergeValidationErrors(
 		map[string]string{"a": "1"},
 		map[string]string{"b": "2"},
 	)
@@ -35,19 +37,19 @@ func TestMergeValidationErrors(t *testing.T) {
 }
 
 func TestReturnValidationError_GRPCCode(t *testing.T) {
-	err := returnValidationError(map[string]string{"f": "msg"})
+	err := handler.ReturnValidationError(map[string]string{"f": "msg"})
 	st, ok := status.FromError(err)
 	require.True(t, ok)
 	assert.Equal(t, codes.InvalidArgument, st.Code())
 }
 
 func TestValidateMin(t *testing.T) {
-	errs := validateMin("n", 1, 5, "en")
+	errs := handler.ValidateMin("n", 1, 5, "en")
 	require.Contains(t, errs, "n")
-	assert.Empty(t, validateMin("n", 10, 5, "en"))
+	assert.Empty(t, handler.ValidateMin("n", 10, 5, "en"))
 }
 
 func TestValidateMinLength(t *testing.T) {
-	errs := validateMinLength("p", "ab", 5, "en")
+	errs := handler.ValidateMinLength("p", "ab", 5, "en")
 	require.Contains(t, errs, "p")
 }

@@ -3,8 +3,6 @@ package handler_test
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -31,6 +29,7 @@ type mockMarketplace struct {
 	rejectBuyRequest        func(ctx context.Context, requestID, sellerID uint64) error
 	deleteBuyRequest        func(ctx context.Context, requestID, buyerID uint64) error
 	updateGracePeriod       func(ctx context.Context, requestID, sellerID uint64, days int32) error
+	getBuyRequestSellerID   func(ctx context.Context, requestID uint64) (uint64, error)
 	getUserCode             func(ctx context.Context, userID uint64) (string, error)
 	getLatestProfilePhoto   func(ctx context.Context, userID uint64) (string, error)
 }
@@ -117,6 +116,13 @@ func (m *mockMarketplace) UpdateGracePeriod(ctx context.Context, requestID, sell
 		return m.updateGracePeriod(ctx, requestID, sellerID, gracePeriodDays)
 	}
 	return errors.New("not implemented")
+}
+
+func (m *mockMarketplace) GetBuyRequestSellerID(ctx context.Context, requestID uint64) (uint64, error) {
+	if m.getBuyRequestSellerID != nil {
+		return m.getBuyRequestSellerID(ctx, requestID)
+	}
+	return 0, errors.New("not implemented")
 }
 
 func (m *mockMarketplace) GetUserCode(ctx context.Context, userID uint64) (string, error) {
@@ -534,7 +540,10 @@ func TestMarketplaceHandler_UpdateGracePeriod_FailedPrecondition(t *testing.T) {
 func TestMarketplaceHandler_RequestGracePeriod_Unauthorized(t *testing.T) {
 	ctx := context.Background()
 	m := &mockMarketplace{}
-	m.requestGracePeriod = func(ctx context.Context, requestID, sellerID uint64, grace string) error {
+	m.getBuyRequestSellerID = func(ctx context.Context, requestID uint64) (uint64, error) {
+		return 2, nil
+	}
+	m.updateGracePeriod = func(ctx context.Context, requestID, sellerID uint64, days int32) error {
 		return errors.New("unauthorized: not the seller")
 	}
 	h := newTestMarketplaceHandler(m)
@@ -612,7 +621,10 @@ func TestMarketplaceHandler_UpdateGracePeriod_InvalidRange(t *testing.T) {
 func TestMarketplaceHandler_RequestGracePeriod(t *testing.T) {
 	ctx := context.Background()
 	m := &mockMarketplace{}
-	m.requestGracePeriod = func(ctx context.Context, requestID, sellerID uint64, grace string) error {
+	m.getBuyRequestSellerID = func(ctx context.Context, requestID uint64) (uint64, error) {
+		return 2, nil
+	}
+	m.updateGracePeriod = func(ctx context.Context, requestID, sellerID uint64, days int32) error {
 		return nil
 	}
 	h := newTestMarketplaceHandler(m)
@@ -626,12 +638,8 @@ func TestMarketplaceHandler_RequestGracePeriod(t *testing.T) {
 func TestMarketplaceHandler_RequestGracePeriod_InvalidGrace(t *testing.T) {
 	ctx := context.Background()
 	m := &mockMarketplace{}
-	m.requestGracePeriod = func(ctx context.Context, requestID, sellerID uint64, grace string) error {
-		days, err := strconv.ParseInt(grace, 10, 32)
-		if err != nil || days < 1 || days > 30 {
-			return fmt.Errorf("grace period must be between 1 and 30 days")
-		}
-		return nil
+	m.getBuyRequestSellerID = func(ctx context.Context, requestID uint64) (uint64, error) {
+		return 2, nil
 	}
 	h := newTestMarketplaceHandler(m)
 	_, err := h.RequestGracePeriod(ctx, &pb.RequestGracePeriodRequest{
@@ -639,7 +647,7 @@ func TestMarketplaceHandler_RequestGracePeriod_InvalidGrace(t *testing.T) {
 	})
 	require.Error(t, err)
 	st, _ := status.FromError(err)
-	assert.Equal(t, codes.FailedPrecondition, st.Code())
+	assert.Equal(t, codes.InvalidArgument, st.Code())
 }
 
 func TestMarketplaceHandler_ListSellRequests_WithRows(t *testing.T) {

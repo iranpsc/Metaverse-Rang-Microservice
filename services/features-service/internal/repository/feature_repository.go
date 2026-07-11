@@ -48,9 +48,9 @@ func (r *FeatureRepository) FindByID(ctx context.Context, id uint64) (*models.Fe
 	return feature, properties, nil
 }
 
-// bboxBoundsFromPoints matches Laravel FeatureRepository@all:
+// BboxBoundsFromPoints matches Laravel FeatureRepository@all:
 // x between points[0].x and points[1].x, y between points[0].y and points[2].y
-func bboxBoundsFromPoints(points []string) (minX, maxX, minY, maxY string, err error) {
+func BboxBoundsFromPoints(points []string) (minX, maxX, minY, maxY string, err error) {
 	if len(points) < 4 {
 		return "", "", "", "", fmt.Errorf("expected at least 4 points, got %d", len(points))
 	}
@@ -82,7 +82,7 @@ func bboxBoundsFromPoints(points []string) (minX, maxX, minY, maxY string, err e
 // FindByBoundingBox implements Laravel's FeatureRepository@all logic
 // Points format: four "x,y" strings (bbox corners)
 func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []string, loadBuildings bool) ([]*models.Feature, error) {
-	minX, maxX, minY, maxY, err := bboxBoundsFromPoints(points)
+	minX, maxX, minY, maxY, err := BboxBoundsFromPoints(points)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 
 // FindByBoundingBoxWithProperties returns features with their properties
 func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context, points []string) ([]*models.Feature, []*models.FeatureProperties, error) {
-	minX, maxX, minY, maxY, err := bboxBoundsFromPoints(points)
+	minX, maxX, minY, maxY, err := BboxBoundsFromPoints(points)
 	if err != nil {
 		return nil, nil, err
 	}

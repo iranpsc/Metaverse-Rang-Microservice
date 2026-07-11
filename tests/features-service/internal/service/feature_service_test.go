@@ -7,7 +7,7 @@ import (
 
 	"metargb/features-service/internal/repository"
 	"metargb/features-service/internal/service"
-	"metargb/features-service/internal/testutil"
+	"metargb/features-service/tests/internal/testutil"
 	pb "metargb/shared/pb/features"
 	"metargb/shared/pkg/logger"
 

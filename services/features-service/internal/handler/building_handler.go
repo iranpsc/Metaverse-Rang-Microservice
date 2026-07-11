@@ -25,7 +25,7 @@ func NewBuildingHandler(service BuildingServicePort) *BuildingHandler {
 // GetBuildPackage retrieves available building models for a feature from 3D Meta API
 // Implements Laravel's BuildFeatureController@getBuildPackage
 func (h *BuildingHandler) GetBuildPackage(ctx context.Context, req *pb.GetBuildPackageRequest) (*pb.BuildPackageResponse, error) {
-	locale := getProjectLocale()
+	locale := GetProjectLocale()
 	if req.FeatureId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
 	}
@@ -47,7 +47,7 @@ func (h *BuildingHandler) GetBuildPackage(ctx context.Context, req *pb.GetBuildP
 // BuildFeature starts construction of a building on a feature
 // Implements Laravel's BuildFeatureController@buildFeature
 func (h *BuildingHandler) BuildFeature(ctx context.Context, req *pb.BuildFeatureRequest) (*pb.BuildFeatureResponse, error) {
-	locale := getProjectLocale()
+	locale := GetProjectLocale()
 	if req.FeatureId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
 	}
@@ -77,7 +77,7 @@ func (h *BuildingHandler) BuildFeature(ctx context.Context, req *pb.BuildFeature
 // GetBuildings retrieves all buildings on a feature
 // Implements Laravel's BuildFeatureController@getBuildings
 func (h *BuildingHandler) GetBuildings(ctx context.Context, req *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
-	locale := getProjectLocale()
+	locale := GetProjectLocale()
 	if req.FeatureId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
 	}
@@ -95,7 +95,7 @@ func (h *BuildingHandler) GetBuildings(ctx context.Context, req *pb.GetBuildings
 // UpdateBuilding updates an existing building
 // Implements Laravel's BuildFeatureController@updateBuilding
 func (h *BuildingHandler) UpdateBuilding(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.BuildingResponse, error) {
-	locale := getProjectLocale()
+	locale := GetProjectLocale()
 	if req.FeatureId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
 	}
@@ -127,7 +127,7 @@ func (h *BuildingHandler) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 // DestroyBuilding removes a building from a feature
 // Implements Laravel's BuildFeatureController@destroyBuilding
 func (h *BuildingHandler) DestroyBuilding(ctx context.Context, req *pb.DestroyBuildingRequest) (*pb.BuildingResponse, error) {
-	locale := getProjectLocale()
+	locale := GetProjectLocale()
 	if req.FeatureId == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
 	}
