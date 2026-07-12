@@ -136,13 +136,13 @@ test-unit:
 	@echo "✅ All unit tests passed"
 
 # Dedicated service test modules under tests/ (excludes integration, golden, database)
-SERVICE_TEST_MODULES=auth-service calendar-service dynasty-service features-service financial-service storage-service support-service
+SERVICE_TEST_MODULES=auth-service calendar-service dynasty-service features-service financial-service grpc-gateway storage-service support-service
 
 test-services:
 	@echo "🧪 Running dedicated service test modules..."
 ifeq ($(OS),Windows_NT)
 	@powershell -NoProfile -Command "$$ErrorActionPreference='Stop'; \
-		@('auth-service','calendar-service','dynasty-service','features-service','financial-service','storage-service','support-service') | ForEach-Object { \
+		@('auth-service','calendar-service','dynasty-service','features-service','financial-service','grpc-gateway','storage-service','support-service') | ForEach-Object { \
 			Write-Host ('Testing ' + $$_ + '...'); \
 			Set-Location ('tests/' + $$_); \
 			$$env:GOWORK='off'; \

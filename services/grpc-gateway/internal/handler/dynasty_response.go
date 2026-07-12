@@ -49,7 +49,7 @@ func buildDynastyHTTPResponse(resp *dynastypb.DynastyResponse) map[string]interf
 			prizes = append(prizes, map[string]interface{}{
 				"member":                       prize.Member,
 				"satisfaction":                 prize.Satisfaction,
-				"introduction_profit_increase":   prize.IntroductionProfitIncrease,
+				"introduction_profit_increase": prize.IntroductionProfitIncrease,
 				"accumulated_capital_reserve":  prize.AccumulatedCapitalReserve,
 				"data_storage":                 prize.DataStorage,
 				"psc":                          prize.Psc,
@@ -84,7 +84,7 @@ func buildFamilyMembersHTTPResponse(resp *dynastypb.FamilyResponse) []map[string
 	for _, member := range resp.Members {
 		item := map[string]interface{}{
 			"relationship": member.Relationship,
-			"online":         false,
+			"online":       false,
 		}
 
 		if member.UserInfo != nil {

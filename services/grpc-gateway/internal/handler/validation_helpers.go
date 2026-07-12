@@ -16,4 +16,3 @@ func writeValidationErrorWithLocale(w http.ResponseWriter, message string, local
 func writeValidationError(w http.ResponseWriter, message string) {
 	writeValidationErrorWithLocale(w, message, "en")
 }
-

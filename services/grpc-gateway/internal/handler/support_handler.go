@@ -15,13 +15,13 @@ import (
 )
 
 type SupportHandler struct {
-	ticketClient        pbSupport.TicketServiceClient
-	reportClient        pbSupport.ReportServiceClient
-	userEventClient     pbSupport.UserEventReportServiceClient
-	noteClient          pbSupport.NoteServiceClient
-	authClient          pbAuth.AuthServiceClient
-	storageServiceAddr  string
-	appURL              string
+	ticketClient       pbSupport.TicketServiceClient
+	reportClient       pbSupport.ReportServiceClient
+	userEventClient    pbSupport.UserEventReportServiceClient
+	noteClient         pbSupport.NoteServiceClient
+	authClient         pbAuth.AuthServiceClient
+	storageServiceAddr string
+	appURL             string
 }
 
 func NewSupportHandler(supportConn, authConn *grpc.ClientConn, storageServiceAddr, appURL string) *SupportHandler {

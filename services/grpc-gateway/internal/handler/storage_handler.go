@@ -49,8 +49,7 @@ func (h *StorageHandler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	// Modify the request path to forward to /api/upload on storage service
 	// The storage service handles both /upload and /api/upload
 	r.URL.Path = "/api/upload"
-	
+
 	// Forward the request to storage service
 	h.proxy.ServeHTTP(w, r)
 }
-

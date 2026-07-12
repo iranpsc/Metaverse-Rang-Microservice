@@ -10,8 +10,8 @@ import (
 	"strconv"
 
 	"metargb/financial-service/internal/models"
-	"metargb/financial-service/internal/sadad"
 	"metargb/financial-service/internal/repository"
+	"metargb/financial-service/internal/sadad"
 	commercialpb "metargb/shared/pb/commercial"
 	"strings"
 )
@@ -335,8 +335,8 @@ func (s *orderService) buildSadadReturnURL(orderID uint64) (string, error) {
 	if strings.Contains(callbackURL, "/payment/verify") {
 		return "", fmt.Errorf("%w: Sadad ReturnUrl must be the API callback /api/payment/callback, not the frontend verify page", ErrPaymentFailed)
 	}
-	if !strings.Contains(callbackURL, "/api/payment/callback") {
-		return "", fmt.Errorf("%w: Sadad ReturnUrl must include /api/payment/callback", ErrPaymentFailed)
+	if !strings.Contains(callbackURL, "/api/order/callback") {
+		return "", fmt.Errorf("%w: Sadad ReturnUrl must include /api/order/callback", ErrPaymentFailed)
 	}
 	return fmt.Sprintf("%s?order_id=%d", strings.TrimSuffix(callbackURL, "/"), orderID), nil
 }

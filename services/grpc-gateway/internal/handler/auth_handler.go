@@ -878,17 +878,17 @@ func (h *AuthHandler) UpdateKYC(w http.ResponseWriter, r *http.Request) {
 
 	// Build gRPC request
 	grpcReq := &pb.UpdateKYCRequest{
-		UserId:                userCtx.UserID,
-		Fname:                 fname,
-		Lname:                  lname,
-		MelliCode:              melliCode,
-		Birthdate:              birthdate,
-		Province:               province,
-		MelliCardData:          melliCardData,
-		MelliCardFilename:      header.Filename,
-		MelliCardContentType:   header.Header.Get("Content-Type"),
-		VerifyTextId:           verifyTextID,
-		Gender:                 gender,
+		UserId:               userCtx.UserID,
+		Fname:                fname,
+		Lname:                lname,
+		MelliCode:            melliCode,
+		Birthdate:            birthdate,
+		Province:             province,
+		MelliCardData:        melliCardData,
+		MelliCardFilename:    header.Filename,
+		MelliCardContentType: header.Header.Get("Content-Type"),
+		VerifyTextId:         verifyTextID,
+		Gender:               gender,
 	}
 
 	// Add video info if provided
@@ -1645,18 +1645,18 @@ func setFieldValue(fieldValue reflect.Value, value string) error {
 // 3. skipWrap is true (for special cases like /auth/redirect)
 func writeJSON(w http.ResponseWriter, status int, data interface{}, skipWrap ...bool) {
 	shouldSkipWrap := len(skipWrap) > 0 && skipWrap[0]
-	
+
 	// Handle nil data
 	if data == nil {
 		data = map[string]interface{}{}
 	}
-	
+
 	// Check if we should wrap the response
 	if !shouldSkipWrap {
 		// Use reflection to check the type
 		dataType := reflect.TypeOf(data)
 		dataKind := dataType.Kind()
-		
+
 		// Check if data is a map (objects)
 		if dataKind == reflect.Map {
 			if dataMap, ok := data.(map[string]interface{}); ok {
@@ -1688,9 +1688,9 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}, skipWrap ...
 				}
 			}
 		}
-		// Arrays, slices, and other non-map types (including []map[string]interface{}) 
+		// Arrays, slices, and other non-map types (including []map[string]interface{})
 		// will be wrapped in the "data" field below
-		
+
 		// Wrap in data field if not skipping
 		if !shouldSkipWrap {
 			data = map[string]interface{}{
@@ -1698,7 +1698,7 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}, skipWrap ...
 			}
 		}
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)

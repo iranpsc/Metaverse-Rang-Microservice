@@ -103,7 +103,7 @@ func (h *FinancialHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}, true)
 }
 
-// HandleCallback handles POST /api/payment/callback
+// HandleCallback handles POST /api/order/callback
 func (h *FinancialHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")

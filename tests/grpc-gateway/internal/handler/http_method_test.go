@@ -1,7 +1,8 @@
-package handler
+package handler_test
 
 import (
 	"io"
+	"metargb/grpc-gateway/internal/handler"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -76,8 +77,8 @@ func TestEffectiveHTTPMethod(t *testing.T) {
 				req.Header.Set("Content-Type", tt.ctype)
 			}
 
-			if got := EffectiveHTTPMethod(req); got != tt.expected {
-				t.Fatalf("EffectiveHTTPMethod() = %q, want %q", got, tt.expected)
+			if got := handler.EffectiveHTTPMethod(req); got != tt.expected {
+				t.Fatalf("handler.EffectiveHTTPMethod() = %q, want %q", got, tt.expected)
 			}
 		})
 	}

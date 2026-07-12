@@ -196,14 +196,14 @@ func (h *ProfitHandler) GetSingleProfit(w http.ResponseWriter, r *http.Request) 
 // formatHourlyProfitResource maps gRPC HourlyProfit to Laravel HourlyProfitResource JSON.
 func formatHourlyProfitResource(profit *featurespb.HourlyProfit) map[string]interface{} {
 	return map[string]interface{}{
-		"id":              profit.Id,
-		"user_id":         profit.UserId,
-		"feature_db_id":   profit.FeatureDbId,
-		"feature_id":      profit.PropertiesId,
-		"is_active":       profit.IsActive,
-		"amount":          profit.Amount,
-		"karbari":         profit.Karbari,
-		"dead_line":       profit.DeadLine,
+		"id":            profit.Id,
+		"user_id":       profit.UserId,
+		"feature_db_id": profit.FeatureDbId,
+		"feature_id":    profit.PropertiesId,
+		"is_active":     profit.IsActive,
+		"amount":        profit.Amount,
+		"karbari":       profit.Karbari,
+		"dead_line":     profit.DeadLine,
 	}
 }
 

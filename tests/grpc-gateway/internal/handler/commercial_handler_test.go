@@ -1,13 +1,14 @@
-package handler
+package handler_test
 
 import (
+	"metargb/grpc-gateway/internal/handler"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
 func TestCommercialHandler_GetCurrentUserWallet_Unauthorized(t *testing.T) {
-	h := NewCommercialHandler(nil)
+	h := handler.NewCommercialHandler(nil, "")
 	req := httptest.NewRequest(http.MethodGet, "/api/user/wallet", nil)
 	rr := httptest.NewRecorder()
 	h.GetCurrentUserWallet(rr, req)
@@ -17,7 +18,7 @@ func TestCommercialHandler_GetCurrentUserWallet_Unauthorized(t *testing.T) {
 }
 
 func TestCommercialHandler_GetCurrentUserWallet_MethodNotAllowed(t *testing.T) {
-	h := NewCommercialHandler(nil)
+	h := handler.NewCommercialHandler(nil, "")
 	req := httptest.NewRequest(http.MethodPost, "/api/user/wallet", nil)
 	rr := httptest.NewRecorder()
 	h.GetCurrentUserWallet(rr, req)
@@ -27,7 +28,7 @@ func TestCommercialHandler_GetCurrentUserWallet_MethodNotAllowed(t *testing.T) {
 }
 
 func TestCommercialHandler_ListTransactions_Unauthorized(t *testing.T) {
-	h := NewCommercialHandler(nil)
+	h := handler.NewCommercialHandler(nil, "")
 	req := httptest.NewRequest(http.MethodGet, "/api/user/transactions", nil)
 	rr := httptest.NewRecorder()
 	h.ListTransactions(rr, req)
@@ -37,7 +38,7 @@ func TestCommercialHandler_ListTransactions_Unauthorized(t *testing.T) {
 }
 
 func TestCommercialHandler_GetLatestTransaction_Unauthorized(t *testing.T) {
-	h := NewCommercialHandler(nil)
+	h := handler.NewCommercialHandler(nil, "")
 	req := httptest.NewRequest(http.MethodGet, "/api/user/transactions/latest", nil)
 	rr := httptest.NewRecorder()
 	h.GetLatestTransaction(rr, req)
