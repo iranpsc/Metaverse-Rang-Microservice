@@ -40,7 +40,7 @@ services:
     image: redis:7.4-alpine
     container_name: metarang-redis
     ports:
-      - "6380:6379"
+      - "6379:6379"
     networks:
       - metarang-network
     healthcheck:
