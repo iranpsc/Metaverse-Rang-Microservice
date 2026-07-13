@@ -554,6 +554,7 @@ services:
       DB_PASSWORD: metarang_password
       PROJECT_URL: ${PROJECT_URL:-http://localhost:8000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SADAD_CALLBACK_PORT: ${SADAD_CALLBACK_PORT:-8080}
       <<: *sentry-environment
     depends_on:
       mysql:

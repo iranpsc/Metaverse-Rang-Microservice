@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"metarang/financial-service/internal/config"
 	"metarang/financial-service/internal/models"
 	"metarang/financial-service/internal/sadad"
 	commercialpb "metarang/shared/pb/commercial"
@@ -251,7 +252,7 @@ func parseInt64OrDefault(value string, defaultValue int64) int64 {
 }
 
 func (s *orderService) sadadCallbackReturnURL() (string, error) {
-	callbackURL := strings.TrimSpace(s.sadadConfig.SadadCallbackURL)
+	callbackURL := strings.TrimSpace(config.ResolveSadadCallbackURL())
 	if callbackURL == "" {
 		return "", fmt.Errorf("%w: SADAD_CALLBACK_URL is not configured", ErrPaymentFailed)
 	}
