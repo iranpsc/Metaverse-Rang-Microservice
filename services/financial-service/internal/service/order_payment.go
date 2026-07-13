@@ -87,7 +87,7 @@ func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token
 		s.markOrderAndTransactionFailed(ctx, order, transaction, resCode)
 	}
 
-	return s.buildPaymentVerifyRedirectURL(orderID, token, resCode, additionalParams)
+	return s.buildPaymentVerifyRedirectURL(orderID, resCode)
 }
 
 func (s *orderService) findCallbackOrderAndTransaction(ctx context.Context, orderID uint64) (*models.Order, *models.Transaction, error) {
@@ -265,7 +265,7 @@ func (s *orderService) sadadCallbackReturnURL() (string, error) {
 	return strings.TrimSuffix(callbackURL, "/"), nil
 }
 
-func (s *orderService) buildPaymentVerifyRedirectURL(orderID uint64, token, resCode string, additionalParams map[string]string) (string, error) {
+func (s *orderService) buildPaymentVerifyRedirectURL(orderID uint64, resCode string) (string, error) {
 	redirectURL, err := s.paymentVerifyRedirectURL()
 	if err != nil {
 		return "", err
@@ -279,12 +279,6 @@ func (s *orderService) buildPaymentVerifyRedirectURL(orderID uint64, token, resC
 	q := u.Query()
 	q.Set("OrderId", fmt.Sprintf("%d", orderID))
 	q.Set("ResCode", resCode)
-	for k, v := range additionalParams {
-		if strings.EqualFold(k, "OrderId") || strings.EqualFold(k, "order_id") {
-			continue
-		}
-		q.Set(k, v)
-	}
 	u.RawQuery = q.Encode()
 
 	return u.String(), nil
