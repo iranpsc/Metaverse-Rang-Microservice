@@ -26,14 +26,18 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 	amountRials := amountInRials(amount, rate)
 	var multiplexingData *sadad.MultiplexingData
 	if ibanNumber != "" {
-		multiplexingData = sadad.MultiplexingDataForAmount(ibanNumber, amountRials)
+		var multiplexingErr error
+		multiplexingData, multiplexingErr = sadad.MultiplexingDataForAmount(ibanNumber, amountRials)
+		if multiplexingErr != nil {
+			return "", "", fmt.Errorf("%w: %v", ErrPaymentFailed, multiplexingErr)
+		}
 	}
 
 	response, err := s.sadadClient.RequestPayment(sadad.RequestParams{
 		MerchantID:       s.sadadConfig.SadadMerchantID,
 		TerminalID:       s.sadadConfig.SadadTerminalID,
 		TransactionKey:   s.sadadConfig.SadadTransactionKey,
-		OrderID:          fmt.Sprintf("%d", orderID),
+		OrderID:          int64(orderID),
 		Amount:           amountRials,
 		ReturnURL:        returnURL,
 		MultiplexingData: multiplexingData,

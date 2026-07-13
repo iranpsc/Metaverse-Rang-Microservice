@@ -78,8 +78,8 @@ type OrderConfig struct {
 	SadadMerchantID             string
 	SadadTerminalID             string
 	SadadTransactionKey         string
-	SadadPaymentIdentityRial    string // MultiplexingData IbanNumber for IRR payments
-	SadadPaymentIdentityNonRial string // MultiplexingData IbanNumber for non-IRR assets
+	SadadPaymentIdentityRial    string // Sadad multiplexing account row for IRR payments
+	SadadPaymentIdentityNonRial string // Sadad multiplexing account row for non-IRR assets
 	SadadCallbackURL            string
 	FrontendURL                 string
 	SadadSandbox                bool // BankTest sandbox omits MultiplexingData

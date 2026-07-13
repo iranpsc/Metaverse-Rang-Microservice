@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -90,10 +92,10 @@ func NewClientWithEndpoints(endpoints Endpoints) *Client {
 	}
 }
 
-// MultiplexingRow routes payment amount to a target IBAN sub-account.
+// MultiplexingRow routes payment amount to a Sadad-registered account row.
 type MultiplexingRow struct {
-	IbanNumber string `json:"IbanNumber"`
-	Value      int64  `json:"Value"`
+	IbanNumber int64 `json:"IbanNumber"`
+	Value      int64 `json:"Value"`
 }
 
 // MultiplexingData routes payment to one or more IBAN sub-accounts.
@@ -102,14 +104,20 @@ type MultiplexingData struct {
 	MultiplexingRows []MultiplexingRow `json:"MultiplexingRows"`
 }
 
-// MultiplexingDataForAmount builds amount-based multiplexing for a single IBAN.
-func MultiplexingDataForAmount(ibanNumber string, amount int64) *MultiplexingData {
+// MultiplexingDataForAmount builds amount-based multiplexing for a single Sadad account row.
+// accountRow is the numeric row index Sadad assigns to the registered settlement account.
+func MultiplexingDataForAmount(accountRow string, amount int64) (*MultiplexingData, error) {
+	row, err := strconv.ParseInt(strings.TrimSpace(accountRow), 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid multiplexing account row %q: %w", accountRow, err)
+	}
+
 	return &MultiplexingData{
 		Type: "Amount",
 		MultiplexingRows: []MultiplexingRow{
-			{IbanNumber: ibanNumber, Value: amount},
+			{IbanNumber: row, Value: amount},
 		},
-	}
+	}, nil
 }
 
 // RequestParams for Sadad payment token request.
@@ -117,7 +125,7 @@ type RequestParams struct {
 	MerchantID       string
 	TerminalID       string
 	TransactionKey   string // base64-encoded TripleDES key
-	OrderID          string
+	OrderID          int64
 	Amount           int64 // Rials
 	ReturnURL        string
 	MultiplexingData *MultiplexingData
@@ -150,7 +158,7 @@ type paymentRequestBody struct {
 	TerminalID       string            `json:"TerminalId"`
 	MerchantID       string            `json:"MerchantId"`
 	Amount           int64             `json:"Amount"`
-	OrderID          string            `json:"OrderId"`
+	OrderID          int64             `json:"OrderId"`
 	LocalDateTime    string            `json:"LocalDateTime"`
 	ReturnURL        string            `json:"ReturnUrl"`
 	SignData         string            `json:"SignData"`
@@ -184,7 +192,7 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 	}
 
 	signData, err := generateSignData(
-		fmt.Sprintf("%s;%s;%d", params.TerminalID, params.OrderID, params.Amount),
+		fmt.Sprintf("%s;%d;%d", params.TerminalID, params.OrderID, params.Amount),
 		params.TransactionKey,
 	)
 	if err != nil {
