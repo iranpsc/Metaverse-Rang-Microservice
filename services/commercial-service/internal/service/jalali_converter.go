@@ -40,23 +40,17 @@ func (c *jalaliConverter) FormatJalaliTime(t time.Time) string {
 	return fmt.Sprintf("%02d:%d:%02d", t.Hour(), t.Minute(), t.Second())
 }
 
-// gregorianToJalali converts Gregorian date to Jalali (Persian) date
-// This is a simplified implementation of the conversion algorithm
+// gregorianToJalali converts Gregorian date to Jalali (Persian) date.
 func gregorianToJalali(gy, gm, gd int) (int, int, int) {
-	// Constants
 	var jy, jm, jd int
 
-	// Calculate days from Gregorian epoch
 	g_d_n := 365*gy + ((gy + 3) / 4) - ((gy + 99) / 100) + ((gy + 399) / 400)
-
 	for i := 0; i < gm-1; i++ {
 		g_d_n += daysInGregorianMonth(i+1, gy)
 	}
 	g_d_n += gd
 
-	// Calculate Jalali date
 	j_d_n := g_d_n - 79
-
 	j_np := j_d_n / 12053
 	j_d_n = j_d_n % 12053
 
@@ -68,7 +62,6 @@ func gregorianToJalali(gy, gm, gd int) (int, int, int) {
 		j_d_n = (j_d_n - 1) % 365
 	}
 
-	// Calculate month and day
 	if j_d_n < 186 {
 		jm = 1 + j_d_n/31
 		jd = 1 + (j_d_n % 31)
@@ -77,10 +70,13 @@ func gregorianToJalali(gy, gm, gd int) (int, int, int) {
 		jd = 1 + ((j_d_n - 186) % 30)
 	}
 
+	if gy > 1600 {
+		jy -= 1600
+	}
+
 	return jy, jm, jd
 }
 
-// daysInGregorianMonth returns the number of days in a Gregorian month
 func daysInGregorianMonth(month, year int) int {
 	if month == 2 {
 		if isLeapYear(year) {
@@ -94,7 +90,6 @@ func daysInGregorianMonth(month, year int) int {
 	return 31
 }
 
-// isLeapYear checks if a year is a leap year
 func isLeapYear(year int) bool {
 	return (year%4 == 0 && year%100 != 0) || (year%400 == 0)
 }

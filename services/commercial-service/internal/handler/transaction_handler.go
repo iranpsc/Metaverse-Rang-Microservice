@@ -2,7 +2,7 @@ package handler
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -81,19 +81,7 @@ func (h *TransactionHandler) ListTransactions(ctx context.Context, req *pb.ListT
 
 	var resources []*pb.TransactionResource
 	for _, t := range transactions {
-		var amount float64
-		fmt.Sscanf(t.Amount, "%f", &amount)
-
-		resources = append(resources, &pb.TransactionResource{
-			Id:     t.ID,
-			Type:   t.Type,
-			Asset:  t.Asset,
-			Amount: amount,
-			Action: t.Action,
-			Status: t.Status,
-			Date:   t.Date,
-			Time:   t.Time,
-		})
+		resources = append(resources, toTransactionResource(t))
 	}
 
 	currentPage := int32(page)
@@ -172,4 +160,21 @@ func (h *TransactionHandler) CreateTransaction(ctx context.Context, req *pb.Crea
 		CreatedAt: timestamppb.New(transaction.CreatedAt),
 		UpdatedAt: timestamppb.New(transaction.UpdatedAt),
 	}, nil
+}
+
+// toTransactionResource maps a transaction DTO to the API resource.
+// Core fields are always included regardless of transaction status.
+func toTransactionResource(t *models.TransactionDTO) *pb.TransactionResource {
+	amount, _ := strconv.ParseFloat(t.Amount, 64)
+
+	return &pb.TransactionResource{
+		Id:     t.ID,
+		Asset:  t.Asset,
+		Amount: amount,
+		Status: t.Status,
+		Date:   t.Date,
+		Time:   t.Time,
+		Type:   t.Type,
+		Action: t.Action,
+	}
 }

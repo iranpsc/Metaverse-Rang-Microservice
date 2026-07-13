@@ -175,6 +175,17 @@ func (h *CommercialHandler) GetLatestTransaction(w http.ResponseWriter, r *http.
 		data["id"] = resp.LatestTransaction.Id
 		data["amount"] = resp.LatestTransaction.Amount
 		data["status"] = resp.LatestTransaction.Status
+		data["asset"] = resp.LatestTransaction.Asset
+
+		date := ""
+		timeValue := ""
+		if resp.LatestTransaction.CreatedAt != nil {
+			createdAt := resp.LatestTransaction.CreatedAt.AsTime()
+			date = helpers.FormatJalaliDate(createdAt)
+			timeValue = helpers.FormatJalaliTime(createdAt)
+		}
+		data["date"] = date
+		data["time"] = timeValue
 	}
 
 	if resp.LatestPayment != nil {
