@@ -105,9 +105,9 @@ type MultiplexingData struct {
 // MultiplexingDataForAmount builds amount-based multiplexing for a single IBAN.
 func MultiplexingDataForAmount(ibanNumber string, amount int64) *MultiplexingData {
 	return &MultiplexingData{
-		Type: "Amount",
+		Type: "Percentage",
 		MultiplexingRows: []MultiplexingRow{
-			{IbanNumber: ibanNumber, Value: amount},
+			{IbanNumber: ibanNumber, Value: 100},
 		},
 	}
 }
