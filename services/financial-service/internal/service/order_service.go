@@ -78,11 +78,11 @@ type OrderConfig struct {
 	SadadMerchantID             string
 	SadadTerminalID             string
 	SadadTransactionKey         string
-	SadadPaymentIdentityRial    string // Sadad multiplexing account row for IRR payments
-	SadadPaymentIdentityNonRial string // Sadad multiplexing account row for non-IRR assets
+	SadadPaymentIdentityRial    string // Sadad PaymentIdentity for IRR payments
+	SadadPaymentIdentityNonRial string // Sadad PaymentIdentity for non-IRR assets
 	SadadCallbackURL            string
 	FrontendURL                 string
-	SadadSandbox                bool // BankTest sandbox omits MultiplexingData
+	SadadSandbox                bool // BankTest sandbox omits PaymentIdentity
 }
 
 func NewOrderService(

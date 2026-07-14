@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -24,9 +22,9 @@ var tehranLocation = func() *time.Location {
 const sadadHost = "https://sadad.shaparak.ir"
 
 const (
-	productionVerifyURL         = sadadHost + "/VPG/api/v0/Advice/Verify"
-	productionGatewayURL        = sadadHost + "/VPG/Purchase"
-	productionPaymentRequestURL = sadadHost + "/api/v0/Request/PaymentRequest"
+	productionVerifyURL            = sadadHost + "/VPG/api/v0/Advice/Verify"
+	productionGatewayURL           = sadadHost + "/VPG/Purchase"
+	productionPaymentByIdentityURL = sadadHost + "/api/v0/PaymentByIdentity/PaymentRequest"
 )
 
 const banktestSandboxHost = "https://sandbox.banktest.ir/melli/sadad.shaparak.ir"
@@ -42,12 +40,12 @@ type Endpoints struct {
 	PaymentRequestURL string
 	VerifyURL         string
 	GatewayURL        string
-	Multiplexed       bool // production sends MultiplexingData; BankTest sandbox omits it
+	Multiplexed       bool // production uses PaymentByIdentity; BankTest sandbox uses standard PaymentRequest
 }
 
 // ProductionEndpoints are the live Sadad (Bank Melli) IPG URLs.
 var ProductionEndpoints = Endpoints{
-	PaymentRequestURL: productionPaymentRequestURL,
+	PaymentRequestURL: productionPaymentByIdentityURL,
 	VerifyURL:         productionVerifyURL,
 	GatewayURL:        productionGatewayURL,
 	Multiplexed:       true,
@@ -92,43 +90,15 @@ func NewClientWithEndpoints(endpoints Endpoints) *Client {
 	}
 }
 
-// MultiplexingRow routes payment amount to a Sadad-registered account row.
-type MultiplexingRow struct {
-	IbanNumber int64 `json:"IbanNumber"`
-	Value      int64 `json:"Value"`
-}
-
-// MultiplexingData routes payment to one or more IBAN sub-accounts.
-type MultiplexingData struct {
-	Type             string            `json:"Type"`
-	MultiplexingRows []MultiplexingRow `json:"MultiplexingRows"`
-}
-
-// MultiplexingDataForAmount builds amount-based multiplexing for a single Sadad account row.
-// accountRow is the numeric row index Sadad assigns to the registered settlement account.
-func MultiplexingDataForAmount(accountRow string, amount int64) (*MultiplexingData, error) {
-	row, err := strconv.ParseInt(strings.TrimSpace(accountRow), 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid multiplexing account row %q: %w", accountRow, err)
-	}
-
-	return &MultiplexingData{
-		Type: "Amount",
-		MultiplexingRows: []MultiplexingRow{
-			{IbanNumber: row, Value: amount},
-		},
-	}, nil
-}
-
-// RequestParams for Sadad payment token request.
+// RequestParams for payment token request via PaymentByIdentity (settlement routing).
 type RequestParams struct {
-	MerchantID       string
-	TerminalID       string
-	TransactionKey   string // base64-encoded TripleDES key
-	OrderID          int64
-	Amount           int64 // Rials
-	ReturnURL        string
-	MultiplexingData *MultiplexingData
+	MerchantID      string
+	TerminalID      string
+	TransactionKey  string // base64-encoded TripleDES key
+	OrderID         int64
+	Amount          int64 // Rials
+	ReturnURL       string
+	PaymentIdentity string // Sadad-assigned payment identity for the target settlement account
 }
 
 // RequestResponse is the response from Sadad payment request.
@@ -154,15 +124,25 @@ type VerificationResponse struct {
 	Description      string
 }
 
+type paymentByIdentityRequestBody struct {
+	TerminalID      string `json:"TerminalId"`
+	MerchantID      string `json:"MerchantId"`
+	Amount          int64  `json:"Amount"`
+	OrderID         int64  `json:"OrderId"`
+	LocalDateTime   string `json:"LocalDateTime"`
+	ReturnURL       string `json:"ReturnUrl"`
+	SignData        string `json:"SignData"`
+	PaymentIdentity string `json:"PaymentIdentity"`
+}
+
 type paymentRequestBody struct {
-	TerminalID       string            `json:"TerminalId"`
-	MerchantID       string            `json:"MerchantId"`
-	Amount           int64             `json:"Amount"`
-	OrderID          int64             `json:"OrderId"`
-	LocalDateTime    string            `json:"LocalDateTime"`
-	ReturnURL        string            `json:"ReturnUrl"`
-	SignData         string            `json:"SignData"`
-	MultiplexingData *MultiplexingData `json:"MultiplexingData,omitempty"`
+	TerminalID    string `json:"TerminalId"`
+	MerchantID    string `json:"MerchantId"`
+	Amount        int64  `json:"Amount"`
+	OrderID       int64  `json:"OrderId"`
+	LocalDateTime string `json:"LocalDateTime"`
+	ReturnURL     string `json:"ReturnUrl"`
+	SignData      string `json:"SignData"`
 }
 
 type paymentRequestAPIResponse struct {
@@ -185,10 +165,10 @@ type verifyAPIResponse struct {
 }
 
 // RequestPayment initiates a payment request and returns a token.
-// Production includes MultiplexingData; BankTest sandbox omits it.
+// Production uses PaymentByIdentity; BankTest sandbox uses standard PaymentRequest.
 func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) {
-	if c.endpoints.Multiplexed && params.MultiplexingData == nil {
-		return nil, fmt.Errorf("multiplexing data is required for multiplexed payments")
+	if c.endpoints.Multiplexed && params.PaymentIdentity == "" {
+		return nil, fmt.Errorf("payment identity is required for multiplexed payments")
 	}
 
 	signData, err := generateSignData(
@@ -200,16 +180,29 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 	}
 
 	localDateTime := sadadLocalDateTime()
-	payload, err := json.Marshal(paymentRequestBody{
-		TerminalID:       params.TerminalID,
-		MerchantID:       params.MerchantID,
-		Amount:           params.Amount,
-		OrderID:          params.OrderID,
-		LocalDateTime:    localDateTime,
-		ReturnURL:        params.ReturnURL,
-		SignData:         signData,
-		MultiplexingData: params.MultiplexingData,
-	})
+	var payload []byte
+	if c.endpoints.Multiplexed {
+		payload, err = json.Marshal(paymentByIdentityRequestBody{
+			TerminalID:      params.TerminalID,
+			MerchantID:      params.MerchantID,
+			Amount:          params.Amount,
+			OrderID:         params.OrderID,
+			LocalDateTime:   localDateTime,
+			ReturnURL:       params.ReturnURL,
+			SignData:        signData,
+			PaymentIdentity: params.PaymentIdentity,
+		})
+	} else {
+		payload, err = json.Marshal(paymentRequestBody{
+			TerminalID:    params.TerminalID,
+			MerchantID:    params.MerchantID,
+			Amount:        params.Amount,
+			OrderID:       params.OrderID,
+			LocalDateTime: localDateTime,
+			ReturnURL:     params.ReturnURL,
+			SignData:      signData,
+		})
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}

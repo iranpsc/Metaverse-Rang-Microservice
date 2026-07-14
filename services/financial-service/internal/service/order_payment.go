@@ -13,9 +13,9 @@ import (
 )
 
 func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset string, rate float64) (string, string, error) {
-	ibanNumber := s.getMultiplexingIbanNumber(asset)
-	if ibanNumber == "" && !s.sadadConfig.SadadSandbox {
-		return "", "", fmt.Errorf("%w: multiplexing IBAN not configured for asset %s", ErrPaymentFailed, asset)
+	paymentIdentity := s.getPaymentIdentity(asset)
+	if paymentIdentity == "" && !s.sadadConfig.SadadSandbox {
+		return "", "", fmt.Errorf("%w: payment identity not configured for asset %s", ErrPaymentFailed, asset)
 	}
 
 	returnURL, err := s.sadadCallbackReturnURL()
@@ -24,23 +24,15 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 	}
 
 	amountRials := amountInRials(amount, rate)
-	var multiplexingData *sadad.MultiplexingData
-	if ibanNumber != "" {
-		var multiplexingErr error
-		multiplexingData, multiplexingErr = sadad.MultiplexingDataForAmount(ibanNumber, amountRials)
-		if multiplexingErr != nil {
-			return "", "", fmt.Errorf("%w: %v", ErrPaymentFailed, multiplexingErr)
-		}
-	}
 
 	response, err := s.sadadClient.RequestPayment(sadad.RequestParams{
-		MerchantID:       s.sadadConfig.SadadMerchantID,
-		TerminalID:       s.sadadConfig.SadadTerminalID,
-		TransactionKey:   s.sadadConfig.SadadTransactionKey,
-		OrderID:          int64(orderID),
-		Amount:           amountRials,
-		ReturnURL:        returnURL,
-		MultiplexingData: multiplexingData,
+		MerchantID:      s.sadadConfig.SadadMerchantID,
+		TerminalID:      s.sadadConfig.SadadTerminalID,
+		TransactionKey:  s.sadadConfig.SadadTransactionKey,
+		OrderID:         int64(orderID),
+		Amount:          amountRials,
+		ReturnURL:       returnURL,
+		PaymentIdentity: paymentIdentity,
 	})
 	if err != nil {
 		return "", "", fmt.Errorf("failed to request payment: %w", err)
@@ -75,7 +67,7 @@ func (s *orderService) storeTransactionToken(ctx context.Context, transaction *m
 	}
 }
 
-func (s *orderService) getMultiplexingIbanNumber(asset string) string {
+func (s *orderService) getPaymentIdentity(asset string) string {
 	if asset == "irr" {
 		return s.sadadConfig.SadadPaymentIdentityRial
 	}
