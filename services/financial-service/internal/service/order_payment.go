@@ -10,6 +10,7 @@ import (
 	"metarang/financial-service/internal/models"
 	"metarang/financial-service/internal/sadad"
 	commercialpb "metarang/shared/pb/commercial"
+	notificationspb "metarang/shared/pb/notifications"
 )
 
 func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset string, rate float64) (string, string, error) {
@@ -75,13 +76,13 @@ func (s *orderService) getPaymentIdentity(asset string) string {
 }
 
 func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token string, resCode string, additionalParams map[string]string) (string, error) {
-	order, transaction, err := s.findCallbackOrderAndTransaction(ctx, orderID)
+	order, user, transaction, err := s.findCallbackOrderAndTransaction(ctx, orderID)
 	if err != nil {
 		return "", err
 	}
 
 	if resCode == "0" {
-		if err := s.handleSuccessfulSadadCallback(ctx, order, transaction, token, additionalParams); err != nil {
+		if err := s.handleSuccessfulSadadCallback(ctx, order, user, transaction, token, additionalParams); err != nil {
 			return "", err
 		}
 	} else {
@@ -91,27 +92,27 @@ func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token
 	return s.buildPaymentVerifyRedirectURL(orderID, resCode)
 }
 
-func (s *orderService) findCallbackOrderAndTransaction(ctx context.Context, orderID uint64) (*models.Order, *models.Transaction, error) {
-	order, _, err := s.orderRepo.FindByIDWithUser(ctx, orderID)
+func (s *orderService) findCallbackOrderAndTransaction(ctx context.Context, orderID uint64) (*models.Order, *models.User, *models.Transaction, error) {
+	order, user, err := s.orderRepo.FindByIDWithUser(ctx, orderID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find order: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to find order: %w", err)
 	}
 	if order == nil {
-		return nil, nil, ErrOrderNotFound
+		return nil, nil, nil, ErrOrderNotFound
 	}
 
 	transaction, err := s.transactionRepo.FindByPayable(ctx, orderPayableType, orderID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find transaction: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to find transaction: %w", err)
 	}
 	if transaction == nil {
-		return nil, nil, fmt.Errorf("transaction not found for order")
+		return nil, nil, nil, fmt.Errorf("transaction not found for order")
 	}
 
-	return order, transaction, nil
+	return order, user, transaction, nil
 }
 
-func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order *models.Order, transaction *models.Transaction, token string, additionalParams map[string]string) error {
+func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order *models.Order, user *models.User, transaction *models.Transaction, token string, additionalParams map[string]string) error {
 	rate, err := s.variableRepo.GetRate(ctx, order.Asset)
 	if err != nil {
 		return fmt.Errorf("failed to get rate: %w", err)
@@ -134,7 +135,12 @@ func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order 
 		return err
 	}
 
-	return s.createPaymentRecord(ctx, order, refID, rate, cardPanFromCallback(additionalParams, verifyResponse))
+	if err := s.createPaymentRecord(ctx, order, refID, rate, cardPanFromCallback(additionalParams, verifyResponse)); err != nil {
+		return err
+	}
+
+	s.sendPaymentTransactionSMS(ctx, user, order, rate)
+	return nil
 }
 
 func (s *orderService) verifySadadPayment(transaction *models.Transaction, token string) (*sadad.VerificationResponse, error) {
@@ -322,4 +328,50 @@ func (s *orderService) addWalletBalance(ctx context.Context, userID uint64, asse
 	}
 
 	return nil
+}
+
+func (s *orderService) sendPaymentTransactionSMS(ctx context.Context, user *models.User, order *models.Order, rate float64) {
+	if s.smsClient == nil {
+		return
+	}
+	if user == nil || strings.TrimSpace(user.Phone) == "" {
+		return
+	}
+
+	_, err := s.smsClient.SendSMS(ctx, &notificationspb.SendSMSRequest{
+		Phone:    strings.TrimSpace(user.Phone),
+		Template: "transaction",
+		Tokens: map[string]string{
+			"token10": assetDisplayName(order.Asset),
+			"token":   formatSMSAmount(order.Amount),
+			"token2":  formatSMSAmount(order.Amount * rate),
+		},
+	})
+	if err != nil {
+		fmt.Printf("Warning: failed to send payment transaction SMS: %v\n", err)
+	}
+}
+
+func assetDisplayName(asset string) string {
+	switch asset {
+	case "yellow":
+		return "زرد"
+	case "red":
+		return "قرمز"
+	case "blue":
+		return "آبی"
+	case "psc":
+		return "PSC"
+	case "irr":
+		return "ریال"
+	default:
+		return asset
+	}
+}
+
+func formatSMSAmount(amount float64) string {
+	if amount == float64(int64(amount)) {
+		return fmt.Sprintf("%d", int64(amount))
+	}
+	return fmt.Sprintf("%g", amount)
 }

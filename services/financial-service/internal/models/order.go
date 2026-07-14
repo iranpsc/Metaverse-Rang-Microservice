@@ -70,5 +70,6 @@ type User struct {
 	ID        uint64     `db:"id"`
 	Name      string     `db:"name"`
 	Email     string     `db:"email"`
+	Phone     string     `db:"phone"`
 	Birthdate *time.Time `db:"birthdate"`
 }

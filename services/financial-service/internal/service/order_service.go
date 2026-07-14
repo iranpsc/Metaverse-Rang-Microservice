@@ -10,6 +10,7 @@ import (
 	"metarang/financial-service/internal/models"
 	"metarang/financial-service/internal/repository"
 	commercialpb "metarang/shared/pb/commercial"
+	notificationspb "metarang/shared/pb/notifications"
 )
 
 var (
@@ -71,6 +72,7 @@ type orderService struct {
 	orderPolicy     OrderPolicy
 	jalaliConverter JalaliConverter
 	walletClient    commercialpb.WalletServiceClient
+	smsClient       notificationspb.SMSServiceClient
 	sadadConfig     OrderConfig
 }
 
@@ -95,6 +97,7 @@ func NewOrderService(
 	orderPolicy OrderPolicy,
 	jalaliConverter JalaliConverter,
 	walletClient commercialpb.WalletServiceClient,
+	smsClient notificationspb.SMSServiceClient,
 	config OrderConfig,
 ) OrderService {
 	return &orderService{
@@ -107,6 +110,7 @@ func NewOrderService(
 		orderPolicy:     orderPolicy,
 		jalaliConverter: jalaliConverter,
 		walletClient:    walletClient,
+		smsClient:       smsClient,
 		sadadConfig:     config,
 	}
 }

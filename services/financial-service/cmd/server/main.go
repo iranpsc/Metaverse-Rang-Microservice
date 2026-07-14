@@ -23,6 +23,7 @@ import (
 	"metarang/financial-service/internal/sadad"
 	"metarang/financial-service/internal/service"
 	commercialpb "metarang/shared/pb/commercial"
+	notificationspb "metarang/shared/pb/notifications"
 	"metarang/shared/pkg/metrics"
 	"metarang/shared/pkg/sentry"
 )
@@ -102,6 +103,18 @@ func main() {
 		walletClient = commercialpb.NewWalletServiceClient(commercialConn)
 	}
 
+	// Notifications-service client for post-payment SMS (optional)
+	var smsClient notificationspb.SMSServiceClient
+	notificationsAddr := getEnv("NOTIFICATIONS_SERVICE_ADDR", "notifications-service:50058")
+	notificationsConn, err := grpc.NewClient(notificationsAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("Warning: failed to dial notifications service at %s — payment SMS disabled: %v", notificationsAddr, err)
+	} else {
+		defer notificationsConn.Close()
+		log.Printf("Connected to notifications service at %s", notificationsAddr)
+		smsClient = notificationspb.NewSMSServiceClient(notificationsConn)
+	}
+
 	// Initialize repositories
 	orderRepo := repository.NewOrderRepository(db)
 	transactionRepo := repository.NewTransactionRepository(db)
@@ -142,6 +155,7 @@ func main() {
 		orderPolicy,
 		jalaliConverter,
 		walletClient,
+		smsClient,
 		service.OrderConfig{
 			SadadMerchantID:             getEnv("SADAD_MERCHANT_ID", ""),
 			SadadTerminalID:             getEnv("SADAD_TERMINAL_ID", ""),

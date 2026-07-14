@@ -67,7 +67,7 @@ func (r *orderRepository) FindByID(ctx context.Context, id uint64) (*models.Orde
 func (r *orderRepository) FindByIDWithUser(ctx context.Context, id uint64) (*models.Order, *models.User, error) {
 	query := `
 		SELECT o.id, o.user_id, o.asset, o.amount, o.status, o.created_at, o.updated_at,
-		       u.id, u.name, u.email, k.birthdate
+		       u.id, u.name, u.email, u.phone, k.birthdate
 		FROM orders o
 		INNER JOIN users u ON o.user_id = u.id
 		LEFT JOIN kycs k ON u.id = k.user_id
@@ -75,12 +75,13 @@ func (r *orderRepository) FindByIDWithUser(ctx context.Context, id uint64) (*mod
 	`
 	order := &models.Order{}
 	user := &models.User{}
+	var phone sql.NullString
 	var birthdate sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&order.ID, &order.UserID, &order.Asset, &order.Amount,
 		&order.Status, &order.CreatedAt, &order.UpdatedAt,
-		&user.ID, &user.Name, &user.Email, &birthdate,
+		&user.ID, &user.Name, &user.Email, &phone, &birthdate,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil, nil
@@ -89,6 +90,9 @@ func (r *orderRepository) FindByIDWithUser(ctx context.Context, id uint64) (*mod
 		return nil, nil, fmt.Errorf("failed to find order with user: %w", err)
 	}
 
+	if phone.Valid {
+		user.Phone = phone.String
+	}
 	if birthdate.Valid {
 		user.Birthdate = &birthdate.Time
 	}

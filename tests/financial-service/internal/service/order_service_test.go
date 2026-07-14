@@ -44,8 +44,9 @@ func (m *mockOrderRepo) FindByIDWithUser(ctx context.Context, id uint64) (*model
 		return nil, nil, nil
 	}
 	user := &models.User{
-		ID:   order.UserID,
-		Name: "Test User",
+		ID:    order.UserID,
+		Name:  "Test User",
+		Phone: "09123456789",
 	}
 	return order, user, nil
 }
@@ -262,6 +263,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 				orderPolicy,
 				jalaliConverter,
 				nil,
+				nil,
 				config,
 			)
 
@@ -366,6 +368,7 @@ func TestOrderService_HandleCallback(t *testing.T) {
 		&mockOrderPolicy{canBuy: true, canGetBonus: false},
 		&mockJalaliConverter{},
 		walletClient,
+		nil,
 		service.OrderConfig{
 			SadadTransactionKey: "dGVzdC10cmFuc2FjdGlvbi1rZXk=",
 			SadadCallbackURL:    "http://localhost:8000/api/order/callback",
@@ -418,6 +421,7 @@ func TestOrderService_CreateOrder_rejectsFrontendVerifyCallbackURL(t *testing.T)
 		},
 		&mockOrderPolicy{canBuy: true},
 		&mockJalaliConverter{},
+		nil,
 		nil,
 		service.OrderConfig{
 			SadadMerchantID:             "test_merchant",
