@@ -124,23 +124,18 @@ func (h *FeaturesHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Add building models if loaded
-		if len(feature.BuildingModels) > 0 {
+		// Include building_models only when load_buildings=true and the feature has buildings.
+		if loadBuildings && len(feature.BuildingModels) > 0 {
 			buildings := make([]map[string]interface{}, 0, len(feature.BuildingModels))
 			for _, building := range feature.BuildingModels {
-				buildingMap := map[string]interface{}{
-					"model_id":                building.Model.Id,
-					"name":                    building.Model.Name,
-					"file":                    building.Model.File,
-					"images":                  building.Model.Images,
-					"construction_start_date": building.ConstructionStartDate,
-					"construction_end_date":   building.ConstructionEndDate,
-					"rotation":                building.Rotation,
-					"position":                building.Position,
+				if building.Model == nil {
+					continue
 				}
-				buildings = append(buildings, buildingMap)
+				buildings = append(buildings, mapListBuildingModel(feature.Id, building))
 			}
-			featureMap["building_models"] = buildings
+			if len(buildings) > 0 {
+				featureMap["building_models"] = buildings
+			}
 		}
 
 		// Add is_owned_by_auth_user if authenticated
@@ -1033,4 +1028,36 @@ func (h *FeaturesHandler) UpdateGracePeriod(w http.ResponseWriter, r *http.Reque
 
 	// Return empty JSON response (Laravel returns {})
 	writeJSON(w, http.StatusOK, map[string]interface{}{})
+}
+
+// mapListBuildingModel shapes a building for GET /api/features (load_buildings),
+func mapListBuildingModel(featureID uint64, building *featurespb.Building) map[string]interface{} {
+	modelID := building.Model.Id
+	catalogModelID := parseNumericOrString(building.Model.ModelId)
+
+	return map[string]interface{}{
+		"id":       modelID,
+		"model_id": catalogModelID,
+		"file":     parseJSONString(building.Model.File),
+		"building": map[string]interface{}{
+			"feature_id":              featureID,
+			"model_id":                modelID,
+			"construction_start_date": building.ConstructionStartDate,
+			"construction_end_date":   building.ConstructionEndDate,
+			"rotation":                building.Rotation,
+			"position":                parseJSONString(building.Position),
+		},
+	}
+}
+
+// parseNumericOrString returns a uint64 when s is numeric (Laravel JSON number),
+// otherwise the original string.
+func parseNumericOrString(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	if n, err := strconv.ParseUint(s, 10, 64); err == nil {
+		return n
+	}
+	return s
 }
