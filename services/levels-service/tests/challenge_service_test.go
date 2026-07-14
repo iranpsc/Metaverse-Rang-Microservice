@@ -3,10 +3,12 @@ package levels_service_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"metarang/levels-service/internal/mocks"
 	"metarang/levels-service/internal/service"
 	pb "metarang/shared/pb/levels"
+	"metarang/shared/pkg/helpers"
 )
 
 func TestChallengeServiceGetQuestion(t *testing.T) {
@@ -18,6 +20,8 @@ func TestChallengeServiceGetQuestion(t *testing.T) {
 			IncrementViewsFunc: func(ctx context.Context, questionID uint64) error { return nil },
 		},
 		&mocks.MockCommercialClient{},
+		"EN",
+		"http://localhost:8000",
 	)
 
 	question, found, err := svc.GetQuestion(context.Background(), 1)
@@ -50,6 +54,8 @@ func TestChallengeServiceSubmitAnswerCorrect(t *testing.T) {
 				return nil
 			},
 		},
+		"EN",
+		"http://localhost:8000",
 	)
 
 	correct, prize, question, err := svc.SubmitAnswer(context.Background(), 1, 2, 3)
@@ -71,6 +77,8 @@ func TestChallengeServiceSubmitAnswerAlreadyAnswered(t *testing.T) {
 			HasUserAnsweredQuestionFunc: func(ctx context.Context, userID, questionID uint64) (bool, error) { return true, nil },
 		},
 		&mocks.MockCommercialClient{},
+		"EN",
+		"http://localhost:8000",
 	)
 
 	if _, _, _, err := svc.SubmitAnswer(context.Background(), 1, 2, 3); err == nil {
@@ -86,6 +94,8 @@ func TestChallengeServiceGetTimings(t *testing.T) {
 			GetTotalParticipantsFunc:  func(ctx context.Context) (int32, error) { return 9, nil },
 		},
 		&mocks.MockCommercialClient{},
+		"EN",
+		"http://localhost:8000",
 	)
 
 	resp, err := svc.GetTimings(context.Background(), 1)
@@ -105,6 +115,8 @@ func TestChallengeServiceGetQuestionNotFound(t *testing.T) {
 			},
 		},
 		&mocks.MockCommercialClient{},
+		"EN",
+		"http://localhost:8000",
 	)
 
 	q, found, err := svc.GetQuestion(context.Background(), 1)
@@ -124,6 +136,8 @@ func TestChallengeServiceGetQuestionRepoError(t *testing.T) {
 			},
 		},
 		&mocks.MockCommercialClient{},
+		"EN",
+		"http://localhost:8000",
 	)
 
 	if _, _, err := svc.GetQuestion(context.Background(), 1); err == nil {
@@ -137,6 +151,8 @@ func TestChallengeServiceSubmitAnswerInvalidAnswer(t *testing.T) {
 			ValidateAnswerFunc: func(ctx context.Context, questionID, answerID uint64) (bool, error) { return false, nil },
 		},
 		&mocks.MockCommercialClient{},
+		"EN",
+		"http://localhost:8000",
 	)
 
 	if _, _, _, err := svc.SubmitAnswer(context.Background(), 1, 2, 3); err == nil {
@@ -147,3 +163,96 @@ func TestChallengeServiceSubmitAnswerInvalidAnswer(t *testing.T) {
 type assertErr struct{}
 
 func (assertErr) Error() string { return "assert error" }
+
+func TestChallengeServiceGetAdvertisementEN(t *testing.T) {
+	t.Setenv("APP_LOCALE", "EN")
+
+	svc := service.NewChallengeService(
+		&mocks.MockChallengeRepository{},
+		&mocks.MockCommercialClient{},
+		"EN",
+		"http://localhost:8000",
+	)
+
+	ads, err := svc.GetAdvertisement(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if len(ads) != 7 {
+		t.Fatalf("expected 7 advertisers, got %d", len(ads))
+	}
+
+	first := ads[0]
+	if first.Code != "bn-1000" {
+		t.Fatalf("expected code bn-1000, got %q", first.Code)
+	}
+	if first.Title != "Matrix exit box" {
+		t.Fatalf("expected EN title Matrix exit box, got %q", first.Title)
+	}
+	if first.Description != "Banking services in Metaverse" {
+		t.Fatalf("expected EN description Banking services in Metaverse, got %q", first.Description)
+	}
+	if first.InvestmentValue != "1000000" {
+		t.Fatalf("expected investment_value 1000000, got %q", first.InvestmentValue)
+	}
+	if first.EndsAt != "2028/11/05" {
+		t.Fatalf("expected ends_at 2028/11/05 for EN locale, got %q", first.EndsAt)
+	}
+	wantVideo := "http://localhost:8000/uploads/challenge/advertisement/bn-1000/bn-1000.mp4"
+	wantImage := "http://localhost:8000/uploads/challenge/advertisement/bn-1000/bn-1000.jpg"
+	if first.VideoURL != wantVideo {
+		t.Fatalf("expected video_url %q, got %q", wantVideo, first.VideoURL)
+	}
+	if first.ImageURL != wantImage {
+		t.Fatalf("expected image_url %q, got %q", wantImage, first.ImageURL)
+	}
+	for i, ad := range ads[1:] {
+		wantVideo = "http://localhost:8000/uploads/challenge/advertisement/" + ad.Code + "/" + ad.Code + ".mp4"
+		wantImage = "http://localhost:8000/uploads/challenge/advertisement/" + ad.Code + "/" + ad.Code + ".jpg"
+		if ad.VideoURL != wantVideo {
+			t.Fatalf("advertiser[%d] expected video_url %q, got %q", i+1, wantVideo, ad.VideoURL)
+		}
+		if ad.ImageURL != wantImage {
+			t.Fatalf("advertiser[%d] expected image_url %q, got %q", i+1, wantImage, ad.ImageURL)
+		}
+	}
+}
+
+func TestChallengeServiceGetAdvertisementFA(t *testing.T) {
+	t.Setenv("APP_LOCALE", "FA")
+
+	svc := service.NewChallengeService(
+		&mocks.MockChallengeRepository{},
+		&mocks.MockCommercialClient{},
+		"FA",
+		"http://localhost:8000",
+	)
+
+	ads, err := svc.GetAdvertisement(context.Background())
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+	if len(ads) != 7 {
+		t.Fatalf("expected 7 advertisers, got %d", len(ads))
+	}
+
+	first := ads[0]
+	if first.Code != "bn-1000" {
+		t.Fatalf("expected code bn-1000, got %q", first.Code)
+	}
+	if first.Title != "صندوق خروج از ماتریکس" {
+		t.Fatalf("expected FA title, got %q", first.Title)
+	}
+	if first.Description != "ارائه خدمات بانکی نوین در دنیای متاورس" {
+		t.Fatalf("expected FA description, got %q", first.Description)
+	}
+	if first.InvestmentValue != "1000000" {
+		t.Fatalf("expected investment_value 1000000, got %q", first.InvestmentValue)
+	}
+
+	endsAt := time.Date(2028, 11, 5, 0, 0, 0, 0, time.UTC)
+	wantEndsAt := helpers.FormatJalaliDate(endsAt)
+	if first.EndsAt != wantEndsAt {
+		t.Fatalf("expected Jalali ends_at %q for FA locale, got %q", wantEndsAt, first.EndsAt)
+	}
+}

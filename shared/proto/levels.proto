@@ -34,6 +34,7 @@ service ChallengeService {
   rpc GetQuestion(GetQuestionRequest) returns (QuestionResponse);
   rpc SubmitAnswer(SubmitAnswerRequest) returns (AnswerResultResponse);
   rpc GetTimings(GetTimingsRequest) returns (TimingsResponse);
+  rpc GetAdvertisement(GetAdvertisementRequest) returns (GetAdvertisementResponse);
 }
 
 // Level Messages
@@ -363,5 +364,21 @@ message TimingsResponse {
   int32 participants = 4;
   int32 correct_answers = 5;
   int32 wrong_answers = 6;
+}
+
+message GetAdvertisementRequest {}
+
+message Advertisement {
+  string code = 1;
+  string title = 2;
+  string description = 3;
+  string investment_value = 4;
+  string ends_at = 5;
+  string video_url = 6;
+  string image_url = 7;
+}
+
+message GetAdvertisementResponse {
+  repeated Advertisement advertisements = 1;
 }
 

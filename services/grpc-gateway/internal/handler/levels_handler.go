@@ -10,14 +10,16 @@ import (
 )
 
 type LevelsHandler struct {
-	levelClient levelspb.LevelServiceClient
-	appURL      string
+	levelClient     levelspb.LevelServiceClient
+	challengeClient levelspb.ChallengeServiceClient
+	appURL          string
 }
 
 func NewLevelsHandler(conn *grpc.ClientConn, appURL string) *LevelsHandler {
 	return &LevelsHandler{
-		levelClient: levelspb.NewLevelServiceClient(conn),
-		appURL:      strings.TrimSuffix(appURL, "/"),
+		levelClient:     levelspb.NewLevelServiceClient(conn),
+		challengeClient: levelspb.NewChallengeServiceClient(conn),
+		appURL:          strings.TrimSuffix(appURL, "/"),
 	}
 }
 
@@ -492,6 +494,35 @@ func (h *LevelsHandler) HandleLevelsRoutes(w http.ResponseWriter, r *http.Reques
 	}
 
 	writeError(w, http.StatusNotFound, "not found")
+}
+
+// GetAdvertisement handles GET /api/challenge/advertisment
+func (h *LevelsHandler) GetAdvertisement(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	resp, err := h.challengeClient.GetAdvertisement(r.Context(), &levelspb.GetAdvertisementRequest{})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+
+	ads := make([]map[string]interface{}, 0, len(resp.Advertisements))
+	for _, ad := range resp.Advertisements {
+		ads = append(ads, map[string]interface{}{
+			"code":             ad.Code,
+			"title":            ad.Title,
+			"description":      ad.Description,
+			"investment_value": ad.InvestmentValue,
+			"ends_at":          ad.EndsAt,
+			"video_url":        ad.VideoUrl,
+			"image_url":        ad.ImageUrl,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"data": ads})
 }
 
 func extractSlugFromPath(path, prefix string) string {

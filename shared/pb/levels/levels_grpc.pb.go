@@ -725,9 +725,10 @@ var ActivityService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChallengeService_GetQuestion_FullMethodName  = "/levels.ChallengeService/GetQuestion"
-	ChallengeService_SubmitAnswer_FullMethodName = "/levels.ChallengeService/SubmitAnswer"
-	ChallengeService_GetTimings_FullMethodName   = "/levels.ChallengeService/GetTimings"
+	ChallengeService_GetQuestion_FullMethodName      = "/levels.ChallengeService/GetQuestion"
+	ChallengeService_SubmitAnswer_FullMethodName     = "/levels.ChallengeService/SubmitAnswer"
+	ChallengeService_GetTimings_FullMethodName       = "/levels.ChallengeService/GetTimings"
+	ChallengeService_GetAdvertisement_FullMethodName = "/levels.ChallengeService/GetAdvertisement"
 )
 
 // ChallengeServiceClient is the client API for ChallengeService service.
@@ -739,6 +740,7 @@ type ChallengeServiceClient interface {
 	GetQuestion(ctx context.Context, in *GetQuestionRequest, opts ...grpc.CallOption) (*QuestionResponse, error)
 	SubmitAnswer(ctx context.Context, in *SubmitAnswerRequest, opts ...grpc.CallOption) (*AnswerResultResponse, error)
 	GetTimings(ctx context.Context, in *GetTimingsRequest, opts ...grpc.CallOption) (*TimingsResponse, error)
+	GetAdvertisement(ctx context.Context, in *GetAdvertisementRequest, opts ...grpc.CallOption) (*GetAdvertisementResponse, error)
 }
 
 type challengeServiceClient struct {
@@ -779,6 +781,16 @@ func (c *challengeServiceClient) GetTimings(ctx context.Context, in *GetTimingsR
 	return out, nil
 }
 
+func (c *challengeServiceClient) GetAdvertisement(ctx context.Context, in *GetAdvertisementRequest, opts ...grpc.CallOption) (*GetAdvertisementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAdvertisementResponse)
+	err := c.cc.Invoke(ctx, ChallengeService_GetAdvertisement_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChallengeServiceServer is the server API for ChallengeService service.
 // All implementations must embed UnimplementedChallengeServiceServer
 // for forward compatibility.
@@ -788,6 +800,7 @@ type ChallengeServiceServer interface {
 	GetQuestion(context.Context, *GetQuestionRequest) (*QuestionResponse, error)
 	SubmitAnswer(context.Context, *SubmitAnswerRequest) (*AnswerResultResponse, error)
 	GetTimings(context.Context, *GetTimingsRequest) (*TimingsResponse, error)
+	GetAdvertisement(context.Context, *GetAdvertisementRequest) (*GetAdvertisementResponse, error)
 	mustEmbedUnimplementedChallengeServiceServer()
 }
 
@@ -806,6 +819,9 @@ func (UnimplementedChallengeServiceServer) SubmitAnswer(context.Context, *Submit
 }
 func (UnimplementedChallengeServiceServer) GetTimings(context.Context, *GetTimingsRequest) (*TimingsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTimings not implemented")
+}
+func (UnimplementedChallengeServiceServer) GetAdvertisement(context.Context, *GetAdvertisementRequest) (*GetAdvertisementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAdvertisement not implemented")
 }
 func (UnimplementedChallengeServiceServer) mustEmbedUnimplementedChallengeServiceServer() {}
 func (UnimplementedChallengeServiceServer) testEmbeddedByValue()                          {}
@@ -882,6 +898,24 @@ func _ChallengeService_GetTimings_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ChallengeService_GetAdvertisement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdvertisementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChallengeServiceServer).GetAdvertisement(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChallengeService_GetAdvertisement_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChallengeServiceServer).GetAdvertisement(ctx, req.(*GetAdvertisementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChallengeService_ServiceDesc is the grpc.ServiceDesc for ChallengeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -900,6 +934,10 @@ var ChallengeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetTimings",
 			Handler:    _ChallengeService_GetTimings_Handler,
+		},
+		{
+			MethodName: "GetAdvertisement",
+			Handler:    _ChallengeService_GetAdvertisement_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -2,6 +2,17 @@ package models
 
 import "time"
 
+// Advertisement represents a challenge advertiser entry.
+type Advertisement struct {
+	Code            string `json:"code"`
+	Title           string `json:"title"`
+	Description     string `json:"description"`
+	InvestmentValue string `json:"investment_value"`
+	EndsAt          string `json:"ends_at"`
+	VideoURL        string `json:"video_url"`
+	ImageURL        string `json:"image_url"`
+}
+
 // Question represents a challenge question
 // Maps to Laravel: App\Models\Challenge\Question
 type Question struct {

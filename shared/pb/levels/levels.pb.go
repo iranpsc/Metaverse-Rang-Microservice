@@ -3158,6 +3158,178 @@ func (x *TimingsResponse) GetWrongAnswers() int32 {
 	return 0
 }
 
+type GetAdvertisementRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAdvertisementRequest) Reset() {
+	*x = GetAdvertisementRequest{}
+	mi := &file_levels_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAdvertisementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAdvertisementRequest) ProtoMessage() {}
+
+func (x *GetAdvertisementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_levels_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAdvertisementRequest.ProtoReflect.Descriptor instead.
+func (*GetAdvertisementRequest) Descriptor() ([]byte, []int) {
+	return file_levels_proto_rawDescGZIP(), []int{46}
+}
+
+type Advertisement struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Code            string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Title           string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description     string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	InvestmentValue string                 `protobuf:"bytes,4,opt,name=investment_value,json=investmentValue,proto3" json:"investment_value,omitempty"`
+	EndsAt          string                 `protobuf:"bytes,5,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`
+	VideoUrl        string                 `protobuf:"bytes,6,opt,name=video_url,json=videoUrl,proto3" json:"video_url,omitempty"`
+	ImageUrl        string                 `protobuf:"bytes,7,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *Advertisement) Reset() {
+	*x = Advertisement{}
+	mi := &file_levels_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Advertisement) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Advertisement) ProtoMessage() {}
+
+func (x *Advertisement) ProtoReflect() protoreflect.Message {
+	mi := &file_levels_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Advertisement.ProtoReflect.Descriptor instead.
+func (*Advertisement) Descriptor() ([]byte, []int) {
+	return file_levels_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *Advertisement) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *Advertisement) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Advertisement) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *Advertisement) GetInvestmentValue() string {
+	if x != nil {
+		return x.InvestmentValue
+	}
+	return ""
+}
+
+func (x *Advertisement) GetEndsAt() string {
+	if x != nil {
+		return x.EndsAt
+	}
+	return ""
+}
+
+func (x *Advertisement) GetVideoUrl() string {
+	if x != nil {
+		return x.VideoUrl
+	}
+	return ""
+}
+
+func (x *Advertisement) GetImageUrl() string {
+	if x != nil {
+		return x.ImageUrl
+	}
+	return ""
+}
+
+type GetAdvertisementResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Advertisements []*Advertisement       `protobuf:"bytes,1,rep,name=advertisements,proto3" json:"advertisements,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetAdvertisementResponse) Reset() {
+	*x = GetAdvertisementResponse{}
+	mi := &file_levels_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAdvertisementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAdvertisementResponse) ProtoMessage() {}
+
+func (x *GetAdvertisementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_levels_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAdvertisementResponse.ProtoReflect.Descriptor instead.
+func (*GetAdvertisementResponse) Descriptor() ([]byte, []int) {
+	return file_levels_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *GetAdvertisementResponse) GetAdvertisements() []*Advertisement {
+	if x != nil {
+		return x.Advertisements
+	}
+	return nil
+}
+
 var File_levels_proto protoreflect.FileDescriptor
 
 const file_levels_proto_rawDesc = "" +
@@ -3425,7 +3597,18 @@ const file_levels_proto_rawDesc = "" +
 	"\x17display_answer_interval\x18\x03 \x01(\x05R\x15displayAnswerInterval\x12\"\n" +
 	"\fparticipants\x18\x04 \x01(\x05R\fparticipants\x12'\n" +
 	"\x0fcorrect_answers\x18\x05 \x01(\x05R\x0ecorrectAnswers\x12#\n" +
-	"\rwrong_answers\x18\x06 \x01(\x05R\fwrongAnswers2\xa8\x05\n" +
+	"\rwrong_answers\x18\x06 \x01(\x05R\fwrongAnswers\"\x19\n" +
+	"\x17GetAdvertisementRequest\"\xd9\x01\n" +
+	"\rAdvertisement\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12)\n" +
+	"\x10investment_value\x18\x04 \x01(\tR\x0finvestmentValue\x12\x17\n" +
+	"\aends_at\x18\x05 \x01(\tR\x06endsAt\x12\x1b\n" +
+	"\tvideo_url\x18\x06 \x01(\tR\bvideoUrl\x12\x1b\n" +
+	"\timage_url\x18\a \x01(\tR\bimageUrl\"Y\n" +
+	"\x18GetAdvertisementResponse\x12=\n" +
+	"\x0eadvertisements\x18\x01 \x03(\v2\x15.levels.AdvertisementR\x0eadvertisements2\xa8\x05\n" +
 	"\fLevelService\x12F\n" +
 	"\fGetUserLevel\x12\x1b.levels.GetUserLevelRequest\x1a\x19.levels.UserLevelResponse\x12C\n" +
 	"\fGetAllLevels\x12\x1b.levels.GetAllLevelsRequest\x1a\x16.levels.LevelsResponse\x12:\n" +
@@ -3443,12 +3626,13 @@ const file_levels_proto_rawDesc = "" +
 	"\x13UpdateActivityScore\x12\".levels.UpdateActivityScoreRequest\x1a#.levels.UpdateActivityScoreResponse\x12F\n" +
 	"\vRecordTrade\x12\x1a.levels.RecordTradeRequest\x1a\x1b.levels.RecordTradeResponse\x12L\n" +
 	"\rRecordDeposit\x12\x1c.levels.RecordDepositRequest\x1a\x1d.levels.RecordDepositResponse\x12O\n" +
-	"\x0eRecordFollower\x12\x1d.levels.RecordFollowerRequest\x1a\x1e.levels.RecordFollowerResponse2\xe4\x01\n" +
+	"\x0eRecordFollower\x12\x1d.levels.RecordFollowerRequest\x1a\x1e.levels.RecordFollowerResponse2\xbb\x02\n" +
 	"\x10ChallengeService\x12C\n" +
 	"\vGetQuestion\x12\x1a.levels.GetQuestionRequest\x1a\x18.levels.QuestionResponse\x12I\n" +
 	"\fSubmitAnswer\x12\x1b.levels.SubmitAnswerRequest\x1a\x1c.levels.AnswerResultResponse\x12@\n" +
 	"\n" +
-	"GetTimings\x12\x19.levels.GetTimingsRequest\x1a\x17.levels.TimingsResponseB\x1bZ\x19metarang/shared/pb/levelsb\x06proto3"
+	"GetTimings\x12\x19.levels.GetTimingsRequest\x1a\x17.levels.TimingsResponse\x12U\n" +
+	"\x10GetAdvertisement\x12\x1f.levels.GetAdvertisementRequest\x1a .levels.GetAdvertisementResponseB\x1bZ\x19metarang/shared/pb/levelsb\x06proto3"
 
 var (
 	file_levels_proto_rawDescOnce sync.Once
@@ -3462,7 +3646,7 @@ func file_levels_proto_rawDescGZIP() []byte {
 	return file_levels_proto_rawDescData
 }
 
-var file_levels_proto_msgTypes = make([]protoimpl.MessageInfo, 46)
+var file_levels_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_levels_proto_goTypes = []any{
 	(*GetUserLevelRequest)(nil),         // 0: levels.GetUserLevelRequest
 	(*UserLevelResponse)(nil),           // 1: levels.UserLevelResponse
@@ -3510,6 +3694,9 @@ var file_levels_proto_goTypes = []any{
 	(*AnswerResultResponse)(nil),        // 43: levels.AnswerResultResponse
 	(*GetTimingsRequest)(nil),           // 44: levels.GetTimingsRequest
 	(*TimingsResponse)(nil),             // 45: levels.TimingsResponse
+	(*GetAdvertisementRequest)(nil),     // 46: levels.GetAdvertisementRequest
+	(*Advertisement)(nil),               // 47: levels.Advertisement
+	(*GetAdvertisementResponse)(nil),    // 48: levels.GetAdvertisementResponse
 }
 var file_levels_proto_depIdxs = []int32{
 	6,  // 0: levels.UserLevelResponse.latest_level:type_name -> levels.Level
@@ -3531,47 +3718,50 @@ var file_levels_proto_depIdxs = []int32{
 	40, // 16: levels.QuestionResponse.question:type_name -> levels.Question
 	41, // 17: levels.Question.answers:type_name -> levels.Answer
 	40, // 18: levels.AnswerResultResponse.question:type_name -> levels.Question
-	0,  // 19: levels.LevelService.GetUserLevel:input_type -> levels.GetUserLevelRequest
-	2,  // 20: levels.LevelService.GetAllLevels:input_type -> levels.GetAllLevelsRequest
-	4,  // 21: levels.LevelService.GetLevel:input_type -> levels.GetLevelRequest
-	12, // 22: levels.LevelService.GetLevelGeneralInfo:input_type -> levels.GetLevelGeneralInfoRequest
-	14, // 23: levels.LevelService.GetLevelGem:input_type -> levels.GetLevelGemRequest
-	16, // 24: levels.LevelService.GetLevelGift:input_type -> levels.GetLevelGiftRequest
-	18, // 25: levels.LevelService.GetLevelLicenses:input_type -> levels.GetLevelLicensesRequest
-	20, // 26: levels.LevelService.GetLevelPrizes:input_type -> levels.GetLevelPrizesRequest
-	22, // 27: levels.LevelService.ClaimPrize:input_type -> levels.ClaimPrizeRequest
-	24, // 28: levels.ActivityService.LogActivity:input_type -> levels.LogActivityRequest
-	26, // 29: levels.ActivityService.GetUserActivities:input_type -> levels.GetUserActivitiesRequest
-	30, // 30: levels.ActivityService.UpdateActivityScore:input_type -> levels.UpdateActivityScoreRequest
-	32, // 31: levels.ActivityService.RecordTrade:input_type -> levels.RecordTradeRequest
-	34, // 32: levels.ActivityService.RecordDeposit:input_type -> levels.RecordDepositRequest
-	36, // 33: levels.ActivityService.RecordFollower:input_type -> levels.RecordFollowerRequest
-	38, // 34: levels.ChallengeService.GetQuestion:input_type -> levels.GetQuestionRequest
-	42, // 35: levels.ChallengeService.SubmitAnswer:input_type -> levels.SubmitAnswerRequest
-	44, // 36: levels.ChallengeService.GetTimings:input_type -> levels.GetTimingsRequest
-	1,  // 37: levels.LevelService.GetUserLevel:output_type -> levels.UserLevelResponse
-	3,  // 38: levels.LevelService.GetAllLevels:output_type -> levels.LevelsResponse
-	5,  // 39: levels.LevelService.GetLevel:output_type -> levels.LevelResponse
-	13, // 40: levels.LevelService.GetLevelGeneralInfo:output_type -> levels.LevelGeneralInfoResponse
-	15, // 41: levels.LevelService.GetLevelGem:output_type -> levels.LevelGemResponse
-	17, // 42: levels.LevelService.GetLevelGift:output_type -> levels.LevelGiftResponse
-	19, // 43: levels.LevelService.GetLevelLicenses:output_type -> levels.LevelLicensesResponse
-	21, // 44: levels.LevelService.GetLevelPrizes:output_type -> levels.LevelPrizesResponse
-	23, // 45: levels.LevelService.ClaimPrize:output_type -> levels.ClaimPrizeResponse
-	25, // 46: levels.ActivityService.LogActivity:output_type -> levels.LogActivityResponse
-	27, // 47: levels.ActivityService.GetUserActivities:output_type -> levels.UserActivitiesResponse
-	31, // 48: levels.ActivityService.UpdateActivityScore:output_type -> levels.UpdateActivityScoreResponse
-	33, // 49: levels.ActivityService.RecordTrade:output_type -> levels.RecordTradeResponse
-	35, // 50: levels.ActivityService.RecordDeposit:output_type -> levels.RecordDepositResponse
-	37, // 51: levels.ActivityService.RecordFollower:output_type -> levels.RecordFollowerResponse
-	39, // 52: levels.ChallengeService.GetQuestion:output_type -> levels.QuestionResponse
-	43, // 53: levels.ChallengeService.SubmitAnswer:output_type -> levels.AnswerResultResponse
-	45, // 54: levels.ChallengeService.GetTimings:output_type -> levels.TimingsResponse
-	37, // [37:55] is the sub-list for method output_type
-	19, // [19:37] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	47, // 19: levels.GetAdvertisementResponse.advertisements:type_name -> levels.Advertisement
+	0,  // 20: levels.LevelService.GetUserLevel:input_type -> levels.GetUserLevelRequest
+	2,  // 21: levels.LevelService.GetAllLevels:input_type -> levels.GetAllLevelsRequest
+	4,  // 22: levels.LevelService.GetLevel:input_type -> levels.GetLevelRequest
+	12, // 23: levels.LevelService.GetLevelGeneralInfo:input_type -> levels.GetLevelGeneralInfoRequest
+	14, // 24: levels.LevelService.GetLevelGem:input_type -> levels.GetLevelGemRequest
+	16, // 25: levels.LevelService.GetLevelGift:input_type -> levels.GetLevelGiftRequest
+	18, // 26: levels.LevelService.GetLevelLicenses:input_type -> levels.GetLevelLicensesRequest
+	20, // 27: levels.LevelService.GetLevelPrizes:input_type -> levels.GetLevelPrizesRequest
+	22, // 28: levels.LevelService.ClaimPrize:input_type -> levels.ClaimPrizeRequest
+	24, // 29: levels.ActivityService.LogActivity:input_type -> levels.LogActivityRequest
+	26, // 30: levels.ActivityService.GetUserActivities:input_type -> levels.GetUserActivitiesRequest
+	30, // 31: levels.ActivityService.UpdateActivityScore:input_type -> levels.UpdateActivityScoreRequest
+	32, // 32: levels.ActivityService.RecordTrade:input_type -> levels.RecordTradeRequest
+	34, // 33: levels.ActivityService.RecordDeposit:input_type -> levels.RecordDepositRequest
+	36, // 34: levels.ActivityService.RecordFollower:input_type -> levels.RecordFollowerRequest
+	38, // 35: levels.ChallengeService.GetQuestion:input_type -> levels.GetQuestionRequest
+	42, // 36: levels.ChallengeService.SubmitAnswer:input_type -> levels.SubmitAnswerRequest
+	44, // 37: levels.ChallengeService.GetTimings:input_type -> levels.GetTimingsRequest
+	46, // 38: levels.ChallengeService.GetAdvertisement:input_type -> levels.GetAdvertisementRequest
+	1,  // 39: levels.LevelService.GetUserLevel:output_type -> levels.UserLevelResponse
+	3,  // 40: levels.LevelService.GetAllLevels:output_type -> levels.LevelsResponse
+	5,  // 41: levels.LevelService.GetLevel:output_type -> levels.LevelResponse
+	13, // 42: levels.LevelService.GetLevelGeneralInfo:output_type -> levels.LevelGeneralInfoResponse
+	15, // 43: levels.LevelService.GetLevelGem:output_type -> levels.LevelGemResponse
+	17, // 44: levels.LevelService.GetLevelGift:output_type -> levels.LevelGiftResponse
+	19, // 45: levels.LevelService.GetLevelLicenses:output_type -> levels.LevelLicensesResponse
+	21, // 46: levels.LevelService.GetLevelPrizes:output_type -> levels.LevelPrizesResponse
+	23, // 47: levels.LevelService.ClaimPrize:output_type -> levels.ClaimPrizeResponse
+	25, // 48: levels.ActivityService.LogActivity:output_type -> levels.LogActivityResponse
+	27, // 49: levels.ActivityService.GetUserActivities:output_type -> levels.UserActivitiesResponse
+	31, // 50: levels.ActivityService.UpdateActivityScore:output_type -> levels.UpdateActivityScoreResponse
+	33, // 51: levels.ActivityService.RecordTrade:output_type -> levels.RecordTradeResponse
+	35, // 52: levels.ActivityService.RecordDeposit:output_type -> levels.RecordDepositResponse
+	37, // 53: levels.ActivityService.RecordFollower:output_type -> levels.RecordFollowerResponse
+	39, // 54: levels.ChallengeService.GetQuestion:output_type -> levels.QuestionResponse
+	43, // 55: levels.ChallengeService.SubmitAnswer:output_type -> levels.AnswerResultResponse
+	45, // 56: levels.ChallengeService.GetTimings:output_type -> levels.TimingsResponse
+	48, // 57: levels.ChallengeService.GetAdvertisement:output_type -> levels.GetAdvertisementResponse
+	39, // [39:58] is the sub-list for method output_type
+	20, // [20:39] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_levels_proto_init() }
@@ -3585,7 +3775,7 @@ func file_levels_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_levels_proto_rawDesc), len(file_levels_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   46,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

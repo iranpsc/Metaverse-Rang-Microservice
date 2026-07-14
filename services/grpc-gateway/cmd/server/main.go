@@ -961,6 +961,10 @@ func main() {
 		log.Printf("✅ Social service routes registered")
 	}
 
+	if levelsHandler != nil {
+		mux.Handle("/api/challenge/advertisment", authMiddleware(http.HandlerFunc(levelsHandler.GetAdvertisement)))
+	}
+
 	// Support routes
 	if supportHandler != nil {
 		mux.Handle("/api/support/tickets", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

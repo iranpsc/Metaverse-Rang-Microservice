@@ -78,3 +78,26 @@ func (h *ChallengeHandler) GetTimings(ctx context.Context, req *pb.GetTimingsReq
 
 	return timings, nil
 }
+
+// GetAdvertisement retrieves the static list of challenge advertisers.
+func (h *ChallengeHandler) GetAdvertisement(ctx context.Context, req *pb.GetAdvertisementRequest) (*pb.GetAdvertisementResponse, error) {
+	ads, err := h.service.GetAdvertisement(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get advertisements: %v", err)
+	}
+
+	pbAds := make([]*pb.Advertisement, 0, len(ads))
+	for _, ad := range ads {
+		pbAds = append(pbAds, &pb.Advertisement{
+			Code:            ad.Code,
+			Title:           ad.Title,
+			Description:     ad.Description,
+			InvestmentValue: ad.InvestmentValue,
+			EndsAt:          ad.EndsAt,
+			VideoUrl:        ad.VideoURL,
+			ImageUrl:        ad.ImageURL,
+		})
+	}
+
+	return &pb.GetAdvertisementResponse{Advertisements: pbAds}, nil
+}

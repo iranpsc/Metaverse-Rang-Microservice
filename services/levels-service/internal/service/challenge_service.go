@@ -3,9 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"metarang/levels-service/internal/client"
+	"metarang/levels-service/internal/lang"
+	"metarang/levels-service/internal/models"
 	pb "metarang/shared/pb/levels"
+	"metarang/shared/pkg/helpers"
 )
 
 type challengeRepository interface {
@@ -23,18 +28,114 @@ type challengeRepository interface {
 	GetVariableRate(ctx context.Context, name string) (float64, error)
 }
 
+type advertisementSeed struct {
+	code            string
+	titleKey        string
+	descriptionKey  string
+	investmentValue string
+	endsAtGregorian time.Time
+}
+
+var challengeAdvertisements = []advertisementSeed{
+	{
+		code:            "bn-1000",
+		titleKey:        "Matrix exit box",
+		descriptionKey:  "Banking services in Metaverse",
+		investmentValue: "1000000",
+		endsAtGregorian: time.Date(2028, 11, 5, 0, 0, 0, 0, time.UTC),
+	},
+	{
+		code:            "bn-1001",
+		titleKey:        "Quantum trade hub",
+		descriptionKey:  "Next-gen digital trading desk",
+		investmentValue: "2500000",
+		endsAtGregorian: time.Date(2027, 6, 15, 0, 0, 0, 0, time.UTC),
+	},
+	{
+		code:            "bn-1002",
+		titleKey:        "Neon vault reserve",
+		descriptionKey:  "Secure multi-asset custody",
+		investmentValue: "1750000",
+		endsAtGregorian: time.Date(2029, 1, 20, 0, 0, 0, 0, time.UTC),
+	},
+	{
+		code:            "bn-1003",
+		titleKey:        "Oracle signal funds",
+		descriptionKey:  "AI-driven market intelligence",
+		investmentValue: "3200000",
+		endsAtGregorian: time.Date(2028, 3, 8, 0, 0, 0, 0, time.UTC),
+	},
+	{
+		code:            "bn-1004",
+		titleKey:        "Pulse liquidity pool",
+		descriptionKey:  "Cross-chain liquidity provision",
+		investmentValue: "900000",
+		endsAtGregorian: time.Date(2027, 12, 1, 0, 0, 0, 0, time.UTC),
+	},
+	{
+		code:            "bn-1005",
+		titleKey:        "Horizon credit lane",
+		descriptionKey:  "Metaverse-native lending rails",
+		investmentValue: "4100000",
+		endsAtGregorian: time.Date(2030, 4, 12, 0, 0, 0, 0, time.UTC),
+	},
+	{
+		code:            "bn-1006",
+		titleKey:        "Eclipse yield studio",
+		descriptionKey:  "Structured yield products",
+		investmentValue: "1500000",
+		endsAtGregorian: time.Date(2029, 9, 30, 0, 0, 0, 0, time.UTC),
+	},
+}
+
 type ChallengeService struct {
 	challengeRepo    challengeRepository
 	commercialClient client.CommercialClient
 	defaultPSCRate   float64
+	appLocale        string
+	projectURL       string
 }
 
-func NewChallengeService(challengeRepo challengeRepository, commercialClient client.CommercialClient) *ChallengeService {
+func NewChallengeService(challengeRepo challengeRepository, commercialClient client.CommercialClient, appLocale, projectURL string) *ChallengeService {
 	return &ChallengeService{
 		challengeRepo:    challengeRepo,
 		commercialClient: commercialClient,
 		defaultPSCRate:   30000,
+		appLocale:        lang.NormalizeLocale(appLocale),
+		projectURL:       strings.TrimSuffix(strings.TrimSpace(projectURL), "/"),
 	}
+}
+
+func (s *ChallengeService) advertisementAssetURL(code, ext string) string {
+	path := fmt.Sprintf("/uploads/challenge/advertisement/%s/%s.%s", code, code, ext)
+	if s.projectURL == "" {
+		return path
+	}
+	return s.projectURL + path
+}
+
+// GetAdvertisement returns the static challenge advertisers list.
+// Titles and descriptions are translated using APP_LOCALE; ends_at becomes Jalali when locale is FA.
+func (s *ChallengeService) GetAdvertisement(ctx context.Context) ([]models.Advertisement, error) {
+	_ = ctx
+	locale := s.appLocale
+	ads := make([]models.Advertisement, 0, len(challengeAdvertisements))
+	for _, seed := range challengeAdvertisements {
+		endsAt := seed.endsAtGregorian.Format("2006/01/02")
+		if locale == "fa" {
+			endsAt = helpers.FormatJalaliDate(seed.endsAtGregorian)
+		}
+		ads = append(ads, models.Advertisement{
+			Code:            seed.code,
+			Title:           lang.T(locale, seed.titleKey),
+			Description:     lang.T(locale, seed.descriptionKey),
+			InvestmentValue: seed.investmentValue,
+			EndsAt:          endsAt,
+			VideoURL:        s.advertisementAssetURL(seed.code, "mp4"),
+			ImageURL:        s.advertisementAssetURL(seed.code, "jpg"),
+		})
+	}
+	return ads, nil
 }
 
 // GetQuestion retrieves a random unanswered question for the user
