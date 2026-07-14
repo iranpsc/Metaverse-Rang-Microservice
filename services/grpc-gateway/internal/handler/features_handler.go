@@ -108,7 +108,7 @@ func (h *FeaturesHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// Add geometry with coordinates
+		// Add geometry with coordinates and feature_id
 		if feature.Geometry != nil {
 			coordinates := make([]map[string]interface{}, 0, len(feature.Geometry.Coordinates))
 			for _, coord := range feature.Geometry.Coordinates {
@@ -120,6 +120,7 @@ func (h *FeaturesHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {
 				})
 			}
 			featureMap["geometry"] = map[string]interface{}{
+				"feature_id":  feature.Id,
 				"coordinates": coordinates,
 			}
 		}
