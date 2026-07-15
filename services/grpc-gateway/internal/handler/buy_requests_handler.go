@@ -407,7 +407,7 @@ func (h *FeaturesHandler) HandleFeaturesRoutes(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if path == "build/completed" {
+	if path == "build/completed" || path == "building/completed" {
 		if r.Method == http.MethodGet {
 			h.ListCompletedBuildings(w, r)
 		} else {
