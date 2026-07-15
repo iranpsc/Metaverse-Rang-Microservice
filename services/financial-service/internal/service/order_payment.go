@@ -14,9 +14,9 @@ import (
 )
 
 func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset string, rate float64) (string, string, error) {
-	paymentIdentity := s.getPaymentIdentity(asset)
-	if paymentIdentity == "" && !s.sadadConfig.SadadSandbox {
-		return "", "", fmt.Errorf("%w: payment identity not configured for asset %s", ErrPaymentFailed, asset)
+	multiplexingData, err := s.buildMultiplexingData(asset)
+	if err != nil {
+		return "", "", err
 	}
 
 	returnURL, err := s.sadadCallbackReturnURL()
@@ -27,13 +27,13 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 	amountRials := amountInRials(amount, rate)
 
 	response, err := s.sadadClient.RequestPayment(sadad.RequestParams{
-		MerchantID:      s.sadadConfig.SadadMerchantID,
-		TerminalID:      s.sadadConfig.SadadTerminalID,
-		TransactionKey:  s.sadadConfig.SadadTransactionKey,
-		OrderID:         int64(orderID),
-		Amount:          amountRials,
-		ReturnURL:       returnURL,
-		PaymentIdentity: paymentIdentity,
+		MerchantID:       s.sadadConfig.SadadMerchantID,
+		TerminalID:       s.sadadConfig.SadadTerminalID,
+		TransactionKey:   s.sadadConfig.SadadTransactionKey,
+		OrderID:          int64(orderID),
+		Amount:           amountRials,
+		ReturnURL:        returnURL,
+		MultiplexingData: multiplexingData,
 	})
 	if err != nil {
 		return "", "", fmt.Errorf("failed to request payment: %w", err)
@@ -68,11 +68,31 @@ func (s *orderService) storeTransactionToken(ctx context.Context, transaction *m
 	}
 }
 
-func (s *orderService) getPaymentIdentity(asset string) string {
-	if asset == "irr" {
-		return s.sadadConfig.SadadPaymentIdentityRial
+func (s *orderService) buildMultiplexingData(asset string) (*sadad.MultiplexingData, error) {
+	if s.sadadConfig.SadadSandbox {
+		return nil, nil
 	}
-	return s.sadadConfig.SadadPaymentIdentityNonRial
+
+	rialIban := s.sadadConfig.SadadPaymentIdentityRial
+	nonRialIban := s.sadadConfig.SadadPaymentIdentityNonRial
+	if rialIban == "" || nonRialIban == "" {
+		return nil, fmt.Errorf("%w: payment IBANs not configured for multiplexing", ErrPaymentFailed)
+	}
+
+	rialValue := 0
+	nonRialValue := 100
+	if asset == "irr" {
+		rialValue = 100
+		nonRialValue = 0
+	}
+
+	return &sadad.MultiplexingData{
+		Type: "Percentage",
+		MultiplexingRows: []sadad.MultiplexingRow{
+			{IbanNumber: rialIban, Value: rialValue},
+			{IbanNumber: nonRialIban, Value: nonRialValue},
+		},
+	}, nil
 }
 
 func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token string, resCode string, additionalParams map[string]string) (string, error) {

@@ -11,7 +11,7 @@ import (
 	"metarang/financial-service/internal/sadad"
 )
 
-func TestRequestPaymentSendsPaymentIdentityAndLocalDateTime(t *testing.T) {
+func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 	var received map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if ua := r.Header.Get("User-Agent"); ua != "" {
@@ -34,13 +34,19 @@ func TestRequestPaymentSendsPaymentIdentityAndLocalDateTime(t *testing.T) {
 		Multiplexed:       true,
 	})
 	resp, err := client.RequestPayment(sadad.RequestParams{
-		MerchantID:      "merchant",
-		TerminalID:      "terminal",
-		TransactionKey:  "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
-		OrderID:         42,
-		Amount:          1000,
-		ReturnURL:       "https://example.com/callback",
-		PaymentIdentity: "377012345678",
+		MerchantID:     "merchant",
+		TerminalID:     "terminal",
+		TransactionKey: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
+		OrderID:        42,
+		Amount:         1000,
+		ReturnURL:      "https://example.com/callback",
+		MultiplexingData: &sadad.MultiplexingData{
+			Type: "Percentage",
+			MultiplexingRows: []sadad.MultiplexingRow{
+				{IbanNumber: "IRRIAL", Value: 100},
+				{IbanNumber: "IRNONRIAL", Value: 0},
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("RequestPayment failed: %v", err)
@@ -52,11 +58,28 @@ func TestRequestPaymentSendsPaymentIdentityAndLocalDateTime(t *testing.T) {
 	if received["OrderId"] != float64(42) {
 		t.Fatalf("expected numeric OrderId 42, got %v", received["OrderId"])
 	}
-	if received["PaymentIdentity"] != "377012345678" {
-		t.Fatalf("expected PaymentIdentity 377012345678, got %v", received["PaymentIdentity"])
+	if received["PaymentIdentity"] != nil {
+		t.Fatalf("expected PaymentIdentity to be omitted, got %v", received["PaymentIdentity"])
 	}
-	if received["MultiplexingData"] != nil {
-		t.Fatalf("expected MultiplexingData to be omitted, got %v", received["MultiplexingData"])
+
+	muxData, ok := received["MultiplexingData"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected MultiplexingData object, got %T", received["MultiplexingData"])
+	}
+	if muxData["Type"] != "Percentage" {
+		t.Fatalf("expected Type Percentage, got %v", muxData["Type"])
+	}
+	rows, ok := muxData["MultiplexingRows"].([]interface{})
+	if !ok || len(rows) != 2 {
+		t.Fatalf("expected 2 MultiplexingRows, got %v", muxData["MultiplexingRows"])
+	}
+	row0, _ := rows[0].(map[string]interface{})
+	row1, _ := rows[1].(map[string]interface{})
+	if row0["IbanNumber"] != "IRRIAL" || row0["Value"] != float64(100) {
+		t.Fatalf("unexpected first multiplexing row: %+v", row0)
+	}
+	if row1["IbanNumber"] != "IRNONRIAL" || row1["Value"] != float64(0) {
+		t.Fatalf("unexpected second multiplexing row: %+v", row1)
 	}
 
 	localDateTime, _ := received["LocalDateTime"].(string)
@@ -75,7 +98,7 @@ func TestRequestPaymentSendsPaymentIdentityAndLocalDateTime(t *testing.T) {
 	}
 }
 
-func TestSandboxRequestPaymentOmitsPaymentIdentity(t *testing.T) {
+func TestSandboxRequestPaymentOmitsMultiplexingData(t *testing.T) {
 	var received map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {

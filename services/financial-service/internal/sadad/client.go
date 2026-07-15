@@ -22,9 +22,9 @@ var tehranLocation = func() *time.Location {
 const sadadHost = "https://sadad.shaparak.ir"
 
 const (
-	productionVerifyURL            = sadadHost + "/VPG/api/v0/Advice/Verify"
-	productionGatewayURL           = sadadHost + "/VPG/Purchase"
-	productionPaymentByIdentityURL = sadadHost + "/api/v0/PaymentByIdentity/PaymentRequest"
+	productionVerifyURL         = sadadHost + "/VPG/api/v0/Advice/Verify"
+	productionGatewayURL        = sadadHost + "/VPG/Purchase"
+	productionPaymentRequestURL = sadadHost + "/VPG/api/v0/Request/PaymentRequest"
 )
 
 const banktestSandboxHost = "https://sandbox.banktest.ir/melli/sadad.shaparak.ir"
@@ -40,12 +40,12 @@ type Endpoints struct {
 	PaymentRequestURL string
 	VerifyURL         string
 	GatewayURL        string
-	Multiplexed       bool // production uses PaymentByIdentity; BankTest sandbox uses standard PaymentRequest
+	Multiplexed       bool // production sends MultiplexingData; BankTest sandbox omits it
 }
 
 // ProductionEndpoints are the live Sadad (Bank Melli) IPG URLs.
 var ProductionEndpoints = Endpoints{
-	PaymentRequestURL: productionPaymentByIdentityURL,
+	PaymentRequestURL: productionPaymentRequestURL,
 	VerifyURL:         productionVerifyURL,
 	GatewayURL:        productionGatewayURL,
 	Multiplexed:       true,
@@ -90,15 +90,27 @@ func NewClientWithEndpoints(endpoints Endpoints) *Client {
 	}
 }
 
-// RequestParams for payment token request via PaymentByIdentity (settlement routing).
+// MultiplexingRow is a single IBAN allocation in MultiplexingData.
+type MultiplexingRow struct {
+	IbanNumber string `json:"IbanNumber"`
+	Value      int    `json:"Value"`
+}
+
+// MultiplexingData routes settlement across IBANs (percentage or amount split).
+type MultiplexingData struct {
+	Type             string            `json:"Type"`
+	MultiplexingRows []MultiplexingRow `json:"MultiplexingRows"`
+}
+
+// RequestParams for payment token request (with optional MultiplexingData for settlement routing).
 type RequestParams struct {
-	MerchantID      string
-	TerminalID      string
-	TransactionKey  string // base64-encoded TripleDES key
-	OrderID         int64
-	Amount          int64 // Rials
-	ReturnURL       string
-	PaymentIdentity string // Sadad-assigned payment identity for the target settlement account
+	MerchantID       string
+	TerminalID       string
+	TransactionKey   string // base64-encoded TripleDES key
+	OrderID          int64
+	Amount           int64 // Rials
+	ReturnURL        string
+	MultiplexingData *MultiplexingData // percentage split across settlement IBANs; required in production
 }
 
 // RequestResponse is the response from Sadad payment request.
@@ -124,15 +136,15 @@ type VerificationResponse struct {
 	Description      string
 }
 
-type paymentByIdentityRequestBody struct {
-	TerminalID      string `json:"TerminalId"`
-	MerchantID      string `json:"MerchantId"`
-	Amount          int64  `json:"Amount"`
-	OrderID         int64  `json:"OrderId"`
-	LocalDateTime   string `json:"LocalDateTime"`
-	ReturnURL       string `json:"ReturnUrl"`
-	SignData        string `json:"SignData"`
-	PaymentIdentity string `json:"PaymentIdentity"`
+type multiplexedPaymentRequestBody struct {
+	TerminalID       string           `json:"TerminalId"`
+	MerchantID       string           `json:"MerchantId"`
+	Amount           int64            `json:"Amount"`
+	OrderID          int64            `json:"OrderId"`
+	LocalDateTime    string           `json:"LocalDateTime"`
+	ReturnURL        string           `json:"ReturnUrl"`
+	SignData         string           `json:"SignData"`
+	MultiplexingData MultiplexingData `json:"MultiplexingData"`
 }
 
 type paymentRequestBody struct {
@@ -165,10 +177,15 @@ type verifyAPIResponse struct {
 }
 
 // RequestPayment initiates a payment request and returns a token.
-// Production uses PaymentByIdentity; BankTest sandbox uses standard PaymentRequest.
+// Production sends MultiplexingData; BankTest sandbox uses a plain PaymentRequest.
 func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) {
-	if c.endpoints.Multiplexed && params.PaymentIdentity == "" {
-		return nil, fmt.Errorf("payment identity is required for multiplexed payments")
+	if c.endpoints.Multiplexed {
+		if params.MultiplexingData == nil {
+			return nil, fmt.Errorf("multiplexing data is required for multiplexed payments")
+		}
+		if err := validateMultiplexingData(params.MultiplexingData); err != nil {
+			return nil, err
+		}
 	}
 
 	signData, err := generateSignData(
@@ -182,15 +199,15 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 	localDateTime := sadadLocalDateTime()
 	var payload []byte
 	if c.endpoints.Multiplexed {
-		payload, err = json.Marshal(paymentByIdentityRequestBody{
-			TerminalID:      params.TerminalID,
-			MerchantID:      params.MerchantID,
-			Amount:          params.Amount,
-			OrderID:         params.OrderID,
-			LocalDateTime:   localDateTime,
-			ReturnURL:       params.ReturnURL,
-			SignData:        signData,
-			PaymentIdentity: params.PaymentIdentity,
+		payload, err = json.Marshal(multiplexedPaymentRequestBody{
+			TerminalID:       params.TerminalID,
+			MerchantID:       params.MerchantID,
+			Amount:           params.Amount,
+			OrderID:          params.OrderID,
+			LocalDateTime:    localDateTime,
+			ReturnURL:        params.ReturnURL,
+			SignData:         signData,
+			MultiplexingData: *params.MultiplexingData,
 		})
 	} else {
 		payload, err = json.Marshal(paymentRequestBody{
@@ -371,6 +388,21 @@ func parseResCode(raw json.RawMessage) string {
 
 func isSuccessResCode(code string) bool {
 	return code == "0"
+}
+
+func validateMultiplexingData(data *MultiplexingData) error {
+	if data.Type == "" {
+		return fmt.Errorf("multiplexing type is required")
+	}
+	if len(data.MultiplexingRows) == 0 {
+		return fmt.Errorf("multiplexing rows are required")
+	}
+	for i, row := range data.MultiplexingRows {
+		if row.IbanNumber == "" {
+			return fmt.Errorf("multiplexing row %d: iban number is required", i)
+		}
+	}
+	return nil
 }
 
 // sadadLocalDateTime returns the timestamp Sadad expects (Iran local time).
