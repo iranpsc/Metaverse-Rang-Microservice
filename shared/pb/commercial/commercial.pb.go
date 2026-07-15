@@ -507,6 +507,94 @@ func (x *GetWalletRequest) GetUserId() uint64 {
 	return 0
 }
 
+type CreateWalletRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateWalletRequest) Reset() {
+	*x = CreateWalletRequest{}
+	mi := &file_commercial_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateWalletRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateWalletRequest) ProtoMessage() {}
+
+func (x *CreateWalletRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_commercial_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateWalletRequest.ProtoReflect.Descriptor instead.
+func (*CreateWalletRequest) Descriptor() ([]byte, []int) {
+	return file_commercial_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *CreateWalletRequest) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+type CreateUserVariablesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateUserVariablesRequest) Reset() {
+	*x = CreateUserVariablesRequest{}
+	mi := &file_commercial_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateUserVariablesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateUserVariablesRequest) ProtoMessage() {}
+
+func (x *CreateUserVariablesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_commercial_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateUserVariablesRequest.ProtoReflect.Descriptor instead.
+func (*CreateUserVariablesRequest) Descriptor() ([]byte, []int) {
+	return file_commercial_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *CreateUserVariablesRequest) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
 type WalletResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Psc           string                 `protobuf:"bytes,1,opt,name=psc,proto3" json:"psc,omitempty"`
@@ -522,7 +610,7 @@ type WalletResponse struct {
 
 func (x *WalletResponse) Reset() {
 	*x = WalletResponse{}
-	mi := &file_commercial_proto_msgTypes[5]
+	mi := &file_commercial_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -534,7 +622,7 @@ func (x *WalletResponse) String() string {
 func (*WalletResponse) ProtoMessage() {}
 
 func (x *WalletResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[5]
+	mi := &file_commercial_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -547,7 +635,7 @@ func (x *WalletResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WalletResponse.ProtoReflect.Descriptor instead.
 func (*WalletResponse) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{5}
+	return file_commercial_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *WalletResponse) GetPsc() string {
@@ -610,7 +698,7 @@ type DeductBalanceRequest struct {
 
 func (x *DeductBalanceRequest) Reset() {
 	*x = DeductBalanceRequest{}
-	mi := &file_commercial_proto_msgTypes[6]
+	mi := &file_commercial_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -622,7 +710,7 @@ func (x *DeductBalanceRequest) String() string {
 func (*DeductBalanceRequest) ProtoMessage() {}
 
 func (x *DeductBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[6]
+	mi := &file_commercial_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -635,7 +723,7 @@ func (x *DeductBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeductBalanceRequest.ProtoReflect.Descriptor instead.
 func (*DeductBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{6}
+	return file_commercial_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DeductBalanceRequest) GetUserId() uint64 {
@@ -670,7 +758,7 @@ type DeductBalanceResponse struct {
 
 func (x *DeductBalanceResponse) Reset() {
 	*x = DeductBalanceResponse{}
-	mi := &file_commercial_proto_msgTypes[7]
+	mi := &file_commercial_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -682,7 +770,7 @@ func (x *DeductBalanceResponse) String() string {
 func (*DeductBalanceResponse) ProtoMessage() {}
 
 func (x *DeductBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[7]
+	mi := &file_commercial_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -695,7 +783,7 @@ func (x *DeductBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeductBalanceResponse.ProtoReflect.Descriptor instead.
 func (*DeductBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{7}
+	return file_commercial_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeductBalanceResponse) GetSuccess() bool {
@@ -730,7 +818,7 @@ type AddBalanceRequest struct {
 
 func (x *AddBalanceRequest) Reset() {
 	*x = AddBalanceRequest{}
-	mi := &file_commercial_proto_msgTypes[8]
+	mi := &file_commercial_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -742,7 +830,7 @@ func (x *AddBalanceRequest) String() string {
 func (*AddBalanceRequest) ProtoMessage() {}
 
 func (x *AddBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[8]
+	mi := &file_commercial_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -755,7 +843,7 @@ func (x *AddBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddBalanceRequest.ProtoReflect.Descriptor instead.
 func (*AddBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{8}
+	return file_commercial_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AddBalanceRequest) GetUserId() uint64 {
@@ -790,7 +878,7 @@ type AddBalanceResponse struct {
 
 func (x *AddBalanceResponse) Reset() {
 	*x = AddBalanceResponse{}
-	mi := &file_commercial_proto_msgTypes[9]
+	mi := &file_commercial_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -802,7 +890,7 @@ func (x *AddBalanceResponse) String() string {
 func (*AddBalanceResponse) ProtoMessage() {}
 
 func (x *AddBalanceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[9]
+	mi := &file_commercial_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -815,7 +903,7 @@ func (x *AddBalanceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddBalanceResponse.ProtoReflect.Descriptor instead.
 func (*AddBalanceResponse) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{9}
+	return file_commercial_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *AddBalanceResponse) GetSuccess() bool {
@@ -851,7 +939,7 @@ type LockBalanceRequest struct {
 
 func (x *LockBalanceRequest) Reset() {
 	*x = LockBalanceRequest{}
-	mi := &file_commercial_proto_msgTypes[10]
+	mi := &file_commercial_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -863,7 +951,7 @@ func (x *LockBalanceRequest) String() string {
 func (*LockBalanceRequest) ProtoMessage() {}
 
 func (x *LockBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[10]
+	mi := &file_commercial_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -876,7 +964,7 @@ func (x *LockBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LockBalanceRequest.ProtoReflect.Descriptor instead.
 func (*LockBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{10}
+	return file_commercial_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *LockBalanceRequest) GetUserId() uint64 {
@@ -918,7 +1006,7 @@ type UnlockBalanceRequest struct {
 
 func (x *UnlockBalanceRequest) Reset() {
 	*x = UnlockBalanceRequest{}
-	mi := &file_commercial_proto_msgTypes[11]
+	mi := &file_commercial_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -930,7 +1018,7 @@ func (x *UnlockBalanceRequest) String() string {
 func (*UnlockBalanceRequest) ProtoMessage() {}
 
 func (x *UnlockBalanceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[11]
+	mi := &file_commercial_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -943,7 +1031,7 @@ func (x *UnlockBalanceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnlockBalanceRequest.ProtoReflect.Descriptor instead.
 func (*UnlockBalanceRequest) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{11}
+	return file_commercial_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UnlockBalanceRequest) GetUserId() uint64 {
@@ -985,7 +1073,7 @@ type ListTransactionsRequest struct {
 
 func (x *ListTransactionsRequest) Reset() {
 	*x = ListTransactionsRequest{}
-	mi := &file_commercial_proto_msgTypes[12]
+	mi := &file_commercial_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -997,7 +1085,7 @@ func (x *ListTransactionsRequest) String() string {
 func (*ListTransactionsRequest) ProtoMessage() {}
 
 func (x *ListTransactionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[12]
+	mi := &file_commercial_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1010,7 +1098,7 @@ func (x *ListTransactionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTransactionsRequest.ProtoReflect.Descriptor instead.
 func (*ListTransactionsRequest) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{12}
+	return file_commercial_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListTransactionsRequest) GetUserId() uint64 {
@@ -1094,7 +1182,7 @@ type ListTransactionsResponse struct {
 
 func (x *ListTransactionsResponse) Reset() {
 	*x = ListTransactionsResponse{}
-	mi := &file_commercial_proto_msgTypes[13]
+	mi := &file_commercial_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1106,7 +1194,7 @@ func (x *ListTransactionsResponse) String() string {
 func (*ListTransactionsResponse) ProtoMessage() {}
 
 func (x *ListTransactionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[13]
+	mi := &file_commercial_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1119,7 +1207,7 @@ func (x *ListTransactionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTransactionsResponse.ProtoReflect.Descriptor instead.
 func (*ListTransactionsResponse) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{13}
+	return file_commercial_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListTransactionsResponse) GetTransactions() []*TransactionResource {
@@ -1159,7 +1247,7 @@ type TransactionResource struct {
 
 func (x *TransactionResource) Reset() {
 	*x = TransactionResource{}
-	mi := &file_commercial_proto_msgTypes[14]
+	mi := &file_commercial_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1171,7 +1259,7 @@ func (x *TransactionResource) String() string {
 func (*TransactionResource) ProtoMessage() {}
 
 func (x *TransactionResource) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[14]
+	mi := &file_commercial_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1184,7 +1272,7 @@ func (x *TransactionResource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransactionResource.ProtoReflect.Descriptor instead.
 func (*TransactionResource) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{14}
+	return file_commercial_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *TransactionResource) GetId() string {
@@ -1252,7 +1340,7 @@ type GetLatestTransactionRequest struct {
 
 func (x *GetLatestTransactionRequest) Reset() {
 	*x = GetLatestTransactionRequest{}
-	mi := &file_commercial_proto_msgTypes[15]
+	mi := &file_commercial_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1264,7 +1352,7 @@ func (x *GetLatestTransactionRequest) String() string {
 func (*GetLatestTransactionRequest) ProtoMessage() {}
 
 func (x *GetLatestTransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[15]
+	mi := &file_commercial_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1277,7 +1365,7 @@ func (x *GetLatestTransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLatestTransactionRequest.ProtoReflect.Descriptor instead.
 func (*GetLatestTransactionRequest) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{15}
+	return file_commercial_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetLatestTransactionRequest) GetUserId() uint64 {
@@ -1298,7 +1386,7 @@ type LatestTransactionResponse struct {
 
 func (x *LatestTransactionResponse) Reset() {
 	*x = LatestTransactionResponse{}
-	mi := &file_commercial_proto_msgTypes[16]
+	mi := &file_commercial_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1310,7 +1398,7 @@ func (x *LatestTransactionResponse) String() string {
 func (*LatestTransactionResponse) ProtoMessage() {}
 
 func (x *LatestTransactionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[16]
+	mi := &file_commercial_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1323,7 +1411,7 @@ func (x *LatestTransactionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LatestTransactionResponse.ProtoReflect.Descriptor instead.
 func (*LatestTransactionResponse) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{16}
+	return file_commercial_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *LatestTransactionResponse) GetLatestTransaction() *Transaction {
@@ -1362,7 +1450,7 @@ type CreateTransactionRequest struct {
 
 func (x *CreateTransactionRequest) Reset() {
 	*x = CreateTransactionRequest{}
-	mi := &file_commercial_proto_msgTypes[17]
+	mi := &file_commercial_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1374,7 +1462,7 @@ func (x *CreateTransactionRequest) String() string {
 func (*CreateTransactionRequest) ProtoMessage() {}
 
 func (x *CreateTransactionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[17]
+	mi := &file_commercial_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1387,7 +1475,7 @@ func (x *CreateTransactionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateTransactionRequest.ProtoReflect.Descriptor instead.
 func (*CreateTransactionRequest) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{17}
+	return file_commercial_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CreateTransactionRequest) GetUserId() uint64 {
@@ -1451,7 +1539,7 @@ type ProcessReferralRequest struct {
 
 func (x *ProcessReferralRequest) Reset() {
 	*x = ProcessReferralRequest{}
-	mi := &file_commercial_proto_msgTypes[18]
+	mi := &file_commercial_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1463,7 +1551,7 @@ func (x *ProcessReferralRequest) String() string {
 func (*ProcessReferralRequest) ProtoMessage() {}
 
 func (x *ProcessReferralRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_commercial_proto_msgTypes[18]
+	mi := &file_commercial_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1476,7 +1564,7 @@ func (x *ProcessReferralRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessReferralRequest.ProtoReflect.Descriptor instead.
 func (*ProcessReferralRequest) Descriptor() ([]byte, []int) {
-	return file_commercial_proto_rawDescGZIP(), []int{18}
+	return file_commercial_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ProcessReferralRequest) GetBuyerUserId() uint64 {
@@ -1564,6 +1652,10 @@ const file_commercial_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"+\n" +
 	"\x10GetWalletRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\".\n" +
+	"\x13CreateWalletRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\"5\n" +
+	"\x1aCreateUserVariablesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\"\xae\x01\n" +
 	"\x0eWalletResponse\x12\x10\n" +
 	"\x03psc\x18\x01 \x01(\tR\x03psc\x12\x10\n" +
@@ -1642,9 +1734,10 @@ const file_commercial_proto_rawDesc = "" +
 	"\rbuyer_user_id\x18\x01 \x01(\x04R\vbuyerUserId\x12\x19\n" +
 	"\border_id\x18\x02 \x01(\x04R\aorderId\x12\x14\n" +
 	"\x05asset\x18\x03 \x01(\tR\x05asset\x12\x16\n" +
-	"\x06amount\x18\x04 \x01(\x01R\x06amount2\x8b\x03\n" +
+	"\x06amount\x18\x04 \x01(\x01R\x06amount2\xd8\x03\n" +
 	"\rWalletService\x12E\n" +
-	"\tGetWallet\x12\x1c.commercial.GetWalletRequest\x1a\x1a.commercial.WalletResponse\x12T\n" +
+	"\tGetWallet\x12\x1c.commercial.GetWalletRequest\x1a\x1a.commercial.WalletResponse\x12K\n" +
+	"\fCreateWallet\x12\x1f.commercial.CreateWalletRequest\x1a\x1a.commercial.WalletResponse\x12T\n" +
 	"\rDeductBalance\x12 .commercial.DeductBalanceRequest\x1a!.commercial.DeductBalanceResponse\x12K\n" +
 	"\n" +
 	"AddBalance\x12\x1d.commercial.AddBalanceRequest\x1a\x1e.commercial.AddBalanceResponse\x12E\n" +
@@ -1655,7 +1748,9 @@ const file_commercial_proto_rawDesc = "" +
 	"\x14GetLatestTransaction\x12'.commercial.GetLatestTransactionRequest\x1a%.commercial.LatestTransactionResponse\x12R\n" +
 	"\x11CreateTransaction\x12$.commercial.CreateTransactionRequest\x1a\x17.commercial.Transaction2`\n" +
 	"\x0fReferralService\x12M\n" +
-	"\x0fProcessReferral\x12\".commercial.ProcessReferralRequest\x1a\x16.google.protobuf.EmptyB\x1fZ\x1dmetarang/shared/pb/commercialb\x06proto3"
+	"\x0fProcessReferral\x12\".commercial.ProcessReferralRequest\x1a\x16.google.protobuf.Empty2l\n" +
+	"\x13UserVariableService\x12U\n" +
+	"\x13CreateUserVariables\x12&.commercial.CreateUserVariablesRequest\x1a\x16.google.protobuf.EmptyB\x1fZ\x1dmetarang/shared/pb/commercialb\x06proto3"
 
 var (
 	file_commercial_proto_rawDescOnce sync.Once
@@ -1669,63 +1764,69 @@ func file_commercial_proto_rawDescGZIP() []byte {
 	return file_commercial_proto_rawDescData
 }
 
-var file_commercial_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_commercial_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_commercial_proto_goTypes = []any{
 	(*Wallet)(nil),                      // 0: commercial.Wallet
 	(*Transaction)(nil),                 // 1: commercial.Transaction
 	(*Order)(nil),                       // 2: commercial.Order
 	(*Payment)(nil),                     // 3: commercial.Payment
 	(*GetWalletRequest)(nil),            // 4: commercial.GetWalletRequest
-	(*WalletResponse)(nil),              // 5: commercial.WalletResponse
-	(*DeductBalanceRequest)(nil),        // 6: commercial.DeductBalanceRequest
-	(*DeductBalanceResponse)(nil),       // 7: commercial.DeductBalanceResponse
-	(*AddBalanceRequest)(nil),           // 8: commercial.AddBalanceRequest
-	(*AddBalanceResponse)(nil),          // 9: commercial.AddBalanceResponse
-	(*LockBalanceRequest)(nil),          // 10: commercial.LockBalanceRequest
-	(*UnlockBalanceRequest)(nil),        // 11: commercial.UnlockBalanceRequest
-	(*ListTransactionsRequest)(nil),     // 12: commercial.ListTransactionsRequest
-	(*ListTransactionsResponse)(nil),    // 13: commercial.ListTransactionsResponse
-	(*TransactionResource)(nil),         // 14: commercial.TransactionResource
-	(*GetLatestTransactionRequest)(nil), // 15: commercial.GetLatestTransactionRequest
-	(*LatestTransactionResponse)(nil),   // 16: commercial.LatestTransactionResponse
-	(*CreateTransactionRequest)(nil),    // 17: commercial.CreateTransactionRequest
-	(*ProcessReferralRequest)(nil),      // 18: commercial.ProcessReferralRequest
-	(*timestamppb.Timestamp)(nil),       // 19: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),               // 20: google.protobuf.Empty
+	(*CreateWalletRequest)(nil),         // 5: commercial.CreateWalletRequest
+	(*CreateUserVariablesRequest)(nil),  // 6: commercial.CreateUserVariablesRequest
+	(*WalletResponse)(nil),              // 7: commercial.WalletResponse
+	(*DeductBalanceRequest)(nil),        // 8: commercial.DeductBalanceRequest
+	(*DeductBalanceResponse)(nil),       // 9: commercial.DeductBalanceResponse
+	(*AddBalanceRequest)(nil),           // 10: commercial.AddBalanceRequest
+	(*AddBalanceResponse)(nil),          // 11: commercial.AddBalanceResponse
+	(*LockBalanceRequest)(nil),          // 12: commercial.LockBalanceRequest
+	(*UnlockBalanceRequest)(nil),        // 13: commercial.UnlockBalanceRequest
+	(*ListTransactionsRequest)(nil),     // 14: commercial.ListTransactionsRequest
+	(*ListTransactionsResponse)(nil),    // 15: commercial.ListTransactionsResponse
+	(*TransactionResource)(nil),         // 16: commercial.TransactionResource
+	(*GetLatestTransactionRequest)(nil), // 17: commercial.GetLatestTransactionRequest
+	(*LatestTransactionResponse)(nil),   // 18: commercial.LatestTransactionResponse
+	(*CreateTransactionRequest)(nil),    // 19: commercial.CreateTransactionRequest
+	(*ProcessReferralRequest)(nil),      // 20: commercial.ProcessReferralRequest
+	(*timestamppb.Timestamp)(nil),       // 21: google.protobuf.Timestamp
+	(*emptypb.Empty)(nil),               // 22: google.protobuf.Empty
 }
 var file_commercial_proto_depIdxs = []int32{
-	19, // 0: commercial.Wallet.created_at:type_name -> google.protobuf.Timestamp
-	19, // 1: commercial.Wallet.updated_at:type_name -> google.protobuf.Timestamp
-	19, // 2: commercial.Transaction.created_at:type_name -> google.protobuf.Timestamp
-	19, // 3: commercial.Transaction.updated_at:type_name -> google.protobuf.Timestamp
-	19, // 4: commercial.Order.created_at:type_name -> google.protobuf.Timestamp
-	19, // 5: commercial.Payment.created_at:type_name -> google.protobuf.Timestamp
-	5,  // 6: commercial.DeductBalanceResponse.wallet:type_name -> commercial.WalletResponse
-	5,  // 7: commercial.AddBalanceResponse.wallet:type_name -> commercial.WalletResponse
-	14, // 8: commercial.ListTransactionsResponse.transactions:type_name -> commercial.TransactionResource
+	21, // 0: commercial.Wallet.created_at:type_name -> google.protobuf.Timestamp
+	21, // 1: commercial.Wallet.updated_at:type_name -> google.protobuf.Timestamp
+	21, // 2: commercial.Transaction.created_at:type_name -> google.protobuf.Timestamp
+	21, // 3: commercial.Transaction.updated_at:type_name -> google.protobuf.Timestamp
+	21, // 4: commercial.Order.created_at:type_name -> google.protobuf.Timestamp
+	21, // 5: commercial.Payment.created_at:type_name -> google.protobuf.Timestamp
+	7,  // 6: commercial.DeductBalanceResponse.wallet:type_name -> commercial.WalletResponse
+	7,  // 7: commercial.AddBalanceResponse.wallet:type_name -> commercial.WalletResponse
+	16, // 8: commercial.ListTransactionsResponse.transactions:type_name -> commercial.TransactionResource
 	1,  // 9: commercial.LatestTransactionResponse.latest_transaction:type_name -> commercial.Transaction
 	3,  // 10: commercial.LatestTransactionResponse.latest_payment:type_name -> commercial.Payment
 	2,  // 11: commercial.LatestTransactionResponse.latest_order:type_name -> commercial.Order
 	4,  // 12: commercial.WalletService.GetWallet:input_type -> commercial.GetWalletRequest
-	6,  // 13: commercial.WalletService.DeductBalance:input_type -> commercial.DeductBalanceRequest
-	8,  // 14: commercial.WalletService.AddBalance:input_type -> commercial.AddBalanceRequest
-	10, // 15: commercial.WalletService.LockBalance:input_type -> commercial.LockBalanceRequest
-	11, // 16: commercial.WalletService.UnlockBalance:input_type -> commercial.UnlockBalanceRequest
-	12, // 17: commercial.TransactionService.ListTransactions:input_type -> commercial.ListTransactionsRequest
-	15, // 18: commercial.TransactionService.GetLatestTransaction:input_type -> commercial.GetLatestTransactionRequest
-	17, // 19: commercial.TransactionService.CreateTransaction:input_type -> commercial.CreateTransactionRequest
-	18, // 20: commercial.ReferralService.ProcessReferral:input_type -> commercial.ProcessReferralRequest
-	5,  // 21: commercial.WalletService.GetWallet:output_type -> commercial.WalletResponse
-	7,  // 22: commercial.WalletService.DeductBalance:output_type -> commercial.DeductBalanceResponse
-	9,  // 23: commercial.WalletService.AddBalance:output_type -> commercial.AddBalanceResponse
-	20, // 24: commercial.WalletService.LockBalance:output_type -> google.protobuf.Empty
-	20, // 25: commercial.WalletService.UnlockBalance:output_type -> google.protobuf.Empty
-	13, // 26: commercial.TransactionService.ListTransactions:output_type -> commercial.ListTransactionsResponse
-	16, // 27: commercial.TransactionService.GetLatestTransaction:output_type -> commercial.LatestTransactionResponse
-	1,  // 28: commercial.TransactionService.CreateTransaction:output_type -> commercial.Transaction
-	20, // 29: commercial.ReferralService.ProcessReferral:output_type -> google.protobuf.Empty
-	21, // [21:30] is the sub-list for method output_type
-	12, // [12:21] is the sub-list for method input_type
+	5,  // 13: commercial.WalletService.CreateWallet:input_type -> commercial.CreateWalletRequest
+	8,  // 14: commercial.WalletService.DeductBalance:input_type -> commercial.DeductBalanceRequest
+	10, // 15: commercial.WalletService.AddBalance:input_type -> commercial.AddBalanceRequest
+	12, // 16: commercial.WalletService.LockBalance:input_type -> commercial.LockBalanceRequest
+	13, // 17: commercial.WalletService.UnlockBalance:input_type -> commercial.UnlockBalanceRequest
+	14, // 18: commercial.TransactionService.ListTransactions:input_type -> commercial.ListTransactionsRequest
+	17, // 19: commercial.TransactionService.GetLatestTransaction:input_type -> commercial.GetLatestTransactionRequest
+	19, // 20: commercial.TransactionService.CreateTransaction:input_type -> commercial.CreateTransactionRequest
+	20, // 21: commercial.ReferralService.ProcessReferral:input_type -> commercial.ProcessReferralRequest
+	6,  // 22: commercial.UserVariableService.CreateUserVariables:input_type -> commercial.CreateUserVariablesRequest
+	7,  // 23: commercial.WalletService.GetWallet:output_type -> commercial.WalletResponse
+	7,  // 24: commercial.WalletService.CreateWallet:output_type -> commercial.WalletResponse
+	9,  // 25: commercial.WalletService.DeductBalance:output_type -> commercial.DeductBalanceResponse
+	11, // 26: commercial.WalletService.AddBalance:output_type -> commercial.AddBalanceResponse
+	22, // 27: commercial.WalletService.LockBalance:output_type -> google.protobuf.Empty
+	22, // 28: commercial.WalletService.UnlockBalance:output_type -> google.protobuf.Empty
+	15, // 29: commercial.TransactionService.ListTransactions:output_type -> commercial.ListTransactionsResponse
+	18, // 30: commercial.TransactionService.GetLatestTransaction:output_type -> commercial.LatestTransactionResponse
+	1,  // 31: commercial.TransactionService.CreateTransaction:output_type -> commercial.Transaction
+	22, // 32: commercial.ReferralService.ProcessReferral:output_type -> google.protobuf.Empty
+	22, // 33: commercial.UserVariableService.CreateUserVariables:output_type -> google.protobuf.Empty
+	23, // [23:34] is the sub-list for method output_type
+	12, // [12:23] is the sub-list for method input_type
 	12, // [12:12] is the sub-list for extension type_name
 	12, // [12:12] is the sub-list for extension extendee
 	0,  // [0:12] is the sub-list for field type_name
@@ -1742,9 +1843,9 @@ func file_commercial_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_commercial_proto_rawDesc), len(file_commercial_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   21,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   4,
 		},
 		GoTypes:           file_commercial_proto_goTypes,
 		DependencyIndexes: file_commercial_proto_depIdxs,

@@ -10,6 +10,7 @@ import "google/protobuf/empty.proto";
 // Wallet Service - handles wallet operations
 service WalletService {
   rpc GetWallet(GetWalletRequest) returns (WalletResponse);
+  rpc CreateWallet(CreateWalletRequest) returns (WalletResponse);
   rpc DeductBalance(DeductBalanceRequest) returns (DeductBalanceResponse);
   rpc AddBalance(AddBalanceRequest) returns (AddBalanceResponse);
   rpc LockBalance(LockBalanceRequest) returns (google.protobuf.Empty);
@@ -26,6 +27,11 @@ service TransactionService {
 // Referral Service - processes referral commissions after successful payments
 service ReferralService {
   rpc ProcessReferral(ProcessReferralRequest) returns (google.protobuf.Empty);
+}
+
+// UserVariable Service - handles per-user commercial variables
+service UserVariableService {
+  rpc CreateUserVariables(CreateUserVariablesRequest) returns (google.protobuf.Empty);
 }
 
 // ============== Messages ==============
@@ -82,6 +88,14 @@ message Payment {
 // ============== Request/Response Messages ==============
 
 message GetWalletRequest {
+  uint64 user_id = 1;
+}
+
+message CreateWalletRequest {
+  uint64 user_id = 1;
+}
+
+message CreateUserVariablesRequest {
   uint64 user_id = 1;
 }
 

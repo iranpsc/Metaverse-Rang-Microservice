@@ -9,6 +9,7 @@ import (
 type UserVariableRepository interface {
 	GetReferralProfitLimit(ctx context.Context, userID uint64) (float64, error)
 	GetWithdrawProfit(ctx context.Context, userID uint64) (int, error)
+	Create(ctx context.Context, userID uint64) error
 }
 
 type userVariableRepository struct {
@@ -63,4 +64,28 @@ func (r *userVariableRepository) GetWithdrawProfit(ctx context.Context, userID u
 	}
 
 	return days, nil
+}
+
+// Create inserts default user_variables for a newly registered user.
+// Defaults match Laravel migration: referral_profit=15000000, data_storage=0, withdraw_profit=10.
+// Idempotent if a row already exists.
+func (r *userVariableRepository) Create(ctx context.Context, userID uint64) error {
+	var existingID uint64
+	err := r.db.QueryRowContext(ctx, `SELECT id FROM user_variables WHERE user_id = ? LIMIT 1`, userID).Scan(&existingID)
+	if err == nil {
+		return nil
+	}
+	if err != sql.ErrNoRows {
+		return fmt.Errorf("failed to check existing user variables: %w", err)
+	}
+
+	query := `
+		INSERT INTO user_variables (user_id, referral_profit, data_storage, withdraw_profit, created_at, updated_at)
+		VALUES (?, 15000000, 0, 10, NOW(), NOW())
+	`
+	_, err = r.db.ExecContext(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("failed to create user variables: %w", err)
+	}
+	return nil
 }

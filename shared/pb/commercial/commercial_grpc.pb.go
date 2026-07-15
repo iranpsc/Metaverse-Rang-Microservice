@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	WalletService_GetWallet_FullMethodName     = "/commercial.WalletService/GetWallet"
+	WalletService_CreateWallet_FullMethodName  = "/commercial.WalletService/CreateWallet"
 	WalletService_DeductBalance_FullMethodName = "/commercial.WalletService/DeductBalance"
 	WalletService_AddBalance_FullMethodName    = "/commercial.WalletService/AddBalance"
 	WalletService_LockBalance_FullMethodName   = "/commercial.WalletService/LockBalance"
@@ -34,6 +35,7 @@ const (
 // Wallet Service - handles wallet operations
 type WalletServiceClient interface {
 	GetWallet(ctx context.Context, in *GetWalletRequest, opts ...grpc.CallOption) (*WalletResponse, error)
+	CreateWallet(ctx context.Context, in *CreateWalletRequest, opts ...grpc.CallOption) (*WalletResponse, error)
 	DeductBalance(ctx context.Context, in *DeductBalanceRequest, opts ...grpc.CallOption) (*DeductBalanceResponse, error)
 	AddBalance(ctx context.Context, in *AddBalanceRequest, opts ...grpc.CallOption) (*AddBalanceResponse, error)
 	LockBalance(ctx context.Context, in *LockBalanceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -52,6 +54,16 @@ func (c *walletServiceClient) GetWallet(ctx context.Context, in *GetWalletReques
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(WalletResponse)
 	err := c.cc.Invoke(ctx, WalletService_GetWallet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *walletServiceClient) CreateWallet(ctx context.Context, in *CreateWalletRequest, opts ...grpc.CallOption) (*WalletResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WalletResponse)
+	err := c.cc.Invoke(ctx, WalletService_CreateWallet_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +117,7 @@ func (c *walletServiceClient) UnlockBalance(ctx context.Context, in *UnlockBalan
 // Wallet Service - handles wallet operations
 type WalletServiceServer interface {
 	GetWallet(context.Context, *GetWalletRequest) (*WalletResponse, error)
+	CreateWallet(context.Context, *CreateWalletRequest) (*WalletResponse, error)
 	DeductBalance(context.Context, *DeductBalanceRequest) (*DeductBalanceResponse, error)
 	AddBalance(context.Context, *AddBalanceRequest) (*AddBalanceResponse, error)
 	LockBalance(context.Context, *LockBalanceRequest) (*emptypb.Empty, error)
@@ -121,6 +134,9 @@ type UnimplementedWalletServiceServer struct{}
 
 func (UnimplementedWalletServiceServer) GetWallet(context.Context, *GetWalletRequest) (*WalletResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetWallet not implemented")
+}
+func (UnimplementedWalletServiceServer) CreateWallet(context.Context, *CreateWalletRequest) (*WalletResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateWallet not implemented")
 }
 func (UnimplementedWalletServiceServer) DeductBalance(context.Context, *DeductBalanceRequest) (*DeductBalanceResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeductBalance not implemented")
@@ -169,6 +185,24 @@ func _WalletService_GetWallet_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(WalletServiceServer).GetWallet(ctx, req.(*GetWalletRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WalletService_CreateWallet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateWalletRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WalletServiceServer).CreateWallet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WalletService_CreateWallet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WalletServiceServer).CreateWallet(ctx, req.(*CreateWalletRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -255,6 +289,10 @@ var WalletService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetWallet",
 			Handler:    _WalletService_GetWallet_Handler,
+		},
+		{
+			MethodName: "CreateWallet",
+			Handler:    _WalletService_CreateWallet_Handler,
 		},
 		{
 			MethodName: "DeductBalance",
@@ -559,6 +597,112 @@ var ReferralService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ProcessReferral",
 			Handler:    _ReferralService_ProcessReferral_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "commercial.proto",
+}
+
+const (
+	UserVariableService_CreateUserVariables_FullMethodName = "/commercial.UserVariableService/CreateUserVariables"
+)
+
+// UserVariableServiceClient is the client API for UserVariableService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// UserVariable Service - handles per-user commercial variables
+type UserVariableServiceClient interface {
+	CreateUserVariables(ctx context.Context, in *CreateUserVariablesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type userVariableServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewUserVariableServiceClient(cc grpc.ClientConnInterface) UserVariableServiceClient {
+	return &userVariableServiceClient{cc}
+}
+
+func (c *userVariableServiceClient) CreateUserVariables(ctx context.Context, in *CreateUserVariablesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, UserVariableService_CreateUserVariables_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// UserVariableServiceServer is the server API for UserVariableService service.
+// All implementations must embed UnimplementedUserVariableServiceServer
+// for forward compatibility.
+//
+// UserVariable Service - handles per-user commercial variables
+type UserVariableServiceServer interface {
+	CreateUserVariables(context.Context, *CreateUserVariablesRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedUserVariableServiceServer()
+}
+
+// UnimplementedUserVariableServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedUserVariableServiceServer struct{}
+
+func (UnimplementedUserVariableServiceServer) CreateUserVariables(context.Context, *CreateUserVariablesRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateUserVariables not implemented")
+}
+func (UnimplementedUserVariableServiceServer) mustEmbedUnimplementedUserVariableServiceServer() {}
+func (UnimplementedUserVariableServiceServer) testEmbeddedByValue()                             {}
+
+// UnsafeUserVariableServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to UserVariableServiceServer will
+// result in compilation errors.
+type UnsafeUserVariableServiceServer interface {
+	mustEmbedUnimplementedUserVariableServiceServer()
+}
+
+func RegisterUserVariableServiceServer(s grpc.ServiceRegistrar, srv UserVariableServiceServer) {
+	// If the following call panics, it indicates UnimplementedUserVariableServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&UserVariableService_ServiceDesc, srv)
+}
+
+func _UserVariableService_CreateUserVariables_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUserVariablesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserVariableServiceServer).CreateUserVariables(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserVariableService_CreateUserVariables_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserVariableServiceServer).CreateUserVariables(ctx, req.(*CreateUserVariablesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// UserVariableService_ServiceDesc is the grpc.ServiceDesc for UserVariableService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var UserVariableService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "commercial.UserVariableService",
+	HandlerType: (*UserVariableServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateUserVariables",
+			Handler:    _UserVariableService_CreateUserVariables_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

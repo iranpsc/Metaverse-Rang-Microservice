@@ -35,7 +35,23 @@ func (h *WalletHandler) GetWallet(ctx context.Context, req *pb.GetWalletRequest)
 		return nil, status.Errorf(codes.Internal, "failed to get wallet: %v", err)
 	}
 
-	// Parse effect from string to float64
+	return toWalletResponse(wallet), nil
+}
+
+func (h *WalletHandler) CreateWallet(ctx context.Context, req *pb.CreateWalletRequest) (*pb.WalletResponse, error) {
+	if req == nil || req.UserId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	wallet, err := h.walletService.CreateWallet(ctx, req.UserId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to create wallet: %v", err)
+	}
+
+	return toWalletResponse(wallet), nil
+}
+
+func toWalletResponse(wallet map[string]string) *pb.WalletResponse {
 	effect := 0.0
 	if effectStr, ok := wallet["effect"]; ok && effectStr != "" {
 		if parsedEffect, err := strconv.ParseFloat(effectStr, 64); err == nil {
@@ -51,7 +67,7 @@ func (h *WalletHandler) GetWallet(ctx context.Context, req *pb.GetWalletRequest)
 		Yellow:       wallet["yellow"],
 		Satisfaction: wallet["satisfaction"],
 		Effect:       effect,
-	}, nil
+	}
 }
 
 func (h *WalletHandler) DeductBalance(ctx context.Context, req *pb.DeductBalanceRequest) (*pb.DeductBalanceResponse, error) {
@@ -63,26 +79,10 @@ func (h *WalletHandler) DeductBalance(ctx context.Context, req *pb.DeductBalance
 		}, nil
 	}
 
-	// Parse effect from string to float64
-	effect := 0.0
-	if effectStr, ok := wallet["effect"]; ok && effectStr != "" {
-		if parsedEffect, err := strconv.ParseFloat(effectStr, 64); err == nil {
-			effect = parsedEffect
-		}
-	}
-
 	return &pb.DeductBalanceResponse{
 		Success: true,
 		Message: "Balance deducted successfully",
-		Wallet: &pb.WalletResponse{
-			Psc:          wallet["psc"],
-			Irr:          wallet["irr"],
-			Red:          wallet["red"],
-			Blue:         wallet["blue"],
-			Yellow:       wallet["yellow"],
-			Satisfaction: wallet["satisfaction"],
-			Effect:       effect,
-		},
+		Wallet:  toWalletResponse(wallet),
 	}, nil
 }
 
@@ -95,26 +95,10 @@ func (h *WalletHandler) AddBalance(ctx context.Context, req *pb.AddBalanceReques
 		}, nil
 	}
 
-	// Parse effect from string to float64
-	effect := 0.0
-	if effectStr, ok := wallet["effect"]; ok && effectStr != "" {
-		if parsedEffect, err := strconv.ParseFloat(effectStr, 64); err == nil {
-			effect = parsedEffect
-		}
-	}
-
 	return &pb.AddBalanceResponse{
 		Success: true,
 		Message: "Balance added successfully",
-		Wallet: &pb.WalletResponse{
-			Psc:          wallet["psc"],
-			Irr:          wallet["irr"],
-			Red:          wallet["red"],
-			Blue:         wallet["blue"],
-			Yellow:       wallet["yellow"],
-			Satisfaction: wallet["satisfaction"],
-			Effect:       effect,
-		},
+		Wallet:  toWalletResponse(wallet),
 	}, nil
 }
 

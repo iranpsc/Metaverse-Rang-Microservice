@@ -208,10 +208,12 @@ func shouldSkipAuth(fullMethod string) bool {
 		// Commercial service public endpoints
 		"/commercial.WalletService/GetWallet", // Public endpoint - anyone can view any user's wallet
 		// Commercial service internal wallet mutations (called by other microservices)
+		"/commercial.WalletService/CreateWallet",
 		"/commercial.WalletService/AddBalance",
 		"/commercial.WalletService/DeductBalance",
 		"/commercial.WalletService/LockBalance",
 		"/commercial.WalletService/UnlockBalance",
+		"/commercial.UserVariableService/CreateUserVariables",
 		"/commercial.TransactionService/CreateTransaction",
 		// Financial service public endpoints (payment gateway callbacks, internal wallet RPC)
 		"/financial.OrderService/HandleCallback",

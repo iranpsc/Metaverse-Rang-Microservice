@@ -296,10 +296,15 @@ func (s *authService) Callback(ctx context.Context, state, code, ip string) (*Ca
 			}
 		}
 
-		// TODO: Call Commercial service to create wallet and user_variables
-		// This should be done via gRPC:
-		// - commercialClient.CreateWallet(ctx, &pb.CreateWalletRequest{UserId: user.ID})
-		// - commercialClient.CreateUserVariables(ctx, &pb.CreateUserVariablesRequest{UserId: user.ID})
+		// Create wallet and user_variables via Commercial service (Laravel UserObserver::created)
+		if err == nil && s.helperService != nil {
+			if walletErr := s.helperService.CreateWallet(ctx, user.ID); walletErr != nil {
+				fmt.Printf("failed to create wallet for user %d: %v\n", user.ID, walletErr)
+			}
+			if varsErr := s.helperService.CreateUserVariables(ctx, user.ID); varsErr != nil {
+				fmt.Printf("failed to create user variables for user %d: %v\n", user.ID, varsErr)
+			}
+		}
 	} else {
 		// Update existing user
 		user.Name = userData.Name
@@ -339,9 +344,9 @@ func (s *authService) Callback(ctx context.Context, state, code, ip string) (*Ca
 	tokenParts := splitToken(token)
 	plainToken := tokenParts[1]
 
-	// Trigger login observer (fires logedIn event)
-	// Note: UserAgent should be extracted from gRPC metadata
-	if s.observerService != nil {
+	// Trigger login observer only for existing users (Laravel UserObserver::logedIn).
+	// New users go through OnUserCreated above; returning users get login side-effects.
+	if !isNewUser && s.observerService != nil {
 		if err := s.observerService.OnUserLogin(ctx, user, ip, ""); err != nil {
 			// Log error but don't fail the login
 			fmt.Printf("observer error on login: %v\n", err)

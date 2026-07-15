@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"metarang/auth-service/internal/models"
 	"metarang/auth-service/internal/pubsub"
 	"metarang/auth-service/internal/repository"
+	notificationspb "metarang/shared/pb/notifications"
 )
 
 // ObserverService handles user events, activity tracking, and score calculation
@@ -32,12 +34,11 @@ type ObserverService interface {
 }
 
 type observerService struct {
-	userRepo     repository.UserRepository
-	settingsRepo repository.SettingsRepository
-	activityRepo repository.ActivityRepository
-	publisher    pubsub.RedisPublisher
-	// TODO: Add notification service client for sending login notifications
-	// notificationClient pb.NotificationServiceClient
+	userRepo           repository.UserRepository
+	settingsRepo       repository.SettingsRepository
+	activityRepo       repository.ActivityRepository
+	publisher          pubsub.RedisPublisher
+	notificationClient notificationspb.NotificationServiceClient
 }
 
 func NewObserverService(
@@ -57,12 +58,14 @@ func NewObserverServiceWithSettings(
 	settingsRepo repository.SettingsRepository,
 	activityRepo repository.ActivityRepository,
 	publisher pubsub.RedisPublisher,
+	notificationClient notificationspb.NotificationServiceClient,
 ) ObserverService {
 	return &observerService{
-		userRepo:     userRepo,
-		settingsRepo: settingsRepo,
-		activityRepo: activityRepo,
-		publisher:    publisher,
+		userRepo:           userRepo,
+		settingsRepo:       settingsRepo,
+		activityRepo:       activityRepo,
+		publisher:          publisher,
+		notificationClient: notificationClient,
 	}
 }
 
@@ -86,13 +89,11 @@ func (s *observerService) OnUserLogin(ctx context.Context, user *models.User, ip
 		return fmt.Errorf("failed to update last seen: %w", err)
 	}
 
-	// 3. Send login notification (TODO: integrate with notifications service)
-	// notification := &pb.SendNotificationRequest{
-	//     UserId: user.ID,
-	//     Type:   "login",
-	//     Data:   map[string]string{"ip": ip},
-	// }
-	// _, err := s.notificationClient.SendNotification(ctx, notification)
+	// 3. Send login notification (Laravel LogedInNotification)
+	if err := s.sendLoggedInNotification(ctx, user, ip); err != nil {
+		// Log error but don't fail the login
+		fmt.Printf("failed to send login notification: %v\n", err)
+	}
 
 	// 4. Create activity tracking record
 	activity := &models.UserActivity{
@@ -104,13 +105,72 @@ func (s *observerService) OnUserLogin(ctx context.Context, user *models.User, ip
 		return fmt.Errorf("failed to create activity: %w", err)
 	}
 
-	// 5. Broadcast WebSocket event
-	if err := s.publisher.PublishUserStatusChanged(ctx, user.ID, true); err != nil {
-		// Log error but don't fail the login
-		fmt.Printf("failed to publish user status: %v\n", err)
+	// 5. Broadcast WebSocket online status (Laravel UserStatusChanged)
+	if s.publisher != nil {
+		if err := s.publisher.PublishUserStatusChanged(ctx, user.ID, true); err != nil {
+			// Log error but don't fail the login
+			fmt.Printf("failed to publish user status: %v\n", err)
+		}
 	}
 
 	return nil
+}
+
+// sendLoggedInNotification mirrors Laravel LogedInNotification channel selection.
+func (s *observerService) sendLoggedInNotification(ctx context.Context, user *models.User, ip string) error {
+	if s.notificationClient == nil {
+		return nil
+	}
+
+	sendSMS, sendEmail := s.loginNotificationChannels(ctx, user)
+
+	notifyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := s.notificationClient.SendNotification(notifyCtx, &notificationspb.SendNotificationRequest{
+		UserId:  user.ID,
+		Type:    "login",
+		Title:   "ورود به حساب کاربری",
+		Message: "شما با موفقیت وارد حساب کاربری خود شدید.",
+		Data: map[string]string{
+			"ip":           ip,
+			"related-to":   "events",
+			"sender-name":  "متارنگ",
+			"sender-image": "uploads/img/logo.png",
+		},
+		SendSms:   sendSMS,
+		SendEmail: sendEmail,
+	})
+	if err != nil {
+		return fmt.Errorf("notification service: %w", err)
+	}
+	return nil
+}
+
+func (s *observerService) loginNotificationChannels(ctx context.Context, user *models.User) (sendSMS, sendEmail bool) {
+	settings, err := s.getUserSettings(ctx, user.ID)
+	if err != nil || settings == nil || settings.Notifications == nil {
+		return false, false
+	}
+
+	sendEmail = settings.Notifications["login_verification_email"]
+	// Laravel only sends SMS when phone is verified
+	hasVerifiedPhone := user.Phone.Valid && strings.TrimSpace(user.Phone.String) != "" && user.PhoneVerifiedAt.Valid
+	sendSMS = hasVerifiedPhone && settings.Notifications["login_verification_sms"]
+	return sendSMS, sendEmail
+}
+
+func (s *observerService) getUserSettings(ctx context.Context, userID uint64) (*models.Settings, error) {
+	if s.settingsRepo != nil {
+		settings, err := s.settingsRepo.FindByUserID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		if settings != nil {
+			return settings, nil
+		}
+	}
+	return s.userRepo.GetSettings(ctx, userID)
 }
 
 // OnUserLogout handles the logout event
@@ -241,10 +301,8 @@ func (s *observerService) OnUserCreated(ctx context.Context, user *models.User) 
 		return fmt.Errorf("failed to create initial activity: %w", err)
 	}
 
-	// 5. Wallet and Variables should be created via gRPC calls to Commercial service:
-	//    - CreateWallet RPC (creates wallet with all balances set to 0)
-	//    - CreateUserVariables RPC (creates user_variables with default values)
-	// This should be done by the caller (Callback method) after this method succeeds
+	// Wallet and user_variables are created by AuthService.Callback via HelperService
+	// (Commercial service gRPC CreateWallet / CreateUserVariables).
 
 	return nil
 }

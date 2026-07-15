@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"metarang/auth-service/internal/service"
@@ -13,6 +14,10 @@ import (
 
 	"metarang/auth-service/internal/models"
 	"metarang/auth-service/internal/repository"
+	pbCommon "metarang/shared/pb/common"
+	notificationspb "metarang/shared/pb/notifications"
+
+	"google.golang.org/grpc"
 )
 
 func TestRegister(t *testing.T) {
@@ -448,6 +453,459 @@ func TestCallback(t *testing.T) {
 	})
 }
 
+func TestCallbackCreatesUserRelatedRecords(t *testing.T) {
+	ctx := context.Background()
+
+	oauthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth/token" && r.Method == "POST" {
+			response := map[string]interface{}{
+				"access_token":  "mock_access_token",
+				"refresh_token": "mock_refresh_token",
+				"token_type":    "Bearer",
+				"expires_in":    3600,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		if r.URL.Path == "/api/user" && r.Method == "GET" {
+			response := map[string]interface{}{
+				"name":     "New User",
+				"email":    "newuser@example.com",
+				"mobile":   "09121112233",
+				"code":     "NEWUSER1",
+				"referral": "",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer oauthServer.Close()
+
+	t.Run("new user creates settings, log, activity, wallet, and variables", func(t *testing.T) {
+		users := make(map[uint64]*models.User)
+		userRepo := &extendedFakeUserRepository{
+			fakeUserRepository: newFakeUserRepository(users),
+		}
+		userRepo.findByEmailFunc = func(_ context.Context, email string) (*models.User, error) {
+			return nil, nil
+		}
+		userRepo.createFunc = func(_ context.Context, user *models.User) error {
+			if user.ID == 0 {
+				user.ID = uint64(len(users) + 1)
+			}
+			users[user.ID] = user
+			return nil
+		}
+		userRepo.getSettingsFunc = func(_ context.Context, userID uint64) (*models.Settings, error) {
+			return &models.Settings{
+				UserID:          userID,
+				AutomaticLogout: 55,
+			}, nil
+		}
+
+		settingsRepo := newTrackingSettingsRepository()
+		activityRepo := newTrackingActivityRepository()
+		publisher := &noopPublisher{}
+		observerService := service.NewObserverServiceWithSettings(userRepo, settingsRepo, activityRepo, publisher, nil)
+		helperService := newFakeHelperService()
+
+		tokenRepo := newFakeTokenRepository()
+		cacheRepo := newFakeCacheRepository()
+		accountRepo := newFakeAccountSecurityRepository()
+
+		state := "test_state_related_records"
+		cacheRepo.SetState(ctx, state, 5*time.Minute)
+		cacheRepo.SetRedirectTo(ctx, state, "https://example.com/dashboard", 5*time.Minute)
+
+		svc := service.NewAuthService(
+			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			observerService, helperService, nil,
+			oauthServer.URL,
+			"test-client-id",
+			"test-client-secret",
+			"http://localhost:8000",
+			"http://localhost:3000",
+			false,
+		)
+
+		result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1")
+		if err != nil {
+			t.Fatalf("Callback failed: %v", err)
+		}
+		if result.Token == "" {
+			t.Fatal("Expected token to be generated")
+		}
+
+		user := users[1]
+		if user == nil {
+			t.Fatal("Expected user to be created with ID 1")
+		}
+
+		// Settings (Laravel UserObserver::created)
+		if settingsRepo.created == nil {
+			t.Fatal("Expected settings to be created for new user")
+		}
+		if settingsRepo.created.UserID != user.ID {
+			t.Errorf("Expected settings user_id %d, got %d", user.ID, settingsRepo.created.UserID)
+		}
+		if settingsRepo.created.AutomaticLogout != 55 {
+			t.Errorf("Expected automatic_logout 55, got %d", settingsRepo.created.AutomaticLogout)
+		}
+		if settingsRepo.created.CheckoutDaysCount != 3 {
+			t.Errorf("Expected checkout_days_count 3, got %d", settingsRepo.created.CheckoutDaysCount)
+		}
+		if !settingsRepo.created.Status || !settingsRepo.created.Level || !settingsRepo.created.Details {
+			t.Error("Expected default settings status/level/details to be true")
+		}
+
+		// User log
+		if activityRepo.createdLog == nil {
+			t.Fatal("Expected user log to be created for new user")
+		}
+		if activityRepo.createdLog.UserID != user.ID {
+			t.Errorf("Expected log user_id %d, got %d", user.ID, activityRepo.createdLog.UserID)
+		}
+		if activityRepo.createdLog.Score != 0 || activityRepo.createdLog.TransactionsCount != 0 {
+			t.Errorf("Expected zeroed user log, got %+v", activityRepo.createdLog)
+		}
+
+		// Initial activity (created by OnUserCreated; login may create another)
+		if len(activityRepo.activities) == 0 {
+			t.Fatal("Expected at least one activity to be created for new user")
+		}
+		if activityRepo.activities[0].UserID != user.ID {
+			t.Errorf("Expected activity user_id %d, got %d", user.ID, activityRepo.activities[0].UserID)
+		}
+		if activityRepo.activities[0].IP != "127.0.0.1" {
+			t.Errorf("Expected activity IP 127.0.0.1, got %q", activityRepo.activities[0].IP)
+		}
+
+		// Email verified on create
+		if !userRepo.emailVerified {
+			t.Error("Expected email to be marked verified on user creation")
+		}
+
+		// Wallet + user_variables via commercial (HelperService)
+		if len(helperService.createdWalletUserIDs) != 1 || helperService.createdWalletUserIDs[0] != user.ID {
+			t.Errorf("Expected CreateWallet(%d) once, got %v", user.ID, helperService.createdWalletUserIDs)
+		}
+		if len(helperService.createdVariableUserIDs) != 1 || helperService.createdVariableUserIDs[0] != user.ID {
+			t.Errorf("Expected CreateUserVariables(%d) once, got %v", user.ID, helperService.createdVariableUserIDs)
+		}
+	})
+
+	t.Run("existing user does not recreate settings, wallet, or variables", func(t *testing.T) {
+		users := map[uint64]*models.User{
+			1: {
+				ID:    1,
+				Email: "newuser@example.com",
+				Name:  "Existing",
+			},
+		}
+		userRepo := &extendedFakeUserRepository{
+			fakeUserRepository: newFakeUserRepository(users),
+		}
+		userRepo.findByEmailFunc = func(_ context.Context, email string) (*models.User, error) {
+			if email == "newuser@example.com" {
+				return users[1], nil
+			}
+			return nil, nil
+		}
+		userRepo.updateFunc = func(_ context.Context, user *models.User) error {
+			users[user.ID] = user
+			return nil
+		}
+		userRepo.getSettingsFunc = func(_ context.Context, userID uint64) (*models.Settings, error) {
+			return &models.Settings{UserID: userID, AutomaticLogout: 55}, nil
+		}
+
+		settingsRepo := newTrackingSettingsRepository()
+		activityRepo := newTrackingActivityRepository()
+		publisher := &noopPublisher{}
+		observerService := service.NewObserverServiceWithSettings(userRepo, settingsRepo, activityRepo, publisher, nil)
+		helperService := newFakeHelperService()
+
+		tokenRepo := newFakeTokenRepository()
+		cacheRepo := newFakeCacheRepository()
+		accountRepo := newFakeAccountSecurityRepository()
+
+		state := "test_state_existing_related"
+		cacheRepo.SetState(ctx, state, 5*time.Minute)
+		cacheRepo.SetBackURL(ctx, state, "https://example.com/home", 5*time.Minute)
+
+		svc := service.NewAuthService(
+			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			observerService, helperService, nil,
+			oauthServer.URL,
+			"test-client-id",
+			"test-client-secret",
+			"http://localhost:8000",
+			"http://localhost:3000",
+			false,
+		)
+
+		_, err := svc.Callback(ctx, state, "test_code", "127.0.0.1")
+		if err != nil {
+			t.Fatalf("Callback failed: %v", err)
+		}
+
+		if settingsRepo.created != nil {
+			t.Error("Expected settings not to be created for existing user")
+		}
+		if activityRepo.createdLog != nil {
+			t.Error("Expected user log not to be created for existing user")
+		}
+		if len(helperService.createdWalletUserIDs) != 0 {
+			t.Errorf("Expected CreateWallet not to be called for existing user, got %v", helperService.createdWalletUserIDs)
+		}
+		if len(helperService.createdVariableUserIDs) != 0 {
+			t.Errorf("Expected CreateUserVariables not to be called for existing user, got %v", helperService.createdVariableUserIDs)
+		}
+	})
+}
+
+func TestCallbackLoggedInEvent(t *testing.T) {
+	ctx := context.Background()
+
+	oauthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth/token" && r.Method == "POST" {
+			response := map[string]interface{}{
+				"access_token":  "mock_access_token",
+				"refresh_token": "mock_refresh_token",
+				"token_type":    "Bearer",
+				"expires_in":    3600,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		if r.URL.Path == "/api/user" && r.Method == "GET" {
+			response := map[string]interface{}{
+				"name":     "Returning User",
+				"email":    "returning@example.com",
+				"mobile":   "09121112233",
+				"code":     "RET123",
+				"referral": "",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer oauthServer.Close()
+
+	t.Run("existing user login creates event, activity, notification, and online broadcast", func(t *testing.T) {
+		users := map[uint64]*models.User{
+			1: {
+				ID:              1,
+				Email:           "returning@example.com",
+				Name:            "Old Name",
+				Phone:           sql.NullString{String: "09121112233", Valid: true},
+				PhoneVerifiedAt: sql.NullTime{Time: time.Now(), Valid: true},
+			},
+		}
+		userRepo := &extendedFakeUserRepository{
+			fakeUserRepository: newFakeUserRepository(users),
+		}
+		userRepo.findByEmailFunc = func(_ context.Context, email string) (*models.User, error) {
+			if email == "returning@example.com" {
+				return users[1], nil
+			}
+			return nil, nil
+		}
+		userRepo.updateFunc = func(_ context.Context, user *models.User) error {
+			users[user.ID] = user
+			return nil
+		}
+		userRepo.getSettingsFunc = func(_ context.Context, userID uint64) (*models.Settings, error) {
+			return &models.Settings{
+				UserID:          userID,
+				AutomaticLogout: 55,
+				Notifications: map[string]bool{
+					"login_verification_sms":   true,
+					"login_verification_email": true,
+				},
+			}, nil
+		}
+
+		settingsRepo := newTrackingSettingsRepository()
+		activityRepo := newTrackingActivityRepository()
+		publisher := newTrackingPublisher()
+		notificationClient := newFakeNotificationServiceClient()
+		observerService := service.NewObserverServiceWithSettings(
+			userRepo, settingsRepo, activityRepo, publisher, notificationClient,
+		)
+		helperService := newFakeHelperService()
+
+		tokenRepo := newFakeTokenRepository()
+		cacheRepo := newFakeCacheRepository()
+		accountRepo := newFakeAccountSecurityRepository()
+
+		state := "test_state_logged_in"
+		cacheRepo.SetState(ctx, state, 5*time.Minute)
+		cacheRepo.SetBackURL(ctx, state, "https://example.com/home", 5*time.Minute)
+
+		svc := service.NewAuthService(
+			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			observerService, helperService, nil,
+			oauthServer.URL,
+			"test-client-id",
+			"test-client-secret",
+			"http://localhost:8000",
+			"http://localhost:3000",
+			false,
+		)
+
+		_, err := svc.Callback(ctx, state, "test_code", "203.0.113.10")
+		if err != nil {
+			t.Fatalf("Callback failed: %v", err)
+		}
+
+		// Login event (Laravel UserObserver::logedIn)
+		if len(activityRepo.events) != 1 {
+			t.Fatalf("Expected 1 login event, got %d", len(activityRepo.events))
+		}
+		if activityRepo.events[0].UserID != 1 {
+			t.Errorf("Expected event user_id 1, got %d", activityRepo.events[0].UserID)
+		}
+		if activityRepo.events[0].Event != "ورود به حساب کاربری" {
+			t.Errorf("Expected login event text, got %q", activityRepo.events[0].Event)
+		}
+		if activityRepo.events[0].IP != "203.0.113.10" {
+			t.Errorf("Expected event IP 203.0.113.10, got %q", activityRepo.events[0].IP)
+		}
+		if activityRepo.events[0].Status != 1 {
+			t.Errorf("Expected event status 1, got %d", activityRepo.events[0].Status)
+		}
+
+		// last_seen updated
+		if !userRepo.lastSeenUpdated {
+			t.Error("Expected last_seen to be updated on login")
+		}
+
+		// Activity session started
+		if len(activityRepo.activities) != 1 {
+			t.Fatalf("Expected 1 activity on login, got %d", len(activityRepo.activities))
+		}
+		if activityRepo.activities[0].UserID != 1 || activityRepo.activities[0].IP != "203.0.113.10" {
+			t.Errorf("Unexpected activity: %+v", activityRepo.activities[0])
+		}
+
+		// Notification service (Laravel LogedInNotification)
+		if notificationClient.lastRequest == nil {
+			t.Fatal("Expected notification service SendNotification to be called")
+		}
+		req := notificationClient.lastRequest
+		if req.UserId != 1 {
+			t.Errorf("Expected notification user_id 1, got %d", req.UserId)
+		}
+		if req.Type != "login" {
+			t.Errorf("Expected notification type login, got %q", req.Type)
+		}
+		if req.Title != "ورود به حساب کاربری" {
+			t.Errorf("Expected notification title, got %q", req.Title)
+		}
+		if req.Message != "شما با موفقیت وارد حساب کاربری خود شدید." {
+			t.Errorf("Expected notification message, got %q", req.Message)
+		}
+		if req.Data["ip"] != "203.0.113.10" {
+			t.Errorf("Expected notification data ip, got %v", req.Data)
+		}
+		if !req.SendSms {
+			t.Error("Expected SendSms true when login_verification_sms enabled and phone verified")
+		}
+		if !req.SendEmail {
+			t.Error("Expected SendEmail true when login_verification_email enabled")
+		}
+
+		// WebSocket online broadcast
+		if len(publisher.statusChanges) != 1 {
+			t.Fatalf("Expected 1 status broadcast, got %d", len(publisher.statusChanges))
+		}
+		if publisher.statusChanges[0].userID != 1 || !publisher.statusChanges[0].online {
+			t.Errorf("Expected online broadcast for user 1, got %+v", publisher.statusChanges[0])
+		}
+
+		// Must not recreate created-path records
+		if settingsRepo.created != nil {
+			t.Error("Expected settings not to be created for existing user login")
+		}
+		if len(helperService.createdWalletUserIDs) != 0 {
+			t.Error("Expected wallet not to be created for existing user login")
+		}
+	})
+
+	t.Run("new user does not fire logged-in observer actions", func(t *testing.T) {
+		users := make(map[uint64]*models.User)
+		userRepo := &extendedFakeUserRepository{
+			fakeUserRepository: newFakeUserRepository(users),
+		}
+		userRepo.findByEmailFunc = func(_ context.Context, email string) (*models.User, error) {
+			return nil, nil
+		}
+		userRepo.createFunc = func(_ context.Context, user *models.User) error {
+			if user.ID == 0 {
+				user.ID = uint64(len(users) + 1)
+			}
+			users[user.ID] = user
+			return nil
+		}
+		userRepo.getSettingsFunc = func(_ context.Context, userID uint64) (*models.Settings, error) {
+			return &models.Settings{UserID: userID, AutomaticLogout: 55}, nil
+		}
+
+		settingsRepo := newTrackingSettingsRepository()
+		activityRepo := newTrackingActivityRepository()
+		publisher := newTrackingPublisher()
+		notificationClient := newFakeNotificationServiceClient()
+		observerService := service.NewObserverServiceWithSettings(
+			userRepo, settingsRepo, activityRepo, publisher, notificationClient,
+		)
+
+		tokenRepo := newFakeTokenRepository()
+		cacheRepo := newFakeCacheRepository()
+		accountRepo := newFakeAccountSecurityRepository()
+
+		state := "test_state_new_no_login"
+		cacheRepo.SetState(ctx, state, 5*time.Minute)
+		cacheRepo.SetRedirectTo(ctx, state, "https://example.com/dashboard", 5*time.Minute)
+
+		svc := service.NewAuthService(
+			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			observerService, newFakeHelperService(), nil,
+			oauthServer.URL,
+			"test-client-id",
+			"test-client-secret",
+			"http://localhost:8000",
+			"http://localhost:3000",
+			false,
+		)
+
+		_, err := svc.Callback(ctx, state, "test_code", "127.0.0.1")
+		if err != nil {
+			t.Fatalf("Callback failed: %v", err)
+		}
+
+		if notificationClient.lastRequest != nil {
+			t.Error("Expected login notification not to be sent for new user (created path only)")
+		}
+		if len(publisher.statusChanges) != 0 {
+			t.Errorf("Expected no online broadcast for new user create, got %v", publisher.statusChanges)
+		}
+		if len(activityRepo.events) != 0 {
+			t.Errorf("Expected no login event for new user, got %d", len(activityRepo.events))
+		}
+		// OnUserCreated still creates initial activity
+		if len(activityRepo.activities) != 1 {
+			t.Fatalf("Expected only created-path activity, got %d", len(activityRepo.activities))
+		}
+	})
+}
+
 func TestGetMe(t *testing.T) {
 	ctx := context.Background()
 
@@ -838,6 +1296,198 @@ func (f *fakeObserverService) CalculateScore(ctx context.Context, user *models.U
 
 var _ service.ObserverService = (*fakeObserverService)(nil)
 
+type fakeHelperService struct {
+	createdWalletUserIDs   []uint64
+	createdVariableUserIDs []uint64
+}
+
+func newFakeHelperService() *fakeHelperService {
+	return &fakeHelperService{}
+}
+
+func (f *fakeHelperService) GetUnansweredQuestionsCount(context.Context, uint64) (int32, error) {
+	return 0, nil
+}
+
+func (f *fakeHelperService) GetHourlyProfitTimePercentage(context.Context, uint64) (float64, error) {
+	return 0, nil
+}
+
+func (f *fakeHelperService) GetScorePercentageToNextLevel(context.Context, uint64, int32) (float64, error) {
+	return 0, nil
+}
+
+func (f *fakeHelperService) GetUserLevel(context.Context, uint64) (*service.LevelInfo, error) {
+	return nil, nil
+}
+
+func (f *fakeHelperService) GetUserWallet(context.Context, uint64) (*service.WalletInfo, error) {
+	return nil, nil
+}
+
+func (f *fakeHelperService) CreateWallet(_ context.Context, userID uint64) error {
+	f.createdWalletUserIDs = append(f.createdWalletUserIDs, userID)
+	return nil
+}
+
+func (f *fakeHelperService) CreateUserVariables(_ context.Context, userID uint64) error {
+	f.createdVariableUserIDs = append(f.createdVariableUserIDs, userID)
+	return nil
+}
+
+func (f *fakeHelperService) Close() error {
+	return nil
+}
+
+var _ service.HelperService = (*fakeHelperService)(nil)
+
+type noopPublisher struct{}
+
+func (n *noopPublisher) PublishUserStatusChanged(context.Context, uint64, bool) error {
+	return nil
+}
+
+func (n *noopPublisher) Close() error {
+	return nil
+}
+
+type statusChange struct {
+	userID uint64
+	online bool
+}
+
+type trackingPublisher struct {
+	statusChanges []statusChange
+}
+
+func newTrackingPublisher() *trackingPublisher {
+	return &trackingPublisher{}
+}
+
+func (p *trackingPublisher) PublishUserStatusChanged(_ context.Context, userID uint64, online bool) error {
+	p.statusChanges = append(p.statusChanges, statusChange{userID: userID, online: online})
+	return nil
+}
+
+func (p *trackingPublisher) Close() error {
+	return nil
+}
+
+type fakeNotificationServiceClient struct {
+	lastRequest *notificationspb.SendNotificationRequest
+}
+
+func newFakeNotificationServiceClient() *fakeNotificationServiceClient {
+	return &fakeNotificationServiceClient{}
+}
+
+func (f *fakeNotificationServiceClient) SendNotification(_ context.Context, in *notificationspb.SendNotificationRequest, _ ...grpc.CallOption) (*notificationspb.NotificationResponse, error) {
+	f.lastRequest = in
+	return &notificationspb.NotificationResponse{Id: 1, Sent: true}, nil
+}
+
+func (f *fakeNotificationServiceClient) GetNotifications(context.Context, *notificationspb.GetNotificationsRequest, ...grpc.CallOption) (*notificationspb.NotificationsResponse, error) {
+	return nil, nil
+}
+
+func (f *fakeNotificationServiceClient) GetNotification(context.Context, *notificationspb.GetNotificationRequest, ...grpc.CallOption) (*notificationspb.Notification, error) {
+	return nil, nil
+}
+
+func (f *fakeNotificationServiceClient) MarkAsRead(context.Context, *notificationspb.MarkAsReadRequest, ...grpc.CallOption) (*pbCommon.Empty, error) {
+	return nil, nil
+}
+
+func (f *fakeNotificationServiceClient) MarkAllAsRead(context.Context, *notificationspb.MarkAllAsReadRequest, ...grpc.CallOption) (*pbCommon.Empty, error) {
+	return nil, nil
+}
+
+var _ notificationspb.NotificationServiceClient = (*fakeNotificationServiceClient)(nil)
+
+type trackingSettingsRepository struct {
+	created *models.Settings
+}
+
+func newTrackingSettingsRepository() *trackingSettingsRepository {
+	return &trackingSettingsRepository{}
+}
+
+func (r *trackingSettingsRepository) FindByUserID(context.Context, uint64) (*models.Settings, error) {
+	return r.created, nil
+}
+
+func (r *trackingSettingsRepository) FindByID(context.Context, uint64) (*models.Settings, error) {
+	return r.created, nil
+}
+
+func (r *trackingSettingsRepository) Update(context.Context, *models.Settings) error {
+	return nil
+}
+
+func (r *trackingSettingsRepository) Create(_ context.Context, settings *models.Settings) error {
+	copySettings := *settings
+	r.created = &copySettings
+	return nil
+}
+
+var _ repository.SettingsRepository = (*trackingSettingsRepository)(nil)
+
+type trackingActivityRepository struct {
+	*fakeActivityRepository
+	activities []*models.UserActivity
+	createdLog *models.UserLog
+}
+
+func newTrackingActivityRepository() *trackingActivityRepository {
+	return &trackingActivityRepository{
+		fakeActivityRepository: newFakeActivityRepository(),
+	}
+}
+
+func (r *trackingActivityRepository) CreateActivity(_ context.Context, activity *models.UserActivity) error {
+	copyActivity := *activity
+	r.activities = append(r.activities, &copyActivity)
+	return nil
+}
+
+func (r *trackingActivityRepository) CreateUserLog(_ context.Context, log *models.UserLog) error {
+	copyLog := *log
+	r.createdLog = &copyLog
+	return nil
+}
+
+func (r *trackingActivityRepository) GetLatestActivity(_ context.Context, userID uint64) (*models.UserActivity, error) {
+	for i := len(r.activities) - 1; i >= 0; i-- {
+		if r.activities[i].UserID == userID {
+			return r.activities[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func (r *trackingActivityRepository) UpdateActivity(context.Context, *models.UserActivity) error {
+	return nil
+}
+
+func (r *trackingActivityRepository) GetTotalActivityMinutes(context.Context, uint64) (int32, error) {
+	return 0, nil
+}
+
+func (r *trackingActivityRepository) GetUserLog(_ context.Context, userID uint64) (*models.UserLog, error) {
+	if r.createdLog != nil && r.createdLog.UserID == userID {
+		return r.createdLog, nil
+	}
+	return nil, nil
+}
+
+func (r *trackingActivityRepository) UpdateUserLog(context.Context, *models.UserLog) error {
+	return nil
+}
+
+func (r *trackingActivityRepository) IncrementLogField(context.Context, uint64, string, float64) error {
+	return nil
+}
+
 // Extended fake user repository for OAuth tests
 type extendedFakeUserRepository struct {
 	*fakeUserRepository
@@ -847,6 +1497,8 @@ type extendedFakeUserRepository struct {
 	getUnreadNotificationsCountFunc func(context.Context, uint64) (int32, error)
 	createFunc                      func(context.Context, *models.User) error
 	updateFunc                      func(context.Context, *models.User) error
+	emailVerified                   bool
+	lastSeenUpdated                 bool
 }
 
 func (f *extendedFakeUserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
@@ -911,4 +1563,24 @@ func (f *extendedFakeUserRepository) FindByCode(ctx context.Context, code string
 		}
 	}
 	return nil, nil
+}
+
+func (f *extendedFakeUserRepository) MarkEmailAsVerified(_ context.Context, userID uint64) error {
+	f.emailVerified = true
+	if user, ok := f.users[userID]; ok {
+		user.EmailVerifiedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	}
+	return nil
+}
+
+func (f *extendedFakeUserRepository) UpdateLastSeen(_ context.Context, userID uint64) error {
+	f.lastSeenUpdated = true
+	if user, ok := f.users[userID]; ok {
+		user.LastSeen = sql.NullTime{Time: time.Now(), Valid: true}
+	}
+	return nil
+}
+
+func (f *extendedFakeUserRepository) CreateSettings(context.Context, *models.Settings) error {
+	return nil
 }

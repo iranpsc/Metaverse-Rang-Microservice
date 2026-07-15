@@ -11,6 +11,7 @@ import (
 
 type WalletService interface {
 	GetWallet(ctx context.Context, userID uint64) (map[string]string, error)
+	CreateWallet(ctx context.Context, userID uint64) (map[string]string, error)
 	DeductBalance(ctx context.Context, userID uint64, asset string, amount float64) (map[string]string, error)
 	AddBalance(ctx context.Context, userID uint64, asset string, amount float64) (map[string]string, error)
 	LockBalance(ctx context.Context, userID uint64, asset string, amount float64, reason string) error
@@ -37,6 +38,27 @@ func (s *walletService) GetWallet(ctx context.Context, userID uint64) (map[strin
 	}
 
 	// Return raw numeric values without formatting (no K, M suffixes)
+	return map[string]string{
+		"psc":          wallet.PSC.String(),
+		"irr":          wallet.IRR.String(),
+		"red":          wallet.Red.String(),
+		"blue":         wallet.Blue.String(),
+		"yellow":       wallet.Yellow.String(),
+		"satisfaction": wallet.Satisfaction.String(),
+		"effect":       wallet.Effect.String(),
+	}, nil
+}
+
+func (s *walletService) CreateWallet(ctx context.Context, userID uint64) (map[string]string, error) {
+	if userID == 0 {
+		return nil, fmt.Errorf("user_id is required")
+	}
+
+	wallet, err := s.walletRepo.Create(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create wallet: %w", err)
+	}
+
 	return map[string]string{
 		"psc":          wallet.PSC.String(),
 		"irr":          wallet.IRR.String(),

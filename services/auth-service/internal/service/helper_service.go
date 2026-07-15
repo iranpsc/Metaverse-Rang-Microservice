@@ -33,6 +33,12 @@ type HelperService interface {
 	// GetUserWallet calls Commercial service to get user's wallet balances
 	GetUserWallet(ctx context.Context, userID uint64) (*WalletInfo, error)
 
+	// CreateWallet calls Commercial service to create a wallet for a new user
+	CreateWallet(ctx context.Context, userID uint64) error
+
+	// CreateUserVariables calls Commercial service to create default user_variables for a new user
+	CreateUserVariables(ctx context.Context, userID uint64) error
+
 	// Close closes gRPC connections
 	Close() error
 }
@@ -59,6 +65,7 @@ type helperService struct {
 	challengeClient       levelspb.ChallengeServiceClient // Challenge service is in levels proto
 	featureProfitClient   featurespb.FeatureProfitServiceClient
 	walletClient          commercialpb.WalletServiceClient
+	userVariableClient    commercialpb.UserVariableServiceClient
 }
 
 // NewHelperService creates a new helper service
@@ -133,6 +140,7 @@ func NewHelperService(levelsAddr, featuresAddr, commercialAddr string) HelperSer
 		} else {
 			hs.commercialConn = conn
 			hs.walletClient = commercialpb.NewWalletServiceClient(conn)
+			hs.userVariableClient = commercialpb.NewUserVariableServiceClient(conn)
 			log.Printf("Successfully connected to commercial service at %s", commercialAddr)
 		}
 	}
@@ -342,6 +350,7 @@ func (s *helperService) GetUserWallet(ctx context.Context, userID uint64) (*Wall
 		}
 		s.commercialConn = conn
 		s.walletClient = commercialpb.NewWalletServiceClient(conn)
+		s.userVariableClient = commercialpb.NewUserVariableServiceClient(conn)
 		log.Printf("Successfully reconnected to commercial service at %s", s.commercialServiceAddr)
 	}
 
@@ -369,6 +378,42 @@ func (s *helperService) GetUserWallet(ctx context.Context, userID uint64) (*Wall
 		Satisfaction: resp.Satisfaction,
 		Effect:       resp.Effect,
 	}, nil
+}
+
+// CreateWallet calls Commercial service to create a wallet for a newly registered user.
+func (s *helperService) CreateWallet(ctx context.Context, userID uint64) error {
+	if s.walletClient == nil {
+		return fmt.Errorf("commercial service not available")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := s.walletClient.CreateWallet(ctx, &commercialpb.CreateWalletRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create wallet via commercial service: %w", err)
+	}
+	return nil
+}
+
+// CreateUserVariables calls Commercial service to create default user_variables for a new user.
+func (s *helperService) CreateUserVariables(ctx context.Context, userID uint64) error {
+	if s.userVariableClient == nil {
+		return fmt.Errorf("commercial service not available")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := s.userVariableClient.CreateUserVariables(ctx, &commercialpb.CreateUserVariablesRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create user variables via commercial service: %w", err)
+	}
+	return nil
 }
 
 // Close closes gRPC connections

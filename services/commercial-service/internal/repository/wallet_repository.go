@@ -13,6 +13,7 @@ import (
 
 type WalletRepository interface {
 	FindByUserID(ctx context.Context, userID uint64) (*models.Wallet, error)
+	Create(ctx context.Context, userID uint64) (*models.Wallet, error)
 	Update(ctx context.Context, wallet *models.Wallet) error
 	DeductBalance(ctx context.Context, userID uint64, asset string, amount decimal.Decimal) error
 	AddBalance(ctx context.Context, userID uint64, asset string, amount decimal.Decimal) error
@@ -70,6 +71,58 @@ func (r *walletRepository) FindByUserID(ctx context.Context, userID uint64) (*mo
 	wallet.Effect = parseDecimal(effect)
 
 	return wallet, nil
+}
+
+// Create inserts a new wallet for the user with Laravel-compatible defaults.
+// Idempotent: if a wallet already exists for the user, it is returned unchanged.
+func (r *walletRepository) Create(ctx context.Context, userID uint64) (*models.Wallet, error) {
+	existing, err := r.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return existing, nil
+	}
+
+	now := time.Now()
+	query := `
+		INSERT INTO wallets (user_id, psc, irr, red, blue, yellow, satisfaction, effect, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	result, err := r.db.ExecContext(ctx, query,
+		userID,
+		"0",
+		"0",
+		"0",
+		"0",
+		"0",
+		"0.10",
+		"0",
+		now,
+		now,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create wallet: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get created wallet id: %w", err)
+	}
+
+	return &models.Wallet{
+		ID:           uint64(id),
+		UserID:       userID,
+		PSC:          decimal.Zero,
+		IRR:          decimal.Zero,
+		Red:          decimal.Zero,
+		Blue:         decimal.Zero,
+		Yellow:       decimal.Zero,
+		Satisfaction: decimal.NewFromFloat(0.10),
+		Effect:       decimal.Zero,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}, nil
 }
 
 func (r *walletRepository) Update(ctx context.Context, wallet *models.Wallet) error {

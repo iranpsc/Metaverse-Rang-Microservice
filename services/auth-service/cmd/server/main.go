@@ -180,12 +180,27 @@ func main() {
 	settingsRepo := repository.NewSettingsRepository(db)
 	searchRepo := repository.NewSearchRepository(db)
 
-	// Initialize observer service for activity tracking and events
+	// Initialize notifications clients (optional - service can work without them)
+	var smsClient notificationspb.SMSServiceClient
+	var notificationClient notificationspb.NotificationServiceClient
+	notificationsAddr := getEnv("NOTIFICATIONS_SERVICE_ADDR", "notifications-service:50058")
+	notificationsConn, err := grpc.Dial(notificationsAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("Warning: Failed to connect to notifications service: %v (continuing without notification support)", err)
+	} else {
+		defer notificationsConn.Close()
+		smsClient = notificationspb.NewSMSServiceClient(notificationsConn)
+		notificationClient = notificationspb.NewNotificationServiceClient(notificationsConn)
+		log.Println("Successfully connected to notifications service")
+	}
+
+	// Initialize observer service for activity tracking, login notifications, and WebSocket events
 	observerService := service.NewObserverServiceWithSettings(
 		userRepo,
 		settingsRepo,
 		activityRepo,
 		redisPublisher,
+		notificationClient,
 	)
 
 	// Initialize helper service for cross-service integrations
@@ -194,18 +209,6 @@ func main() {
 		getEnv("FEATURES_SERVICE_ADDR", "features-service:50053"),
 		getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052"),
 	)
-
-	// Initialize notifications SMS client (optional - service can work without it)
-	var smsClient notificationspb.SMSServiceClient
-	notificationsAddr := getEnv("NOTIFICATIONS_SERVICE_ADDR", "notifications-service:50058")
-	notificationsConn, err := grpc.Dial(notificationsAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Printf("Warning: Failed to connect to notifications service: %v (continuing without SMS support)", err)
-	} else {
-		defer notificationsConn.Close()
-		smsClient = notificationspb.NewSMSServiceClient(notificationsConn)
-		log.Println("Successfully connected to notifications service")
-	}
 
 	// Initialize services
 	walletConnectionService := service.NewWalletConnectionService(
