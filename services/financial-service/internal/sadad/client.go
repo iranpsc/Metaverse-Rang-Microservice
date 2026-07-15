@@ -106,10 +106,11 @@ type MultiplexingData struct {
 type RequestParams struct {
 	MerchantID       string
 	TerminalID       string
-	TransactionKey   string // base64-encoded TripleDES key
-	OrderID          int64
+	SignData         string // base64-encoded TripleDES merchant key used to generate request SignData
+	OrderId          int64
 	Amount           int64 // Rials
 	ReturnURL        string
+	LocalDateTime    string            // if empty, current Tehran datetime is used
 	MultiplexingData *MultiplexingData // percentage split across settlement IBANs; required in production
 }
 
@@ -123,8 +124,8 @@ type RequestResponse struct {
 
 // VerificationParams for payment verification.
 type VerificationParams struct {
-	TransactionKey string
-	Token          string
+	SignData string // base64-encoded TripleDES merchant key used to generate verify SignData
+	Token    string
 }
 
 // VerificationResponse is the response from Sadad verification.
@@ -140,7 +141,7 @@ type multiplexedPaymentRequestBody struct {
 	TerminalID       string           `json:"TerminalId"`
 	MerchantID       string           `json:"MerchantId"`
 	Amount           int64            `json:"Amount"`
-	OrderID          int64            `json:"OrderId"`
+	OrderId          int64            `json:"OrderId"`
 	LocalDateTime    string           `json:"LocalDateTime"`
 	ReturnURL        string           `json:"ReturnUrl"`
 	SignData         string           `json:"SignData"`
@@ -151,7 +152,7 @@ type paymentRequestBody struct {
 	TerminalID    string `json:"TerminalId"`
 	MerchantID    string `json:"MerchantId"`
 	Amount        int64  `json:"Amount"`
-	OrderID       int64  `json:"OrderId"`
+	OrderId       int64  `json:"OrderId"`
 	LocalDateTime string `json:"LocalDateTime"`
 	ReturnURL     string `json:"ReturnUrl"`
 	SignData      string `json:"SignData"`
@@ -188,25 +189,28 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 		}
 	}
 
-	signData, err := generateSignData(
-		fmt.Sprintf("%s;%d;%d", params.TerminalID, params.OrderID, params.Amount),
-		params.TransactionKey,
+	signedPayload, err := generateSignData(
+		fmt.Sprintf("%s;%d;%d", params.TerminalID, params.OrderId, params.Amount),
+		params.SignData,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate sign data: %w", err)
 	}
 
-	localDateTime := sadadLocalDateTime()
+	localDateTime := params.LocalDateTime
+	if localDateTime == "" {
+		localDateTime = sadadLocalDateTime()
+	}
 	var payload []byte
 	if c.endpoints.Multiplexed {
 		payload, err = json.Marshal(multiplexedPaymentRequestBody{
 			TerminalID:       params.TerminalID,
 			MerchantID:       params.MerchantID,
 			Amount:           params.Amount,
-			OrderID:          params.OrderID,
+			OrderId:          params.OrderId,
 			LocalDateTime:    localDateTime,
 			ReturnURL:        params.ReturnURL,
-			SignData:         signData,
+			SignData:         signedPayload,
 			MultiplexingData: *params.MultiplexingData,
 		})
 	} else {
@@ -214,10 +218,10 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 			TerminalID:    params.TerminalID,
 			MerchantID:    params.MerchantID,
 			Amount:        params.Amount,
-			OrderID:       params.OrderID,
+			OrderId:       params.OrderId,
 			LocalDateTime: localDateTime,
 			ReturnURL:     params.ReturnURL,
-			SignData:      signData,
+			SignData:      signedPayload,
 		})
 	}
 	if err != nil {
@@ -264,14 +268,14 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 
 // VerifyPayment verifies a payment with Sadad.
 func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse, error) {
-	signData, err := generateSignData(params.Token, params.TransactionKey)
+	signedPayload, err := generateSignData(params.Token, params.SignData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate sign data: %w", err)
 	}
 
 	body := verifyRequestBody{
 		Token:    params.Token,
-		SignData: signData,
+		SignData: signedPayload,
 	}
 
 	payload, err := json.Marshal(body)

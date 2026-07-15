@@ -30,10 +30,11 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 	params := map[string]interface{}{
 		"MerchantID":       s.sadadConfig.SadadMerchantID,
 		"TerminalID":       s.sadadConfig.SadadTerminalID,
-		"TransactionKey":   "[REDACTED]",
-		"OrderID":          orderID,
+		"SignData":         "[REDACTED]",
+		"OrderId":          orderID,
 		"Amount":           amountRials,
 		"ReturnURL":        returnURL,
+		"LocalDateTime":    "(auto: current Tehran time)",
 		"MultiplexingData": multiplexingData,
 	}
 	jsonParams, err := json.Marshal(params)
@@ -46,8 +47,8 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 	response, err := s.sadadClient.RequestPayment(sadad.RequestParams{
 		MerchantID:       s.sadadConfig.SadadMerchantID,
 		TerminalID:       s.sadadConfig.SadadTerminalID,
-		TransactionKey:   s.sadadConfig.SadadTransactionKey,
-		OrderID:          int64(orderID),
+		SignData:         s.sadadConfig.SadadTransactionKey,
+		OrderId:          int64(orderID),
 		Amount:           amountRials,
 		ReturnURL:        returnURL,
 		MultiplexingData: multiplexingData,
@@ -187,8 +188,8 @@ func (s *orderService) verifySadadPayment(transaction *models.Transaction, token
 	}
 
 	return s.sadadClient.VerifyPayment(sadad.VerificationParams{
-		TransactionKey: s.sadadConfig.SadadTransactionKey,
-		Token:          verifyToken,
+		SignData: s.sadadConfig.SadadTransactionKey,
+		Token:    verifyToken,
 	})
 }
 

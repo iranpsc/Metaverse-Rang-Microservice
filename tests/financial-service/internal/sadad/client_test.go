@@ -34,12 +34,12 @@ func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 		Multiplexed:       true,
 	})
 	resp, err := client.RequestPayment(sadad.RequestParams{
-		MerchantID:     "merchant",
-		TerminalID:     "terminal",
-		TransactionKey: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
-		OrderID:        42,
-		Amount:         1000,
-		ReturnURL:      "https://example.com/callback",
+		MerchantID: "merchant",
+		TerminalID: "terminal",
+		SignData:   "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
+		OrderId:    42,
+		Amount:     1000,
+		ReturnURL:  "https://example.com/callback",
 		MultiplexingData: &sadad.MultiplexingData{
 			Type: "Percentage",
 			MultiplexingRows: []sadad.MultiplexingRow{
@@ -118,12 +118,12 @@ func TestSandboxRequestPaymentOmitsMultiplexingData(t *testing.T) {
 		Multiplexed:       false,
 	})
 	resp, err := client.RequestPayment(sadad.RequestParams{
-		MerchantID:     "46645",
-		TerminalID:     "GBHDTY98",
-		TransactionKey: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
-		OrderID:        1,
-		Amount:         10000,
-		ReturnURL:      "http://localhost/callback",
+		MerchantID: "46645",
+		TerminalID: "GBHDTY98",
+		SignData:   "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
+		OrderId:    1,
+		Amount:     10000,
+		ReturnURL:  "http://localhost/callback",
 	})
 	if err != nil {
 		t.Fatalf("RequestPayment failed: %v", err)
