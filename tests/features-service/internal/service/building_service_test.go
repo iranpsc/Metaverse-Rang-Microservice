@@ -8,12 +8,15 @@ import (
 
 	"metarang/features-service/internal/models"
 	"metarang/features-service/internal/service"
+	"metarang/features-service/pkg/threed_client"
+	commercialpb "metarang/shared/pb/commercial"
 	pb "metarang/shared/pb/features"
+	"metarang/shared/pkg/auth"
 )
 
 // Mock repositories for testing
 type mockBuildingRepository struct {
-	upsertModelFunc                   func(ctx context.Context, modelID, name, sku, images, attributes, file string, requiredSatisfaction float64) error
+	upsertModelFunc                   func(ctx context.Context, modelID uint64, name, sku, images, attributes, file string, requiredSatisfaction float64) error
 	findModelFunc                     func(ctx context.Context, modelID string) (*pb.BuildingModel, error)
 	hasBuildingFunc                   func(ctx context.Context, featureID uint64) (bool, error)
 	createBuildingFunc                func(ctx context.Context, featureID uint64, buildingModelID string, launchedSatisfaction, rotation, position, information string, startDate, endDate time.Time, bubbleDiameter float64) error
@@ -24,7 +27,7 @@ type mockBuildingRepository struct {
 	firstOrCreateIsicCodeFunc         func(ctx context.Context, activityLine string) (uint64, error)
 }
 
-func (m *mockBuildingRepository) UpsertBuildingModel(ctx context.Context, modelID, name, sku, images, attributes, file string, requiredSatisfaction float64) error {
+func (m *mockBuildingRepository) UpsertBuildingModel(ctx context.Context, modelID uint64, name, sku, images, attributes, file string, requiredSatisfaction float64) error {
 	if m.upsertModelFunc != nil {
 		return m.upsertModelFunc(ctx, modelID, name, sku, images, attributes, file, requiredSatisfaction)
 	}
@@ -131,14 +134,45 @@ func (m *mockHourlyProfitRepository) ActivateProfitsForFeature(ctx context.Conte
 
 // Mock 3D client
 type mockThreeDClient struct {
-	getBuildPackageFunc func(req interface{}) (interface{}, error)
+	getBuildPackageFunc func(req threed_client.BuildPackageRequest) (*threed_client.BuildPackageResponse, error)
 }
 
-func (m *mockThreeDClient) GetBuildPackage(req interface{}) (interface{}, error) {
+func (m *mockThreeDClient) GetBuildPackage(req threed_client.BuildPackageRequest) (*threed_client.BuildPackageResponse, error) {
 	if m.getBuildPackageFunc != nil {
 		return m.getBuildPackageFunc(req)
 	}
 	return nil, errors.New("not implemented")
+}
+
+type mockCommercialClient struct {
+	getWalletFunc     func(ctx context.Context, userID uint64) (*commercialpb.WalletResponse, error)
+	deductBalanceFunc func(ctx context.Context, userID uint64, asset string, amount float64) error
+	addBalanceFunc    func(ctx context.Context, userID uint64, asset string, amount float64) error
+}
+
+func (m *mockCommercialClient) GetWallet(ctx context.Context, userID uint64) (*commercialpb.WalletResponse, error) {
+	if m.getWalletFunc != nil {
+		return m.getWalletFunc(ctx, userID)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockCommercialClient) DeductBalance(ctx context.Context, userID uint64, asset string, amount float64) error {
+	if m.deductBalanceFunc != nil {
+		return m.deductBalanceFunc(ctx, userID, asset, amount)
+	}
+	return errors.New("not implemented")
+}
+
+func (m *mockCommercialClient) AddBalance(ctx context.Context, userID uint64, asset string, amount float64) error {
+	if m.addBalanceFunc != nil {
+		return m.addBalanceFunc(ctx, userID, asset, amount)
+	}
+	return errors.New("not implemented")
+}
+
+func authContext(userID uint64) context.Context {
+	return context.WithValue(context.Background(), auth.UserContextKey{}, &auth.UserContext{UserID: userID})
 }
 
 func TestBuildingService_GetBuildPackage(t *testing.T) {
@@ -212,6 +246,11 @@ func TestBuildingService_CalculateBubbleDiameter(t *testing.T) {
 			attributesJSON: `[{"slug": "width", "value": 40}, {"slug": "length", "value": 20}, {"slug": "density", "value": 4}]`,
 			want:           228.0, // perimeter = 2 * (40 + 20) = 120, coefficient = 1.9, diameter = 120 * 1.9 = 228
 			// Note: Floating point precision may cause slight variance, so we check with tolerance
+		},
+		{
+			name:           "string numeric values from 3D API",
+			attributesJSON: `[{"slug": "width", "value": "50"}, {"slug": "length", "value": "30"}, {"slug": "density", "value": "3"}]`,
+			want:           256.0, // same as density 3 with numeric values
 		},
 		{
 			name:           "missing width attribute",
@@ -322,6 +361,24 @@ func TestExtractAttributeValue(t *testing.T) {
 			slug:      "width",
 			wantValue: 0.0,
 			wantOk:    false,
+		},
+		{
+			name: "numeric string value",
+			attributes: []map[string]interface{}{
+				{"slug": "width", "value": "50"},
+			},
+			slug:      "width",
+			wantValue: 50.0,
+			wantOk:    true,
+		},
+		{
+			name: "int value",
+			attributes: []map[string]interface{}{
+				{"slug": "width", "value": 50},
+			},
+			slug:      "width",
+			wantValue: 50.0,
+			wantOk:    true,
 		},
 	}
 
@@ -602,4 +659,169 @@ func TestBuildingService_ValidateBuildingInformation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildingService_DestroyBuilding(t *testing.T) {
+	const (
+		ownerID         uint64 = 42
+		featureID       uint64 = 10
+		buildingModelID        = "model-3"
+		launchedSat            = 25.5
+	)
+
+	t.Run("refunds launched_satisfaction to user wallet", func(t *testing.T) {
+		var (
+			deleted          bool
+			profitsActivated bool
+			refundUserID     uint64
+			refundAsset      string
+			refundAmount     float64
+			addBalanceCalls  int
+		)
+
+		buildingRepo := &mockBuildingRepository{
+			findBuildingByFeatureAndModelFunc: func(ctx context.Context, fid uint64, modelID string) (*pb.Building, error) {
+				if fid != featureID || modelID != buildingModelID {
+					t.Fatalf("unexpected find args: featureID=%d modelID=%s", fid, modelID)
+				}
+				return &pb.Building{
+					LaunchedSatisfaction: "25.5",
+				}, nil
+			},
+			deleteBuildingFunc: func(ctx context.Context, fid uint64, modelID string) error {
+				if fid != featureID || modelID != buildingModelID {
+					t.Fatalf("unexpected delete args: featureID=%d modelID=%s", fid, modelID)
+				}
+				deleted = true
+				return nil
+			},
+		}
+		featureRepo := &mockFeatureRepository{
+			findByIDFunc: func(ctx context.Context, id uint64) (*models.Feature, *models.FeatureProperties, error) {
+				return &models.Feature{ID: featureID, OwnerID: ownerID}, &models.FeatureProperties{}, nil
+			},
+		}
+		profitRepo := &mockHourlyProfitRepository{
+			activateFunc: func(ctx context.Context, fid uint64) error {
+				if fid != featureID {
+					t.Fatalf("unexpected activate featureID=%d", fid)
+				}
+				profitsActivated = true
+				return nil
+			},
+		}
+		commercial := &mockCommercialClient{
+			addBalanceFunc: func(ctx context.Context, userID uint64, asset string, amount float64) error {
+				addBalanceCalls++
+				refundUserID = userID
+				refundAsset = asset
+				refundAmount = amount
+				return nil
+			},
+		}
+
+		svc := service.NewBuildingService(buildingRepo, featureRepo, &mockGeometryRepository{}, profitRepo, nil)
+		svc.SetCommercialClient(commercial)
+
+		err := svc.DestroyBuilding(authContext(ownerID), featureID, buildingModelID)
+		if err != nil {
+			t.Fatalf("DestroyBuilding() error = %v", err)
+		}
+		if !deleted {
+			t.Fatal("expected building to be deleted")
+		}
+		if !profitsActivated {
+			t.Fatal("expected hourly profits to be reactivated")
+		}
+		if addBalanceCalls != 1 {
+			t.Fatalf("AddBalance call count = %d, want 1", addBalanceCalls)
+		}
+		if refundUserID != ownerID {
+			t.Errorf("refund userID = %d, want %d", refundUserID, ownerID)
+		}
+		if refundAsset != "satisfaction" {
+			t.Errorf("refund asset = %q, want %q", refundAsset, "satisfaction")
+		}
+		if refundAmount != launchedSat {
+			t.Errorf("refund amount = %v, want %v", refundAmount, launchedSat)
+		}
+	})
+
+	t.Run("does not refund when launched_satisfaction is zero", func(t *testing.T) {
+		addBalanceCalls := 0
+		buildingRepo := &mockBuildingRepository{
+			findBuildingByFeatureAndModelFunc: func(ctx context.Context, fid uint64, modelID string) (*pb.Building, error) {
+				return &pb.Building{
+					LaunchedSatisfaction: "0",
+				}, nil
+			},
+			deleteBuildingFunc: func(ctx context.Context, fid uint64, modelID string) error {
+				return nil
+			},
+		}
+		featureRepo := &mockFeatureRepository{
+			findByIDFunc: func(ctx context.Context, id uint64) (*models.Feature, *models.FeatureProperties, error) {
+				return &models.Feature{ID: featureID, OwnerID: ownerID}, &models.FeatureProperties{}, nil
+			},
+		}
+		profitRepo := &mockHourlyProfitRepository{
+			activateFunc: func(ctx context.Context, fid uint64) error { return nil },
+		}
+		commercial := &mockCommercialClient{
+			addBalanceFunc: func(ctx context.Context, userID uint64, asset string, amount float64) error {
+				addBalanceCalls++
+				return nil
+			},
+		}
+
+		svc := service.NewBuildingService(buildingRepo, featureRepo, &mockGeometryRepository{}, profitRepo, nil)
+		svc.SetCommercialClient(commercial)
+
+		if err := svc.DestroyBuilding(authContext(ownerID), featureID, buildingModelID); err != nil {
+			t.Fatalf("DestroyBuilding() error = %v", err)
+		}
+		if addBalanceCalls != 0 {
+			t.Fatalf("AddBalance call count = %d, want 0", addBalanceCalls)
+		}
+	})
+
+	t.Run("unauthorized when user does not own feature", func(t *testing.T) {
+		buildingRepo := &mockBuildingRepository{}
+		featureRepo := &mockFeatureRepository{
+			findByIDFunc: func(ctx context.Context, id uint64) (*models.Feature, *models.FeatureProperties, error) {
+				return &models.Feature{ID: featureID, OwnerID: ownerID}, &models.FeatureProperties{}, nil
+			},
+		}
+		svc := service.NewBuildingService(buildingRepo, featureRepo, &mockGeometryRepository{}, &mockHourlyProfitRepository{}, nil)
+
+		err := svc.DestroyBuilding(authContext(999), featureID, buildingModelID)
+		if err == nil {
+			t.Fatal("expected unauthorized error")
+		}
+		if !contains(err.Error(), "unauthorized") {
+			t.Errorf("error = %v, want unauthorized", err)
+		}
+	})
+
+	t.Run("building not found", func(t *testing.T) {
+		buildingRepo := &mockBuildingRepository{
+			findBuildingByFeatureAndModelFunc: func(ctx context.Context, fid uint64, modelID string) (*pb.Building, error) {
+				return nil, nil
+			},
+		}
+		featureRepo := &mockFeatureRepository{
+			findByIDFunc: func(ctx context.Context, id uint64) (*models.Feature, *models.FeatureProperties, error) {
+				return &models.Feature{ID: featureID, OwnerID: ownerID}, &models.FeatureProperties{}, nil
+			},
+		}
+		svc := service.NewBuildingService(buildingRepo, featureRepo, &mockGeometryRepository{}, &mockHourlyProfitRepository{}, nil)
+
+		err := svc.DestroyBuilding(authContext(ownerID), featureID, buildingModelID)
+		if err == nil {
+			t.Fatal("expected building not found error")
+		}
+		if !contains(err.Error(), "building not found") {
+			t.Errorf("error = %v, want building not found", err)
+		}
+	})
 }

@@ -38,7 +38,7 @@ type BuildPackageResponse struct {
 
 // BuildingModelData represents a building model from the 3D API
 type BuildingModelData struct {
-	ID         string                   `json:"id"`
+	ID         uint64                   `json:"id"`
 	Name       string                   `json:"name"`
 	SKU        string                   `json:"sku"`
 	Images     []map[string]interface{} `json:"images"`

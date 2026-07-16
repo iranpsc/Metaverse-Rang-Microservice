@@ -10,30 +10,66 @@ import (
 	"strings"
 	"time"
 
-	"metarang/features-service/internal/client"
 	"metarang/features-service/internal/constants"
-	"metarang/features-service/internal/repository"
+	"metarang/features-service/internal/models"
 	"metarang/features-service/pkg/threed_client"
+	commercialpb "metarang/shared/pb/commercial"
 	pb "metarang/shared/pb/features"
 	"metarang/shared/pkg/auth"
 	"metarang/shared/pkg/helpers"
 )
 
+// buildingRepository defines persistence used by BuildingService.
+type buildingRepository interface {
+	UpsertBuildingModel(ctx context.Context, modelID uint64, name, sku, images, attributes, file string, requiredSatisfaction float64) error
+	FindBuildingModelByModelID(ctx context.Context, modelID string) (*pb.BuildingModel, error)
+	HasBuilding(ctx context.Context, featureID uint64) (bool, error)
+	CreateBuilding(ctx context.Context, featureID uint64, buildingModelID string, launchedSatisfaction, rotation, position, information string, startDate, endDate time.Time, bubbleDiameter float64) error
+	FindByFeatureID(ctx context.Context, featureID uint64) ([]*pb.Building, error)
+	UpdateBuilding(ctx context.Context, featureID uint64, buildingModelID string, launchedSatisfaction, rotation, position, information string, endDate time.Time, bubbleDiameter float64) (*pb.Building, error)
+	FindBuildingByFeatureAndModel(ctx context.Context, featureID uint64, buildingModelID string) (*pb.Building, error)
+	DeleteBuilding(ctx context.Context, featureID uint64, buildingModelID string) error
+	FirstOrCreateIsicCode(ctx context.Context, activityLine string) (uint64, error)
+}
+
+type buildingFeatureRepository interface {
+	FindByID(ctx context.Context, id uint64) (*models.Feature, *models.FeatureProperties, error)
+}
+
+type buildingGeometryRepository interface {
+	GetCoordinatesByFeatureID(ctx context.Context, featureID uint64) ([]string, error)
+}
+
+type buildingHourlyProfitRepository interface {
+	DeactivateProfitsForFeature(ctx context.Context, featureID uint64) error
+	ActivateProfitsForFeature(ctx context.Context, featureID uint64) error
+}
+
+type buildingThreeDClient interface {
+	GetBuildPackage(req threed_client.BuildPackageRequest) (*threed_client.BuildPackageResponse, error)
+}
+
+type buildingCommercialClient interface {
+	GetWallet(ctx context.Context, userID uint64) (*commercialpb.WalletResponse, error)
+	DeductBalance(ctx context.Context, userID uint64, asset string, amount float64) error
+	AddBalance(ctx context.Context, userID uint64, asset string, amount float64) error
+}
+
 type BuildingService struct {
-	buildingRepo     *repository.BuildingRepository
-	featureRepo      *repository.FeatureRepository
-	geometryRepo     *repository.GeometryRepository
-	hourlyProfitRepo *repository.HourlyProfitRepository
-	threeDClient     *threed_client.Client
-	commercialClient *client.CommercialClient
+	buildingRepo     buildingRepository
+	featureRepo      buildingFeatureRepository
+	geometryRepo     buildingGeometryRepository
+	hourlyProfitRepo buildingHourlyProfitRepository
+	threeDClient     buildingThreeDClient
+	commercialClient buildingCommercialClient
 }
 
 func NewBuildingService(
-	buildingRepo *repository.BuildingRepository,
-	featureRepo *repository.FeatureRepository,
-	geometryRepo *repository.GeometryRepository,
-	hourlyProfitRepo *repository.HourlyProfitRepository,
-	threeDClient *threed_client.Client,
+	buildingRepo buildingRepository,
+	featureRepo buildingFeatureRepository,
+	geometryRepo buildingGeometryRepository,
+	hourlyProfitRepo buildingHourlyProfitRepository,
+	threeDClient buildingThreeDClient,
 ) *BuildingService {
 	return &BuildingService{
 		buildingRepo:     buildingRepo,
@@ -45,8 +81,8 @@ func NewBuildingService(
 }
 
 // SetCommercialClient sets the commercial client for wallet operations
-func (s *BuildingService) SetCommercialClient(client *client.CommercialClient) {
-	s.commercialClient = client
+func (s *BuildingService) SetCommercialClient(c buildingCommercialClient) {
+	s.commercialClient = c
 }
 
 // GetBuildPackage retrieves building models from 3D Meta API
@@ -106,16 +142,17 @@ func (s *BuildingService) GetBuildPackage(ctx context.Context, featureID uint64,
 		// Calculate required_satisfaction: area * karbariCoefficient * density * 0.1 / 100
 		requiredSatisfaction := properties.Area * karbariCoeff * float64(density) * 0.1 / 100.0
 
-		// Upsert building model locally
+		// Upsert building model locally (model_id = 3D Meta integer id)
 		err = s.buildingRepo.UpsertBuildingModel(ctx, item.ID, item.Name, item.SKU,
 			string(imagesJSON), string(attrsJSON), string(fileJSON), requiredSatisfaction)
 		if err != nil {
 			// Log error but continue processing other models
-			fmt.Printf("failed to upsert building model %s: %v\n", item.ID, err)
+			fmt.Printf("failed to upsert building model %d: %v\n", item.ID, err)
 		}
 
 		models = append(models, &pb.BuildingModel{
-			ModelId:              item.ID,
+			Id:                   item.ID,
+			ModelId:              fmt.Sprintf("%d", item.ID),
 			Name:                 item.Name,
 			Sku:                  item.SKU,
 			Images:               string(imagesJSON),
@@ -305,17 +342,48 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	}, nil
 }
 
-// ExtractAttributeValue extracts a value by slug from attributes array
+// ExtractAttributeValue extracts a numeric value by slug from attributes array.
 // Attributes format: [{"slug": "width", "value": 50}, ...]
+// Values may be JSON numbers (float64) or numeric strings (as returned by the 3D API / Laravel).
 func ExtractAttributeValue(attributes []map[string]interface{}, slug string) (float64, bool) {
 	for _, attr := range attributes {
-		if s, ok := attr["slug"].(string); ok && s == slug {
-			if v, ok := attr["value"].(float64); ok {
-				return v, true
-			}
+		s, ok := attr["slug"].(string)
+		if !ok || s != slug {
+			continue
 		}
+		return coerceAttributeNumber(attr["value"])
 	}
 	return 0, false
+}
+
+// coerceAttributeNumber converts attribute values to float64 (Laravel-compatible coercion).
+func coerceAttributeNumber(value interface{}) (float64, bool) {
+	switch v := value.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case json.Number:
+		f, err := v.Float64()
+		if err != nil {
+			return 0, false
+		}
+		return f, true
+	case string:
+		f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		if err != nil {
+			return 0, false
+		}
+		return f, true
+	default:
+		return 0, false
+	}
 }
 
 // CalculateBubbleDiameter calculates bubble diameter from model attributes
@@ -341,10 +409,7 @@ func (s *BuildingService) CalculateBubbleDiameter(attributesJSON string) float64
 	perimeter := 2.0 * (width + length)
 
 	// Calculate coefficient: starts at 1, adds 0.3 for each density level above 1
-	coefficient := 1.0
-	for i := 1; i < int(density); i++ {
-		coefficient += 0.3
-	}
+	coefficient := 1 + (0.3 * (density - 1))
 
 	// Final diameter: perimeter × coefficient
 	return perimeter * coefficient

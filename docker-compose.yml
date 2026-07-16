@@ -834,7 +834,9 @@ services:
       - metarang-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9100/metrics"]
+      # Probe / (not /metrics): wget --spider aborts early and node-exporter logs
+      # "connection reset by peer" while still writing the large metrics payload.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9100/"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -19,15 +19,9 @@ func NewBuildingRepository(db *sql.DB) *BuildingRepository {
 	return &BuildingRepository{db: db}
 }
 
-// UpsertBuildingModel upserts a building model from 3D API into building_models table
-func (r *BuildingRepository) UpsertBuildingModel(ctx context.Context, modelID string, name, sku string, images, attributes, file string, requiredSatisfaction float64) error {
-	// Parse modelID to uint64 for the database
-	var dbModelID uint64
-	_, err := fmt.Sscanf(modelID, "%d", &dbModelID)
-	if err != nil {
-		return fmt.Errorf("invalid model_id: %w", err)
-	}
-
+// UpsertBuildingModel upserts a building model from 3D API into building_models table.
+// modelID is the integer id returned by the 3D Meta API.
+func (r *BuildingRepository) UpsertBuildingModel(ctx context.Context, modelID uint64, name, sku string, images, attributes, file string, requiredSatisfaction float64) error {
 	query := `
 		INSERT INTO building_models (model_id, name, sku, images, attributes, file, required_satisfaction, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
@@ -41,7 +35,7 @@ func (r *BuildingRepository) UpsertBuildingModel(ctx context.Context, modelID st
 			updated_at = NOW()
 	`
 
-	_, err = r.db.ExecContext(ctx, query, dbModelID, name, sku, images, attributes, file, requiredSatisfaction)
+	_, err := r.db.ExecContext(ctx, query, modelID, name, sku, images, attributes, file, requiredSatisfaction)
 	return err
 }
 

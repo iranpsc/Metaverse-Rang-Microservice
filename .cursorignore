@@ -12,3 +12,4 @@ services/**/config.env
 uploads/
 docs/
 scripts/schema.sql
+scripts/metarang_db.sql

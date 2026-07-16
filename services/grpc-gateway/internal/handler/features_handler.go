@@ -498,27 +498,7 @@ func (h *FeaturesHandler) BuildFeature(w http.ResponseWriter, r *http.Request) {
 		grpcReq.Position = position
 	}
 
-	if info, ok := reqBody["information"].(map[string]interface{}); ok {
-		grpcReq.Information = &featurespb.BuildingInformation{}
-		if activityLine, ok := info["activity_line"].(string); ok {
-			grpcReq.Information.ActivityLine = activityLine
-		}
-		if name, ok := info["name"].(string); ok {
-			grpcReq.Information.Name = name
-		}
-		if address, ok := info["address"].(string); ok {
-			grpcReq.Information.Address = address
-		}
-		if postalCode, ok := info["postal_code"].(string); ok {
-			grpcReq.Information.PostalCode = postalCode
-		}
-		if website, ok := info["website"].(string); ok {
-			grpcReq.Information.Website = website
-		}
-		if description, ok := info["description"].(string); ok {
-			grpcReq.Information.Description = description
-		}
-	}
+	grpcReq.Information = parseBuildingInformation(reqBody)
 
 	_, err = h.buildingClient.BuildFeature(r.Context(), grpcReq)
 	if err != nil {
@@ -580,7 +560,7 @@ func (h *FeaturesHandler) GetBuildings(w http.ResponseWriter, r *http.Request) {
 					"construction_start_date": building.ConstructionStartDate,
 					"construction_end_date":   building.ConstructionEndDate,
 					"launched_satisfaction":   building.LaunchedSatisfaction,
-					"information":             building.Information,
+					"information":             parseJSONString(building.Information),
 					"rotation":                building.Rotation,
 					"position":                building.Position,
 					"bubble_diameter":         building.BubbleDiameter,
@@ -654,27 +634,7 @@ func (h *FeaturesHandler) UpdateBuilding(w http.ResponseWriter, r *http.Request)
 		grpcReq.Position = position
 	}
 
-	if info, ok := reqBody["information"].(map[string]interface{}); ok {
-		grpcReq.Information = &featurespb.BuildingInformation{}
-		if activityLine, ok := info["activity_line"].(string); ok {
-			grpcReq.Information.ActivityLine = activityLine
-		}
-		if name, ok := info["name"].(string); ok {
-			grpcReq.Information.Name = name
-		}
-		if address, ok := info["address"].(string); ok {
-			grpcReq.Information.Address = address
-		}
-		if postalCode, ok := info["postal_code"].(string); ok {
-			grpcReq.Information.PostalCode = postalCode
-		}
-		if website, ok := info["website"].(string); ok {
-			grpcReq.Information.Website = website
-		}
-		if description, ok := info["description"].(string); ok {
-			grpcReq.Information.Description = description
-		}
-	}
+	grpcReq.Information = parseBuildingInformation(reqBody)
 
 	_, err = h.buildingClient.UpdateBuilding(r.Context(), grpcReq)
 	if err != nil {
@@ -1061,4 +1021,44 @@ func parseNumericOrString(s string) interface{} {
 		return n
 	}
 	return s
+}
+
+// parseBuildingInformation extracts building info fields matching Laravel's flat payload.
+// Prefers top-level activity_line/name/address/postal_code/website/description;
+// falls back to a nested "information" object for backward compatibility.
+func parseBuildingInformation(reqBody map[string]interface{}) *featurespb.BuildingInformation {
+	infoKeys := []string{"activity_line", "name", "address", "postal_code", "website", "description"}
+	infoSource := reqBody
+	hasFlatInfo := false
+	for _, key := range infoKeys {
+		if _, ok := reqBody[key]; ok {
+			hasFlatInfo = true
+			break
+		}
+	}
+	if !hasFlatInfo {
+		if nested, ok := reqBody["information"].(map[string]interface{}); ok {
+			infoSource = nested
+		}
+	}
+
+	activityLine, _ := infoSource["activity_line"].(string)
+	name, _ := infoSource["name"].(string)
+	address, _ := infoSource["address"].(string)
+	postalCode, _ := infoSource["postal_code"].(string)
+	website, _ := infoSource["website"].(string)
+	description, _ := infoSource["description"].(string)
+
+	if activityLine == "" && name == "" && address == "" && postalCode == "" && website == "" && description == "" {
+		return nil
+	}
+
+	return &featurespb.BuildingInformation{
+		ActivityLine: activityLine,
+		Name:         name,
+		Address:      address,
+		PostalCode:   postalCode,
+		Website:      website,
+		Description:  description,
+	}
 }
