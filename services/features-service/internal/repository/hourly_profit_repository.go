@@ -377,3 +377,30 @@ func (r *HourlyProfitRepository) DeactivateProfitsForFeature(ctx context.Context
 	_, err := r.db.ExecContext(ctx, query, featureID)
 	return err
 }
+
+// FindOldestByUserID returns the user's hourly profit with the earliest deadline.
+// Matches Laravel: FeatureHourlyProfit::whereUserId($user->id)->oldest('dead_line')->first()
+func (r *HourlyProfitRepository) FindOldestByUserID(ctx context.Context, userID uint64) (*models.FeatureHourlyProfit, error) {
+	query := `
+		SELECT id, user_id, feature_id, asset, amount, dead_line, is_active, created_at, updated_at
+		FROM feature_hourly_profits
+		WHERE user_id = ?
+		ORDER BY dead_line ASC
+		LIMIT 1
+	`
+
+	profit := &models.FeatureHourlyProfit{}
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+		&profit.ID, &profit.UserID, &profit.FeatureID, &profit.Asset,
+		&profit.Amount, &profit.Deadline, &profit.IsActive,
+		&profit.CreatedAt, &profit.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find oldest hourly profit: %w", err)
+	}
+
+	return profit, nil
+}

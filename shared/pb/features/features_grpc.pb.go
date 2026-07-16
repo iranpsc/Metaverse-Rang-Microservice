@@ -1035,9 +1035,10 @@ var FeatureMarketplaceService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	FeatureProfitService_GetHourlyProfits_FullMethodName        = "/features.FeatureProfitService/GetHourlyProfits"
-	FeatureProfitService_GetSingleProfit_FullMethodName         = "/features.FeatureProfitService/GetSingleProfit"
-	FeatureProfitService_GetProfitsByApplication_FullMethodName = "/features.FeatureProfitService/GetProfitsByApplication"
+	FeatureProfitService_GetHourlyProfits_FullMethodName              = "/features.FeatureProfitService/GetHourlyProfits"
+	FeatureProfitService_GetSingleProfit_FullMethodName               = "/features.FeatureProfitService/GetSingleProfit"
+	FeatureProfitService_GetProfitsByApplication_FullMethodName       = "/features.FeatureProfitService/GetProfitsByApplication"
+	FeatureProfitService_GetHourlyProfitTimePercentage_FullMethodName = "/features.FeatureProfitService/GetHourlyProfitTimePercentage"
 )
 
 // FeatureProfitServiceClient is the client API for FeatureProfitService service.
@@ -1049,6 +1050,7 @@ type FeatureProfitServiceClient interface {
 	GetHourlyProfits(ctx context.Context, in *GetHourlyProfitsRequest, opts ...grpc.CallOption) (*HourlyProfitsResponse, error)
 	GetSingleProfit(ctx context.Context, in *GetSingleProfitRequest, opts ...grpc.CallOption) (*HourlyProfitResponse, error)
 	GetProfitsByApplication(ctx context.Context, in *GetProfitsByApplicationRequest, opts ...grpc.CallOption) (*ProfitsByApplicationResponse, error)
+	GetHourlyProfitTimePercentage(ctx context.Context, in *GetHourlyProfitTimePercentageRequest, opts ...grpc.CallOption) (*GetHourlyProfitTimePercentageResponse, error)
 }
 
 type featureProfitServiceClient struct {
@@ -1089,6 +1091,16 @@ func (c *featureProfitServiceClient) GetProfitsByApplication(ctx context.Context
 	return out, nil
 }
 
+func (c *featureProfitServiceClient) GetHourlyProfitTimePercentage(ctx context.Context, in *GetHourlyProfitTimePercentageRequest, opts ...grpc.CallOption) (*GetHourlyProfitTimePercentageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetHourlyProfitTimePercentageResponse)
+	err := c.cc.Invoke(ctx, FeatureProfitService_GetHourlyProfitTimePercentage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FeatureProfitServiceServer is the server API for FeatureProfitService service.
 // All implementations must embed UnimplementedFeatureProfitServiceServer
 // for forward compatibility.
@@ -1098,6 +1110,7 @@ type FeatureProfitServiceServer interface {
 	GetHourlyProfits(context.Context, *GetHourlyProfitsRequest) (*HourlyProfitsResponse, error)
 	GetSingleProfit(context.Context, *GetSingleProfitRequest) (*HourlyProfitResponse, error)
 	GetProfitsByApplication(context.Context, *GetProfitsByApplicationRequest) (*ProfitsByApplicationResponse, error)
+	GetHourlyProfitTimePercentage(context.Context, *GetHourlyProfitTimePercentageRequest) (*GetHourlyProfitTimePercentageResponse, error)
 	mustEmbedUnimplementedFeatureProfitServiceServer()
 }
 
@@ -1116,6 +1129,9 @@ func (UnimplementedFeatureProfitServiceServer) GetSingleProfit(context.Context, 
 }
 func (UnimplementedFeatureProfitServiceServer) GetProfitsByApplication(context.Context, *GetProfitsByApplicationRequest) (*ProfitsByApplicationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetProfitsByApplication not implemented")
+}
+func (UnimplementedFeatureProfitServiceServer) GetHourlyProfitTimePercentage(context.Context, *GetHourlyProfitTimePercentageRequest) (*GetHourlyProfitTimePercentageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetHourlyProfitTimePercentage not implemented")
 }
 func (UnimplementedFeatureProfitServiceServer) mustEmbedUnimplementedFeatureProfitServiceServer() {}
 func (UnimplementedFeatureProfitServiceServer) testEmbeddedByValue()                              {}
@@ -1192,6 +1208,24 @@ func _FeatureProfitService_GetProfitsByApplication_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FeatureProfitService_GetHourlyProfitTimePercentage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetHourlyProfitTimePercentageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FeatureProfitServiceServer).GetHourlyProfitTimePercentage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FeatureProfitService_GetHourlyProfitTimePercentage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FeatureProfitServiceServer).GetHourlyProfitTimePercentage(ctx, req.(*GetHourlyProfitTimePercentageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FeatureProfitService_ServiceDesc is the grpc.ServiceDesc for FeatureProfitService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1210,6 +1244,10 @@ var FeatureProfitService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetProfitsByApplication",
 			Handler:    _FeatureProfitService_GetProfitsByApplication_Handler,
+		},
+		{
+			MethodName: "GetHourlyProfitTimePercentage",
+			Handler:    _FeatureProfitService_GetHourlyProfitTimePercentage_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -359,6 +359,7 @@ service FeatureProfitService {
   rpc GetHourlyProfits(GetHourlyProfitsRequest) returns (HourlyProfitsResponse);
   rpc GetSingleProfit(GetSingleProfitRequest) returns (HourlyProfitResponse);
   rpc GetProfitsByApplication(GetProfitsByApplicationRequest) returns (ProfitsByApplicationResponse);
+  rpc GetHourlyProfitTimePercentage(GetHourlyProfitTimePercentageRequest) returns (GetHourlyProfitTimePercentageResponse);
 }
 
 // BuildingService handles building construction
@@ -419,6 +420,14 @@ message GetProfitsByApplicationRequest {
 message ProfitsByApplicationResponse {
   string total_amount = 1;
   bool success = 2;
+}
+
+message GetHourlyProfitTimePercentageRequest {
+  uint64 user_id = 1;
+}
+
+message GetHourlyProfitTimePercentageResponse {
+  double percentage = 1;
 }
 
 // Building Messages

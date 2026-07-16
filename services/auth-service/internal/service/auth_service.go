@@ -18,10 +18,12 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc/metadata"
 
 	"metarang/auth-service/internal/models"
 	"metarang/auth-service/internal/repository"
 	notificationspb "metarang/shared/pb/notifications"
+	"metarang/shared/pkg/auth"
 )
 
 type AuthService interface {
@@ -440,26 +442,28 @@ func (s *authService) GetMe(ctx context.Context, token string) (*UserDetails, er
 	// Get level, score percentage, unanswered questions, hourly profit percentage
 	// These require integration with Levels and Features services
 	if s.helperService != nil {
+		helperCtx := auth.AttachOutgoingAuth(metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+token))
+
 		// Get user level
-		level, err := s.helperService.GetUserLevel(ctx, user.ID)
+		level, err := s.helperService.GetUserLevel(helperCtx, user.ID)
 		if err == nil && level != nil {
 			details.Level = level
 		}
 
 		// Get score percentage to next level
-		scorePercentage, err := s.helperService.GetScorePercentageToNextLevel(ctx, user.ID, user.Score)
+		scorePercentage, err := s.helperService.GetScorePercentageToNextLevel(helperCtx, user.ID, user.Score)
 		if err == nil {
 			details.ScorePercentageToNextLevel = scorePercentage
 		}
 
 		// Get unanswered questions count
-		unansweredCount, err := s.helperService.GetUnansweredQuestionsCount(ctx, user.ID)
+		unansweredCount, err := s.helperService.GetUnansweredQuestionsCount(helperCtx, user.ID)
 		if err == nil {
 			details.UnansweredQuestionsCount = unansweredCount
 		}
 
 		// Get hourly profit time percentage
-		profitPercentage, err := s.helperService.GetHourlyProfitTimePercentage(ctx, user.ID)
+		profitPercentage, err := s.helperService.GetHourlyProfitTimePercentage(helperCtx, user.ID)
 		if err == nil {
 			details.HourlyProfitTimePercentage = profitPercentage
 		}

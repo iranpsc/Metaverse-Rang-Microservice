@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -20,6 +21,7 @@ type ProfitServiceInterface interface {
 	GetProfitsByApplication(ctx context.Context, userID uint64, karbari string) (float64, error)
 	TransferProfitOnSale(ctx context.Context, featureID, sellerID, buyerID uint64, withdrawProfitDays int) error
 	GetHourlyProfits(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, string, string, string, bool, error)
+	GetHourlyProfitTimePercentage(ctx context.Context, userID uint64) (float64, error)
 	RunHourlyProfitCalculation(ctx context.Context) (int, error)
 	StartHourlyProfitCalculator(ctx context.Context, log *logger.Logger)
 }
@@ -239,6 +241,28 @@ func (s *ProfitService) GetHourlyProfits(ctx context.Context, userID uint64, pag
 	totalAmozeshiFormatted := formatTotal(totalAmozeshi)
 
 	return profits, totalMaskoniFormatted, totalTejariFormatted, totalAmozeshiFormatted, hasMore, nil
+}
+
+// GetHourlyProfitTimePercentage implements Laravel's hourlyProfitInfo helper.
+func (s *ProfitService) GetHourlyProfitTimePercentage(ctx context.Context, userID uint64) (float64, error) {
+	profit, err := s.profitRepo.FindOldestByUserID(ctx, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get oldest hourly profit: %w", err)
+	}
+	if profit == nil {
+		return 0, nil
+	}
+
+	now := time.Now()
+	totalSeconds := math.Abs(profit.Deadline.Sub(profit.UpdatedAt).Seconds())
+	secondsPassed := math.Abs(now.Sub(profit.UpdatedAt).Seconds())
+
+	if totalSeconds == 0 || secondsPassed >= totalSeconds {
+		return 0, nil
+	}
+
+	percentage := (secondsPassed / totalSeconds) * 100
+	return math.Round(percentage*100) / 100, nil
 }
 
 // formatTotal formats a total amount string to 2 decimal places

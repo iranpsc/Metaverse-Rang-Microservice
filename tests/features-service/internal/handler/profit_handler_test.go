@@ -52,6 +52,10 @@ func (m *mockProfitService) RunHourlyProfitCalculation(ctx context.Context) (int
 	return 0, nil
 }
 
+func (m *mockProfitService) GetHourlyProfitTimePercentage(ctx context.Context, userID uint64) (float64, error) {
+	return 0, nil
+}
+
 func TestProfitHandler_GetHourlyProfits(t *testing.T) {
 	ctx := context.Background()
 

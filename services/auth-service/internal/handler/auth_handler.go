@@ -100,7 +100,6 @@ func (h *authHandler) GetMe(ctx context.Context, req *pb.GetMeRequest) (*pb.User
 		return nil, status.Errorf(codes.Unauthenticated, "%s", lang.Tf(h.locale, "authentication failed: %v", err))
 	}
 
-	// Default automatic_logout to 55 if 0 (matching Laravel: settings->automatic_logout ?: 55)
 	automaticLogout := userDetails.AutomaticLogout
 	if automaticLogout == 0 {
 		automaticLogout = 55
@@ -121,7 +120,6 @@ func (h *authHandler) GetMe(ctx context.Context, req *pb.GetMeRequest) (*pb.User
 		Birthdate:                  userDetails.Birthdate,
 		HasWallet:                  userDetails.HasWallet,
 		WalletAddress:              userDetails.WalletAddress,
-		// Token and AccessToken are omitted to match Laravel AuthenticatedUserResource structure
 	}
 
 	if userDetails.Level != nil {

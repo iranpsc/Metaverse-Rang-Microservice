@@ -151,3 +151,22 @@ func (h *ProfitHandler) GetProfitsByApplication(ctx context.Context, req *pb.Get
 		Success: true,
 	}, nil
 }
+
+// GetHourlyProfitTimePercentage returns elapsed time percentage for the user's oldest hourly profit.
+// Implements Laravel's hourlyProfitInfo helper used by AuthenticatedUserResource.
+func (h *ProfitHandler) GetHourlyProfitTimePercentage(ctx context.Context, req *pb.GetHourlyProfitTimePercentageRequest) (*pb.GetHourlyProfitTimePercentageResponse, error) {
+	locale := GetProjectLocale()
+	validationErrors := ValidateRequired("user_id", req.UserId, locale)
+	if len(validationErrors) > 0 {
+		return nil, ReturnValidationError(validationErrors)
+	}
+
+	percentage, err := h.service.GetHourlyProfitTimePercentage(ctx, req.UserId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get hourly profit time percentage: %v", err)
+	}
+
+	return &pb.GetHourlyProfitTimePercentageResponse{
+		Percentage: percentage,
+	}, nil
+}

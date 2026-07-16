@@ -13,6 +13,7 @@ import (
 	commercialpb "metarang/shared/pb/commercial"
 	featurespb "metarang/shared/pb/features"
 	levelspb "metarang/shared/pb/levels"
+	"metarang/shared/pkg/auth"
 )
 
 // HelperService provides helper methods that integrate with other microservices
@@ -97,7 +98,9 @@ func NewHelperService(levelsAddr, featuresAddr, commercialAddr string) HelperSer
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		conn, err := grpc.DialContext(ctx, featuresAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		conn, err := grpc.DialContext(ctx, featuresAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithUnaryInterceptor(forwardAuthInterceptor()))
 		if err != nil {
 			log.Printf("Warning: Failed to connect to features service at %s: %v (will use stub implementations)", featuresAddr, err)
 		} else {
@@ -112,29 +115,9 @@ func NewHelperService(levelsAddr, featuresAddr, commercialAddr string) HelperSer
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Create client interceptor to forward authorization header
-		interceptor := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-			// Check if authorization is already in outgoing metadata
-			outMd, hasOutgoing := metadata.FromOutgoingContext(ctx)
-			if hasOutgoing && len(outMd.Get("authorization")) > 0 {
-				// Already has authorization, proceed
-				return invoker(ctx, method, req, reply, cc, opts...)
-			}
-
-			// Try to get authorization from incoming metadata
-			if inMd, ok := metadata.FromIncomingContext(ctx); ok {
-				if authHeaders := inMd.Get("authorization"); len(authHeaders) > 0 {
-					// Forward authorization header to outgoing call
-					ctx = metadata.AppendToOutgoingContext(ctx, "authorization", authHeaders[0])
-				}
-			}
-
-			return invoker(ctx, method, req, reply, cc, opts...)
-		}
-
 		conn, err := grpc.DialContext(ctx, commercialAddr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithUnaryInterceptor(interceptor))
+			grpc.WithUnaryInterceptor(forwardAuthInterceptor()))
 		if err != nil {
 			log.Printf("Warning: Failed to connect to commercial service at %s: %v (will use stub implementations)", commercialAddr, err)
 		} else {
@@ -182,7 +165,6 @@ func (s *helperService) GetUnansweredQuestionsCount(ctx context.Context, userID 
 
 // GetHourlyProfitTimePercentage implements the Laravel hourlyProfitInfo helper
 // Calls the Features service to calculate time percentage for hourly profit
-// This calculates the percentage based on active hourly profits and their deadlines
 func (s *helperService) GetHourlyProfitTimePercentage(ctx context.Context, userID uint64) (float64, error) {
 	if s.featureProfitClient == nil {
 		return 0.0, nil
@@ -191,68 +173,24 @@ func (s *helperService) GetHourlyProfitTimePercentage(ctx context.Context, userI
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// Get hourly profits for the user
-	resp, err := s.featureProfitClient.GetHourlyProfits(ctx, &featurespb.GetHourlyProfitsRequest{
-		UserId:   userID,
-		Page:     1,
-		PageSize: 100, // Get a reasonable number to calculate percentage
+	ctx = auth.AttachOutgoingAuth(ctx)
+
+	resp, err := s.featureProfitClient.GetHourlyProfitTimePercentage(ctx, &featurespb.GetHourlyProfitTimePercentageRequest{
+		UserId: userID,
 	})
 	if err != nil {
-		log.Printf("Failed to get hourly profits for time percentage: %v", err)
-		return 0.0, nil // Return 0 on error to not break the flow
-	}
-
-	if len(resp.Profits) == 0 {
+		log.Printf("Failed to get hourly profit time percentage: %v", err)
 		return 0.0, nil
 	}
 
-	// Calculate percentage based on active profits and their deadlines
-	// The percentage represents how much time has elapsed toward profit deadlines
-	// This calculates the average time percentage across all active profits
-	now := time.Now()
-	activeCount := 0
-	totalTimePercentage := 0.0
+	return resp.GetPercentage(), nil
+}
 
-	for _, profit := range resp.Profits {
-		if profit.IsActive && profit.DeadLine != "" {
-			activeCount++
-			// Parse deadline timestamp (format may vary - assuming RFC3339 or Unix timestamp)
-			// Try parsing as RFC3339 first, then as Unix timestamp
-			var deadline time.Time
-			var err error
-
-			// Try RFC3339 format
-			deadline, err = time.Parse(time.RFC3339, profit.DeadLine)
-			if err != nil {
-				// Try Unix timestamp (seconds)
-				if unixTime, parseErr := time.Parse(time.UnixDate, profit.DeadLine); parseErr == nil {
-					deadline = unixTime
-				} else {
-					// If parsing fails, skip this profit
-					continue
-				}
-			}
-
-			// Calculate time elapsed percentage (0-100)
-			// This is a simplified calculation - actual business logic may differ
-			if deadline.After(now) {
-				// Calculate percentage of time remaining
-				// For now, return a simple indicator based on active profits
-				// A more accurate calculation would need the profit start time
-				totalTimePercentage += 50.0 // Placeholder: assume 50% elapsed for active profits
-			} else {
-				// Deadline passed but still active - might be ready for withdrawal
-				totalTimePercentage += 100.0
-			}
-		}
+func forwardAuthInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		ctx = auth.AttachOutgoingAuth(ctx)
+		return invoker(ctx, method, req, reply, cc, opts...)
 	}
-
-	if activeCount == 0 {
-		return 0.0, nil
-	}
-
-	// Return average time percentage across all active profits
-	return totalTimePercentage / float64(activeCount), nil
 }
 
 // GetScorePercentageToNextLevel implements the Laravel getScorePercentageToNextLevel helper
