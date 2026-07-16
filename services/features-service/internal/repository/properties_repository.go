@@ -21,7 +21,7 @@ func (r *PropertiesRepository) GetByFeatureID(ctx context.Context, featureID uin
 	properties := &models.FeatureProperties{}
 
 	query := `
-		SELECT id, feature_id, karbari, rgb, owner, label, area, density, stability,
+		SELECT id, feature_id, karbari, rgb, owner, label, address, area, density, stability,
 		       price_psc, price_irr, minimum_price_percentage, created_at, updated_at
 		FROM feature_properties
 		WHERE feature_id = ?
@@ -29,7 +29,7 @@ func (r *PropertiesRepository) GetByFeatureID(ctx context.Context, featureID uin
 
 	err := r.db.QueryRowContext(ctx, query, featureID).Scan(
 		&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
-		&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
+		&properties.Owner, &properties.Label, &properties.Address, &properties.Area, &properties.Density,
 		&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
 		&properties.CreatedAt, &properties.UpdatedAt,
 	)

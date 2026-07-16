@@ -24,6 +24,7 @@ type FeatureProperties struct {
 	RGB                    string    `db:"rgb"`
 	Owner                  string    `db:"owner"`
 	Label                  string    `db:"label"`
+	Address                string    `db:"address"`
 	Area                   float64   `db:"area"`
 	Density                int       `db:"density"`
 	Stability              float64   `db:"stability"`

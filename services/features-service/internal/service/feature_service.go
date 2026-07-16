@@ -3,12 +3,9 @@ package service
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"metarang/features-service/internal/models"
 	"metarang/features-service/internal/repository"
@@ -288,53 +285,11 @@ func (s *FeatureService) GetMyFeatures(ctx context.Context, userID uint64) ([]*p
 // ListMyFeatures retrieves paginated features owned by authenticated user (5 per page)
 // Only loads properties (images are empty on this endpoint)
 func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page int32) ([]*pb.Feature, error) {
-	// #region agent log
-	logEntry := map[string]interface{}{
-		"id":           fmt.Sprintf("log_%d_%s", time.Now().UnixNano(), "service_entry"),
-		"timestamp":    time.Now().UnixMilli(),
-		"location":     "feature_service.go:275",
-		"message":      "ListMyFeatures service entry",
-		"data":         map[string]interface{}{"userID": userID, "page": page},
-		"sessionId":    "debug-session",
-		"runId":        "run1",
-		"hypothesisId": "A",
-	}
-	if logData, err := json.Marshal(logEntry); err == nil {
-		if f, err := os.OpenFile("e:\\microservice-metarang\\.cursor\\debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
-			f.WriteString(string(logData) + "\n")
-			f.Close()
-		}
-	}
-	// #endregion
 	if page < 1 {
 		page = 1
 	}
 
 	features, propertiesList, err := s.featureRepo.FindByOwnerPaginated(ctx, userID, int(page))
-	// #region agent log
-	logEntry2 := map[string]interface{}{
-		"id":        fmt.Sprintf("log_%d_%s", time.Now().UnixNano(), "service_error"),
-		"timestamp": time.Now().UnixMilli(),
-		"location":  "feature_service.go:282",
-		"message":   "Repository call result",
-		"data": map[string]interface{}{"error": func() string {
-			if err != nil {
-				return err.Error()
-			} else {
-				return "nil"
-			}
-		}(), "featureCount": len(features)},
-		"sessionId":    "debug-session",
-		"runId":        "run1",
-		"hypothesisId": "A",
-	}
-	if logData, err2 := json.Marshal(logEntry2); err2 == nil {
-		if f, err3 := os.OpenFile("e:\\microservice-metarang\\.cursor\\debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err3 == nil {
-			f.WriteString(string(logData) + "\n")
-			f.Close()
-		}
-	}
-	// #endregion
 	if err != nil {
 		return nil, fmt.Errorf("failed to find user features: %w", err)
 	}

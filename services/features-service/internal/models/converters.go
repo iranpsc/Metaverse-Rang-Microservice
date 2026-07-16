@@ -31,6 +31,8 @@ func FeatureToPB(feature *Feature, properties *FeatureProperties, geometry *Geom
 func PropertiesToPB(props *FeatureProperties) *pb.FeatureProperties {
 	return &pb.FeatureProperties{
 		Id:                     props.ID,
+		Address:                props.Address,
+		Density:                int32(props.Density),
 		Area:                   fmt.Sprintf("%.2f", props.Area),
 		Stability:              fmt.Sprintf("%.2f", props.Stability),
 		Label:                  props.Label,

@@ -24,7 +24,7 @@ func (r *FeatureRepository) FindByID(ctx context.Context, id uint64) (*models.Fe
 
 	query := `
 		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
-		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
+		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label, fp.address,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
 		FROM features f
@@ -36,7 +36,7 @@ func (r *FeatureRepository) FindByID(ctx context.Context, id uint64) (*models.Fe
 		&feature.ID, &feature.OwnerID, &feature.MapID, &feature.Type,
 		&feature.CreatedAt, &feature.UpdatedAt,
 		&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
-		&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
+		&properties.Owner, &properties.Label, &properties.Address, &properties.Area, &properties.Density,
 		&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
 		&properties.CreatedAt, &properties.UpdatedAt,
 	)
@@ -123,7 +123,7 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 	// Load features with properties (Laravel: Feature::whereIn('id', $geometryIds))
 	featureQuery := `
 		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
-		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
+		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label, fp.address,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
 		FROM features f
@@ -145,7 +145,7 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 			&feature.ID, &feature.OwnerID,
 			&feature.MapID, &feature.Type, &feature.CreatedAt, &feature.UpdatedAt,
 			&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
-			&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
+			&properties.Owner, &properties.Label, &properties.Address, &properties.Area, &properties.Density,
 			&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
 			&properties.CreatedAt, &properties.UpdatedAt,
 		); err != nil {
@@ -199,7 +199,7 @@ func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context,
 
 	featureQuery := `
 		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
-		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
+		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label, fp.address,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
 		FROM features f
@@ -222,7 +222,7 @@ func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context,
 			&feature.ID, &feature.OwnerID,
 			&feature.MapID, &feature.Type, &feature.CreatedAt, &feature.UpdatedAt,
 			&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
-			&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
+			&properties.Owner, &properties.Label, &properties.Address, &properties.Area, &properties.Density,
 			&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
 			&properties.CreatedAt, &properties.UpdatedAt,
 		); err != nil {
@@ -319,7 +319,7 @@ func (r *FeatureRepository) FindByOwnerPaginated(ctx context.Context, ownerID ui
 	offset := (page - 1) * perPage
 
 	// Query does NOT select f.geometry_id because features table doesn't have that column
-	query := `SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at, fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label, fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage, fp.created_at as prop_created_at, fp.updated_at as prop_updated_at FROM features f LEFT JOIN feature_properties fp ON f.id = fp.feature_id WHERE f.owner_id = ? ORDER BY f.id ASC LIMIT ? OFFSET ?`
+	query := `SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at, fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label, fp.address, fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage, fp.created_at as prop_created_at, fp.updated_at as prop_updated_at FROM features f LEFT JOIN feature_properties fp ON f.id = fp.feature_id WHERE f.owner_id = ? ORDER BY f.id ASC LIMIT ? OFFSET ?`
 
 	rows, err := r.db.QueryContext(ctx, query, ownerID, perPage, offset)
 	if err != nil {
@@ -336,7 +336,7 @@ func (r *FeatureRepository) FindByOwnerPaginated(ctx context.Context, ownerID ui
 			&feature.ID, &feature.OwnerID,
 			&feature.MapID, &feature.Type, &feature.CreatedAt, &feature.UpdatedAt,
 			&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
-			&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
+			&properties.Owner, &properties.Label, &properties.Address, &properties.Area, &properties.Density,
 			&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
 			&properties.CreatedAt, &properties.UpdatedAt,
 		); err != nil {
@@ -357,7 +357,7 @@ func (r *FeatureRepository) FindByOwnerAndFeatureID(ctx context.Context, ownerID
 
 	query := `
 		SELECT f.id, f.owner_id, f.map_id, f.type, f.created_at, f.updated_at,
-		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label,
+		       fp.id as prop_id, fp.feature_id, fp.karbari, fp.rgb, fp.owner, fp.label, fp.address,
 		       fp.area, fp.density, fp.stability, fp.price_psc, fp.price_irr, fp.minimum_price_percentage,
 		       fp.created_at as prop_created_at, fp.updated_at as prop_updated_at
 		FROM features f
@@ -369,7 +369,7 @@ func (r *FeatureRepository) FindByOwnerAndFeatureID(ctx context.Context, ownerID
 		&feature.ID, &feature.OwnerID, &feature.MapID, &feature.Type,
 		&feature.CreatedAt, &feature.UpdatedAt,
 		&properties.ID, &properties.FeatureID, &properties.Karbari, &properties.RGB,
-		&properties.Owner, &properties.Label, &properties.Area, &properties.Density,
+		&properties.Owner, &properties.Label, &properties.Address, &properties.Area, &properties.Density,
 		&properties.Stability, &properties.PricePSC, &properties.PriceIRR, &properties.MinimumPricePercentage,
 		&properties.CreatedAt, &properties.UpdatedAt,
 	)
