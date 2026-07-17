@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"metarang/social-service/internal/client"
 	"metarang/social-service/internal/models"
 	"metarang/social-service/internal/repository"
 )
@@ -26,16 +27,23 @@ type FollowService interface {
 }
 
 type followService struct {
-	followRepo repository.FollowRepository
-	userRepo   repository.UserRepository
-	// profileLimitationClient will be used to check profile limitations via gRPC
-	// For now, we'll query directly from database
+	followRepo   repository.FollowRepository
+	userRepo     repository.UserRepository
+	authClient   client.AuthClient
+	levelsClient client.LevelsClient // optional; nil disables follower score updates
 }
 
-func NewFollowService(followRepo repository.FollowRepository, userRepo repository.UserRepository) FollowService {
+func NewFollowService(
+	followRepo repository.FollowRepository,
+	userRepo repository.UserRepository,
+	authClient client.AuthClient,
+	levelsClient client.LevelsClient,
+) FollowService {
 	return &followService{
-		followRepo: followRepo,
-		userRepo:   userRepo,
+		followRepo:   followRepo,
+		userRepo:     userRepo,
+		authClient:   authClient,
+		levelsClient: levelsClient,
 	}
 }
 
@@ -47,7 +55,7 @@ func (s *followService) GetFollowers(ctx context.Context, userID uint64) ([]*mod
 
 	resources := make([]*models.FollowResource, 0, len(followerIDs))
 	for _, followerID := range followerIDs {
-		resource, err := s.buildFollowResource(ctx, followerID)
+		resource, err := s.buildFollowResource(ctx, userID, followerID)
 		if err != nil {
 			// Log error but continue with other followers
 			fmt.Printf("failed to build follow resource for user %d: %v\n", followerID, err)
@@ -69,7 +77,7 @@ func (s *followService) GetFollowing(ctx context.Context, userID uint64) ([]*mod
 
 	resources := make([]*models.FollowResource, 0, len(followingIDs))
 	for _, followingID := range followingIDs {
-		resource, err := s.buildFollowResource(ctx, followingID)
+		resource, err := s.buildFollowResource(ctx, userID, followingID)
 		if err != nil {
 			// Log error but continue with other following
 			fmt.Printf("failed to build follow resource for user %d: %v\n", followingID, err)
@@ -98,20 +106,30 @@ func (s *followService) Follow(ctx context.Context, userID, targetUserID uint64)
 		return ErrAlreadyFollowing
 	}
 
-	// TODO: Check profile limitations via gRPC call to auth-service
-	// For now, we'll skip this check and implement it later when we add the gRPC client
-	// The profile limitation check should:
-	// 1. Check if target has a profile limitation with options['follow'] === false
-	// 2. Check if it's specifically against the caller (limited_user_id = caller.id)
-	// 3. Check if it's global (limited_user_id = target.id, meaning target limited themselves)
+	if s.authClient == nil {
+		return fmt.Errorf("auth service client is not configured")
+	}
+	canFollow, err := s.authClient.CanFollow(ctx, userID, targetUserID)
+	if err != nil {
+		return fmt.Errorf("failed to check profile limitation: %w", err)
+	}
+	if !canFollow {
+		return ErrProfileLimitation
+	}
 
 	// Create follow relationship
 	if err := s.followRepo.Create(ctx, userID, targetUserID); err != nil {
 		return fmt.Errorf("failed to create follow relationship: %w", err)
 	}
 
-	// TODO: Fire User::followed event (via pub/sub or notification service)
-	// This would notify listeners about the follow action
+	// Laravel fires User::followed on the followed user (UserObserver::followed):
+	// levels-service updates their followers_count log and recalculates score.
+	// Best-effort: a levels-service outage must not fail the follow itself.
+	if s.levelsClient != nil {
+		if err := s.levelsClient.RecordFollower(ctx, targetUserID); err != nil {
+			fmt.Printf("failed to record follower for user %d: %v\n", targetUserID, err)
+		}
+	}
 
 	return nil
 }
@@ -127,7 +145,9 @@ func (s *followService) Remove(ctx context.Context, userID, targetUserID uint64)
 	return s.followRepo.Delete(ctx, targetUserID, userID)
 }
 
-func (s *followService) buildFollowResource(ctx context.Context, userID uint64) (*models.FollowResource, error) {
+// buildFollowResource builds the resource for userID as seen by viewerID (the
+// authenticated user), mirroring Laravel FollowResource.
+func (s *followService) buildFollowResource(ctx context.Context, viewerID, userID uint64) (*models.FollowResource, error) {
 	// Get user basic info
 	userInfo, err := s.userRepo.GetUserBasicInfo(ctx, userID)
 	if err != nil {
@@ -161,6 +181,20 @@ func (s *followService) buildFollowResource(ctx context.Context, userID uint64) 
 		online = false
 	}
 
+	// Does the viewer follow this user?
+	isFollowing, err := s.followRepo.Exists(ctx, viewerID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check following status: %w", err)
+	}
+
+	// Does this user follow the viewer? (viewer may remove them as follower)
+	isFollower, err := s.followRepo.Exists(ctx, userID, viewerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check follower status: %w", err)
+	}
+
+	isSelf := viewerID == userID
+
 	return &models.FollowResource{
 		ID:            userInfo.ID,
 		Name:          userInfo.Name,
@@ -168,5 +202,11 @@ func (s *followService) buildFollowResource(ctx context.Context, userID uint64) 
 		ProfilePhotos: photos,
 		Level:         level,
 		Online:        online,
+		Followed:      isFollowing,
+		Can: models.FollowPermissions{
+			Follow:         !isSelf && !isFollowing,
+			Unfollow:       isFollowing,
+			RemoveFollower: isFollower,
+		},
 	}, nil
 }

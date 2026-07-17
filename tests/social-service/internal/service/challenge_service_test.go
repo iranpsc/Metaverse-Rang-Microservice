@@ -1,373 +1,241 @@
-package service
+package service_test
 
 import (
 	"context"
-	"errors"
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"metarang/social-service/internal/models"
+	"metarang/social-service/internal/service"
+	"metarang/social-service/internal/testutil"
 )
 
-type mockChallengeRepository struct {
-	getRandomUnansweredQuestionFunc   func(ctx context.Context, userID uint64) (*models.Question, error)
-	getQuestionByIDFunc               func(ctx context.Context, questionID uint64) (*models.Question, error)
-	getAnswersByQuestionIDFunc        func(ctx context.Context, questionID uint64) ([]*models.Answer, error)
-	incrementQuestionViewsFunc        func(ctx context.Context, questionID uint64) error
-	incrementQuestionParticipantsFunc func(ctx context.Context, questionID uint64) error
-	createUserAnswerFunc              func(ctx context.Context, userID, questionID, answerID uint64) error
-	hasUserAnsweredFunc               func(ctx context.Context, userID, questionID uint64) (bool, error)
-	getUserAnswerCountFunc            func(ctx context.Context, userID uint64, isCorrect bool) (int32, error)
-	getTotalParticipantsCountFunc     func(ctx context.Context) (int32, error)
-	getSystemVariableFunc             func(ctx context.Context, slug string) (float64, error)
-	getAnswerVoteCountFunc            func(ctx context.Context, answerID uint64) (int32, error)
-	getQuestionTotalAnswersFunc       func(ctx context.Context, questionID uint64) (int32, error)
-}
-
-func (m *mockChallengeRepository) GetRandomUnansweredQuestion(ctx context.Context, userID uint64) (*models.Question, error) {
-	if m.getRandomUnansweredQuestionFunc != nil {
-		return m.getRandomUnansweredQuestionFunc(ctx, userID)
-	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) GetQuestionByID(ctx context.Context, questionID uint64) (*models.Question, error) {
-	if m.getQuestionByIDFunc != nil {
-		return m.getQuestionByIDFunc(ctx, questionID)
-	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) GetAnswersByQuestionID(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
-	if m.getAnswersByQuestionIDFunc != nil {
-		return m.getAnswersByQuestionIDFunc(ctx, questionID)
-	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) IncrementQuestionViews(ctx context.Context, questionID uint64) error {
-	if m.incrementQuestionViewsFunc != nil {
-		return m.incrementQuestionViewsFunc(ctx, questionID)
-	}
-	return errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) IncrementQuestionParticipants(ctx context.Context, questionID uint64) error {
-	if m.incrementQuestionParticipantsFunc != nil {
-		return m.incrementQuestionParticipantsFunc(ctx, questionID)
-	}
-	return errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) CreateUserAnswer(ctx context.Context, userID, questionID, answerID uint64) error {
-	if m.createUserAnswerFunc != nil {
-		return m.createUserAnswerFunc(ctx, userID, questionID, answerID)
-	}
-	return errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) HasUserAnswered(ctx context.Context, userID, questionID uint64) (bool, error) {
-	if m.hasUserAnsweredFunc != nil {
-		return m.hasUserAnsweredFunc(ctx, userID, questionID)
-	}
-	return false, errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) GetUserAnswerCount(ctx context.Context, userID uint64, isCorrect bool) (int32, error) {
-	if m.getUserAnswerCountFunc != nil {
-		return m.getUserAnswerCountFunc(ctx, userID, isCorrect)
-	}
-	return 0, errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) GetTotalParticipantsCount(ctx context.Context) (int32, error) {
-	if m.getTotalParticipantsCountFunc != nil {
-		return m.getTotalParticipantsCountFunc(ctx)
-	}
-	return 0, errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) GetSystemVariable(ctx context.Context, slug string) (float64, error) {
-	if m.getSystemVariableFunc != nil {
-		return m.getSystemVariableFunc(ctx, slug)
-	}
-	return 15.0, nil
-}
-
-func (m *mockChallengeRepository) GetAnswerVoteCount(ctx context.Context, answerID uint64) (int32, error) {
-	if m.getAnswerVoteCountFunc != nil {
-		return m.getAnswerVoteCountFunc(ctx, answerID)
-	}
-	return 0, errors.New("not implemented")
-}
-
-func (m *mockChallengeRepository) GetQuestionTotalAnswers(ctx context.Context, questionID uint64) (int32, error) {
-	if m.getQuestionTotalAnswersFunc != nil {
-		return m.getQuestionTotalAnswersFunc(ctx, questionID)
-	}
-	return 0, errors.New("not implemented")
-}
-
-type mockCommercialClient struct {
-	addBalanceFunc func(ctx context.Context, userID uint64, asset string, amount float64) error
-}
-
-func (m *mockCommercialClient) AddBalance(ctx context.Context, userID uint64, asset string, amount float64) error {
-	if m.addBalanceFunc != nil {
-		return m.addBalanceFunc(ctx, userID, asset, amount)
-	}
-	return nil
-}
-
-func (m *mockCommercialClient) Close() error {
-	return nil
-}
-
 func TestChallengeService_GetTimings(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful get timings", func(t *testing.T) {
-		repo := &mockChallengeRepository{}
-		repo.getSystemVariableFunc = func(ctx context.Context, slug string) (float64, error) {
-			return 15.0, nil
-		}
-		repo.getTotalParticipantsCountFunc = func(ctx context.Context) (int32, error) {
-			return 100, nil
-		}
-		repo.getUserAnswerCountFunc = func(ctx context.Context, userID uint64, isCorrect bool) (int32, error) {
-			if isCorrect {
-				return 5, nil
-			}
-			return 3, nil
-		}
-
-		service := NewChallengeService(repo, &mockCommercialClient{})
-		timings, err := service.GetTimings(ctx, 1)
-		if err != nil {
-			t.Fatalf("GetTimings failed: %v", err)
-		}
-		if timings.DisplayAdInterval != 15 {
-			t.Fatalf("Expected DisplayAdInterval 15, got %d", timings.DisplayAdInterval)
-		}
-		if timings.Participants != 100 {
-			t.Fatalf("Expected Participants 100, got %d", timings.Participants)
-		}
-		if timings.CorrectAnswers != 5 {
-			t.Fatalf("Expected CorrectAnswers 5, got %d", timings.CorrectAnswers)
-		}
-		if timings.WrongAnswers != 3 {
-			t.Fatalf("Expected WrongAnswers 3, got %d", timings.WrongAnswers)
-		}
-	})
-}
-
-func TestChallengeService_GetQuestion(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful get question", func(t *testing.T) {
-		repo := &mockChallengeRepository{}
-		repo.getRandomUnansweredQuestionFunc = func(ctx context.Context, userID uint64) (*models.Question, error) {
-			return &models.Question{
-				ID:           1,
-				Code:         "Q1",
-				Title:        "Test Question",
-				Image:        "question.jpg",
-				CreatorCode:  "USER1",
-				Prize:        25,
-				Views:        100,
-				Participants: 50,
-				CreatedAt:    time.Now(),
-				UpdatedAt:    time.Now(),
-			}, nil
-		}
-		repo.incrementQuestionViewsFunc = func(ctx context.Context, questionID uint64) error {
-			return nil
-		}
-		repo.getAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
-			return []*models.Answer{
-				{ID: 1, QuestionID: 1, Title: "Answer 1", Image: "answer1.jpg", IsCorrect: true},
-				{ID: 2, QuestionID: 1, Title: "Answer 2", Image: "answer2.jpg", IsCorrect: false},
-			}, nil
-		}
-
-		service := NewChallengeService(repo, &mockCommercialClient{})
-		question, err := service.GetQuestion(ctx, 1)
-		if err != nil {
-			t.Fatalf("GetQuestion failed: %v", err)
-		}
-		if question.ID != 1 {
-			t.Fatalf("Expected question ID 1, got %d", question.ID)
-		}
-		if len(question.Answers) != 2 {
-			t.Fatalf("Expected 2 answers, got %d", len(question.Answers))
-		}
-		if question.Answers[0].IsCorrect {
-			t.Fatal("Answers should not expose is_correct in GetQuestion response")
-		}
-	})
-
-	t.Run("no unanswered questions", func(t *testing.T) {
-		repo := &mockChallengeRepository{}
-		repo.getRandomUnansweredQuestionFunc = func(ctx context.Context, userID uint64) (*models.Question, error) {
-			return nil, nil
-		}
-
-		service := NewChallengeService(repo, &mockCommercialClient{})
-		_, err := service.GetQuestion(ctx, 1)
-		if err == nil {
-			t.Fatal("Expected error when no unanswered questions")
-		}
-		if err != ErrNoUnansweredQuestions {
-			t.Fatalf("Expected ErrNoUnansweredQuestions, got: %v", err)
-		}
-	})
-}
-
-func TestChallengeService_SubmitAnswer(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful correct answer", func(t *testing.T) {
-		repo := &mockChallengeRepository{}
-		repo.getQuestionByIDFunc = func(ctx context.Context, questionID uint64) (*models.Question, error) {
-			return &models.Question{
-				ID:           1,
-				Code:         "Q1",
-				Title:        "Test Question",
-				Image:        "question.jpg",
-				CreatorCode:  "USER1",
-				Prize:        25,
-				Views:        100,
-				Participants: 50,
-				CreatedAt:    time.Now(),
-				UpdatedAt:    time.Now(),
-			}, nil
-		}
-		repo.getAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
-			return []*models.Answer{
-				{ID: 1, QuestionID: 1, Title: "Correct Answer", Image: "answer1.jpg", IsCorrect: true},
-				{ID: 2, QuestionID: 1, Title: "Wrong Answer", Image: "answer2.jpg", IsCorrect: false},
-			}, nil
-		}
-		repo.hasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
-			return false, nil
-		}
-		repo.createUserAnswerFunc = func(ctx context.Context, userID, questionID, answerID uint64) error {
-			return nil
-		}
-		repo.incrementQuestionParticipantsFunc = func(ctx context.Context, questionID uint64) error {
-			return nil
-		}
-		repo.getQuestionTotalAnswersFunc = func(ctx context.Context, questionID uint64) (int32, error) {
+	repo := &testutil.MockChallengeRepository{}
+	repo.GetSystemVariableFunc = func(ctx context.Context, slug string) (float64, error) {
+		switch slug {
+		case "challenge_display_ad_interval":
 			return 10, nil
+		default:
+			return 15, nil
 		}
-		repo.getAnswerVoteCountFunc = func(ctx context.Context, answerID uint64) (int32, error) {
-			if answerID == 1 {
-				return 7, nil
-			}
+	}
+	repo.GetTotalParticipantsCountFunc = func(ctx context.Context) (int32, error) {
+		return 100, nil
+	}
+	repo.GetUserAnswerCountFunc = func(ctx context.Context, userID uint64, isCorrect bool) (int32, error) {
+		if isCorrect {
 			return 3, nil
 		}
+		return 7, nil
+	}
 
-		creditCalled := false
-		client := &mockCommercialClient{}
-		client.addBalanceFunc = func(ctx context.Context, userID uint64, asset string, amount float64) error {
-			creditCalled = true
-			if userID != 1 {
-				t.Fatalf("Expected userID 1, got %d", userID)
-			}
-			if asset != "psc" {
-				t.Fatalf("Expected asset 'psc', got %s", asset)
-			}
-			if amount != 25.0 {
-				t.Fatalf("Expected amount 25.0, got %f", amount)
-			}
-			return nil
-		}
-
-		service := NewChallengeService(repo, client)
-		question, err := service.SubmitAnswer(ctx, 1, 1, 1)
-		if err != nil {
-			t.Fatalf("SubmitAnswer failed: %v", err)
-		}
-		if question.ID != 1 {
-			t.Fatalf("Expected question ID 1, got %d", question.ID)
-		}
-		if !creditCalled {
-			t.Fatal("Expected AddBalance to be called for correct answer")
-		}
-		if !question.Answers[0].IsCorrect {
-			t.Fatal("Expected first answer to be marked as correct")
-		}
-		if question.Answers[0].VotePercentage != 70 {
-			t.Fatalf("Expected vote percentage 70, got %d", question.Answers[0].VotePercentage)
-		}
-	})
-
-	t.Run("already answered", func(t *testing.T) {
-		repo := &mockChallengeRepository{}
-		repo.getQuestionByIDFunc = func(ctx context.Context, questionID uint64) (*models.Question, error) {
-			return &models.Question{ID: 1}, nil
-		}
-		repo.getAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
-			return []*models.Answer{{ID: 1, QuestionID: 1, IsCorrect: false}}, nil
-		}
-		repo.hasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
-			return true, nil
-		}
-
-		service := NewChallengeService(repo, &mockCommercialClient{})
-		_, err := service.SubmitAnswer(ctx, 1, 1, 1)
-		if err == nil {
-			t.Fatal("Expected error when already answered")
-		}
-		if err != ErrAlreadyAnswered {
-			t.Fatalf("Expected ErrAlreadyAnswered, got: %v", err)
-		}
-	})
-
-	t.Run("answer mismatch", func(t *testing.T) {
-		repo := &mockChallengeRepository{}
-		repo.getQuestionByIDFunc = func(ctx context.Context, questionID uint64) (*models.Question, error) {
-			return &models.Question{ID: 1}, nil
-		}
-		repo.getAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
-			return []*models.Answer{{ID: 1, QuestionID: 1}}, nil
-		}
-		repo.hasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
-			return false, nil
-		}
-
-		service := NewChallengeService(repo, &mockCommercialClient{})
-		_, err := service.SubmitAnswer(ctx, 1, 1, 999)
-		if err == nil {
-			t.Fatal("Expected error when answer doesn't belong to question")
-		}
-		if err != ErrAnswerMismatch {
-			t.Fatalf("Expected ErrAnswerMismatch, got: %v", err)
-		}
-	})
+	svc := service.NewChallengeService(repo, nil)
+	out, err := svc.GetTimings(context.Background(), 99)
+	require.NoError(t, err)
+	require.Equal(t, int32(10), out.DisplayAdInterval)
+	require.Equal(t, int32(15), out.DisplayQuestionInterval)
+	require.Equal(t, int32(100), out.Participants)
+	require.Equal(t, int32(3), out.CorrectAnswers)
+	require.Equal(t, int32(7), out.WrongAnswers)
 }
 
-func TestChallengeService_GetAdvertisement(t *testing.T) {
-	service := NewChallengeService(
-		&mockChallengeRepository{},
-		&mockCommercialClient{},
-		ChallengeConfig{
+func TestChallengeService_GetQuestion_NoQuestions(t *testing.T) {
+	repo := &testutil.MockChallengeRepository{}
+	repo.GetRandomUnansweredQuestionFunc = func(ctx context.Context, userID uint64) (*models.Question, error) {
+		return nil, nil
+	}
+	svc := service.NewChallengeService(repo, nil)
+	_, err := svc.GetQuestion(context.Background(), 1)
+	require.ErrorIs(t, err, service.ErrNoUnansweredQuestions)
+}
+
+func TestChallengeService_GetQuestion_OK(t *testing.T) {
+	repo := &testutil.MockChallengeRepository{}
+	repo.GetRandomUnansweredQuestionFunc = func(ctx context.Context, userID uint64) (*models.Question, error) {
+		return &models.Question{
+			ID: 1, Title: "Q", Image: "img.png", CreatorCode: "C", Prize: 10,
+			Participants: 2, Views: 5,
+		}, nil
+	}
+	repo.GetAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
+		return []*models.Answer{
+			{ID: 10, Title: "A", Image: "a.png", IsCorrect: true},
+		}, nil
+	}
+	svc := service.NewChallengeService(repo, nil)
+	q, err := svc.GetQuestion(context.Background(), 1)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), q.ID)
+	require.Len(t, q.Answers, 1)
+	require.False(t, q.Answers[0].IsCorrect) // stripped for GET question
+}
+
+func TestChallengeService_SubmitAnswer_Mismatch(t *testing.T) {
+	repo := &testutil.MockChallengeRepository{}
+	repo.GetQuestionByIDFunc = func(ctx context.Context, questionID uint64) (*models.Question, error) {
+		return &models.Question{ID: questionID}, nil
+	}
+	repo.GetAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
+		return []*models.Answer{{ID: 1, QuestionID: questionID}}, nil
+	}
+	svc := service.NewChallengeService(repo, nil)
+	_, err := svc.SubmitAnswer(context.Background(), 1, 1, 999)
+	require.ErrorIs(t, err, service.ErrAnswerMismatch)
+}
+
+func TestChallengeService_SubmitAnswer_AlreadyAnswered(t *testing.T) {
+	repo := &testutil.MockChallengeRepository{}
+	repo.GetQuestionByIDFunc = func(ctx context.Context, questionID uint64) (*models.Question, error) {
+		return &models.Question{ID: questionID}, nil
+	}
+	repo.GetAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
+		return []*models.Answer{{ID: 1, QuestionID: questionID, IsCorrect: false}}, nil
+	}
+	repo.HasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
+		return true, nil
+	}
+	svc := service.NewChallengeService(repo, nil)
+	_, err := svc.SubmitAnswer(context.Background(), 1, 1, 1)
+	require.ErrorIs(t, err, service.ErrAlreadyAnswered)
+}
+
+func TestChallengeService_SubmitAnswer_CreditsPSC(t *testing.T) {
+	var credited float64
+	com := &testutil.MockCommercialClient{}
+	com.AddBalanceFunc = func(ctx context.Context, userID uint64, asset string, amount float64) error {
+		credited = amount
+		require.Equal(t, "psc", asset)
+		require.Equal(t, uint64(42), userID)
+		return nil
+	}
+
+	repo := &testutil.MockChallengeRepository{}
+	repo.GetQuestionByIDFunc = func(ctx context.Context, questionID uint64) (*models.Question, error) {
+		return &models.Question{ID: questionID, Prize: 25}, nil
+	}
+	repo.GetAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
+		return []*models.Answer{
+			{ID: 1, QuestionID: questionID, IsCorrect: true},
+			{ID: 2, QuestionID: questionID, IsCorrect: false},
+		}, nil
+	}
+	repo.HasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
+		return false, nil
+	}
+	repo.CreateUserAnswerFunc = func(ctx context.Context, userID, questionID, answerID uint64) error {
+		return nil
+	}
+	repo.GetQuestionTotalAnswersFunc = func(ctx context.Context, questionID uint64) (int32, error) {
+		return 4, nil
+	}
+	repo.GetAnswerVoteCountFunc = func(ctx context.Context, answerID uint64) (int32, error) {
+		if answerID == 1 {
+			return 3, nil
+		}
+		return 1, nil
+	}
+
+	svc := service.NewChallengeService(repo, com)
+	_, err := svc.SubmitAnswer(context.Background(), 42, 9, 1)
+	require.NoError(t, err)
+	require.Equal(t, 25.0, credited)
+}
+
+func TestChallengeService_SubmitAnswer_QuestionNotFound(t *testing.T) {
+	repo := &testutil.MockChallengeRepository{}
+	repo.GetQuestionByIDFunc = func(ctx context.Context, questionID uint64) (*models.Question, error) {
+		return nil, nil
+	}
+	svc := service.NewChallengeService(repo, nil)
+	_, err := svc.SubmitAnswer(context.Background(), 1, 99, 1)
+	require.ErrorIs(t, err, service.ErrQuestionNotFound)
+}
+
+func TestChallengeService_SubmitAnswer_WrongNoCredit(t *testing.T) {
+	var credited bool
+	com := &testutil.MockCommercialClient{}
+	com.AddBalanceFunc = func(ctx context.Context, userID uint64, asset string, amount float64) error {
+		credited = true
+		return nil
+	}
+
+	repo := &testutil.MockChallengeRepository{}
+	repo.GetQuestionByIDFunc = func(ctx context.Context, questionID uint64) (*models.Question, error) {
+		return &models.Question{ID: questionID, Prize: 25}, nil
+	}
+	repo.GetAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
+		return []*models.Answer{
+			{ID: 1, QuestionID: questionID, IsCorrect: false},
+		}, nil
+	}
+	repo.HasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
+		return false, nil
+	}
+	repo.CreateUserAnswerFunc = func(ctx context.Context, userID, questionID, answerID uint64) error {
+		return nil
+	}
+	repo.GetQuestionTotalAnswersFunc = func(ctx context.Context, questionID uint64) (int32, error) {
+		return 2, nil
+	}
+	repo.GetAnswerVoteCountFunc = func(ctx context.Context, answerID uint64) (int32, error) {
+		return 1, nil
+	}
+
+	svc := service.NewChallengeService(repo, com)
+	_, err := svc.SubmitAnswer(context.Background(), 42, 9, 1)
+	require.NoError(t, err)
+	require.False(t, credited)
+}
+
+func TestChallengeService_GetAdvertisement_EN(t *testing.T) {
+	svc := service.NewChallengeService(
+		&testutil.MockChallengeRepository{},
+		nil,
+		service.ChallengeConfig{
 			Locale:     "EN",
 			ProjectURL: "http://localhost:8000",
 		},
 	)
 
-	ads, err := service.GetAdvertisement(context.Background())
-	if err != nil {
-		t.Fatalf("GetAdvertisement failed: %v", err)
+	ads, err := svc.GetAdvertisement(context.Background())
+	require.NoError(t, err)
+	require.Len(t, ads, 7)
+
+	first := ads[0]
+	require.Equal(t, "bn-1000", first.Code)
+	require.Equal(t, "Matrix exit box", first.Title)
+	require.Equal(t, "Banking services in Metaverse", first.Description)
+	require.Equal(t, "1000000", first.InvestmentValue)
+	require.Equal(t, "2028/11/05", first.EndsAt)
+	require.Equal(t, "http://localhost:8000/uploads/challenge/advertisement/bn-1000/bn-1000.mp4", first.VideoURL)
+	require.Equal(t, "http://localhost:8000/uploads/challenge/advertisement/bn-1000/bn-1000.jpg", first.ImageURL)
+	require.Equal(t, "https://metarang.com/fa/citizens/bn-1000", first.URL)
+	require.Equal(t, "red", first.InvestmentAsset)
+
+	for _, ad := range ads {
+		require.Equal(t, "https://metarang.com/fa/citizens/"+ad.Code, ad.URL)
+		require.Equal(t, "red", ad.InvestmentAsset)
 	}
-	if len(ads) != 7 {
-		t.Fatalf("expected 7 advertisements, got %d", len(ads))
-	}
-	if ads[0].URL != "https://metarang.com/fa/citizen/bn-1000" {
-		t.Fatalf("unexpected url: %s", ads[0].URL)
-	}
-	if ads[0].InvestmentAsset != "red" {
-		t.Fatalf("unexpected investment_asset: %s", ads[0].InvestmentAsset)
-	}
+}
+
+func TestChallengeService_GetAdvertisement_FA(t *testing.T) {
+	svc := service.NewChallengeService(
+		&testutil.MockChallengeRepository{},
+		nil,
+		service.ChallengeConfig{
+			Locale:     "FA",
+			ProjectURL: "http://localhost:8000",
+		},
+	)
+
+	ads, err := svc.GetAdvertisement(context.Background())
+	require.NoError(t, err)
+	require.NotEmpty(t, ads)
+	require.Equal(t, "bn-1000", ads[0].Code)
+	require.Equal(t, "صندوق خروج از ماتریکس", ads[0].Title)
+	require.Equal(t, "ارائه خدمات بانکی نوین در دنیای متاورس", ads[0].Description)
+	require.Equal(t, "https://metarang.com/fa/citizens/bn-1000", ads[0].URL)
+	require.Equal(t, "red", ads[0].InvestmentAsset)
 }

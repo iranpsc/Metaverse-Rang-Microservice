@@ -362,6 +362,8 @@ type FollowResource struct {
 	Level         string                 `protobuf:"bytes,4,opt,name=level,proto3" json:"level,omitempty"`
 	Online        bool                   `protobuf:"varint,5,opt,name=online,proto3" json:"online,omitempty"`
 	ProfilePhotos []string               `protobuf:"bytes,6,rep,name=profile_photos,json=profilePhotos,proto3" json:"profile_photos,omitempty"`
+	Followed      bool                   `protobuf:"varint,7,opt,name=followed,proto3" json:"followed,omitempty"` // Whether the authenticated user follows this user
+	Can           *FollowPermissions     `protobuf:"bytes,8,opt,name=can,proto3" json:"can,omitempty"`            // Actions the authenticated user may take on this user
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -438,6 +440,80 @@ func (x *FollowResource) GetProfilePhotos() []string {
 	return nil
 }
 
+func (x *FollowResource) GetFollowed() bool {
+	if x != nil {
+		return x.Followed
+	}
+	return false
+}
+
+func (x *FollowResource) GetCan() *FollowPermissions {
+	if x != nil {
+		return x.Can
+	}
+	return nil
+}
+
+type FollowPermissions struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Follow         bool                   `protobuf:"varint,1,opt,name=follow,proto3" json:"follow,omitempty"`                                       // Authenticated user can follow this user
+	Unfollow       bool                   `protobuf:"varint,2,opt,name=unfollow,proto3" json:"unfollow,omitempty"`                                   // Authenticated user can unfollow this user
+	RemoveFollower bool                   `protobuf:"varint,3,opt,name=remove_follower,json=removeFollower,proto3" json:"remove_follower,omitempty"` // Authenticated user can remove this user from their followers
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *FollowPermissions) Reset() {
+	*x = FollowPermissions{}
+	mi := &file_social_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FollowPermissions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FollowPermissions) ProtoMessage() {}
+
+func (x *FollowPermissions) ProtoReflect() protoreflect.Message {
+	mi := &file_social_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FollowPermissions.ProtoReflect.Descriptor instead.
+func (*FollowPermissions) Descriptor() ([]byte, []int) {
+	return file_social_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *FollowPermissions) GetFollow() bool {
+	if x != nil {
+		return x.Follow
+	}
+	return false
+}
+
+func (x *FollowPermissions) GetUnfollow() bool {
+	if x != nil {
+		return x.Unfollow
+	}
+	return false
+}
+
+func (x *FollowPermissions) GetRemoveFollower() bool {
+	if x != nil {
+		return x.RemoveFollower
+	}
+	return false
+}
+
 type GetTimingsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -447,7 +523,7 @@ type GetTimingsRequest struct {
 
 func (x *GetTimingsRequest) Reset() {
 	*x = GetTimingsRequest{}
-	mi := &file_social_proto_msgTypes[8]
+	mi := &file_social_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -459,7 +535,7 @@ func (x *GetTimingsRequest) String() string {
 func (*GetTimingsRequest) ProtoMessage() {}
 
 func (x *GetTimingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[8]
+	mi := &file_social_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -472,7 +548,7 @@ func (x *GetTimingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTimingsRequest.ProtoReflect.Descriptor instead.
 func (*GetTimingsRequest) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{8}
+	return file_social_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetTimingsRequest) GetUserId() uint64 {
@@ -491,7 +567,7 @@ type GetTimingsResponse struct {
 
 func (x *GetTimingsResponse) Reset() {
 	*x = GetTimingsResponse{}
-	mi := &file_social_proto_msgTypes[9]
+	mi := &file_social_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +579,7 @@ func (x *GetTimingsResponse) String() string {
 func (*GetTimingsResponse) ProtoMessage() {}
 
 func (x *GetTimingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[9]
+	mi := &file_social_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +592,7 @@ func (x *GetTimingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTimingsResponse.ProtoReflect.Descriptor instead.
 func (*GetTimingsResponse) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{9}
+	return file_social_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetTimingsResponse) GetData() *TimingsData {
@@ -540,7 +616,7 @@ type TimingsData struct {
 
 func (x *TimingsData) Reset() {
 	*x = TimingsData{}
-	mi := &file_social_proto_msgTypes[10]
+	mi := &file_social_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -552,7 +628,7 @@ func (x *TimingsData) String() string {
 func (*TimingsData) ProtoMessage() {}
 
 func (x *TimingsData) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[10]
+	mi := &file_social_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -565,7 +641,7 @@ func (x *TimingsData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimingsData.ProtoReflect.Descriptor instead.
 func (*TimingsData) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{10}
+	return file_social_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TimingsData) GetDisplayAdInterval() int32 {
@@ -619,7 +695,7 @@ type GetQuestionRequest struct {
 
 func (x *GetQuestionRequest) Reset() {
 	*x = GetQuestionRequest{}
-	mi := &file_social_proto_msgTypes[11]
+	mi := &file_social_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -631,7 +707,7 @@ func (x *GetQuestionRequest) String() string {
 func (*GetQuestionRequest) ProtoMessage() {}
 
 func (x *GetQuestionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[11]
+	mi := &file_social_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -644,7 +720,7 @@ func (x *GetQuestionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetQuestionRequest.ProtoReflect.Descriptor instead.
 func (*GetQuestionRequest) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{11}
+	return file_social_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetQuestionRequest) GetUserId() uint64 {
@@ -663,7 +739,7 @@ type GetQuestionResponse struct {
 
 func (x *GetQuestionResponse) Reset() {
 	*x = GetQuestionResponse{}
-	mi := &file_social_proto_msgTypes[12]
+	mi := &file_social_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +751,7 @@ func (x *GetQuestionResponse) String() string {
 func (*GetQuestionResponse) ProtoMessage() {}
 
 func (x *GetQuestionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[12]
+	mi := &file_social_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -688,7 +764,7 @@ func (x *GetQuestionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetQuestionResponse.ProtoReflect.Descriptor instead.
 func (*GetQuestionResponse) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{12}
+	return file_social_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetQuestionResponse) GetData() *QuestionResource {
@@ -709,7 +785,7 @@ type SubmitAnswerRequest struct {
 
 func (x *SubmitAnswerRequest) Reset() {
 	*x = SubmitAnswerRequest{}
-	mi := &file_social_proto_msgTypes[13]
+	mi := &file_social_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -721,7 +797,7 @@ func (x *SubmitAnswerRequest) String() string {
 func (*SubmitAnswerRequest) ProtoMessage() {}
 
 func (x *SubmitAnswerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[13]
+	mi := &file_social_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -734,7 +810,7 @@ func (x *SubmitAnswerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitAnswerRequest.ProtoReflect.Descriptor instead.
 func (*SubmitAnswerRequest) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{13}
+	return file_social_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SubmitAnswerRequest) GetUserId() uint64 {
@@ -767,7 +843,7 @@ type SubmitAnswerResponse struct {
 
 func (x *SubmitAnswerResponse) Reset() {
 	*x = SubmitAnswerResponse{}
-	mi := &file_social_proto_msgTypes[14]
+	mi := &file_social_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -779,7 +855,7 @@ func (x *SubmitAnswerResponse) String() string {
 func (*SubmitAnswerResponse) ProtoMessage() {}
 
 func (x *SubmitAnswerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[14]
+	mi := &file_social_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -792,7 +868,7 @@ func (x *SubmitAnswerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitAnswerResponse.ProtoReflect.Descriptor instead.
 func (*SubmitAnswerResponse) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{14}
+	return file_social_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SubmitAnswerResponse) GetData() *QuestionResource {
@@ -818,7 +894,7 @@ type QuestionResource struct {
 
 func (x *QuestionResource) Reset() {
 	*x = QuestionResource{}
-	mi := &file_social_proto_msgTypes[15]
+	mi := &file_social_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -830,7 +906,7 @@ func (x *QuestionResource) String() string {
 func (*QuestionResource) ProtoMessage() {}
 
 func (x *QuestionResource) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[15]
+	mi := &file_social_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -843,7 +919,7 @@ func (x *QuestionResource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QuestionResource.ProtoReflect.Descriptor instead.
 func (*QuestionResource) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{15}
+	return file_social_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *QuestionResource) GetId() uint64 {
@@ -915,7 +991,7 @@ type AnswerResource struct {
 
 func (x *AnswerResource) Reset() {
 	*x = AnswerResource{}
-	mi := &file_social_proto_msgTypes[16]
+	mi := &file_social_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -927,7 +1003,7 @@ func (x *AnswerResource) String() string {
 func (*AnswerResource) ProtoMessage() {}
 
 func (x *AnswerResource) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[16]
+	mi := &file_social_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -940,7 +1016,7 @@ func (x *AnswerResource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnswerResource.ProtoReflect.Descriptor instead.
 func (*AnswerResource) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{16}
+	return file_social_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AnswerResource) GetId() uint64 {
@@ -986,7 +1062,7 @@ type GetAdvertisementRequest struct {
 
 func (x *GetAdvertisementRequest) Reset() {
 	*x = GetAdvertisementRequest{}
-	mi := &file_social_proto_msgTypes[17]
+	mi := &file_social_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -998,7 +1074,7 @@ func (x *GetAdvertisementRequest) String() string {
 func (*GetAdvertisementRequest) ProtoMessage() {}
 
 func (x *GetAdvertisementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[17]
+	mi := &file_social_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1011,7 +1087,7 @@ func (x *GetAdvertisementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAdvertisementRequest.ProtoReflect.Descriptor instead.
 func (*GetAdvertisementRequest) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{17}
+	return file_social_proto_rawDescGZIP(), []int{18}
 }
 
 type AdvertisementResource struct {
@@ -1031,7 +1107,7 @@ type AdvertisementResource struct {
 
 func (x *AdvertisementResource) Reset() {
 	*x = AdvertisementResource{}
-	mi := &file_social_proto_msgTypes[18]
+	mi := &file_social_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1043,7 +1119,7 @@ func (x *AdvertisementResource) String() string {
 func (*AdvertisementResource) ProtoMessage() {}
 
 func (x *AdvertisementResource) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[18]
+	mi := &file_social_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1056,7 +1132,7 @@ func (x *AdvertisementResource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdvertisementResource.ProtoReflect.Descriptor instead.
 func (*AdvertisementResource) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{18}
+	return file_social_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *AdvertisementResource) GetCode() string {
@@ -1131,7 +1207,7 @@ type GetAdvertisementResponse struct {
 
 func (x *GetAdvertisementResponse) Reset() {
 	*x = GetAdvertisementResponse{}
-	mi := &file_social_proto_msgTypes[19]
+	mi := &file_social_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1143,7 +1219,7 @@ func (x *GetAdvertisementResponse) String() string {
 func (*GetAdvertisementResponse) ProtoMessage() {}
 
 func (x *GetAdvertisementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_social_proto_msgTypes[19]
+	mi := &file_social_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1156,7 +1232,7 @@ func (x *GetAdvertisementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAdvertisementResponse.ProtoReflect.Descriptor instead.
 func (*GetAdvertisementResponse) Descriptor() ([]byte, []int) {
-	return file_social_proto_rawDescGZIP(), []int{19}
+	return file_social_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetAdvertisementResponse) GetAdvertisements() []*AdvertisementResource {
@@ -1187,14 +1263,20 @@ const file_social_proto_rawDesc = "" +
 	"\x14GetFollowersResponse\x12*\n" +
 	"\x04data\x18\x01 \x03(\v2\x16.social.FollowResourceR\x04data\"B\n" +
 	"\x14GetFollowingResponse\x12*\n" +
-	"\x04data\x18\x01 \x03(\v2\x16.social.FollowResourceR\x04data\"\x9d\x01\n" +
+	"\x04data\x18\x01 \x03(\v2\x16.social.FollowResourceR\x04data\"\xe6\x01\n" +
 	"\x0eFollowResource\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04code\x18\x03 \x01(\tR\x04code\x12\x14\n" +
 	"\x05level\x18\x04 \x01(\tR\x05level\x12\x16\n" +
 	"\x06online\x18\x05 \x01(\bR\x06online\x12%\n" +
-	"\x0eprofile_photos\x18\x06 \x03(\tR\rprofilePhotos\",\n" +
+	"\x0eprofile_photos\x18\x06 \x03(\tR\rprofilePhotos\x12\x1a\n" +
+	"\bfollowed\x18\a \x01(\bR\bfollowed\x12+\n" +
+	"\x03can\x18\b \x01(\v2\x19.social.FollowPermissionsR\x03can\"p\n" +
+	"\x11FollowPermissions\x12\x16\n" +
+	"\x06follow\x18\x01 \x01(\bR\x06follow\x12\x1a\n" +
+	"\bunfollow\x18\x02 \x01(\bR\bunfollow\x12'\n" +
+	"\x0fremove_follower\x18\x03 \x01(\bR\x0eremoveFollower\",\n" +
 	"\x11GetTimingsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\"=\n" +
 	"\x12GetTimingsResponse\x12'\n" +
@@ -1271,7 +1353,7 @@ func file_social_proto_rawDescGZIP() []byte {
 	return file_social_proto_rawDescData
 }
 
-var file_social_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_social_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_social_proto_goTypes = []any{
 	(*GetFollowersRequest)(nil),      // 0: social.GetFollowersRequest
 	(*GetFollowingRequest)(nil),      // 1: social.GetFollowingRequest
@@ -1281,51 +1363,53 @@ var file_social_proto_goTypes = []any{
 	(*GetFollowersResponse)(nil),     // 5: social.GetFollowersResponse
 	(*GetFollowingResponse)(nil),     // 6: social.GetFollowingResponse
 	(*FollowResource)(nil),           // 7: social.FollowResource
-	(*GetTimingsRequest)(nil),        // 8: social.GetTimingsRequest
-	(*GetTimingsResponse)(nil),       // 9: social.GetTimingsResponse
-	(*TimingsData)(nil),              // 10: social.TimingsData
-	(*GetQuestionRequest)(nil),       // 11: social.GetQuestionRequest
-	(*GetQuestionResponse)(nil),      // 12: social.GetQuestionResponse
-	(*SubmitAnswerRequest)(nil),      // 13: social.SubmitAnswerRequest
-	(*SubmitAnswerResponse)(nil),     // 14: social.SubmitAnswerResponse
-	(*QuestionResource)(nil),         // 15: social.QuestionResource
-	(*AnswerResource)(nil),           // 16: social.AnswerResource
-	(*GetAdvertisementRequest)(nil),  // 17: social.GetAdvertisementRequest
-	(*AdvertisementResource)(nil),    // 18: social.AdvertisementResource
-	(*GetAdvertisementResponse)(nil), // 19: social.GetAdvertisementResponse
-	(*emptypb.Empty)(nil),            // 20: google.protobuf.Empty
+	(*FollowPermissions)(nil),        // 8: social.FollowPermissions
+	(*GetTimingsRequest)(nil),        // 9: social.GetTimingsRequest
+	(*GetTimingsResponse)(nil),       // 10: social.GetTimingsResponse
+	(*TimingsData)(nil),              // 11: social.TimingsData
+	(*GetQuestionRequest)(nil),       // 12: social.GetQuestionRequest
+	(*GetQuestionResponse)(nil),      // 13: social.GetQuestionResponse
+	(*SubmitAnswerRequest)(nil),      // 14: social.SubmitAnswerRequest
+	(*SubmitAnswerResponse)(nil),     // 15: social.SubmitAnswerResponse
+	(*QuestionResource)(nil),         // 16: social.QuestionResource
+	(*AnswerResource)(nil),           // 17: social.AnswerResource
+	(*GetAdvertisementRequest)(nil),  // 18: social.GetAdvertisementRequest
+	(*AdvertisementResource)(nil),    // 19: social.AdvertisementResource
+	(*GetAdvertisementResponse)(nil), // 20: social.GetAdvertisementResponse
+	(*emptypb.Empty)(nil),            // 21: google.protobuf.Empty
 }
 var file_social_proto_depIdxs = []int32{
 	7,  // 0: social.GetFollowersResponse.data:type_name -> social.FollowResource
 	7,  // 1: social.GetFollowingResponse.data:type_name -> social.FollowResource
-	10, // 2: social.GetTimingsResponse.data:type_name -> social.TimingsData
-	15, // 3: social.GetQuestionResponse.data:type_name -> social.QuestionResource
-	15, // 4: social.SubmitAnswerResponse.data:type_name -> social.QuestionResource
-	16, // 5: social.QuestionResource.answers:type_name -> social.AnswerResource
-	18, // 6: social.GetAdvertisementResponse.advertisements:type_name -> social.AdvertisementResource
-	0,  // 7: social.FollowService.GetFollowers:input_type -> social.GetFollowersRequest
-	1,  // 8: social.FollowService.GetFollowing:input_type -> social.GetFollowingRequest
-	2,  // 9: social.FollowService.Follow:input_type -> social.FollowRequest
-	3,  // 10: social.FollowService.Unfollow:input_type -> social.UnfollowRequest
-	4,  // 11: social.FollowService.Remove:input_type -> social.RemoveRequest
-	8,  // 12: social.ChallengeService.GetTimings:input_type -> social.GetTimingsRequest
-	11, // 13: social.ChallengeService.GetQuestion:input_type -> social.GetQuestionRequest
-	13, // 14: social.ChallengeService.SubmitAnswer:input_type -> social.SubmitAnswerRequest
-	17, // 15: social.ChallengeService.GetAdvertisement:input_type -> social.GetAdvertisementRequest
-	5,  // 16: social.FollowService.GetFollowers:output_type -> social.GetFollowersResponse
-	6,  // 17: social.FollowService.GetFollowing:output_type -> social.GetFollowingResponse
-	20, // 18: social.FollowService.Follow:output_type -> google.protobuf.Empty
-	20, // 19: social.FollowService.Unfollow:output_type -> google.protobuf.Empty
-	20, // 20: social.FollowService.Remove:output_type -> google.protobuf.Empty
-	9,  // 21: social.ChallengeService.GetTimings:output_type -> social.GetTimingsResponse
-	12, // 22: social.ChallengeService.GetQuestion:output_type -> social.GetQuestionResponse
-	14, // 23: social.ChallengeService.SubmitAnswer:output_type -> social.SubmitAnswerResponse
-	19, // 24: social.ChallengeService.GetAdvertisement:output_type -> social.GetAdvertisementResponse
-	16, // [16:25] is the sub-list for method output_type
-	7,  // [7:16] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	8,  // 2: social.FollowResource.can:type_name -> social.FollowPermissions
+	11, // 3: social.GetTimingsResponse.data:type_name -> social.TimingsData
+	16, // 4: social.GetQuestionResponse.data:type_name -> social.QuestionResource
+	16, // 5: social.SubmitAnswerResponse.data:type_name -> social.QuestionResource
+	17, // 6: social.QuestionResource.answers:type_name -> social.AnswerResource
+	19, // 7: social.GetAdvertisementResponse.advertisements:type_name -> social.AdvertisementResource
+	0,  // 8: social.FollowService.GetFollowers:input_type -> social.GetFollowersRequest
+	1,  // 9: social.FollowService.GetFollowing:input_type -> social.GetFollowingRequest
+	2,  // 10: social.FollowService.Follow:input_type -> social.FollowRequest
+	3,  // 11: social.FollowService.Unfollow:input_type -> social.UnfollowRequest
+	4,  // 12: social.FollowService.Remove:input_type -> social.RemoveRequest
+	9,  // 13: social.ChallengeService.GetTimings:input_type -> social.GetTimingsRequest
+	12, // 14: social.ChallengeService.GetQuestion:input_type -> social.GetQuestionRequest
+	14, // 15: social.ChallengeService.SubmitAnswer:input_type -> social.SubmitAnswerRequest
+	18, // 16: social.ChallengeService.GetAdvertisement:input_type -> social.GetAdvertisementRequest
+	5,  // 17: social.FollowService.GetFollowers:output_type -> social.GetFollowersResponse
+	6,  // 18: social.FollowService.GetFollowing:output_type -> social.GetFollowingResponse
+	21, // 19: social.FollowService.Follow:output_type -> google.protobuf.Empty
+	21, // 20: social.FollowService.Unfollow:output_type -> google.protobuf.Empty
+	21, // 21: social.FollowService.Remove:output_type -> google.protobuf.Empty
+	10, // 22: social.ChallengeService.GetTimings:output_type -> social.GetTimingsResponse
+	13, // 23: social.ChallengeService.GetQuestion:output_type -> social.GetQuestionResponse
+	15, // 24: social.ChallengeService.SubmitAnswer:output_type -> social.SubmitAnswerResponse
+	20, // 25: social.ChallengeService.GetAdvertisement:output_type -> social.GetAdvertisementResponse
+	17, // [17:26] is the sub-list for method output_type
+	8,  // [8:17] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_social_proto_init() }
@@ -1339,7 +1423,7 @@ func file_social_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_social_proto_rawDesc), len(file_social_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

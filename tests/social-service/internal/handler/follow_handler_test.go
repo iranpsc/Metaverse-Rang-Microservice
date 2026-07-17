@@ -90,7 +90,7 @@ func TestFollowHandler_GetFollowers_OK(t *testing.T) {
 	}
 }
 
-func TestFollowHandler_Follow_FailedPrecondition(t *testing.T) {
+func TestFollowHandler_Follow_AlreadyFollowing_PermissionDenied(t *testing.T) {
 	conn, cleanup := testutil.DialBufConn(func(gs *grpc.Server) {
 		handler.RegisterFollowHandler(gs, &stubFollowSvc{
 			follow: func(ctx context.Context, userID, targetUserID uint64) error {
@@ -102,7 +102,24 @@ func TestFollowHandler_Follow_FailedPrecondition(t *testing.T) {
 	cli := pb.NewFollowServiceClient(conn)
 	_, err := cli.Follow(context.Background(), &pb.FollowRequest{UserId: 1, TargetUserId: 2})
 	st, ok := status.FromError(err)
-	if !ok || st.Code() != codes.FailedPrecondition {
+	if !ok || st.Code() != codes.PermissionDenied {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestFollowHandler_Follow_Self_PermissionDenied(t *testing.T) {
+	conn, cleanup := testutil.DialBufConn(func(gs *grpc.Server) {
+		handler.RegisterFollowHandler(gs, &stubFollowSvc{
+			follow: func(ctx context.Context, userID, targetUserID uint64) error {
+				return service.ErrCannotFollowSelf
+			},
+		})
+	})
+	defer cleanup()
+	cli := pb.NewFollowServiceClient(conn)
+	_, err := cli.Follow(context.Background(), &pb.FollowRequest{UserId: 1, TargetUserId: 1})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.PermissionDenied {
 		t.Fatalf("got %v", err)
 	}
 }

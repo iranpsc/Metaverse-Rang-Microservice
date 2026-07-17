@@ -19,4 +19,14 @@ type FollowResource struct {
 	ProfilePhotos []string
 	Level         string
 	Online        bool
+	Followed      bool
+	Can           FollowPermissions
+}
+
+// FollowPermissions mirrors Laravel FollowResource "can" — actions the
+// authenticated (viewer) user may take on the listed user.
+type FollowPermissions struct {
+	Follow         bool
+	Unfollow       bool
+	RemoveFollower bool
 }

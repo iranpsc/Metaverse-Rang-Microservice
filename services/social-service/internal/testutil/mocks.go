@@ -206,3 +206,43 @@ func (m *MockCommercialClient) Close() error {
 	}
 	return nil
 }
+
+// MockAuthClient implements client.AuthClient for tests.
+type MockAuthClient struct {
+	CanFollowFunc func(ctx context.Context, callerUserID, targetUserID uint64) (bool, error)
+	CloseFunc     func() error
+}
+
+func (m *MockAuthClient) CanFollow(ctx context.Context, callerUserID, targetUserID uint64) (bool, error) {
+	if m.CanFollowFunc != nil {
+		return m.CanFollowFunc(ctx, callerUserID, targetUserID)
+	}
+	return true, nil
+}
+
+func (m *MockAuthClient) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	return nil
+}
+
+// MockLevelsClient implements client.LevelsClient for tests.
+type MockLevelsClient struct {
+	RecordFollowerFunc func(ctx context.Context, userID uint64) error
+	CloseFunc          func() error
+}
+
+func (m *MockLevelsClient) RecordFollower(ctx context.Context, userID uint64) error {
+	if m.RecordFollowerFunc != nil {
+		return m.RecordFollowerFunc(ctx, userID)
+	}
+	return nil
+}
+
+func (m *MockLevelsClient) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	return nil
+}

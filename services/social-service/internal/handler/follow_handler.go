@@ -89,6 +89,12 @@ func convertFollowResourceToProto(resource *models.FollowResource) *pb.FollowRes
 		ProfilePhotos: resource.ProfilePhotos,
 		Level:         resource.Level,
 		Online:        resource.Online,
+		Followed:      resource.Followed,
+		Can: &pb.FollowPermissions{
+			Follow:         resource.Can.Follow,
+			Unfollow:       resource.Can.Unfollow,
+			RemoveFollower: resource.Can.RemoveFollower,
+		},
 	}
 }
 
@@ -97,11 +103,13 @@ func mapFollowError(err error) error {
 	case errors.Is(err, service.ErrUserNotFound):
 		return status.Errorf(codes.NotFound, "user not found")
 	case errors.Is(err, service.ErrCannotFollowSelf):
-		return status.Errorf(codes.FailedPrecondition, "cannot follow yourself")
+		// Laravel UserPolicy::follow denies with HTTP 403
+		return status.Errorf(codes.PermissionDenied, "cannot follow yourself")
 	case errors.Is(err, service.ErrAlreadyFollowing):
-		return status.Errorf(codes.FailedPrecondition, "already following this user")
+		// Laravel UserPolicy::follow denies with HTTP 403
+		return status.Errorf(codes.PermissionDenied, "already following this user")
 	case errors.Is(err, service.ErrProfileLimitation):
-		return status.Errorf(codes.PermissionDenied, "profile limitation prevents following")
+		return status.Errorf(codes.PermissionDenied, "این کاربر امکان دنبال کردن را  برای شما غیر فعال کرده است.")
 	default:
 		return status.Errorf(codes.Internal, "operation failed: %v", err)
 	}

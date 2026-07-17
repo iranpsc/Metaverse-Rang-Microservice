@@ -93,6 +93,28 @@ func main() {
 		defer commercialClient.Close()
 	}
 
+	var levelsClient client.LevelsClient
+	levelsAddr := getEnv("LEVELS_SERVICE_ADDR", "levels-service:50054")
+	levelsClient, err = client.NewLevelsClient(levelsAddr)
+	if err != nil {
+		structLog.Warn("Failed to connect to levels service - follower score updates disabled", "error", err)
+		levelsClient = nil
+	} else {
+		structLog.Info("Connected to levels service", "addr", levelsAddr)
+		defer levelsClient.Close()
+	}
+
+	var authClient client.AuthClient
+	authAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:50051")
+	authClient, err = client.NewAuthClient(authAddr)
+	if err != nil {
+		structLog.Warn("Failed to connect to auth service - follow authorization unavailable", "error", err)
+		authClient = nil
+	} else {
+		structLog.Info("Connected to auth service", "addr", authAddr)
+		defer authClient.Close()
+	}
+
 	challengeService := service.NewChallengeService(
 		challengeRepo,
 		commercialClient,
@@ -101,7 +123,7 @@ func main() {
 			ProjectURL: getEnv("PROJECT_URL", getEnv("APP_URL", "")),
 		},
 	)
-	followService := service.NewFollowService(followRepo, userRepo)
+	followService := service.NewFollowService(followRepo, userRepo, authClient, levelsClient)
 
 	serviceMetrics := metrics.NewMetrics("social_service")
 	metrics.StartHTTPServer(getEnv("METRICS_PORT", "9090"))

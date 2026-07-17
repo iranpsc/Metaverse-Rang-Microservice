@@ -419,13 +419,19 @@ services:
       DB_DATABASE: metarang_db
       DB_USER: metarang_user
       DB_PASSWORD: metarang_password
+      AUTH_SERVICE_ADDR: auth-service:50051
       COMMERCIAL_SERVICE_ADDR: commercial-service:50052
+      LEVELS_SERVICE_ADDR: levels-service:50054
       <<: *sentry-environment
     depends_on:
       mysql:
         condition: service_healthy
+      auth-service:
+        condition: service_started
       commercial-service:
         condition: service_healthy
+      levels-service:
+        condition: service_started
     networks:
       - metarang-network
     restart: unless-stopped

@@ -9,6 +9,7 @@ import (
 	pb "metarang/shared/pb/auth"
 	calendarpb "metarang/shared/pb/calendar"
 	featurespb "metarang/shared/pb/features"
+	socialpb "metarang/shared/pb/social"
 )
 
 // AuthMocks groups auth-service gRPC mocks registered on one bufconn server.
@@ -97,7 +98,8 @@ func (m *MockCitizenService) GetCitizenReferralChart(ctx context.Context, req *p
 // MockUserService implements pb.UserServiceServer for tests.
 type MockUserService struct {
 	pb.UnimplementedUserServiceServer
-	ListUsersFunc func(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error)
+	ListUsersFunc             func(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error)
+	GetProfileLimitationsFunc func(ctx context.Context, req *pb.GetProfileLimitationsRequest) (*pb.GetProfileLimitationsResponse, error)
 }
 
 func (m *MockUserService) ListUsers(ctx context.Context, req *pb.ListUsersRequest) (*pb.ListUsersResponse, error) {
@@ -105,6 +107,13 @@ func (m *MockUserService) ListUsers(ctx context.Context, req *pb.ListUsersReques
 		return m.ListUsersFunc(ctx, req)
 	}
 	return &pb.ListUsersResponse{}, nil
+}
+
+func (m *MockUserService) GetProfileLimitations(ctx context.Context, req *pb.GetProfileLimitationsRequest) (*pb.GetProfileLimitationsResponse, error) {
+	if m.GetProfileLimitationsFunc != nil {
+		return m.GetProfileLimitationsFunc(ctx, req)
+	}
+	return &pb.GetProfileLimitationsResponse{}, nil
 }
 
 // MockKYCService implements pb.KYCServiceServer for tests.
@@ -196,5 +205,65 @@ func DialFeaturesConn(feature *MockFeatureService, profit *MockFeatureProfitServ
 	return DialBufConn(func(s *grpc.Server) {
 		featurespb.RegisterFeatureServiceServer(s, feature)
 		featurespb.RegisterFeatureProfitServiceServer(s, profit)
+	})
+}
+
+// MockFollowService implements socialpb.FollowServiceServer for tests.
+type MockFollowService struct {
+	socialpb.UnimplementedFollowServiceServer
+	GetFollowersFunc func(ctx context.Context, req *socialpb.GetFollowersRequest) (*socialpb.GetFollowersResponse, error)
+	GetFollowingFunc func(ctx context.Context, req *socialpb.GetFollowingRequest) (*socialpb.GetFollowingResponse, error)
+	FollowFunc       func(ctx context.Context, req *socialpb.FollowRequest) (*emptypb.Empty, error)
+	UnfollowFunc     func(ctx context.Context, req *socialpb.UnfollowRequest) (*emptypb.Empty, error)
+	RemoveFunc       func(ctx context.Context, req *socialpb.RemoveRequest) (*emptypb.Empty, error)
+}
+
+func (m *MockFollowService) GetFollowers(ctx context.Context, req *socialpb.GetFollowersRequest) (*socialpb.GetFollowersResponse, error) {
+	if m.GetFollowersFunc != nil {
+		return m.GetFollowersFunc(ctx, req)
+	}
+	return &socialpb.GetFollowersResponse{}, nil
+}
+
+func (m *MockFollowService) GetFollowing(ctx context.Context, req *socialpb.GetFollowingRequest) (*socialpb.GetFollowingResponse, error) {
+	if m.GetFollowingFunc != nil {
+		return m.GetFollowingFunc(ctx, req)
+	}
+	return &socialpb.GetFollowingResponse{}, nil
+}
+
+func (m *MockFollowService) Follow(ctx context.Context, req *socialpb.FollowRequest) (*emptypb.Empty, error) {
+	if m.FollowFunc != nil {
+		return m.FollowFunc(ctx, req)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MockFollowService) Unfollow(ctx context.Context, req *socialpb.UnfollowRequest) (*emptypb.Empty, error) {
+	if m.UnfollowFunc != nil {
+		return m.UnfollowFunc(ctx, req)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (m *MockFollowService) Remove(ctx context.Context, req *socialpb.RemoveRequest) (*emptypb.Empty, error) {
+	if m.RemoveFunc != nil {
+		return m.RemoveFunc(ctx, req)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+// DialSocialConn returns a client connection with FollowService + UserService mocks
+// registered (same conn can be passed as both socialConn and authConn).
+func DialSocialConn(follow *MockFollowService, user *MockUserService) (*grpc.ClientConn, func()) {
+	if follow == nil {
+		follow = &MockFollowService{}
+	}
+	if user == nil {
+		user = &MockUserService{}
+	}
+	return DialBufConn(func(s *grpc.Server) {
+		socialpb.RegisterFollowServiceServer(s, follow)
+		pb.RegisterUserServiceServer(s, user)
 	})
 }

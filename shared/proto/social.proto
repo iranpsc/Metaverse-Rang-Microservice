@@ -63,6 +63,14 @@ message FollowResource {
   string level = 4;
   bool online = 5;
   repeated string profile_photos = 6;
+  bool followed = 7;              // Whether the authenticated user follows this user
+  FollowPermissions can = 8;      // Actions the authenticated user may take on this user
+}
+
+message FollowPermissions {
+  bool follow = 1;          // Authenticated user can follow this user
+  bool unfollow = 2;        // Authenticated user can unfollow this user
+  bool remove_follower = 3; // Authenticated user can remove this user from their followers
 }
 
 // ============== Challenge Messages ==============

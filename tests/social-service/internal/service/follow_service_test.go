@@ -1,227 +1,182 @@
-package service
+package service_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"metarang/social-service/internal/repository"
+	"metarang/social-service/internal/service"
+	"metarang/social-service/internal/testutil"
 )
 
-// Mock repositories
-type mockFollowRepository struct {
-	createFunc       func(ctx context.Context, followerID, followingID uint64) error
-	deleteFunc       func(ctx context.Context, followerID, followingID uint64) error
-	existsFunc       func(ctx context.Context, followerID, followingID uint64) (bool, error)
-	getFollowersFunc func(ctx context.Context, userID uint64) ([]uint64, error)
-	getFollowingFunc func(ctx context.Context, userID uint64) ([]uint64, error)
+func TestFollowService_Follow_Self(t *testing.T) {
+	svc := service.NewFollowService(&testutil.MockFollowRepository{}, &testutil.MockUserRepository{}, nil, nil)
+	err := svc.Follow(context.Background(), 1, 1)
+	require.ErrorIs(t, err, service.ErrCannotFollowSelf)
 }
 
-func (m *mockFollowRepository) Create(ctx context.Context, followerID, followingID uint64) error {
-	if m.createFunc != nil {
-		return m.createFunc(ctx, followerID, followingID)
+func TestFollowService_Follow_AlreadyFollowing(t *testing.T) {
+	fr := &testutil.MockFollowRepository{}
+	fr.ExistsFunc = func(ctx context.Context, followerID, followingID uint64) (bool, error) {
+		return true, nil
 	}
-	return errors.New("not implemented")
+	svc := service.NewFollowService(fr, &testutil.MockUserRepository{}, nil, nil)
+	err := svc.Follow(context.Background(), 1, 2)
+	require.ErrorIs(t, err, service.ErrAlreadyFollowing)
 }
 
-func (m *mockFollowRepository) Delete(ctx context.Context, followerID, followingID uint64) error {
-	if m.deleteFunc != nil {
-		return m.deleteFunc(ctx, followerID, followingID)
+func TestFollowService_Follow_OK_RecordsFollower(t *testing.T) {
+	var created bool
+	var recordedUser uint64
+	fr := &testutil.MockFollowRepository{}
+	fr.ExistsFunc = func(ctx context.Context, followerID, followingID uint64) (bool, error) {
+		return false, nil
 	}
-	return errors.New("not implemented")
-}
-
-func (m *mockFollowRepository) Exists(ctx context.Context, followerID, followingID uint64) (bool, error) {
-	if m.existsFunc != nil {
-		return m.existsFunc(ctx, followerID, followingID)
+	fr.CreateFunc = func(ctx context.Context, followerID, followingID uint64) error {
+		created = true
+		require.Equal(t, uint64(1), followerID)
+		require.Equal(t, uint64(2), followingID)
+		return nil
 	}
-	return false, errors.New("not implemented")
-}
-
-func (m *mockFollowRepository) GetFollowers(ctx context.Context, userID uint64) ([]uint64, error) {
-	if m.getFollowersFunc != nil {
-		return m.getFollowersFunc(ctx, userID)
+	levels := &testutil.MockLevelsClient{}
+	levels.RecordFollowerFunc = func(ctx context.Context, userID uint64) error {
+		recordedUser = userID
+		return nil
 	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockFollowRepository) GetFollowing(ctx context.Context, userID uint64) ([]uint64, error) {
-	if m.getFollowingFunc != nil {
-		return m.getFollowingFunc(ctx, userID)
+	auth := &testutil.MockAuthClient{}
+	auth.CanFollowFunc = func(ctx context.Context, callerUserID, targetUserID uint64) (bool, error) {
+		require.Equal(t, uint64(1), callerUserID)
+		require.Equal(t, uint64(2), targetUserID)
+		return true, nil
 	}
-	return nil, errors.New("not implemented")
+	svc := service.NewFollowService(fr, &testutil.MockUserRepository{}, auth, levels)
+	err := svc.Follow(context.Background(), 1, 2)
+	require.NoError(t, err)
+	require.True(t, created)
+	require.Equal(t, uint64(2), recordedUser)
 }
 
-type mockUserRepository struct {
-	getUserBasicInfoFunc func(ctx context.Context, userID uint64) (*repository.UserBasicInfo, error)
-	getUserLevelFunc     func(ctx context.Context, userID uint64) (string, error)
-	getProfilePhotosFunc func(ctx context.Context, userID uint64) ([]string, error)
-	isUserOnlineFunc     func(ctx context.Context, userID uint64) (bool, error)
-}
-
-func (m *mockUserRepository) GetUserBasicInfo(ctx context.Context, userID uint64) (*repository.UserBasicInfo, error) {
-	if m.getUserBasicInfoFunc != nil {
-		return m.getUserBasicInfoFunc(ctx, userID)
-	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockUserRepository) GetUserLevel(ctx context.Context, userID uint64) (string, error) {
-	if m.getUserLevelFunc != nil {
-		return m.getUserLevelFunc(ctx, userID)
-	}
-	return "", errors.New("not implemented")
-}
-
-func (m *mockUserRepository) GetProfilePhotos(ctx context.Context, userID uint64) ([]string, error) {
-	if m.getProfilePhotosFunc != nil {
-		return m.getProfilePhotosFunc(ctx, userID)
-	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *mockUserRepository) IsUserOnline(ctx context.Context, userID uint64) (bool, error) {
-	if m.isUserOnlineFunc != nil {
-		return m.isUserOnlineFunc(ctx, userID)
-	}
-	return false, errors.New("not implemented")
-}
-
-func TestFollowService_Follow(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful follow", func(t *testing.T) {
-		followRepo := &mockFollowRepository{}
-		followRepo.existsFunc = func(ctx context.Context, followerID, followingID uint64) (bool, error) {
-			return false, nil // Not already following
-		}
-		followRepo.createFunc = func(ctx context.Context, followerID, followingID uint64) error {
+func TestFollowService_Follow_ProfileLimitation(t *testing.T) {
+	created := false
+	fr := &testutil.MockFollowRepository{
+		ExistsFunc: func(context.Context, uint64, uint64) (bool, error) {
+			return false, nil
+		},
+		CreateFunc: func(context.Context, uint64, uint64) error {
+			created = true
 			return nil
-		}
+		},
+	}
+	auth := &testutil.MockAuthClient{
+		CanFollowFunc: func(ctx context.Context, callerUserID, targetUserID uint64) (bool, error) {
+			require.Equal(t, uint64(1), callerUserID)
+			require.Equal(t, uint64(2), targetUserID)
+			return false, nil
+		},
+	}
 
-		userRepo := &mockUserRepository{}
+	svc := service.NewFollowService(fr, &testutil.MockUserRepository{}, auth, nil)
+	err := svc.Follow(context.Background(), 1, 2)
 
-		service := NewFollowService(followRepo, userRepo)
-		err := service.Follow(ctx, 1, 2)
-
-		if err != nil {
-			t.Fatalf("Follow failed: %v", err)
-		}
-	})
-
-	t.Run("cannot follow self", func(t *testing.T) {
-		followRepo := &mockFollowRepository{}
-		userRepo := &mockUserRepository{}
-
-		service := NewFollowService(followRepo, userRepo)
-		err := service.Follow(ctx, 1, 1)
-
-		if err == nil {
-			t.Fatal("Expected error when following self")
-		}
-		if err != ErrCannotFollowSelf {
-			t.Fatalf("Expected ErrCannotFollowSelf, got: %v", err)
-		}
-	})
-
-	t.Run("already following", func(t *testing.T) {
-		followRepo := &mockFollowRepository{}
-		followRepo.existsFunc = func(ctx context.Context, followerID, followingID uint64) (bool, error) {
-			return true, nil // Already following
-		}
-
-		userRepo := &mockUserRepository{}
-
-		service := NewFollowService(followRepo, userRepo)
-		err := service.Follow(ctx, 1, 2)
-
-		if err == nil {
-			t.Fatal("Expected error when already following")
-		}
-		if err != ErrAlreadyFollowing {
-			t.Fatalf("Expected ErrAlreadyFollowing, got: %v", err)
-		}
-	})
+	require.ErrorIs(t, err, service.ErrProfileLimitation)
+	require.False(t, created)
 }
 
-func TestFollowService_GetFollowers(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful get followers", func(t *testing.T) {
-		followRepo := &mockFollowRepository{}
-		followRepo.getFollowersFunc = func(ctx context.Context, userID uint64) ([]uint64, error) {
-			return []uint64{2, 3}, nil
+func TestFollowService_GetFollowers_BuildsResourcesWithCan(t *testing.T) {
+	fr := &testutil.MockFollowRepository{}
+	fr.GetFollowersFunc = func(ctx context.Context, userID uint64) ([]uint64, error) {
+		return []uint64{10}, nil
+	}
+	// Viewer (99) does not follow 10; 10 does follow 99 → can.remove_follower
+	fr.ExistsFunc = func(ctx context.Context, followerID, followingID uint64) (bool, error) {
+		if followerID == 99 && followingID == 10 {
+			return false, nil
 		}
-
-		userRepo := &mockUserRepository{}
-		userRepo.getUserBasicInfoFunc = func(ctx context.Context, userID uint64) (*repository.UserBasicInfo, error) {
-			return &repository.UserBasicInfo{
-				ID:   userID,
-				Name: "User",
-				Code: "USER",
-			}, nil
-		}
-		userRepo.getUserLevelFunc = func(ctx context.Context, userID uint64) (string, error) {
-			return "level1", nil
-		}
-		userRepo.getProfilePhotosFunc = func(ctx context.Context, userID uint64) ([]string, error) {
-			return []string{"photo1.jpg"}, nil
-		}
-		userRepo.isUserOnlineFunc = func(ctx context.Context, userID uint64) (bool, error) {
+		if followerID == 10 && followingID == 99 {
 			return true, nil
 		}
+		return false, nil
+	}
+	ur := &testutil.MockUserRepository{}
+	ur.GetUserBasicInfoFunc = func(ctx context.Context, userID uint64) (*repository.UserBasicInfo, error) {
+		return &repository.UserBasicInfo{ID: userID, Name: "N", Code: "C"}, nil
+	}
+	ur.GetProfilePhotosFunc = func(ctx context.Context, userID uint64) ([]string, error) {
+		return []string{"http://p"}, nil
+	}
+	ur.GetUserLevelFunc = func(ctx context.Context, userID uint64) (string, error) {
+		return "lvl1", nil
+	}
+	ur.IsUserOnlineFunc = func(ctx context.Context, userID uint64) (bool, error) {
+		return true, nil
+	}
 
-		service := NewFollowService(followRepo, userRepo)
-		followers, err := service.GetFollowers(ctx, 1)
-
-		if err != nil {
-			t.Fatalf("GetFollowers failed: %v", err)
-		}
-		if len(followers) != 2 {
-			t.Fatalf("Expected 2 followers, got %d", len(followers))
-		}
-		if followers[0].ID != 2 {
-			t.Fatalf("Expected follower ID 2, got %d", followers[0].ID)
-		}
-	})
+	svc := service.NewFollowService(fr, ur, nil, nil)
+	list, err := svc.GetFollowers(context.Background(), 99)
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	require.Equal(t, "N", list[0].Name)
+	require.Equal(t, "lvl1", list[0].Level)
+	require.True(t, list[0].Online)
+	require.False(t, list[0].Followed)
+	require.True(t, list[0].Can.Follow)
+	require.False(t, list[0].Can.Unfollow)
+	require.True(t, list[0].Can.RemoveFollower)
 }
 
-func TestFollowService_Unfollow(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful unfollow", func(t *testing.T) {
-		followRepo := &mockFollowRepository{}
-		followRepo.deleteFunc = func(ctx context.Context, followerID, followingID uint64) error {
-			return nil
-		}
-
-		userRepo := &mockUserRepository{}
-
-		service := NewFollowService(followRepo, userRepo)
-		err := service.Unfollow(ctx, 1, 2)
-
-		if err != nil {
-			t.Fatalf("Unfollow failed: %v", err)
-		}
-	})
+func TestFollowService_Unfollow_OK(t *testing.T) {
+	var called bool
+	fr := &testutil.MockFollowRepository{}
+	fr.DeleteFunc = func(ctx context.Context, followerID, followingID uint64) error {
+		called = true
+		require.Equal(t, uint64(7), followerID)
+		require.Equal(t, uint64(8), followingID)
+		return nil
+	}
+	svc := service.NewFollowService(fr, &testutil.MockUserRepository{}, nil, nil)
+	require.NoError(t, svc.Unfollow(context.Background(), 7, 8))
+	require.True(t, called)
 }
 
-func TestFollowService_Remove(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("successful remove", func(t *testing.T) {
-		followRepo := &mockFollowRepository{}
-		followRepo.deleteFunc = func(ctx context.Context, followerID, followingID uint64) error {
-			return nil
+func TestFollowService_GetFollowing_FollowedAndCanUnfollow(t *testing.T) {
+	fr := &testutil.MockFollowRepository{}
+	fr.GetFollowingFunc = func(ctx context.Context, userID uint64) ([]uint64, error) {
+		return []uint64{11, 12}, nil
+	}
+	fr.ExistsFunc = func(ctx context.Context, followerID, followingID uint64) (bool, error) {
+		// Viewer (1) follows 11; does not follow 12 (12 skipped because no user info)
+		return followerID == 1 && followingID == 11, nil
+	}
+	ur := &testutil.MockUserRepository{}
+	ur.GetUserBasicInfoFunc = func(ctx context.Context, userID uint64) (*repository.UserBasicInfo, error) {
+		if userID == 11 {
+			return &repository.UserBasicInfo{ID: 11, Name: "U11", Code: "c11"}, nil
 		}
+		return nil, nil
+	}
+	svc := service.NewFollowService(fr, ur, nil, nil)
+	list, err := svc.GetFollowing(context.Background(), 1)
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	require.Equal(t, uint64(11), list[0].ID)
+	require.True(t, list[0].Followed)
+	require.False(t, list[0].Can.Follow)
+	require.True(t, list[0].Can.Unfollow)
+	require.False(t, list[0].Can.RemoveFollower)
+}
 
-		userRepo := &mockUserRepository{}
-
-		service := NewFollowService(followRepo, userRepo)
-		err := service.Remove(ctx, 1, 2)
-
-		if err != nil {
-			t.Fatalf("Remove failed: %v", err)
-		}
-	})
+func TestFollowService_Remove_DeletesReverse(t *testing.T) {
+	var delFollower, delFollowing uint64
+	fr := &testutil.MockFollowRepository{}
+	fr.DeleteFunc = func(ctx context.Context, followerID, followingID uint64) error {
+		delFollower, delFollowing = followerID, followingID
+		return nil
+	}
+	svc := service.NewFollowService(fr, &testutil.MockUserRepository{}, nil, nil)
+	err := svc.Remove(context.Background(), 5, 9)
+	require.NoError(t, err)
+	require.Equal(t, uint64(9), delFollower)
+	require.Equal(t, uint64(5), delFollowing)
 }

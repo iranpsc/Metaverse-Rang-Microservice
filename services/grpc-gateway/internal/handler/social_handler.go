@@ -9,21 +9,20 @@ import (
 	"google.golang.org/grpc"
 
 	"metarang/grpc-gateway/internal/middleware"
-	pb "metarang/shared/pb/auth"
 	socialpb "metarang/shared/pb/social"
 )
+
+const followListPerPage int32 = 10
 
 type SocialHandler struct {
 	followClient    socialpb.FollowServiceClient
 	challengeClient socialpb.ChallengeServiceClient
-	authClient      pb.AuthServiceClient // For token validation
 }
 
-func NewSocialHandler(socialConn *grpc.ClientConn, authConn *grpc.ClientConn) *SocialHandler {
+func NewSocialHandler(socialConn *grpc.ClientConn, _ *grpc.ClientConn) *SocialHandler {
 	return &SocialHandler{
 		followClient:    socialpb.NewFollowServiceClient(socialConn),
 		challengeClient: socialpb.NewChallengeServiceClient(socialConn),
-		authClient:      pb.NewAuthServiceClient(authConn),
 	}
 }
 
@@ -70,7 +69,7 @@ func (h *SocialHandler) GetFollowers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": resp.Data})
+	writeJSON(w, http.StatusOK, buildFollowListHTTPResponse(r, resp.Data))
 }
 
 // GetFollowing handles GET /api/following
@@ -93,7 +92,7 @@ func (h *SocialHandler) GetFollowing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": resp.Data})
+	writeJSON(w, http.StatusOK, buildFollowListHTTPResponse(r, resp.Data))
 }
 
 // Follow handles GET /api/follow/{user}
@@ -133,6 +132,89 @@ func (h *SocialHandler) Follow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// buildFollowListHTTPResponse formats a follow list as Laravel simplePaginate JSON
+// with 10 items per page and the FollowResource field shape.
+func buildFollowListHTTPResponse(r *http.Request, resources []*socialpb.FollowResource) map[string]interface{} {
+	page := int32(1)
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.ParseInt(pageStr, 10, 32); err == nil && p > 0 {
+			page = int32(p)
+		}
+	}
+
+	total := int32(len(resources))
+	start := (page - 1) * followListPerPage
+	if start > total {
+		start = total
+	}
+	end := start + followListPerPage
+	if end > total {
+		end = total
+	}
+	pageSlice := resources[start:end]
+	hasMore := end < total
+
+	data := make([]map[string]interface{}, 0, len(pageSlice))
+	for _, resource := range pageSlice {
+		data = append(data, followResourceJSON(resource))
+	}
+
+	response := map[string]interface{}{
+		"data":  data,
+		"links": buildSimplePaginationLinks(r, page, hasMore),
+	}
+
+	itemCount := len(data)
+	var from interface{}
+	var to interface{}
+	if itemCount > 0 {
+		fromVal := int((page-1)*followListPerPage) + 1
+		from = fromVal
+		to = fromVal + itemCount - 1
+	}
+
+	response["meta"] = map[string]interface{}{
+		"current_page": page,
+		"from":         from,
+		"path":         requestPath(r),
+		"per_page":     followListPerPage,
+		"to":           to,
+	}
+
+	return response
+}
+
+func followResourceJSON(resource *socialpb.FollowResource) map[string]interface{} {
+	photos := resource.ProfilePhotos
+	if photos == nil {
+		photos = []string{}
+	}
+
+	canFollow := false
+	canUnfollow := false
+	canRemoveFollower := false
+	if resource.Can != nil {
+		canFollow = resource.Can.Follow
+		canUnfollow = resource.Can.Unfollow
+		canRemoveFollower = resource.Can.RemoveFollower
+	}
+
+	return map[string]interface{}{
+		"id":             resource.Id,
+		"name":           resource.Name,
+		"code":           resource.Code,
+		"profile_photos": photos,
+		"level":          resource.Level,
+		"online":         resource.Online,
+		"followed":       resource.Followed,
+		"can": map[string]bool{
+			"follow":          canFollow,
+			"unfollow":        canUnfollow,
+			"remove_follower": canRemoveFollower,
+		},
+	}
 }
 
 // Unfollow handles GET /api/unfollow/{user}
