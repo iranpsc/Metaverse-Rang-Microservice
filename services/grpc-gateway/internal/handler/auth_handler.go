@@ -173,7 +173,6 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 			"image":                          resp.Image,
 			"unread_notifications_count":     resp.UnreadNotificationsCount,
 			"socre_percentage_to_next_level": resp.SocrePercentageToNextLevel,
-			"unasnwered_questions_count":     resp.UnasnweredQuestionsCount,
 			"hourly_profit_time_percentage":  resp.HourlyProfitTimePercentage,
 			"verified_kyc":                   resp.VerifiedKyc,
 			"birthdate":                      resp.Birthdate,

@@ -12,11 +12,10 @@ type ChallengeRepository interface {
 	GetRandomUnansweredQuestion(ctx context.Context, userID uint64) (*models.Question, error)
 	GetQuestionByID(ctx context.Context, questionID uint64) (*models.Question, error)
 	GetAnswersByQuestionID(ctx context.Context, questionID uint64) ([]*models.Answer, error)
-	GetCorrectAnswerID(ctx context.Context, questionID uint64) (uint64, error)
 	IncrementQuestionViews(ctx context.Context, questionID uint64) error
 	IncrementQuestionParticipants(ctx context.Context, questionID uint64) error
 	CreateUserAnswer(ctx context.Context, userID, questionID, answerID uint64) error
-	HasUserAnsweredCorrectly(ctx context.Context, userID, questionID uint64) (bool, error)
+	HasUserAnswered(ctx context.Context, userID, questionID uint64) (bool, error)
 	GetUserAnswerCount(ctx context.Context, userID uint64, isCorrect bool) (int32, error)
 	GetTotalParticipantsCount(ctx context.Context) (int32, error)
 	GetSystemVariable(ctx context.Context, slug string) (float64, error)
@@ -33,14 +32,14 @@ func NewChallengeRepository(db *sql.DB) ChallengeRepository {
 }
 
 func (r *challengeRepository) GetRandomUnansweredQuestion(ctx context.Context, userID uint64) (*models.Question, error) {
-	// Get a random question that the user hasn't answered correctly
+	// A question is no longer eligible after the user's first answer,
+	// regardless of whether that answer was correct.
 	query := `
 		SELECT q.id, q.code, q.title, q.image, q.creator_code, q.prize, q.views, q.participants, q.created_at, q.updated_at
 		FROM questions q
 		WHERE NOT EXISTS (
 			SELECT 1 FROM user_question_answers uqa
-			INNER JOIN answers a ON uqa.answer_id = a.id
-			WHERE uqa.user_id = ? AND uqa.question_id = q.id AND a.is_correct = 1
+			WHERE uqa.user_id = ? AND uqa.question_id = q.id
 		)
 		ORDER BY RAND()
 		LIMIT 1
@@ -111,23 +110,6 @@ func (r *challengeRepository) GetAnswersByQuestionID(ctx context.Context, questi
 	return answers, nil
 }
 
-func (r *challengeRepository) GetCorrectAnswerID(ctx context.Context, questionID uint64) (uint64, error) {
-	query := `
-		SELECT id FROM answers
-		WHERE question_id = ? AND is_correct = 1
-		LIMIT 1
-	`
-	var answerID uint64
-	err := r.db.QueryRowContext(ctx, query, questionID).Scan(&answerID)
-	if err == sql.ErrNoRows {
-		return 0, fmt.Errorf("no correct answer found for question")
-	}
-	if err != nil {
-		return 0, fmt.Errorf("failed to get correct answer: %w", err)
-	}
-	return answerID, nil
-}
-
 func (r *challengeRepository) IncrementQuestionViews(ctx context.Context, questionID uint64) error {
 	query := `UPDATE questions SET views = views + 1 WHERE id = ?`
 	_, err := r.db.ExecContext(ctx, query, questionID)
@@ -158,16 +140,15 @@ func (r *challengeRepository) CreateUserAnswer(ctx context.Context, userID, ques
 	return nil
 }
 
-func (r *challengeRepository) HasUserAnsweredCorrectly(ctx context.Context, userID, questionID uint64) (bool, error) {
+func (r *challengeRepository) HasUserAnswered(ctx context.Context, userID, questionID uint64) (bool, error) {
 	query := `
-		SELECT COUNT(*) FROM user_question_answers uqa
-		INNER JOIN answers a ON uqa.answer_id = a.id
-		WHERE uqa.user_id = ? AND uqa.question_id = ? AND a.is_correct = 1
+		SELECT COUNT(*) FROM user_question_answers
+		WHERE user_id = ? AND question_id = ?
 	`
 	var count int
 	err := r.db.QueryRowContext(ctx, query, userID, questionID).Scan(&count)
 	if err != nil {
-		return false, fmt.Errorf("failed to check correct answer: %w", err)
+		return false, fmt.Errorf("failed to check previous answer: %w", err)
 	}
 	return count > 0, nil
 }

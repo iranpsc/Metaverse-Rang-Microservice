@@ -189,19 +189,6 @@ func main() {
 		}
 	}
 
-	if cfg.SocialServiceAddr != "" {
-		socialConn, err = grpc.NewClient(
-			cfg.SocialServiceAddr,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		if err != nil {
-			log.Printf("⚠️  Failed to connect to social service: %v", err)
-		} else {
-			defer socialConn.Close()
-			log.Printf("✅ Connected to social service at %s", cfg.SocialServiceAddr)
-		}
-	}
-
 	if cfg.NotificationServiceAddr != "" {
 		notificationConn, err = grpc.NewClient(
 			cfg.NotificationServiceAddr,
@@ -953,16 +940,13 @@ func main() {
 		mux.Handle("/api/challenge/timings", authMiddleware(http.HandlerFunc(socialHandler.GetTimings)))
 		mux.Handle("/api/challenge/question", authMiddleware(http.HandlerFunc(socialHandler.GetQuestion)))
 		mux.Handle("/api/challenge/answer", authMiddleware(http.HandlerFunc(socialHandler.SubmitAnswer)))
+		mux.Handle("/api/challenge/advertisement", authMiddleware(http.HandlerFunc(socialHandler.GetAdvertisement)))
 		mux.Handle("/api/followers", authMiddleware(http.HandlerFunc(socialHandler.GetFollowers)))
 		mux.Handle("/api/following", authMiddleware(http.HandlerFunc(socialHandler.GetFollowing)))
 		mux.Handle("/api/follow/", authMiddleware(http.HandlerFunc(socialHandler.Follow)))
 		mux.Handle("/api/unfollow/", authMiddleware(http.HandlerFunc(socialHandler.Unfollow)))
 		mux.Handle("/api/remove/", authMiddleware(http.HandlerFunc(socialHandler.Remove)))
 		log.Printf("✅ Social service routes registered")
-	}
-
-	if levelsHandler != nil {
-		mux.Handle("/api/challenge/advertisment", authMiddleware(http.HandlerFunc(levelsHandler.GetAdvertisement)))
 	}
 
 	// Support routes

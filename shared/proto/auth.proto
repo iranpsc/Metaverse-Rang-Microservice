@@ -206,10 +206,11 @@ message UserResponse {
   Level level = 7;
   string image = 8;
   int32 unread_notifications_count = 9;
-  // CRITICAL: Preserve Laravel typos for API compatibility!
-  // Laravel has "socre" not "score" and "unasnwered" not "unanswered"
+  // CRITICAL: Preserve Laravel typo for API compatibility!
+  // Laravel has "socre" not "score"
   double socre_percentage_to_next_level = 10;
-  int32 unasnwered_questions_count = 11;
+  reserved 11;
+  reserved "unasnwered_questions_count";
   double hourly_profit_time_percentage = 12;
   bool verified_kyc = 13;
   string birthdate = 14;

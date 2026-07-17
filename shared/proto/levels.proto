@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package levels;
 
-import "common.proto";
-
 option go_package = "metarang/shared/pb/levels";
 
 // LevelService handles user level progression
@@ -27,14 +25,6 @@ service ActivityService {
   rpc RecordTrade(RecordTradeRequest) returns (RecordTradeResponse);
   rpc RecordDeposit(RecordDepositRequest) returns (RecordDepositResponse);
   rpc RecordFollower(RecordFollowerRequest) returns (RecordFollowerResponse);
-}
-
-// ChallengeService handles quiz challenges
-service ChallengeService {
-  rpc GetQuestion(GetQuestionRequest) returns (QuestionResponse);
-  rpc SubmitAnswer(SubmitAnswerRequest) returns (AnswerResultResponse);
-  rpc GetTimings(GetTimingsRequest) returns (TimingsResponse);
-  rpc GetAdvertisement(GetAdvertisementRequest) returns (GetAdvertisementResponse);
 }
 
 // Level Messages
@@ -312,73 +302,5 @@ message RecordFollowerRequest {
 
 message RecordFollowerResponse {
   bool success = 1;
-}
-
-// Challenge Messages
-
-message GetQuestionRequest {
-  uint64 user_id = 1;
-}
-
-message QuestionResponse {
-  Question question = 1;
-  bool has_question = 2;
-}
-
-message Question {
-  uint64 id = 1;
-  string text = 2;
-  repeated Answer answers = 3;
-  string prize = 4; // PSC reward
-  int32 views = 5;
-  int32 participants = 6;
-}
-
-message Answer {
-  uint64 id = 1;
-  uint64 question_id = 2;
-  string text = 3;
-  // is_correct not included in response for security
-}
-
-message SubmitAnswerRequest {
-  uint64 user_id = 1;
-  uint64 question_id = 2;
-  uint64 answer_id = 3;
-}
-
-message AnswerResultResponse {
-  bool is_correct = 1;
-  string prize_awarded = 2;
-  Question question = 3;
-}
-
-message GetTimingsRequest {
-  uint64 user_id = 1;
-}
-
-message TimingsResponse {
-  int32 display_ad_interval = 1;
-  int32 display_question_interval = 2;
-  int32 display_answer_interval = 3;
-  int32 participants = 4;
-  int32 correct_answers = 5;
-  int32 wrong_answers = 6;
-}
-
-message GetAdvertisementRequest {}
-
-message Advertisement {
-  string code = 1;
-  string title = 2;
-  string description = 3;
-  string investment_value = 4;
-  string ends_at = 5;
-  string video_url = 6;
-  string image_url = 7;
-}
-
-message GetAdvertisementResponse {
-  repeated Advertisement advertisements = 1;
 }
 

@@ -113,30 +113,6 @@ paths:
             summary: Verify account security code
             tags:
                 - Account Security
-    /api/advertisement:
-        get:
-            operationId: get_advertisement
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: Get advertisement
-            tags:
-                - Social
     /api/auth/callback:
         get:
             operationId: get_auth_callback
@@ -1185,9 +1161,9 @@ paths:
             summary: Get latest calendar version
             tags:
                 - Calendar
-    /api/challenge/advertisment:
+    /api/challenge/advertisement:
         get:
-            operationId: get_challenge_advertisment
+            operationId: get_challenge_advertisement
             responses:
                 "200":
                     description: Successful response
@@ -1205,9 +1181,9 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: GetAdvertisement
+            summary: Get challenge advertisements
             tags:
-                - Challenge
+                - Social
     /api/challenge/answer:
         post:
             operationId: post_challenge_answer
@@ -1240,28 +1216,6 @@ paths:
             tags:
                 - Social
     /api/challenge/question:
-        get:
-            operationId: get_challenge_question
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: Get challenge question
-            tags:
-                - Social
         post:
             operationId: post_challenge_question
             requestBody:
@@ -1289,9 +1243,9 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: GetQuestion
+            summary: Get challenge question
             tags:
-                - Challenge
+                - Social
     /api/challenge/timings:
         get:
             operationId: get_challenge_timings

@@ -9,7 +9,6 @@ package levels
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	_ "metarang/shared/pb/common"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -2670,671 +2669,11 @@ func (x *RecordFollowerResponse) GetSuccess() bool {
 	return false
 }
 
-type GetQuestionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetQuestionRequest) Reset() {
-	*x = GetQuestionRequest{}
-	mi := &file_levels_proto_msgTypes[38]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetQuestionRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetQuestionRequest) ProtoMessage() {}
-
-func (x *GetQuestionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[38]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetQuestionRequest.ProtoReflect.Descriptor instead.
-func (*GetQuestionRequest) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{38}
-}
-
-func (x *GetQuestionRequest) GetUserId() uint64 {
-	if x != nil {
-		return x.UserId
-	}
-	return 0
-}
-
-type QuestionResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Question      *Question              `protobuf:"bytes,1,opt,name=question,proto3" json:"question,omitempty"`
-	HasQuestion   bool                   `protobuf:"varint,2,opt,name=has_question,json=hasQuestion,proto3" json:"has_question,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *QuestionResponse) Reset() {
-	*x = QuestionResponse{}
-	mi := &file_levels_proto_msgTypes[39]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *QuestionResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*QuestionResponse) ProtoMessage() {}
-
-func (x *QuestionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[39]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use QuestionResponse.ProtoReflect.Descriptor instead.
-func (*QuestionResponse) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{39}
-}
-
-func (x *QuestionResponse) GetQuestion() *Question {
-	if x != nil {
-		return x.Question
-	}
-	return nil
-}
-
-func (x *QuestionResponse) GetHasQuestion() bool {
-	if x != nil {
-		return x.HasQuestion
-	}
-	return false
-}
-
-type Question struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Text          string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
-	Answers       []*Answer              `protobuf:"bytes,3,rep,name=answers,proto3" json:"answers,omitempty"`
-	Prize         string                 `protobuf:"bytes,4,opt,name=prize,proto3" json:"prize,omitempty"` // PSC reward
-	Views         int32                  `protobuf:"varint,5,opt,name=views,proto3" json:"views,omitempty"`
-	Participants  int32                  `protobuf:"varint,6,opt,name=participants,proto3" json:"participants,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Question) Reset() {
-	*x = Question{}
-	mi := &file_levels_proto_msgTypes[40]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Question) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Question) ProtoMessage() {}
-
-func (x *Question) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[40]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Question.ProtoReflect.Descriptor instead.
-func (*Question) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{40}
-}
-
-func (x *Question) GetId() uint64 {
-	if x != nil {
-		return x.Id
-	}
-	return 0
-}
-
-func (x *Question) GetText() string {
-	if x != nil {
-		return x.Text
-	}
-	return ""
-}
-
-func (x *Question) GetAnswers() []*Answer {
-	if x != nil {
-		return x.Answers
-	}
-	return nil
-}
-
-func (x *Question) GetPrize() string {
-	if x != nil {
-		return x.Prize
-	}
-	return ""
-}
-
-func (x *Question) GetViews() int32 {
-	if x != nil {
-		return x.Views
-	}
-	return 0
-}
-
-func (x *Question) GetParticipants() int32 {
-	if x != nil {
-		return x.Participants
-	}
-	return 0
-}
-
-type Answer struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	QuestionId    uint64                 `protobuf:"varint,2,opt,name=question_id,json=questionId,proto3" json:"question_id,omitempty"`
-	Text          string                 `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"` // is_correct not included in response for security
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Answer) Reset() {
-	*x = Answer{}
-	mi := &file_levels_proto_msgTypes[41]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Answer) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Answer) ProtoMessage() {}
-
-func (x *Answer) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[41]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Answer.ProtoReflect.Descriptor instead.
-func (*Answer) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{41}
-}
-
-func (x *Answer) GetId() uint64 {
-	if x != nil {
-		return x.Id
-	}
-	return 0
-}
-
-func (x *Answer) GetQuestionId() uint64 {
-	if x != nil {
-		return x.QuestionId
-	}
-	return 0
-}
-
-func (x *Answer) GetText() string {
-	if x != nil {
-		return x.Text
-	}
-	return ""
-}
-
-type SubmitAnswerRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	QuestionId    uint64                 `protobuf:"varint,2,opt,name=question_id,json=questionId,proto3" json:"question_id,omitempty"`
-	AnswerId      uint64                 `protobuf:"varint,3,opt,name=answer_id,json=answerId,proto3" json:"answer_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SubmitAnswerRequest) Reset() {
-	*x = SubmitAnswerRequest{}
-	mi := &file_levels_proto_msgTypes[42]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SubmitAnswerRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SubmitAnswerRequest) ProtoMessage() {}
-
-func (x *SubmitAnswerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[42]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SubmitAnswerRequest.ProtoReflect.Descriptor instead.
-func (*SubmitAnswerRequest) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{42}
-}
-
-func (x *SubmitAnswerRequest) GetUserId() uint64 {
-	if x != nil {
-		return x.UserId
-	}
-	return 0
-}
-
-func (x *SubmitAnswerRequest) GetQuestionId() uint64 {
-	if x != nil {
-		return x.QuestionId
-	}
-	return 0
-}
-
-func (x *SubmitAnswerRequest) GetAnswerId() uint64 {
-	if x != nil {
-		return x.AnswerId
-	}
-	return 0
-}
-
-type AnswerResultResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	IsCorrect     bool                   `protobuf:"varint,1,opt,name=is_correct,json=isCorrect,proto3" json:"is_correct,omitempty"`
-	PrizeAwarded  string                 `protobuf:"bytes,2,opt,name=prize_awarded,json=prizeAwarded,proto3" json:"prize_awarded,omitempty"`
-	Question      *Question              `protobuf:"bytes,3,opt,name=question,proto3" json:"question,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AnswerResultResponse) Reset() {
-	*x = AnswerResultResponse{}
-	mi := &file_levels_proto_msgTypes[43]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AnswerResultResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AnswerResultResponse) ProtoMessage() {}
-
-func (x *AnswerResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[43]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AnswerResultResponse.ProtoReflect.Descriptor instead.
-func (*AnswerResultResponse) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{43}
-}
-
-func (x *AnswerResultResponse) GetIsCorrect() bool {
-	if x != nil {
-		return x.IsCorrect
-	}
-	return false
-}
-
-func (x *AnswerResultResponse) GetPrizeAwarded() string {
-	if x != nil {
-		return x.PrizeAwarded
-	}
-	return ""
-}
-
-func (x *AnswerResultResponse) GetQuestion() *Question {
-	if x != nil {
-		return x.Question
-	}
-	return nil
-}
-
-type GetTimingsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTimingsRequest) Reset() {
-	*x = GetTimingsRequest{}
-	mi := &file_levels_proto_msgTypes[44]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTimingsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTimingsRequest) ProtoMessage() {}
-
-func (x *GetTimingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[44]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTimingsRequest.ProtoReflect.Descriptor instead.
-func (*GetTimingsRequest) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{44}
-}
-
-func (x *GetTimingsRequest) GetUserId() uint64 {
-	if x != nil {
-		return x.UserId
-	}
-	return 0
-}
-
-type TimingsResponse struct {
-	state                   protoimpl.MessageState `protogen:"open.v1"`
-	DisplayAdInterval       int32                  `protobuf:"varint,1,opt,name=display_ad_interval,json=displayAdInterval,proto3" json:"display_ad_interval,omitempty"`
-	DisplayQuestionInterval int32                  `protobuf:"varint,2,opt,name=display_question_interval,json=displayQuestionInterval,proto3" json:"display_question_interval,omitempty"`
-	DisplayAnswerInterval   int32                  `protobuf:"varint,3,opt,name=display_answer_interval,json=displayAnswerInterval,proto3" json:"display_answer_interval,omitempty"`
-	Participants            int32                  `protobuf:"varint,4,opt,name=participants,proto3" json:"participants,omitempty"`
-	CorrectAnswers          int32                  `protobuf:"varint,5,opt,name=correct_answers,json=correctAnswers,proto3" json:"correct_answers,omitempty"`
-	WrongAnswers            int32                  `protobuf:"varint,6,opt,name=wrong_answers,json=wrongAnswers,proto3" json:"wrong_answers,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
-}
-
-func (x *TimingsResponse) Reset() {
-	*x = TimingsResponse{}
-	mi := &file_levels_proto_msgTypes[45]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TimingsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TimingsResponse) ProtoMessage() {}
-
-func (x *TimingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[45]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TimingsResponse.ProtoReflect.Descriptor instead.
-func (*TimingsResponse) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{45}
-}
-
-func (x *TimingsResponse) GetDisplayAdInterval() int32 {
-	if x != nil {
-		return x.DisplayAdInterval
-	}
-	return 0
-}
-
-func (x *TimingsResponse) GetDisplayQuestionInterval() int32 {
-	if x != nil {
-		return x.DisplayQuestionInterval
-	}
-	return 0
-}
-
-func (x *TimingsResponse) GetDisplayAnswerInterval() int32 {
-	if x != nil {
-		return x.DisplayAnswerInterval
-	}
-	return 0
-}
-
-func (x *TimingsResponse) GetParticipants() int32 {
-	if x != nil {
-		return x.Participants
-	}
-	return 0
-}
-
-func (x *TimingsResponse) GetCorrectAnswers() int32 {
-	if x != nil {
-		return x.CorrectAnswers
-	}
-	return 0
-}
-
-func (x *TimingsResponse) GetWrongAnswers() int32 {
-	if x != nil {
-		return x.WrongAnswers
-	}
-	return 0
-}
-
-type GetAdvertisementRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetAdvertisementRequest) Reset() {
-	*x = GetAdvertisementRequest{}
-	mi := &file_levels_proto_msgTypes[46]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetAdvertisementRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetAdvertisementRequest) ProtoMessage() {}
-
-func (x *GetAdvertisementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[46]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetAdvertisementRequest.ProtoReflect.Descriptor instead.
-func (*GetAdvertisementRequest) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{46}
-}
-
-type Advertisement struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Code            string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	Title           string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Description     string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	InvestmentValue string                 `protobuf:"bytes,4,opt,name=investment_value,json=investmentValue,proto3" json:"investment_value,omitempty"`
-	EndsAt          string                 `protobuf:"bytes,5,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`
-	VideoUrl        string                 `protobuf:"bytes,6,opt,name=video_url,json=videoUrl,proto3" json:"video_url,omitempty"`
-	ImageUrl        string                 `protobuf:"bytes,7,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *Advertisement) Reset() {
-	*x = Advertisement{}
-	mi := &file_levels_proto_msgTypes[47]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Advertisement) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Advertisement) ProtoMessage() {}
-
-func (x *Advertisement) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[47]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Advertisement.ProtoReflect.Descriptor instead.
-func (*Advertisement) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{47}
-}
-
-func (x *Advertisement) GetCode() string {
-	if x != nil {
-		return x.Code
-	}
-	return ""
-}
-
-func (x *Advertisement) GetTitle() string {
-	if x != nil {
-		return x.Title
-	}
-	return ""
-}
-
-func (x *Advertisement) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *Advertisement) GetInvestmentValue() string {
-	if x != nil {
-		return x.InvestmentValue
-	}
-	return ""
-}
-
-func (x *Advertisement) GetEndsAt() string {
-	if x != nil {
-		return x.EndsAt
-	}
-	return ""
-}
-
-func (x *Advertisement) GetVideoUrl() string {
-	if x != nil {
-		return x.VideoUrl
-	}
-	return ""
-}
-
-func (x *Advertisement) GetImageUrl() string {
-	if x != nil {
-		return x.ImageUrl
-	}
-	return ""
-}
-
-type GetAdvertisementResponse struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Advertisements []*Advertisement       `protobuf:"bytes,1,rep,name=advertisements,proto3" json:"advertisements,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *GetAdvertisementResponse) Reset() {
-	*x = GetAdvertisementResponse{}
-	mi := &file_levels_proto_msgTypes[48]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetAdvertisementResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetAdvertisementResponse) ProtoMessage() {}
-
-func (x *GetAdvertisementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_levels_proto_msgTypes[48]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetAdvertisementResponse.ProtoReflect.Descriptor instead.
-func (*GetAdvertisementResponse) Descriptor() ([]byte, []int) {
-	return file_levels_proto_rawDescGZIP(), []int{48}
-}
-
-func (x *GetAdvertisementResponse) GetAdvertisements() []*Advertisement {
-	if x != nil {
-		return x.Advertisements
-	}
-	return nil
-}
-
 var File_levels_proto protoreflect.FileDescriptor
 
 const file_levels_proto_rawDesc = "" +
 	"\n" +
-	"\flevels.proto\x12\x06levels\x1a\fcommon.proto\".\n" +
+	"\flevels.proto\x12\x06levels\".\n" +
 	"\x13GetUserLevelRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\"\xe0\x01\n" +
 	"\x11UserLevelResponse\x120\n" +
@@ -3561,54 +2900,7 @@ const file_levels_proto_rawDesc = "" +
 	"\x15RecordFollowerRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\"2\n" +
 	"\x16RecordFollowerResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\"-\n" +
-	"\x12GetQuestionRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x04R\x06userId\"c\n" +
-	"\x10QuestionResponse\x12,\n" +
-	"\bquestion\x18\x01 \x01(\v2\x10.levels.QuestionR\bquestion\x12!\n" +
-	"\fhas_question\x18\x02 \x01(\bR\vhasQuestion\"\xa8\x01\n" +
-	"\bQuestion\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text\x12(\n" +
-	"\aanswers\x18\x03 \x03(\v2\x0e.levels.AnswerR\aanswers\x12\x14\n" +
-	"\x05prize\x18\x04 \x01(\tR\x05prize\x12\x14\n" +
-	"\x05views\x18\x05 \x01(\x05R\x05views\x12\"\n" +
-	"\fparticipants\x18\x06 \x01(\x05R\fparticipants\"M\n" +
-	"\x06Answer\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x1f\n" +
-	"\vquestion_id\x18\x02 \x01(\x04R\n" +
-	"questionId\x12\x12\n" +
-	"\x04text\x18\x03 \x01(\tR\x04text\"l\n" +
-	"\x13SubmitAnswerRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x1f\n" +
-	"\vquestion_id\x18\x02 \x01(\x04R\n" +
-	"questionId\x12\x1b\n" +
-	"\tanswer_id\x18\x03 \x01(\x04R\banswerId\"\x88\x01\n" +
-	"\x14AnswerResultResponse\x12\x1d\n" +
-	"\n" +
-	"is_correct\x18\x01 \x01(\bR\tisCorrect\x12#\n" +
-	"\rprize_awarded\x18\x02 \x01(\tR\fprizeAwarded\x12,\n" +
-	"\bquestion\x18\x03 \x01(\v2\x10.levels.QuestionR\bquestion\",\n" +
-	"\x11GetTimingsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x04R\x06userId\"\xa7\x02\n" +
-	"\x0fTimingsResponse\x12.\n" +
-	"\x13display_ad_interval\x18\x01 \x01(\x05R\x11displayAdInterval\x12:\n" +
-	"\x19display_question_interval\x18\x02 \x01(\x05R\x17displayQuestionInterval\x126\n" +
-	"\x17display_answer_interval\x18\x03 \x01(\x05R\x15displayAnswerInterval\x12\"\n" +
-	"\fparticipants\x18\x04 \x01(\x05R\fparticipants\x12'\n" +
-	"\x0fcorrect_answers\x18\x05 \x01(\x05R\x0ecorrectAnswers\x12#\n" +
-	"\rwrong_answers\x18\x06 \x01(\x05R\fwrongAnswers\"\x19\n" +
-	"\x17GetAdvertisementRequest\"\xd9\x01\n" +
-	"\rAdvertisement\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\tR\x04code\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x12)\n" +
-	"\x10investment_value\x18\x04 \x01(\tR\x0finvestmentValue\x12\x17\n" +
-	"\aends_at\x18\x05 \x01(\tR\x06endsAt\x12\x1b\n" +
-	"\tvideo_url\x18\x06 \x01(\tR\bvideoUrl\x12\x1b\n" +
-	"\timage_url\x18\a \x01(\tR\bimageUrl\"Y\n" +
-	"\x18GetAdvertisementResponse\x12=\n" +
-	"\x0eadvertisements\x18\x01 \x03(\v2\x15.levels.AdvertisementR\x0eadvertisements2\xa8\x05\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\xa8\x05\n" +
 	"\fLevelService\x12F\n" +
 	"\fGetUserLevel\x12\x1b.levels.GetUserLevelRequest\x1a\x19.levels.UserLevelResponse\x12C\n" +
 	"\fGetAllLevels\x12\x1b.levels.GetAllLevelsRequest\x1a\x16.levels.LevelsResponse\x12:\n" +
@@ -3626,13 +2918,7 @@ const file_levels_proto_rawDesc = "" +
 	"\x13UpdateActivityScore\x12\".levels.UpdateActivityScoreRequest\x1a#.levels.UpdateActivityScoreResponse\x12F\n" +
 	"\vRecordTrade\x12\x1a.levels.RecordTradeRequest\x1a\x1b.levels.RecordTradeResponse\x12L\n" +
 	"\rRecordDeposit\x12\x1c.levels.RecordDepositRequest\x1a\x1d.levels.RecordDepositResponse\x12O\n" +
-	"\x0eRecordFollower\x12\x1d.levels.RecordFollowerRequest\x1a\x1e.levels.RecordFollowerResponse2\xbb\x02\n" +
-	"\x10ChallengeService\x12C\n" +
-	"\vGetQuestion\x12\x1a.levels.GetQuestionRequest\x1a\x18.levels.QuestionResponse\x12I\n" +
-	"\fSubmitAnswer\x12\x1b.levels.SubmitAnswerRequest\x1a\x1c.levels.AnswerResultResponse\x12@\n" +
-	"\n" +
-	"GetTimings\x12\x19.levels.GetTimingsRequest\x1a\x17.levels.TimingsResponse\x12U\n" +
-	"\x10GetAdvertisement\x12\x1f.levels.GetAdvertisementRequest\x1a .levels.GetAdvertisementResponseB\x1bZ\x19metarang/shared/pb/levelsb\x06proto3"
+	"\x0eRecordFollower\x12\x1d.levels.RecordFollowerRequest\x1a\x1e.levels.RecordFollowerResponseB\x1bZ\x19metarang/shared/pb/levelsb\x06proto3"
 
 var (
 	file_levels_proto_rawDescOnce sync.Once
@@ -3646,7 +2932,7 @@ func file_levels_proto_rawDescGZIP() []byte {
 	return file_levels_proto_rawDescData
 }
 
-var file_levels_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
+var file_levels_proto_msgTypes = make([]protoimpl.MessageInfo, 38)
 var file_levels_proto_goTypes = []any{
 	(*GetUserLevelRequest)(nil),         // 0: levels.GetUserLevelRequest
 	(*UserLevelResponse)(nil),           // 1: levels.UserLevelResponse
@@ -3686,17 +2972,6 @@ var file_levels_proto_goTypes = []any{
 	(*RecordDepositResponse)(nil),       // 35: levels.RecordDepositResponse
 	(*RecordFollowerRequest)(nil),       // 36: levels.RecordFollowerRequest
 	(*RecordFollowerResponse)(nil),      // 37: levels.RecordFollowerResponse
-	(*GetQuestionRequest)(nil),          // 38: levels.GetQuestionRequest
-	(*QuestionResponse)(nil),            // 39: levels.QuestionResponse
-	(*Question)(nil),                    // 40: levels.Question
-	(*Answer)(nil),                      // 41: levels.Answer
-	(*SubmitAnswerRequest)(nil),         // 42: levels.SubmitAnswerRequest
-	(*AnswerResultResponse)(nil),        // 43: levels.AnswerResultResponse
-	(*GetTimingsRequest)(nil),           // 44: levels.GetTimingsRequest
-	(*TimingsResponse)(nil),             // 45: levels.TimingsResponse
-	(*GetAdvertisementRequest)(nil),     // 46: levels.GetAdvertisementRequest
-	(*Advertisement)(nil),               // 47: levels.Advertisement
-	(*GetAdvertisementResponse)(nil),    // 48: levels.GetAdvertisementResponse
 }
 var file_levels_proto_depIdxs = []int32{
 	6,  // 0: levels.UserLevelResponse.latest_level:type_name -> levels.Level
@@ -3715,53 +2990,41 @@ var file_levels_proto_depIdxs = []int32{
 	8,  // 13: levels.LevelPrizesResponse.prize:type_name -> levels.LevelPrize
 	28, // 14: levels.UserActivitiesResponse.activities:type_name -> levels.UserActivity
 	29, // 15: levels.UserActivitiesResponse.user_log:type_name -> levels.UserLog
-	40, // 16: levels.QuestionResponse.question:type_name -> levels.Question
-	41, // 17: levels.Question.answers:type_name -> levels.Answer
-	40, // 18: levels.AnswerResultResponse.question:type_name -> levels.Question
-	47, // 19: levels.GetAdvertisementResponse.advertisements:type_name -> levels.Advertisement
-	0,  // 20: levels.LevelService.GetUserLevel:input_type -> levels.GetUserLevelRequest
-	2,  // 21: levels.LevelService.GetAllLevels:input_type -> levels.GetAllLevelsRequest
-	4,  // 22: levels.LevelService.GetLevel:input_type -> levels.GetLevelRequest
-	12, // 23: levels.LevelService.GetLevelGeneralInfo:input_type -> levels.GetLevelGeneralInfoRequest
-	14, // 24: levels.LevelService.GetLevelGem:input_type -> levels.GetLevelGemRequest
-	16, // 25: levels.LevelService.GetLevelGift:input_type -> levels.GetLevelGiftRequest
-	18, // 26: levels.LevelService.GetLevelLicenses:input_type -> levels.GetLevelLicensesRequest
-	20, // 27: levels.LevelService.GetLevelPrizes:input_type -> levels.GetLevelPrizesRequest
-	22, // 28: levels.LevelService.ClaimPrize:input_type -> levels.ClaimPrizeRequest
-	24, // 29: levels.ActivityService.LogActivity:input_type -> levels.LogActivityRequest
-	26, // 30: levels.ActivityService.GetUserActivities:input_type -> levels.GetUserActivitiesRequest
-	30, // 31: levels.ActivityService.UpdateActivityScore:input_type -> levels.UpdateActivityScoreRequest
-	32, // 32: levels.ActivityService.RecordTrade:input_type -> levels.RecordTradeRequest
-	34, // 33: levels.ActivityService.RecordDeposit:input_type -> levels.RecordDepositRequest
-	36, // 34: levels.ActivityService.RecordFollower:input_type -> levels.RecordFollowerRequest
-	38, // 35: levels.ChallengeService.GetQuestion:input_type -> levels.GetQuestionRequest
-	42, // 36: levels.ChallengeService.SubmitAnswer:input_type -> levels.SubmitAnswerRequest
-	44, // 37: levels.ChallengeService.GetTimings:input_type -> levels.GetTimingsRequest
-	46, // 38: levels.ChallengeService.GetAdvertisement:input_type -> levels.GetAdvertisementRequest
-	1,  // 39: levels.LevelService.GetUserLevel:output_type -> levels.UserLevelResponse
-	3,  // 40: levels.LevelService.GetAllLevels:output_type -> levels.LevelsResponse
-	5,  // 41: levels.LevelService.GetLevel:output_type -> levels.LevelResponse
-	13, // 42: levels.LevelService.GetLevelGeneralInfo:output_type -> levels.LevelGeneralInfoResponse
-	15, // 43: levels.LevelService.GetLevelGem:output_type -> levels.LevelGemResponse
-	17, // 44: levels.LevelService.GetLevelGift:output_type -> levels.LevelGiftResponse
-	19, // 45: levels.LevelService.GetLevelLicenses:output_type -> levels.LevelLicensesResponse
-	21, // 46: levels.LevelService.GetLevelPrizes:output_type -> levels.LevelPrizesResponse
-	23, // 47: levels.LevelService.ClaimPrize:output_type -> levels.ClaimPrizeResponse
-	25, // 48: levels.ActivityService.LogActivity:output_type -> levels.LogActivityResponse
-	27, // 49: levels.ActivityService.GetUserActivities:output_type -> levels.UserActivitiesResponse
-	31, // 50: levels.ActivityService.UpdateActivityScore:output_type -> levels.UpdateActivityScoreResponse
-	33, // 51: levels.ActivityService.RecordTrade:output_type -> levels.RecordTradeResponse
-	35, // 52: levels.ActivityService.RecordDeposit:output_type -> levels.RecordDepositResponse
-	37, // 53: levels.ActivityService.RecordFollower:output_type -> levels.RecordFollowerResponse
-	39, // 54: levels.ChallengeService.GetQuestion:output_type -> levels.QuestionResponse
-	43, // 55: levels.ChallengeService.SubmitAnswer:output_type -> levels.AnswerResultResponse
-	45, // 56: levels.ChallengeService.GetTimings:output_type -> levels.TimingsResponse
-	48, // 57: levels.ChallengeService.GetAdvertisement:output_type -> levels.GetAdvertisementResponse
-	39, // [39:58] is the sub-list for method output_type
-	20, // [20:39] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	0,  // 16: levels.LevelService.GetUserLevel:input_type -> levels.GetUserLevelRequest
+	2,  // 17: levels.LevelService.GetAllLevels:input_type -> levels.GetAllLevelsRequest
+	4,  // 18: levels.LevelService.GetLevel:input_type -> levels.GetLevelRequest
+	12, // 19: levels.LevelService.GetLevelGeneralInfo:input_type -> levels.GetLevelGeneralInfoRequest
+	14, // 20: levels.LevelService.GetLevelGem:input_type -> levels.GetLevelGemRequest
+	16, // 21: levels.LevelService.GetLevelGift:input_type -> levels.GetLevelGiftRequest
+	18, // 22: levels.LevelService.GetLevelLicenses:input_type -> levels.GetLevelLicensesRequest
+	20, // 23: levels.LevelService.GetLevelPrizes:input_type -> levels.GetLevelPrizesRequest
+	22, // 24: levels.LevelService.ClaimPrize:input_type -> levels.ClaimPrizeRequest
+	24, // 25: levels.ActivityService.LogActivity:input_type -> levels.LogActivityRequest
+	26, // 26: levels.ActivityService.GetUserActivities:input_type -> levels.GetUserActivitiesRequest
+	30, // 27: levels.ActivityService.UpdateActivityScore:input_type -> levels.UpdateActivityScoreRequest
+	32, // 28: levels.ActivityService.RecordTrade:input_type -> levels.RecordTradeRequest
+	34, // 29: levels.ActivityService.RecordDeposit:input_type -> levels.RecordDepositRequest
+	36, // 30: levels.ActivityService.RecordFollower:input_type -> levels.RecordFollowerRequest
+	1,  // 31: levels.LevelService.GetUserLevel:output_type -> levels.UserLevelResponse
+	3,  // 32: levels.LevelService.GetAllLevels:output_type -> levels.LevelsResponse
+	5,  // 33: levels.LevelService.GetLevel:output_type -> levels.LevelResponse
+	13, // 34: levels.LevelService.GetLevelGeneralInfo:output_type -> levels.LevelGeneralInfoResponse
+	15, // 35: levels.LevelService.GetLevelGem:output_type -> levels.LevelGemResponse
+	17, // 36: levels.LevelService.GetLevelGift:output_type -> levels.LevelGiftResponse
+	19, // 37: levels.LevelService.GetLevelLicenses:output_type -> levels.LevelLicensesResponse
+	21, // 38: levels.LevelService.GetLevelPrizes:output_type -> levels.LevelPrizesResponse
+	23, // 39: levels.LevelService.ClaimPrize:output_type -> levels.ClaimPrizeResponse
+	25, // 40: levels.ActivityService.LogActivity:output_type -> levels.LogActivityResponse
+	27, // 41: levels.ActivityService.GetUserActivities:output_type -> levels.UserActivitiesResponse
+	31, // 42: levels.ActivityService.UpdateActivityScore:output_type -> levels.UpdateActivityScoreResponse
+	33, // 43: levels.ActivityService.RecordTrade:output_type -> levels.RecordTradeResponse
+	35, // 44: levels.ActivityService.RecordDeposit:output_type -> levels.RecordDepositResponse
+	37, // 45: levels.ActivityService.RecordFollower:output_type -> levels.RecordFollowerResponse
+	31, // [31:46] is the sub-list for method output_type
+	16, // [16:31] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_levels_proto_init() }
@@ -3775,9 +3038,9 @@ func file_levels_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_levels_proto_rawDesc), len(file_levels_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   49,
+			NumMessages:   38,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   2,
 		},
 		GoTypes:           file_levels_proto_goTypes,
 		DependencyIndexes: file_levels_proto_depIdxs,

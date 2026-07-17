@@ -998,10 +998,9 @@ type UserResponse struct {
 	Level                    *Level                 `protobuf:"bytes,7,opt,name=level,proto3" json:"level,omitempty"`
 	Image                    string                 `protobuf:"bytes,8,opt,name=image,proto3" json:"image,omitempty"`
 	UnreadNotificationsCount int32                  `protobuf:"varint,9,opt,name=unread_notifications_count,json=unreadNotificationsCount,proto3" json:"unread_notifications_count,omitempty"`
-	// CRITICAL: Preserve Laravel typos for API compatibility!
-	// Laravel has "socre" not "score" and "unasnwered" not "unanswered"
+	// CRITICAL: Preserve Laravel typo for API compatibility!
+	// Laravel has "socre" not "score"
 	SocrePercentageToNextLevel float64 `protobuf:"fixed64,10,opt,name=socre_percentage_to_next_level,json=socrePercentageToNextLevel,proto3" json:"socre_percentage_to_next_level,omitempty"`
-	UnasnweredQuestionsCount   int32   `protobuf:"varint,11,opt,name=unasnwered_questions_count,json=unasnweredQuestionsCount,proto3" json:"unasnwered_questions_count,omitempty"`
 	HourlyProfitTimePercentage float64 `protobuf:"fixed64,12,opt,name=hourly_profit_time_percentage,json=hourlyProfitTimePercentage,proto3" json:"hourly_profit_time_percentage,omitempty"`
 	VerifiedKyc                bool    `protobuf:"varint,13,opt,name=verified_kyc,json=verifiedKyc,proto3" json:"verified_kyc,omitempty"`
 	Birthdate                  string  `protobuf:"bytes,14,opt,name=birthdate,proto3" json:"birthdate,omitempty"`
@@ -1107,13 +1106,6 @@ func (x *UserResponse) GetUnreadNotificationsCount() int32 {
 func (x *UserResponse) GetSocrePercentageToNextLevel() float64 {
 	if x != nil {
 		return x.SocrePercentageToNextLevel
-	}
-	return 0
-}
-
-func (x *UserResponse) GetUnasnweredQuestionsCount() int32 {
-	if x != nil {
-		return x.UnasnweredQuestionsCount
 	}
 	return 0
 }
@@ -8080,7 +8072,7 @@ const file_auth_proto_rawDesc = "" +
 	"expires_at\x18\x02 \x01(\x05R\texpiresAt\x12!\n" +
 	"\fredirect_url\x18\x03 \x01(\tR\vredirectUrl\"$\n" +
 	"\fGetMeRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\xed\x04\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\xd1\x04\n" +
 	"\fUserResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -8092,14 +8084,13 @@ const file_auth_proto_rawDesc = "" +
 	"\x05image\x18\b \x01(\tR\x05image\x12<\n" +
 	"\x1aunread_notifications_count\x18\t \x01(\x05R\x18unreadNotificationsCount\x12B\n" +
 	"\x1esocre_percentage_to_next_level\x18\n" +
-	" \x01(\x01R\x1asocrePercentageToNextLevel\x12<\n" +
-	"\x1aunasnwered_questions_count\x18\v \x01(\x05R\x18unasnweredQuestionsCount\x12A\n" +
+	" \x01(\x01R\x1asocrePercentageToNextLevel\x12A\n" +
 	"\x1dhourly_profit_time_percentage\x18\f \x01(\x01R\x1ahourlyProfitTimePercentage\x12!\n" +
 	"\fverified_kyc\x18\r \x01(\bR\vverifiedKyc\x12\x1c\n" +
 	"\tbirthdate\x18\x0e \x01(\tR\tbirthdate\x12\x1d\n" +
 	"\n" +
 	"has_wallet\x18\x0f \x01(\bR\thasWallet\x12%\n" +
-	"\x0ewallet_address\x18\x10 \x01(\tR\rwalletAddress\"%\n" +
+	"\x0ewallet_address\x18\x10 \x01(\tR\rwalletAddressJ\x04\b\v\x10\fR\x1aunasnwered_questions_count\"%\n" +
 	"\rLogoutRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\",\n" +
 	"\x14ValidateTokenRequest\x12\x14\n" +

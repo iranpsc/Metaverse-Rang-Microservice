@@ -10,16 +10,14 @@ import (
 )
 
 type LevelsHandler struct {
-	levelClient     levelspb.LevelServiceClient
-	challengeClient levelspb.ChallengeServiceClient
-	appURL          string
+	levelClient levelspb.LevelServiceClient
+	appURL      string
 }
 
 func NewLevelsHandler(conn *grpc.ClientConn, appURL string) *LevelsHandler {
 	return &LevelsHandler{
-		levelClient:     levelspb.NewLevelServiceClient(conn),
-		challengeClient: levelspb.NewChallengeServiceClient(conn),
-		appURL:          strings.TrimSuffix(appURL, "/"),
+		levelClient: levelspb.NewLevelServiceClient(conn),
+		appURL:      strings.TrimSuffix(appURL, "/"),
 	}
 }
 
@@ -49,7 +47,6 @@ func (h *LevelsHandler) prefixImageURL(url string) string {
 }
 
 // GetAllLevels handles GET /api/levels
-// Implements Laravel LevelController@index
 func (h *LevelsHandler) GetAllLevels(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -89,7 +86,6 @@ func (h *LevelsHandler) GetAllLevels(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetLevel handles GET /api/levels/{slug}
-// Implements Laravel LevelController@show
 func (h *LevelsHandler) GetLevel(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -117,7 +113,6 @@ func (h *LevelsHandler) GetLevel(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetLevelGeneralInfo handles GET /api/levels/{slug}/general-info
-// Implements Laravel LevelController@getGeneralInfo
 func (h *LevelsHandler) GetLevelGeneralInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -174,7 +169,6 @@ func (h *LevelsHandler) GetLevelGeneralInfo(w http.ResponseWriter, r *http.Reque
 }
 
 // GetLevelGem handles GET /api/levels/{slug}/gem
-// Implements Laravel LevelController@gem
 func (h *LevelsHandler) GetLevelGem(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -228,7 +222,6 @@ func (h *LevelsHandler) GetLevelGem(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetLevelGift handles GET /api/levels/{slug}/gift
-// Implements Laravel LevelController@gift
 func (h *LevelsHandler) GetLevelGift(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -290,7 +283,6 @@ func (h *LevelsHandler) GetLevelGift(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetLevelLicenses handles GET /api/levels/{slug}/licenses
-// Implements Laravel LevelController@licenses
 func (h *LevelsHandler) GetLevelLicenses(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -348,7 +340,6 @@ func (h *LevelsHandler) GetLevelLicenses(w http.ResponseWriter, r *http.Request)
 }
 
 // GetLevelPrize handles GET /api/levels/{slug}/prize
-// Implements Laravel LevelController@prizes
 func (h *LevelsHandler) GetLevelPrize(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -494,35 +485,6 @@ func (h *LevelsHandler) HandleLevelsRoutes(w http.ResponseWriter, r *http.Reques
 	}
 
 	writeError(w, http.StatusNotFound, "not found")
-}
-
-// GetAdvertisement handles GET /api/challenge/advertisment
-func (h *LevelsHandler) GetAdvertisement(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
-	resp, err := h.challengeClient.GetAdvertisement(r.Context(), &levelspb.GetAdvertisementRequest{})
-	if err != nil {
-		writeGRPCError(w, err)
-		return
-	}
-
-	ads := make([]map[string]interface{}, 0, len(resp.Advertisements))
-	for _, ad := range resp.Advertisements {
-		ads = append(ads, map[string]interface{}{
-			"code":             ad.Code,
-			"title":            ad.Title,
-			"description":      ad.Description,
-			"investment_value": ad.InvestmentValue,
-			"ends_at":          ad.EndsAt,
-			"video_url":        ad.VideoUrl,
-			"image_url":        ad.ImageUrl,
-		})
-	}
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": ads})
 }
 
 func extractSlugFromPath(path, prefix string) string {

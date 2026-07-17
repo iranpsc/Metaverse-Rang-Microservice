@@ -5,8 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
+	"time"
 
+	"metarang/shared/pkg/helpers"
 	"metarang/social-service/internal/client"
+	"metarang/social-service/internal/lang"
 	"metarang/social-service/internal/models"
 	"metarang/social-service/internal/repository"
 )
@@ -15,7 +19,7 @@ var (
 	ErrQuestionNotFound      = errors.New("question not found")
 	ErrAnswerNotFound        = errors.New("answer not found")
 	ErrAnswerMismatch        = errors.New("answer does not belong to the given question")
-	ErrAlreadyAnswered       = errors.New("user has already answered this question correctly")
+	ErrAlreadyAnswered       = errors.New("user has already answered this question")
 	ErrNoUnansweredQuestions = errors.New("no unanswered questions available")
 )
 
@@ -23,18 +27,83 @@ type ChallengeService interface {
 	GetTimings(ctx context.Context, userID uint64) (*models.TimingsData, error)
 	GetQuestion(ctx context.Context, userID uint64) (*models.QuestionResource, error)
 	SubmitAnswer(ctx context.Context, userID, questionID, answerID uint64) (*models.QuestionResource, error)
+	GetAdvertisement(ctx context.Context) ([]models.Advertisement, error)
+}
+
+type ChallengeConfig struct {
+	Locale     string
+	ProjectURL string
 }
 
 type challengeService struct {
 	challengeRepo    repository.ChallengeRepository
 	commercialClient client.CommercialClient
+	locale           string
+	projectURL       string
 }
 
-func NewChallengeService(challengeRepo repository.ChallengeRepository, commercialClient client.CommercialClient) ChallengeService {
+func NewChallengeService(challengeRepo repository.ChallengeRepository, commercialClient client.CommercialClient, configs ...ChallengeConfig) ChallengeService {
+	config := ChallengeConfig{Locale: "en"}
+	if len(configs) > 0 {
+		config = configs[0]
+	}
+
 	return &challengeService{
 		challengeRepo:    challengeRepo,
 		commercialClient: commercialClient,
+		locale:           lang.NormalizeLocale(config.Locale),
+		projectURL:       strings.TrimSuffix(strings.TrimSpace(config.ProjectURL), "/"),
 	}
+}
+
+type advertisementSeed struct {
+	code            string
+	titleKey        string
+	descriptionKey  string
+	investmentValue string
+	endsAtGregorian time.Time
+}
+
+var challengeAdvertisements = []advertisementSeed{
+	{"bn-1000", "Matrix exit box", "Banking services in Metaverse", "1000000", time.Date(2028, 11, 5, 0, 0, 0, 0, time.UTC)},
+	{"bn-1001", "Quantum trade hub", "Next-gen digital trading desk", "2500000", time.Date(2027, 6, 15, 0, 0, 0, 0, time.UTC)},
+	{"bn-1002", "Neon vault reserve", "Secure multi-asset custody", "1750000", time.Date(2029, 1, 20, 0, 0, 0, 0, time.UTC)},
+	{"bn-1003", "Oracle signal funds", "AI-driven market intelligence", "3200000", time.Date(2028, 3, 8, 0, 0, 0, 0, time.UTC)},
+	{"bn-1004", "Pulse liquidity pool", "Cross-chain liquidity provision", "900000", time.Date(2027, 12, 1, 0, 0, 0, 0, time.UTC)},
+	{"bn-1005", "Horizon credit lane", "Metaverse-native lending rails", "4100000", time.Date(2030, 4, 12, 0, 0, 0, 0, time.UTC)},
+	{"bn-1006", "Eclipse yield studio", "Structured yield products", "1500000", time.Date(2029, 9, 30, 0, 0, 0, 0, time.UTC)},
+}
+
+func (s *challengeService) advertisementAssetURL(code, extension string) string {
+	path := fmt.Sprintf("/uploads/challenge/advertisement/%s/%s.%s", code, code, extension)
+	if s.projectURL == "" {
+		return path
+	}
+	return s.projectURL + path
+}
+
+func (s *challengeService) GetAdvertisement(ctx context.Context) ([]models.Advertisement, error) {
+	_ = ctx
+	advertisements := make([]models.Advertisement, 0, len(challengeAdvertisements))
+	for _, seed := range challengeAdvertisements {
+		endsAt := seed.endsAtGregorian.Format("2006/01/02")
+		if s.locale == "fa" {
+			endsAt = helpers.FormatJalaliDate(seed.endsAtGregorian)
+		}
+
+		advertisements = append(advertisements, models.Advertisement{
+			Code:            seed.code,
+			Title:           lang.T(s.locale, seed.titleKey),
+			Description:     lang.T(s.locale, seed.descriptionKey),
+			InvestmentValue: seed.investmentValue,
+			EndsAt:          endsAt,
+			VideoURL:        s.advertisementAssetURL(seed.code, "mp4"),
+			ImageURL:        s.advertisementAssetURL(seed.code, "jpg"),
+			URL:             "https://metarang.com/fa/citizens/" + seed.code,
+			InvestmentAsset: "red",
+		})
+	}
+	return advertisements, nil
 }
 
 func (s *challengeService) GetTimings(ctx context.Context, userID uint64) (*models.TimingsData, error) {
@@ -155,12 +224,12 @@ func (s *challengeService) SubmitAnswer(ctx context.Context, userID, questionID,
 		return nil, ErrAnswerMismatch
 	}
 
-	// Check if user has already answered correctly (policy check)
-	hasAnsweredCorrectly, err := s.challengeRepo.HasUserAnsweredCorrectly(ctx, userID, questionID)
+	// A user gets exactly one attempt per question, regardless of correctness.
+	hasAnswered, err := s.challengeRepo.HasUserAnswered(ctx, userID, questionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check previous answer: %w", err)
 	}
-	if hasAnsweredCorrectly {
+	if hasAnswered {
 		return nil, ErrAlreadyAnswered
 	}
 
@@ -169,9 +238,7 @@ func (s *challengeService) SubmitAnswer(ctx context.Context, userID, questionID,
 		return nil, fmt.Errorf("failed to create user answer: %w", err)
 	}
 
-	// Increment participants (only once per question per user)
-	// We need to check if this is the first answer for this question by this user
-	// For simplicity, we'll increment it (the database should handle uniqueness if needed)
+	// Increment participants for the user's single accepted attempt.
 	if err := s.challengeRepo.IncrementQuestionParticipants(ctx, questionID); err != nil {
 		// Log error but continue
 		fmt.Printf("failed to increment participants: %v\n", err)

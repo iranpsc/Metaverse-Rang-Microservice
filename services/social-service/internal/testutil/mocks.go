@@ -12,11 +12,10 @@ type MockChallengeRepository struct {
 	GetRandomUnansweredQuestionFunc   func(ctx context.Context, userID uint64) (*models.Question, error)
 	GetQuestionByIDFunc               func(ctx context.Context, questionID uint64) (*models.Question, error)
 	GetAnswersByQuestionIDFunc        func(ctx context.Context, questionID uint64) ([]*models.Answer, error)
-	GetCorrectAnswerIDFunc            func(ctx context.Context, questionID uint64) (uint64, error)
 	IncrementQuestionViewsFunc        func(ctx context.Context, questionID uint64) error
 	IncrementQuestionParticipantsFunc func(ctx context.Context, questionID uint64) error
 	CreateUserAnswerFunc              func(ctx context.Context, userID, questionID, answerID uint64) error
-	HasUserAnsweredCorrectlyFunc      func(ctx context.Context, userID, questionID uint64) (bool, error)
+	HasUserAnsweredFunc               func(ctx context.Context, userID, questionID uint64) (bool, error)
 	GetUserAnswerCountFunc            func(ctx context.Context, userID uint64, isCorrect bool) (int32, error)
 	GetTotalParticipantsCountFunc     func(ctx context.Context) (int32, error)
 	GetSystemVariableFunc             func(ctx context.Context, slug string) (float64, error)
@@ -45,13 +44,6 @@ func (m *MockChallengeRepository) GetAnswersByQuestionID(ctx context.Context, qu
 	return nil, nil
 }
 
-func (m *MockChallengeRepository) GetCorrectAnswerID(ctx context.Context, questionID uint64) (uint64, error) {
-	if m.GetCorrectAnswerIDFunc != nil {
-		return m.GetCorrectAnswerIDFunc(ctx, questionID)
-	}
-	return 0, nil
-}
-
 func (m *MockChallengeRepository) IncrementQuestionViews(ctx context.Context, questionID uint64) error {
 	if m.IncrementQuestionViewsFunc != nil {
 		return m.IncrementQuestionViewsFunc(ctx, questionID)
@@ -73,9 +65,9 @@ func (m *MockChallengeRepository) CreateUserAnswer(ctx context.Context, userID, 
 	return nil
 }
 
-func (m *MockChallengeRepository) HasUserAnsweredCorrectly(ctx context.Context, userID, questionID uint64) (bool, error) {
-	if m.HasUserAnsweredCorrectlyFunc != nil {
-		return m.HasUserAnsweredCorrectlyFunc(ctx, userID, questionID)
+func (m *MockChallengeRepository) HasUserAnswered(ctx context.Context, userID, questionID uint64) (bool, error) {
+	if m.HasUserAnsweredFunc != nil {
+		return m.HasUserAnsweredFunc(ctx, userID, questionID)
 	}
 	return false, nil
 }

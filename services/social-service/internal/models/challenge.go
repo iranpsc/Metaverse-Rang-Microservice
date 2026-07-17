@@ -68,6 +68,19 @@ type AnswerResource struct {
 	VotePercentage int32
 }
 
+// Advertisement represents a challenge advertisement.
+type Advertisement struct {
+	Code            string
+	Title           string
+	Description     string
+	InvestmentValue string
+	EndsAt          string
+	VideoURL        string
+	ImageURL        string
+	URL             string
+	InvestmentAsset string
+}
+
 // TimingsData represents challenge timing configuration and statistics
 type TimingsData struct {
 	DisplayAdInterval       int32

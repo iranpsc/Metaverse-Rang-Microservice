@@ -91,6 +91,30 @@ func (h *challengeHandler) SubmitAnswer(ctx context.Context, req *pb.SubmitAnswe
 	}, nil
 }
 
+func (h *challengeHandler) GetAdvertisement(ctx context.Context, _ *pb.GetAdvertisementRequest) (*pb.GetAdvertisementResponse, error) {
+	advertisements, err := h.challengeService.GetAdvertisement(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get advertisements: %v", err)
+	}
+
+	resources := make([]*pb.AdvertisementResource, 0, len(advertisements))
+	for _, advertisement := range advertisements {
+		resources = append(resources, &pb.AdvertisementResource{
+			Code:            advertisement.Code,
+			Title:           advertisement.Title,
+			Description:     advertisement.Description,
+			InvestmentValue: advertisement.InvestmentValue,
+			EndsAt:          advertisement.EndsAt,
+			VideoUrl:        advertisement.VideoURL,
+			ImageUrl:        advertisement.ImageURL,
+			Url:             advertisement.URL,
+			InvestmentAsset: advertisement.InvestmentAsset,
+		})
+	}
+
+	return &pb.GetAdvertisementResponse{Advertisements: resources}, nil
+}
+
 func convertQuestionResourceToProto(resource *models.QuestionResource) *pb.QuestionResource {
 	answerResources := make([]*pb.AnswerResource, 0, len(resource.Answers))
 	for _, answer := range resource.Answers {
@@ -124,7 +148,7 @@ func mapChallengeError(err error) error {
 	case errors.Is(err, service.ErrAnswerMismatch):
 		return status.Errorf(codes.InvalidArgument, "answer does not belong to the given question")
 	case errors.Is(err, service.ErrAlreadyAnswered):
-		return status.Errorf(codes.PermissionDenied, "user has already answered this question correctly")
+		return status.Errorf(codes.PermissionDenied, "user has already answered this question")
 	case errors.Is(err, service.ErrNoUnansweredQuestions):
 		return status.Errorf(codes.NotFound, "no unanswered questions available")
 	default:

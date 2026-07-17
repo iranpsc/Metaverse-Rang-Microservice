@@ -114,7 +114,6 @@ func (h *authHandler) GetMe(ctx context.Context, req *pb.GetMeRequest) (*pb.User
 		Image:                      h.profilePhotoHandler.PrependGatewayURL(userDetails.Image),
 		UnreadNotificationsCount:   userDetails.UnreadNotificationsCount,
 		SocrePercentageToNextLevel: userDetails.ScorePercentageToNextLevel, // TYPO PRESERVED!
-		UnasnweredQuestionsCount:   userDetails.UnansweredQuestionsCount,   // TYPO PRESERVED!
 		HourlyProfitTimePercentage: userDetails.HourlyProfitTimePercentage,
 		VerifiedKyc:                userDetails.VerifiedKYC,
 		Birthdate:                  userDetails.Birthdate,

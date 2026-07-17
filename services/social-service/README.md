@@ -4,7 +4,7 @@ gRPC service for **challenge** (quiz) APIs and **follow** relationships, aligned
 
 ## Responsibilities
 
-- **ChallengeService**: timings (`system_variables`), random unanswered question, answer submission with PSC prize via **commercial-service**.
+- **ChallengeService**: timings (`system_variables`), random unanswered question, answer submission with PSC prize via **commercial-service**, and advertisements.
 - **FollowService**: followers/following lists and follow/unfollow/remove using the shared MySQL `follows` and `users` tables.
 
 ## Configuration
@@ -16,6 +16,8 @@ Copy `config.env.sample` to `config.env` and set:
 | `DB_*` | Shared MySQL database (same schema as Laravel). |
 | `GRPC_PORT` | gRPC listen port (default **50061**). |
 | `COMMERCIAL_SERVICE_ADDR` | `commercial-service:50052` for wallet PSC credits on correct answers. |
+| `PROJECT_LOCALE` | Advertisement localization (`EN` or `FA`). |
+| `PROJECT_URL` | Base URL used for advertisement media links. |
 
 ## Running locally
 

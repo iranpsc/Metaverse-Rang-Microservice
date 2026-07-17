@@ -101,7 +101,6 @@ func main() {
 	// Initialize repositories
 	levelRepo := repository.NewLevelRepository(database, adminPanelURL)
 	activityRepo := repository.NewActivityRepository(database)
-	challengeRepo := repository.NewChallengeRepository(database)
 	userLogRepo := repository.NewUserLogRepository(database)
 
 	commercialClient, err := client.NewCommercialClient(commercialServiceAddr)
@@ -110,18 +109,13 @@ func main() {
 	}
 	defer commercialClient.Close()
 
-	appLocale := getEnv("APP_LOCALE", getEnv("PROJECT_LOCALE", "EN"))
-	projectURL := getEnv("PROJECT_URL", getEnv("ADMIN_PANEL_URL", getEnv("APP_URL", "")))
-
 	// Initialize services
 	levelService := service.NewLevelService(levelRepo, userLogRepo, commercialClient)
 	activityService := service.NewActivityService(activityRepo, userLogRepo, levelRepo, commercialClient)
-	challengeService := service.NewChallengeService(challengeRepo, commercialClient, appLocale, projectURL)
 
 	// Initialize gRPC handlers
 	levelHandler := handler.NewLevelHandler(levelService)
 	activityHandler := handler.NewActivityHandler(activityService)
-	challengeHandler := handler.NewChallengeHandler(challengeService)
 
 	// Create gRPC server with interceptors
 	serviceMetrics := metrics.NewMetrics("levels_service")
@@ -137,7 +131,6 @@ func main() {
 	// Register services
 	pb.RegisterLevelServiceServer(grpcServer, levelHandler)
 	pb.RegisterActivityServiceServer(grpcServer, activityHandler)
-	pb.RegisterChallengeServiceServer(grpcServer, challengeHandler)
 
 	// Enable reflection for debugging
 	reflection.Register(grpcServer)

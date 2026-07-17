@@ -501,11 +501,11 @@ routes:
     tag: Social
     summary: Get challenge timings
     security: bearer
-  - path: /api/advertisement
+  - path: /api/challenge/advertisement
     methods: [get]
     tag: Social
-    summary: Get advertisement
-    security: optional
+    summary: Get challenge advertisements
+    security: bearer
   - path: /api/challenge/question
     methods: [get]
     tag: Social

@@ -93,7 +93,14 @@ func main() {
 		defer commercialClient.Close()
 	}
 
-	challengeService := service.NewChallengeService(challengeRepo, commercialClient)
+	challengeService := service.NewChallengeService(
+		challengeRepo,
+		commercialClient,
+		service.ChallengeConfig{
+			Locale:     getEnv("APP_LOCALE", getEnv("PROJECT_LOCALE", "EN")),
+			ProjectURL: getEnv("PROJECT_URL", getEnv("APP_URL", "")),
+		},
+	)
 	followService := service.NewFollowService(followRepo, userRepo)
 
 	serviceMetrics := metrics.NewMetrics("social_service")

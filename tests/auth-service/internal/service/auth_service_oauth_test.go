@@ -1305,10 +1305,6 @@ func newFakeHelperService() *fakeHelperService {
 	return &fakeHelperService{}
 }
 
-func (f *fakeHelperService) GetUnansweredQuestionsCount(context.Context, uint64) (int32, error) {
-	return 0, nil
-}
-
 func (f *fakeHelperService) GetHourlyProfitTimePercentage(context.Context, uint64) (float64, error) {
 	return 0, nil
 }

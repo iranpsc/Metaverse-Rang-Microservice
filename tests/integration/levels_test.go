@@ -57,15 +57,15 @@ func TestScoreCalculation(t *testing.T) {
 	t.Skip("Full implementation pending")
 }
 
-// TestChallengeQuiz tests the challenge question system
+// TestChallengeQuiz tests the challenge question system owned by social-service.
 func TestChallengeQuiz(t *testing.T) {
-	// TODO: Implement
+	// TODO: Implement against social-service ChallengeService
 	// 1. Get random unanswered question
 	// 2. Submit correct answer
 	// 3. Verify PSC reward added to wallet
 	// 4. Submit wrong answer
 	// 5. Verify no reward
-	// 6. Verify user can't answer same question twice
+	// 6. Verify answered questions are never retrieved again
 
 	t.Skip("Full implementation pending")
 }

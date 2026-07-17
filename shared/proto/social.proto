@@ -20,6 +20,7 @@ service ChallengeService {
   rpc GetTimings(GetTimingsRequest) returns (GetTimingsResponse);
   rpc GetQuestion(GetQuestionRequest) returns (GetQuestionResponse);
   rpc SubmitAnswer(SubmitAnswerRequest) returns (SubmitAnswerResponse);
+  rpc GetAdvertisement(GetAdvertisementRequest) returns (GetAdvertisementResponse);
 }
 
 // ============== Follow Messages ==============
@@ -118,4 +119,22 @@ message AnswerResource {
   string image = 3;
   bool is_correct = 4;        // Only present in answer submission response
   int32 vote_percentage = 5;  // Only present in answer submission response
+}
+
+message GetAdvertisementRequest {}
+
+message AdvertisementResource {
+  string code = 1;
+  string title = 2;
+  string description = 3;
+  string investment_value = 4;
+  string ends_at = 5;
+  string video_url = 6;
+  string image_url = 7;
+  string url = 8;
+  string investment_asset = 9;
+}
+
+message GetAdvertisementResponse {
+  repeated AdvertisementResource advertisements = 1;
 }

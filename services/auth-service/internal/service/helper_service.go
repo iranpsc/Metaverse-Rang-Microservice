@@ -19,9 +19,6 @@ import (
 // HelperService provides helper methods that integrate with other microservices
 // These methods implement the Laravel helper functions that require cross-service calls
 type HelperService interface {
-	// GetUnansweredQuestionsCount calls Levels service to get unanswered questions count
-	GetUnansweredQuestionsCount(ctx context.Context, userID uint64) (int32, error)
-
 	// GetHourlyProfitTimePercentage calls Features service to get hourly profit percentage
 	GetHourlyProfitTimePercentage(ctx context.Context, userID uint64) (float64, error)
 
@@ -63,7 +60,6 @@ type helperService struct {
 	featuresConn          *grpc.ClientConn
 	commercialConn        *grpc.ClientConn
 	levelsClient          levelspb.LevelServiceClient
-	challengeClient       levelspb.ChallengeServiceClient // Challenge service is in levels proto
 	featureProfitClient   featurespb.FeatureProfitServiceClient
 	walletClient          commercialpb.WalletServiceClient
 	userVariableClient    commercialpb.UserVariableServiceClient
@@ -77,7 +73,7 @@ func NewHelperService(levelsAddr, featuresAddr, commercialAddr string) HelperSer
 		commercialServiceAddr: commercialAddr,
 	}
 
-	// Initialize gRPC connection to levels service (includes ChallengeService)
+	// Initialize gRPC connection to levels service
 	if levelsAddr != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -88,7 +84,6 @@ func NewHelperService(levelsAddr, featuresAddr, commercialAddr string) HelperSer
 		} else {
 			hs.levelsConn = conn
 			hs.levelsClient = levelspb.NewLevelServiceClient(conn)
-			hs.challengeClient = levelspb.NewChallengeServiceClient(conn) // Challenge service is in levels proto
 			log.Printf("Successfully connected to levels service at %s", levelsAddr)
 		}
 	}
@@ -129,38 +124,6 @@ func NewHelperService(levelsAddr, featuresAddr, commercialAddr string) HelperSer
 	}
 
 	return hs
-}
-
-// GetUnansweredQuestionsCount implements the Laravel getUnansweredQuestionsCount helper
-// Calls the Challenge service to get count of questions user hasn't answered correctly
-func (s *helperService) GetUnansweredQuestionsCount(ctx context.Context, userID uint64) (int32, error) {
-	if s.challengeClient == nil {
-		return 0, nil
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	// Get a question - if it returns a question, user has unanswered questions
-	// Note: The API returns null when no suitable question exists (all answered correctly)
-	resp, err := s.challengeClient.GetQuestion(ctx, &levelspb.GetQuestionRequest{
-		UserId: userID,
-	})
-	if err != nil {
-		log.Printf("Failed to get question for unanswered count: %v", err)
-		return 0, nil // Return 0 on error to not break the flow
-	}
-
-	// If has_question is false or question is nil, user has no unanswered questions
-	if !resp.HasQuestion || resp.Question == nil {
-		return 0, nil
-	}
-
-	// User has at least one unanswered question
-	// Note: This is a simplified implementation - ideally we'd have a dedicated count method
-	// For now, we return 1 if there's a question available (indicating unanswered questions exist)
-	// A more accurate count would require iterating or a dedicated RPC method
-	return 1, nil
 }
 
 // GetHourlyProfitTimePercentage implements the Laravel hourlyProfitInfo helper

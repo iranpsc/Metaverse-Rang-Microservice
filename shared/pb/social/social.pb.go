@@ -978,6 +978,194 @@ func (x *AnswerResource) GetVotePercentage() int32 {
 	return 0
 }
 
+type GetAdvertisementRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAdvertisementRequest) Reset() {
+	*x = GetAdvertisementRequest{}
+	mi := &file_social_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAdvertisementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAdvertisementRequest) ProtoMessage() {}
+
+func (x *GetAdvertisementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_social_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAdvertisementRequest.ProtoReflect.Descriptor instead.
+func (*GetAdvertisementRequest) Descriptor() ([]byte, []int) {
+	return file_social_proto_rawDescGZIP(), []int{17}
+}
+
+type AdvertisementResource struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Code            string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	Title           string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description     string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	InvestmentValue string                 `protobuf:"bytes,4,opt,name=investment_value,json=investmentValue,proto3" json:"investment_value,omitempty"`
+	EndsAt          string                 `protobuf:"bytes,5,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`
+	VideoUrl        string                 `protobuf:"bytes,6,opt,name=video_url,json=videoUrl,proto3" json:"video_url,omitempty"`
+	ImageUrl        string                 `protobuf:"bytes,7,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`
+	Url             string                 `protobuf:"bytes,8,opt,name=url,proto3" json:"url,omitempty"`
+	InvestmentAsset string                 `protobuf:"bytes,9,opt,name=investment_asset,json=investmentAsset,proto3" json:"investment_asset,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *AdvertisementResource) Reset() {
+	*x = AdvertisementResource{}
+	mi := &file_social_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AdvertisementResource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AdvertisementResource) ProtoMessage() {}
+
+func (x *AdvertisementResource) ProtoReflect() protoreflect.Message {
+	mi := &file_social_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AdvertisementResource.ProtoReflect.Descriptor instead.
+func (*AdvertisementResource) Descriptor() ([]byte, []int) {
+	return file_social_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *AdvertisementResource) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *AdvertisementResource) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *AdvertisementResource) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AdvertisementResource) GetInvestmentValue() string {
+	if x != nil {
+		return x.InvestmentValue
+	}
+	return ""
+}
+
+func (x *AdvertisementResource) GetEndsAt() string {
+	if x != nil {
+		return x.EndsAt
+	}
+	return ""
+}
+
+func (x *AdvertisementResource) GetVideoUrl() string {
+	if x != nil {
+		return x.VideoUrl
+	}
+	return ""
+}
+
+func (x *AdvertisementResource) GetImageUrl() string {
+	if x != nil {
+		return x.ImageUrl
+	}
+	return ""
+}
+
+func (x *AdvertisementResource) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *AdvertisementResource) GetInvestmentAsset() string {
+	if x != nil {
+		return x.InvestmentAsset
+	}
+	return ""
+}
+
+type GetAdvertisementResponse struct {
+	state          protoimpl.MessageState   `protogen:"open.v1"`
+	Advertisements []*AdvertisementResource `protobuf:"bytes,1,rep,name=advertisements,proto3" json:"advertisements,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetAdvertisementResponse) Reset() {
+	*x = GetAdvertisementResponse{}
+	mi := &file_social_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAdvertisementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAdvertisementResponse) ProtoMessage() {}
+
+func (x *GetAdvertisementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_social_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAdvertisementResponse.ProtoReflect.Descriptor instead.
+func (*GetAdvertisementResponse) Descriptor() ([]byte, []int) {
+	return file_social_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *GetAdvertisementResponse) GetAdvertisements() []*AdvertisementResource {
+	if x != nil {
+		return x.Advertisements
+	}
+	return nil
+}
+
 var File_social_proto protoreflect.FileDescriptor
 
 const file_social_proto_rawDesc = "" +
@@ -1044,18 +1232,32 @@ const file_social_proto_rawDesc = "" +
 	"\x05image\x18\x03 \x01(\tR\x05image\x12\x1d\n" +
 	"\n" +
 	"is_correct\x18\x04 \x01(\bR\tisCorrect\x12'\n" +
-	"\x0fvote_percentage\x18\x05 \x01(\x05R\x0evotePercentage2\xd4\x02\n" +
+	"\x0fvote_percentage\x18\x05 \x01(\x05R\x0evotePercentage\"\x19\n" +
+	"\x17GetAdvertisementRequest\"\x9e\x02\n" +
+	"\x15AdvertisementResource\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12)\n" +
+	"\x10investment_value\x18\x04 \x01(\tR\x0finvestmentValue\x12\x17\n" +
+	"\aends_at\x18\x05 \x01(\tR\x06endsAt\x12\x1b\n" +
+	"\tvideo_url\x18\x06 \x01(\tR\bvideoUrl\x12\x1b\n" +
+	"\timage_url\x18\a \x01(\tR\bimageUrl\x12\x10\n" +
+	"\x03url\x18\b \x01(\tR\x03url\x12)\n" +
+	"\x10investment_asset\x18\t \x01(\tR\x0finvestmentAsset\"a\n" +
+	"\x18GetAdvertisementResponse\x12E\n" +
+	"\x0eadvertisements\x18\x01 \x03(\v2\x1d.social.AdvertisementResourceR\x0eadvertisements2\xd4\x02\n" +
 	"\rFollowService\x12I\n" +
 	"\fGetFollowers\x12\x1b.social.GetFollowersRequest\x1a\x1c.social.GetFollowersResponse\x12I\n" +
 	"\fGetFollowing\x12\x1b.social.GetFollowingRequest\x1a\x1c.social.GetFollowingResponse\x127\n" +
 	"\x06Follow\x12\x15.social.FollowRequest\x1a\x16.google.protobuf.Empty\x12;\n" +
 	"\bUnfollow\x12\x17.social.UnfollowRequest\x1a\x16.google.protobuf.Empty\x127\n" +
-	"\x06Remove\x12\x15.social.RemoveRequest\x1a\x16.google.protobuf.Empty2\xea\x01\n" +
+	"\x06Remove\x12\x15.social.RemoveRequest\x1a\x16.google.protobuf.Empty2\xc1\x02\n" +
 	"\x10ChallengeService\x12C\n" +
 	"\n" +
 	"GetTimings\x12\x19.social.GetTimingsRequest\x1a\x1a.social.GetTimingsResponse\x12F\n" +
 	"\vGetQuestion\x12\x1a.social.GetQuestionRequest\x1a\x1b.social.GetQuestionResponse\x12I\n" +
-	"\fSubmitAnswer\x12\x1b.social.SubmitAnswerRequest\x1a\x1c.social.SubmitAnswerResponseB\x1bZ\x19metarang/shared/pb/socialb\x06proto3"
+	"\fSubmitAnswer\x12\x1b.social.SubmitAnswerRequest\x1a\x1c.social.SubmitAnswerResponse\x12U\n" +
+	"\x10GetAdvertisement\x12\x1f.social.GetAdvertisementRequest\x1a .social.GetAdvertisementResponseB\x1bZ\x19metarang/shared/pb/socialb\x06proto3"
 
 var (
 	file_social_proto_rawDescOnce sync.Once
@@ -1069,26 +1271,29 @@ func file_social_proto_rawDescGZIP() []byte {
 	return file_social_proto_rawDescData
 }
 
-var file_social_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_social_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_social_proto_goTypes = []any{
-	(*GetFollowersRequest)(nil),  // 0: social.GetFollowersRequest
-	(*GetFollowingRequest)(nil),  // 1: social.GetFollowingRequest
-	(*FollowRequest)(nil),        // 2: social.FollowRequest
-	(*UnfollowRequest)(nil),      // 3: social.UnfollowRequest
-	(*RemoveRequest)(nil),        // 4: social.RemoveRequest
-	(*GetFollowersResponse)(nil), // 5: social.GetFollowersResponse
-	(*GetFollowingResponse)(nil), // 6: social.GetFollowingResponse
-	(*FollowResource)(nil),       // 7: social.FollowResource
-	(*GetTimingsRequest)(nil),    // 8: social.GetTimingsRequest
-	(*GetTimingsResponse)(nil),   // 9: social.GetTimingsResponse
-	(*TimingsData)(nil),          // 10: social.TimingsData
-	(*GetQuestionRequest)(nil),   // 11: social.GetQuestionRequest
-	(*GetQuestionResponse)(nil),  // 12: social.GetQuestionResponse
-	(*SubmitAnswerRequest)(nil),  // 13: social.SubmitAnswerRequest
-	(*SubmitAnswerResponse)(nil), // 14: social.SubmitAnswerResponse
-	(*QuestionResource)(nil),     // 15: social.QuestionResource
-	(*AnswerResource)(nil),       // 16: social.AnswerResource
-	(*emptypb.Empty)(nil),        // 17: google.protobuf.Empty
+	(*GetFollowersRequest)(nil),      // 0: social.GetFollowersRequest
+	(*GetFollowingRequest)(nil),      // 1: social.GetFollowingRequest
+	(*FollowRequest)(nil),            // 2: social.FollowRequest
+	(*UnfollowRequest)(nil),          // 3: social.UnfollowRequest
+	(*RemoveRequest)(nil),            // 4: social.RemoveRequest
+	(*GetFollowersResponse)(nil),     // 5: social.GetFollowersResponse
+	(*GetFollowingResponse)(nil),     // 6: social.GetFollowingResponse
+	(*FollowResource)(nil),           // 7: social.FollowResource
+	(*GetTimingsRequest)(nil),        // 8: social.GetTimingsRequest
+	(*GetTimingsResponse)(nil),       // 9: social.GetTimingsResponse
+	(*TimingsData)(nil),              // 10: social.TimingsData
+	(*GetQuestionRequest)(nil),       // 11: social.GetQuestionRequest
+	(*GetQuestionResponse)(nil),      // 12: social.GetQuestionResponse
+	(*SubmitAnswerRequest)(nil),      // 13: social.SubmitAnswerRequest
+	(*SubmitAnswerResponse)(nil),     // 14: social.SubmitAnswerResponse
+	(*QuestionResource)(nil),         // 15: social.QuestionResource
+	(*AnswerResource)(nil),           // 16: social.AnswerResource
+	(*GetAdvertisementRequest)(nil),  // 17: social.GetAdvertisementRequest
+	(*AdvertisementResource)(nil),    // 18: social.AdvertisementResource
+	(*GetAdvertisementResponse)(nil), // 19: social.GetAdvertisementResponse
+	(*emptypb.Empty)(nil),            // 20: google.protobuf.Empty
 }
 var file_social_proto_depIdxs = []int32{
 	7,  // 0: social.GetFollowersResponse.data:type_name -> social.FollowResource
@@ -1097,27 +1302,30 @@ var file_social_proto_depIdxs = []int32{
 	15, // 3: social.GetQuestionResponse.data:type_name -> social.QuestionResource
 	15, // 4: social.SubmitAnswerResponse.data:type_name -> social.QuestionResource
 	16, // 5: social.QuestionResource.answers:type_name -> social.AnswerResource
-	0,  // 6: social.FollowService.GetFollowers:input_type -> social.GetFollowersRequest
-	1,  // 7: social.FollowService.GetFollowing:input_type -> social.GetFollowingRequest
-	2,  // 8: social.FollowService.Follow:input_type -> social.FollowRequest
-	3,  // 9: social.FollowService.Unfollow:input_type -> social.UnfollowRequest
-	4,  // 10: social.FollowService.Remove:input_type -> social.RemoveRequest
-	8,  // 11: social.ChallengeService.GetTimings:input_type -> social.GetTimingsRequest
-	11, // 12: social.ChallengeService.GetQuestion:input_type -> social.GetQuestionRequest
-	13, // 13: social.ChallengeService.SubmitAnswer:input_type -> social.SubmitAnswerRequest
-	5,  // 14: social.FollowService.GetFollowers:output_type -> social.GetFollowersResponse
-	6,  // 15: social.FollowService.GetFollowing:output_type -> social.GetFollowingResponse
-	17, // 16: social.FollowService.Follow:output_type -> google.protobuf.Empty
-	17, // 17: social.FollowService.Unfollow:output_type -> google.protobuf.Empty
-	17, // 18: social.FollowService.Remove:output_type -> google.protobuf.Empty
-	9,  // 19: social.ChallengeService.GetTimings:output_type -> social.GetTimingsResponse
-	12, // 20: social.ChallengeService.GetQuestion:output_type -> social.GetQuestionResponse
-	14, // 21: social.ChallengeService.SubmitAnswer:output_type -> social.SubmitAnswerResponse
-	14, // [14:22] is the sub-list for method output_type
-	6,  // [6:14] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	18, // 6: social.GetAdvertisementResponse.advertisements:type_name -> social.AdvertisementResource
+	0,  // 7: social.FollowService.GetFollowers:input_type -> social.GetFollowersRequest
+	1,  // 8: social.FollowService.GetFollowing:input_type -> social.GetFollowingRequest
+	2,  // 9: social.FollowService.Follow:input_type -> social.FollowRequest
+	3,  // 10: social.FollowService.Unfollow:input_type -> social.UnfollowRequest
+	4,  // 11: social.FollowService.Remove:input_type -> social.RemoveRequest
+	8,  // 12: social.ChallengeService.GetTimings:input_type -> social.GetTimingsRequest
+	11, // 13: social.ChallengeService.GetQuestion:input_type -> social.GetQuestionRequest
+	13, // 14: social.ChallengeService.SubmitAnswer:input_type -> social.SubmitAnswerRequest
+	17, // 15: social.ChallengeService.GetAdvertisement:input_type -> social.GetAdvertisementRequest
+	5,  // 16: social.FollowService.GetFollowers:output_type -> social.GetFollowersResponse
+	6,  // 17: social.FollowService.GetFollowing:output_type -> social.GetFollowingResponse
+	20, // 18: social.FollowService.Follow:output_type -> google.protobuf.Empty
+	20, // 19: social.FollowService.Unfollow:output_type -> google.protobuf.Empty
+	20, // 20: social.FollowService.Remove:output_type -> google.protobuf.Empty
+	9,  // 21: social.ChallengeService.GetTimings:output_type -> social.GetTimingsResponse
+	12, // 22: social.ChallengeService.GetQuestion:output_type -> social.GetQuestionResponse
+	14, // 23: social.ChallengeService.SubmitAnswer:output_type -> social.SubmitAnswerResponse
+	19, // 24: social.ChallengeService.GetAdvertisement:output_type -> social.GetAdvertisementResponse
+	16, // [16:25] is the sub-list for method output_type
+	7,  // [7:16] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_social_proto_init() }
@@ -1131,7 +1339,7 @@ func file_social_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_social_proto_rawDesc), len(file_social_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

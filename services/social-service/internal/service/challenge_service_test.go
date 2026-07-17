@@ -91,9 +91,9 @@ func TestChallengeService_SubmitAnswer_AlreadyAnswered(t *testing.T) {
 		return &models.Question{ID: questionID}, nil
 	}
 	repo.GetAnswersByQuestionIDFunc = func(ctx context.Context, questionID uint64) ([]*models.Answer, error) {
-		return []*models.Answer{{ID: 1, QuestionID: questionID, IsCorrect: true}}, nil
+		return []*models.Answer{{ID: 1, QuestionID: questionID, IsCorrect: false}}, nil
 	}
-	repo.HasUserAnsweredCorrectlyFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
+	repo.HasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
 		return true, nil
 	}
 	svc := service.NewChallengeService(repo, nil)
@@ -121,7 +121,7 @@ func TestChallengeService_SubmitAnswer_CreditsPSC(t *testing.T) {
 			{ID: 2, QuestionID: questionID, IsCorrect: false},
 		}, nil
 	}
-	repo.HasUserAnsweredCorrectlyFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
+	repo.HasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
 		return false, nil
 	}
 	repo.CreateUserAnswerFunc = func(ctx context.Context, userID, questionID, answerID uint64) error {
@@ -170,7 +170,7 @@ func TestChallengeService_SubmitAnswer_WrongNoCredit(t *testing.T) {
 			{ID: 1, QuestionID: questionID, IsCorrect: false},
 		}, nil
 	}
-	repo.HasUserAnsweredCorrectlyFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
+	repo.HasUserAnsweredFunc = func(ctx context.Context, userID, questionID uint64) (bool, error) {
 		return false, nil
 	}
 	repo.CreateUserAnswerFunc = func(ctx context.Context, userID, questionID, answerID uint64) error {
@@ -187,4 +187,55 @@ func TestChallengeService_SubmitAnswer_WrongNoCredit(t *testing.T) {
 	_, err := svc.SubmitAnswer(context.Background(), 42, 9, 1)
 	require.NoError(t, err)
 	require.False(t, credited)
+}
+
+func TestChallengeService_GetAdvertisement_EN(t *testing.T) {
+	svc := service.NewChallengeService(
+		&testutil.MockChallengeRepository{},
+		nil,
+		service.ChallengeConfig{
+			Locale:     "EN",
+			ProjectURL: "http://localhost:8000",
+		},
+	)
+
+	ads, err := svc.GetAdvertisement(context.Background())
+	require.NoError(t, err)
+	require.Len(t, ads, 7)
+
+	first := ads[0]
+	require.Equal(t, "bn-1000", first.Code)
+	require.Equal(t, "Matrix exit box", first.Title)
+	require.Equal(t, "Banking services in Metaverse", first.Description)
+	require.Equal(t, "1000000", first.InvestmentValue)
+	require.Equal(t, "2028/11/05", first.EndsAt)
+	require.Equal(t, "http://localhost:8000/uploads/challenge/advertisement/bn-1000/bn-1000.mp4", first.VideoURL)
+	require.Equal(t, "http://localhost:8000/uploads/challenge/advertisement/bn-1000/bn-1000.jpg", first.ImageURL)
+	require.Equal(t, "https://metarang.com/fa/citizen/bn-1000", first.URL)
+	require.Equal(t, "red", first.InvestmentAsset)
+
+	for _, ad := range ads {
+		require.Equal(t, "https://metarang.com/fa/citizen/"+ad.Code, ad.URL)
+		require.Equal(t, "red", ad.InvestmentAsset)
+	}
+}
+
+func TestChallengeService_GetAdvertisement_FA(t *testing.T) {
+	svc := service.NewChallengeService(
+		&testutil.MockChallengeRepository{},
+		nil,
+		service.ChallengeConfig{
+			Locale:     "FA",
+			ProjectURL: "http://localhost:8000",
+		},
+	)
+
+	ads, err := svc.GetAdvertisement(context.Background())
+	require.NoError(t, err)
+	require.NotEmpty(t, ads)
+	require.Equal(t, "bn-1000", ads[0].Code)
+	require.Equal(t, "صندوق خروج از ماتریکس", ads[0].Title)
+	require.Equal(t, "ارائه خدمات بانکی نوین در دنیای متاورس", ads[0].Description)
+	require.Equal(t, "https://metarang.com/fa/citizen/bn-1000", ads[0].URL)
+	require.Equal(t, "red", ads[0].InvestmentAsset)
 }

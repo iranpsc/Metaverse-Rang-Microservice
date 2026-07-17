@@ -72,7 +72,6 @@ type UserDetails struct {
 	Image                      string
 	UnreadNotificationsCount   int32
 	ScorePercentageToNextLevel float64
-	UnansweredQuestionsCount   int32
 	HourlyProfitTimePercentage float64
 	VerifiedKYC                bool
 	Birthdate                  string
@@ -454,12 +453,6 @@ func (s *authService) GetMe(ctx context.Context, token string) (*UserDetails, er
 		scorePercentage, err := s.helperService.GetScorePercentageToNextLevel(helperCtx, user.ID, user.Score)
 		if err == nil {
 			details.ScorePercentageToNextLevel = scorePercentage
-		}
-
-		// Get unanswered questions count
-		unansweredCount, err := s.helperService.GetUnansweredQuestionsCount(helperCtx, user.ID)
-		if err == nil {
-			details.UnansweredQuestionsCount = unansweredCount
 		}
 
 		// Get hourly profit time percentage

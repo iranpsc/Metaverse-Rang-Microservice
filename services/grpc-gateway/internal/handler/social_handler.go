@@ -236,9 +236,9 @@ func (h *SocialHandler) GetTimings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{"data": resp.Data})
 }
 
-// GetQuestion handles POST /api/challenge/question
+// GetQuestion handles GET /api/challenge/question
 func (h *SocialHandler) GetQuestion(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -307,4 +307,40 @@ func (h *SocialHandler) SubmitAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp.Data)
+}
+
+// GetAdvertisement handles GET /api/challenge/advertisement
+func (h *SocialHandler) GetAdvertisement(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	if _, err := h.getUserIDFromToken(r); err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+
+	resp, err := h.challengeClient.GetAdvertisement(r.Context(), &socialpb.GetAdvertisementRequest{})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+
+	ads := make([]map[string]interface{}, 0, len(resp.Advertisements))
+	for _, ad := range resp.Advertisements {
+		ads = append(ads, map[string]interface{}{
+			"code":             ad.Code,
+			"title":            ad.Title,
+			"description":      ad.Description,
+			"investment_value": ad.InvestmentValue,
+			"ends_at":          ad.EndsAt,
+			"video_url":        ad.VideoUrl,
+			"image_url":        ad.ImageUrl,
+			"url":              ad.Url,
+			"investment_asset": ad.InvestmentAsset,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"data": ads})
 }
