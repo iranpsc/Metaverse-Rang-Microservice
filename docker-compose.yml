@@ -420,8 +420,6 @@ services:
       DB_USER: metarang_user
       DB_PASSWORD: metarang_password
       COMMERCIAL_SERVICE_ADDR: commercial-service:50052
-      PROJECT_LOCALE: ${PROJECT_LOCALE:-EN}
-      PROJECT_URL: ${PROJECT_URL:-http://localhost:8000}
       <<: *sentry-environment
     depends_on:
       mysql:
