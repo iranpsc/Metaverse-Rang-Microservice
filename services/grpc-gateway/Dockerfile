@@ -25,7 +25,7 @@ COPY ./services/grpc-gateway/go.mod ./services/grpc-gateway/go.sum* /workspace/m
 COPY ./services/grpc-gateway/ /workspace/metarang/grpc-gateway/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/grpc-gateway\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/grpc-gateway

@@ -25,7 +25,7 @@ COPY ./services/notifications-service/go.mod ./services/notifications-service/go
 COPY ./services/notifications-service/ /workspace/metarang/notifications-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/notifications-service\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/notifications-service

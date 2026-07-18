@@ -25,7 +25,7 @@ COPY ./services/websocket-gateway/go.mod ./services/websocket-gateway/go.sum* /w
 COPY ./services/websocket-gateway/ /workspace/metarang/websocket-gateway/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/websocket-gateway\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/websocket-gateway

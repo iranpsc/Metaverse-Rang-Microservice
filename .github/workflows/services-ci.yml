@@ -7,6 +7,7 @@ on:
       - develop
     paths:
       - 'services/**'
+      - 'tests/**'
       - 'shared/**'
       - 'scripts/schema.sql'
       - '.github/workflows/services-ci.yml'
@@ -18,6 +19,7 @@ on:
       - develop
     paths:
       - 'services/**'
+      - 'tests/**'
       - 'shared/**'
       - 'scripts/schema.sql'
       - '.github/workflows/services-ci.yml'
@@ -62,18 +64,25 @@ jobs:
               - '.github/actions/setup-test-db/**'
             auth-service:
               - 'services/auth-service/**'
+              - 'tests/auth-service/**'
             calendar-service:
               - 'services/calendar-service/**'
+              - 'tests/calendar-service/**'
             commercial-service:
               - 'services/commercial-service/**'
+              - 'tests/commercial-service/**'
             dynasty-service:
               - 'services/dynasty-service/**'
+              - 'tests/dynasty-service/**'
             features-service:
               - 'services/features-service/**'
+              - 'tests/features-service/**'
             financial-service:
               - 'services/financial-service/**'
+              - 'tests/financial-service/**'
             grpc-gateway:
               - 'services/grpc-gateway/**'
+              - 'tests/grpc-gateway/**'
             health-check-service:
               - 'services/health-check-service/**'
             levels-service:
@@ -82,10 +91,13 @@ jobs:
               - 'services/notifications-service/**'
             social-service:
               - 'services/social-service/**'
+              - 'tests/social-service/**'
             storage-service:
               - 'services/storage-service/**'
+              - 'tests/storage-service/**'
             support-service:
               - 'services/support-service/**'
+              - 'tests/support-service/**'
             training-service:
               - 'services/training-service/**'
 

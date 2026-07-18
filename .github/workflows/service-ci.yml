@@ -45,6 +45,7 @@ jobs:
           cache-dependency-path: |
             services/${{ inputs.service_name }}/go.sum
             shared/go.sum
+            tests/${{ inputs.service_name }}/go.sum
 
       - name: Verify dependencies
         run: |
@@ -110,6 +111,7 @@ jobs:
           cache-dependency-path: |
             services/${{ inputs.service_name }}/go.sum
             shared/go.sum
+            tests/${{ inputs.service_name }}/go.sum
 
       - name: Setup test database
         uses: ./.github/actions/setup-test-db
@@ -118,6 +120,10 @@ jobs:
         run: |
           cd services/${{ inputs.service_name }}
           go test ./internal/... -v -race -coverprofile=coverage.out -covermode=atomic
+          if [ -f "../../tests/${{ inputs.service_name }}/go.mod" ]; then
+            cd "../../tests/${{ inputs.service_name }}"
+            GOWORK=off go test ./... -v -race
+          fi
 
       - name: Run govulncheck
         run: |

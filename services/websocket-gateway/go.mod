@@ -1,6 +1,6 @@
 module metarang/websocket-gateway
 
-go 1.25.0
+go 1.25.12
 
 require (
 	github.com/googollee/go-socket.io v1.7.0

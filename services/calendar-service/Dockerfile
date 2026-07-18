@@ -25,7 +25,7 @@ COPY ./services/calendar-service/go.mod ./services/calendar-service/go.sum* /wor
 COPY ./services/calendar-service/ /workspace/metarang/calendar-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/calendar-service\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/calendar-service

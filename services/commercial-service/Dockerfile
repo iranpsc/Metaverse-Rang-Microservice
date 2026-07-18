@@ -25,7 +25,7 @@ COPY ./services/commercial-service/go.mod ./services/commercial-service/go.sum* 
 COPY ./services/commercial-service/ /workspace/metarang/commercial-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/commercial-service\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/commercial-service

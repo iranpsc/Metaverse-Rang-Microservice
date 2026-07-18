@@ -25,7 +25,7 @@ COPY ./services/social-service/go.mod ./services/social-service/go.sum* /workspa
 COPY ./services/social-service/ /workspace/metarang/social-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/social-service\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/social-service

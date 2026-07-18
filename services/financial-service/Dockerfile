@@ -25,7 +25,7 @@ COPY ./services/financial-service/go.mod ./services/financial-service/go.sum* /w
 COPY ./services/financial-service/ /workspace/metarang/financial-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/financial-service\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/financial-service

@@ -1,6 +1,6 @@
 module metarang/support-service/tests
 
-go 1.25.0
+go 1.25.12
 
 require (
 	google.golang.org/grpc v1.79.3

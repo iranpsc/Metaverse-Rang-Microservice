@@ -25,7 +25,7 @@ COPY ./services/auth-service/go.mod ./services/auth-service/go.sum* /workspace/m
 COPY ./services/auth-service/ /workspace/metarang/auth-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/auth-service\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/auth-service

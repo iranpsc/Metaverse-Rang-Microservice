@@ -25,7 +25,7 @@ COPY ./services/dynasty-service/go.mod ./services/dynasty-service/go.sum* /works
 COPY ./services/dynasty-service/ /workspace/metarang/dynasty-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/dynasty-service\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/dynasty-service

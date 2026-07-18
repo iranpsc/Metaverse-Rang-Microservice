@@ -25,7 +25,7 @@ COPY ./services/training-service/go.mod ./services/training-service/go.sum* /wor
 COPY ./services/training-service/ /workspace/metarang/training-service/
 
 WORKDIR /workspace
-RUN echo 'go 1.25.0' > go.work && \
+RUN echo 'go 1.25.12' > go.work && \
     printf '\nuse (\n\t./metarang/training-service\n\t./metarang/shared\n)\n' >> go.work
 
 WORKDIR /workspace/metarang/training-service

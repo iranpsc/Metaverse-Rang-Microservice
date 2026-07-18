@@ -1,6 +1,6 @@
 module metarang/dynasty-service-test
 
-go 1.25.5
+go 1.25.12
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
