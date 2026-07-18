@@ -10,7 +10,6 @@
 | Shared Packages CI | `shared-packages.yml` | Push/PR touching `shared/**`, manual | Lint, test, and vulnerability-check shared Go packages |
 | WebSocket Gateway CI/CD | `websocket-gateway.yml` | Push/PR touching `websocket-gateway/**`, manual | Build, scan, and push the Node.js WebSocket gateway image |
 | Load Tests | `load-tests.yml` | Weekly on Sundays at 03:00 UTC, manual | k6 load tests against the staging environment |
-| Gemini AI Auto-Review | `gemini-review.yml` | PR opened/updated, issue opened | AI-assisted PR review and issue triage |
 
 ## How service CI works
 
@@ -52,7 +51,6 @@ Use **Actions → Services CI/CD → Run workflow**:
 | `DOCKER_USERNAME` / `DOCKER_PASSWORD` | Image push | Yes |
 | `KUBE_CONFIG` | Deploy, load tests | For deploys |
 | `CODECOV_TOKEN` | Coverage upload | Optional |
-| `GEMINI_API_KEY` | AI review | Optional |
 
 ## Shared building blocks
 
