@@ -98,3 +98,39 @@ func TestUnaryServerInterceptor_SkipAuthCompletedBuildings(t *testing.T) {
 		t.Fatal("expected validator not to be called on public completed buildings route")
 	}
 }
+
+func TestUnaryServerInterceptor_SkipAuthCitizenFeatures(t *testing.T) {
+	methods := []string{
+		"/features.CitizenFeaturesService/GetCitizenFeatureSummary",
+		"/features.CitizenFeaturesService/GetCitizenFeatureChart",
+		"/features.CitizenFeaturesService/ListCitizenFeatures",
+	}
+
+	for _, method := range methods {
+		t.Run(method, func(t *testing.T) {
+			validator := &stubValidator{}
+			interceptor := UnaryServerInterceptor(validator)
+			called := false
+
+			handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+				called = true
+				return "ok", nil
+			}
+
+			info := &grpc.UnaryServerInfo{FullMethod: method}
+			resp, err := interceptor(context.Background(), nil, info, handler)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !called {
+				t.Fatal("expected handler to be called without auth")
+			}
+			if resp != "ok" {
+				t.Fatalf("unexpected response: %v", resp)
+			}
+			if validator.called {
+				t.Fatal("expected validator not to be called on public citizen features route")
+			}
+		})
+	}
+}

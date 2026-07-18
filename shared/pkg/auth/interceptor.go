@@ -226,7 +226,10 @@ func shouldSkipAuth(fullMethod string) bool {
 		// Financial service public endpoints (payment gateway callbacks)
 		"/financial.OrderService/HandleCallback",
 		// Features service public endpoints
-		"/features.BuildingService/ListCompletedBuildings", // Laravel GET /features/build/completed (no auth)
+		"/features.BuildingService/ListCompletedBuildings",
+		"/features.CitizenFeaturesService/GetCitizenFeatureSummary",
+		"/features.CitizenFeaturesService/GetCitizenFeatureChart",
+		"/features.CitizenFeaturesService/ListCitizenFeatures",
 	}
 
 	for _, method := range publicMethods {
