@@ -33,7 +33,7 @@ func uploadTicketAttachment(r *http.Request, storageAddr, appURL string) (string
 		}
 		return "", fmt.Errorf("failed to read attachment: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !allowedTicketAttachmentExts[ext] {
@@ -92,7 +92,7 @@ func uploadBytesToStorage(storageAddr, appURL, uploadSubdir, filename, contentTy
 	if err != nil {
 		return "", fmt.Errorf("storage upload failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -223,7 +223,7 @@ func resolveNoteAttachmentURL(r *http.Request, storageAddr, appURL string) (stri
 
 	// Fallback: singular attachment field (Laravel-style)
 	if file, header, err := r.FormFile("attachment"); err == nil && header != nil {
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		url, uploadErr := uploadOpenedFile(storageAddr, appURL, "notes", header.Filename, header.Header.Get("Content-Type"), file, header.Size, allowedNoteAttachmentExts, maxNoteAttachmentSize)
 		if uploadErr != nil {
 			return "", false, uploadErr
@@ -265,7 +265,7 @@ func uploadMultipartFileHeader(storageAddr, appURL, uploadSubdir string, header 
 	if err != nil {
 		return "", fmt.Errorf("failed to read attachment: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	contentType := header.Header.Get("Content-Type")
 	return uploadOpenedFile(storageAddr, appURL, uploadSubdir, header.Filename, contentType, file, header.Size, allowedNoteAttachmentExts, maxNoteAttachmentSize)
@@ -387,7 +387,7 @@ func uploadReportFileHeader(storageAddr, appURL string, header *multipart.FileHe
 	if err != nil {
 		return "", fmt.Errorf("failed to read attachment: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	data, err := io.ReadAll(file)
 	if err != nil {

@@ -1,3 +1,4 @@
+// Package repository provides data access for the levels service.
 package repository
 
 import (
@@ -78,7 +79,7 @@ func (r *ActivityRepository) FindByUserID(ctx context.Context, userID uint64, li
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var activities []*pb.UserActivity
 	for rows.Next() {

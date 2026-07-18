@@ -59,7 +59,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database", "error", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	// Test database connection
 	if err := database.Ping(); err != nil {
@@ -108,7 +108,7 @@ func main() {
 		commercialClient = nil
 	} else {
 		log.Info("Connected to commercial service", "addr", commercialServiceAddr)
-		defer commercialClient.Close()
+		defer func() { _ = commercialClient.Close() }()
 
 		// Configure timeout and retries from environment
 		if timeoutStr := getEnv("COMMERCIAL_SERVICE_TIMEOUT", "3s"); timeoutStr != "" {
@@ -131,7 +131,7 @@ func main() {
 		notificationClient = nil
 	} else {
 		log.Info("Connected to notification service", "addr", notificationServiceAddr)
-		defer notificationClient.Close()
+		defer func() { _ = notificationClient.Close() }()
 	}
 
 	// Initialize Redis event broadcaster
@@ -144,7 +144,7 @@ func main() {
 		eventBroadcaster = nil
 	} else {
 		log.Info("Connected to Redis for event broadcasting", "addr", redisAddr, "channel", broadcastChannel)
-		defer eventBroadcaster.Close()
+		defer func() { _ = eventBroadcaster.Close() }()
 	}
 
 	// Initialize marketplace metrics
@@ -245,7 +245,7 @@ func main() {
 	if err != nil {
 		log.Warn("Failed to connect to auth service - authentication disabled", "error", err)
 	} else {
-		defer authConn.Close()
+		defer func() { _ = authConn.Close() }()
 		log.Info("Connected to auth service", "addr", authServiceAddr)
 	}
 
@@ -316,7 +316,7 @@ func main() {
 		log.Info("Shutting down gracefully...")
 		cancel()
 		grpcServer.GracefulStop()
-		database.Close()
+		_ = database.Close()
 		log.Info("Shutdown complete")
 	}()
 

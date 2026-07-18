@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"strings"
 
 	"metarang/support-service/internal/models"
 	"metarang/support-service/internal/service"
@@ -30,17 +29,6 @@ func NewReportHandler(reportService service.ReportService) *ReportHandler {
 func RegisterReportHandler(grpcServer *grpc.Server, reportService service.ReportService) {
 	handler := NewReportHandler(reportService)
 	pb.RegisterReportServiceServer(grpcServer, handler)
-}
-
-func reportImagePublicURL(stored string) string {
-	if stored == "" {
-		return ""
-	}
-	if strings.HasPrefix(stored, "http://") || strings.HasPrefix(stored, "https://") {
-		return stored
-	}
-	stored = strings.TrimPrefix(stored, "/")
-	return "uploads/" + stored
 }
 
 func (h *ReportHandler) CreateReport(ctx context.Context, req *pb.CreateReportRequest) (*pb.ReportResponse, error) {

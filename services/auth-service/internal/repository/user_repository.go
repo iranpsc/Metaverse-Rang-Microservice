@@ -339,7 +339,7 @@ func (r *userRepository) LinkWalletAddress(ctx context.Context, userID uint64, a
 	if err != nil {
 		return "", fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var existingWallet sql.NullString
 	err = tx.QueryRowContext(ctx, `
@@ -424,7 +424,7 @@ func (r *userRepository) ListUsers(ctx context.Context, search string, orderBy s
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list users: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var users []*UserWithRelations
 	for rows.Next() {
@@ -508,7 +508,7 @@ func (r *userRepository) GetUsersLevelsForList(ctx context.Context, userIDs []ui
 	if err != nil {
 		return nil, fmt.Errorf("failed to get users levels for list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var userID uint64
@@ -615,7 +615,7 @@ func (r *userRepository) GetAllProfilePhotoURLs(ctx context.Context, userID uint
 	if err != nil {
 		return nil, fmt.Errorf("failed to get profile photos: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var urls []string
 	for rows.Next() {
@@ -673,7 +673,7 @@ func (r *userRepository) GetLevelsBelowScore(ctx context.Context, score int32) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to get levels below score: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var levels []*UserLevel
 	for rows.Next() {

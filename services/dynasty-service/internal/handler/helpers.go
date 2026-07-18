@@ -24,10 +24,6 @@ func formatJalaliDateTime(t time.Time) string {
 	return helpers.FormatJalaliDateTime(t)
 }
 
-func formatJalaliTime(t time.Time) string {
-	return helpers.FormatJalaliTime(t)
-}
-
 func stringOrEmpty(s *string) string {
 	if s == nil {
 		return ""

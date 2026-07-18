@@ -8,11 +8,11 @@ import (
 
 // SoftDeleteQuery helps build queries that respect soft deletes
 type SoftDeleteQuery struct {
-	baseQuery     string
-	tableName     string
-	deleteColumn  string
-	params        []interface{}
-	whereClause   []string
+	baseQuery    string
+	tableName    string
+	deleteColumn string
+	params       []interface{}
+	whereClause  []string
 }
 
 // NewSoftDeleteQuery creates a new soft delete query builder
@@ -80,4 +80,3 @@ func OnlyTrashed(query, tableName, deleteColumn string) string {
 	}
 	return fmt.Sprintf("%s WHERE %s.%s IS NOT NULL", query, tableName, deleteColumn)
 }
-

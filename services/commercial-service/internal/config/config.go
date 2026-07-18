@@ -1,3 +1,4 @@
+// Package config loads configuration for the commercial service.
 package config
 
 import (

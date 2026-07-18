@@ -1,3 +1,4 @@
+// Package lang provides locale and translation helpers for the commercial service.
 package lang
 
 import (

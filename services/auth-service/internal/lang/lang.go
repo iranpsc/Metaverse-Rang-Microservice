@@ -1,3 +1,4 @@
+// Package lang provides localized strings for the auth service.
 package lang
 
 import (

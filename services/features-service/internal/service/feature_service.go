@@ -156,7 +156,7 @@ func (s *FeatureService) GetFeature(ctx context.Context, featureID uint64) (*pb.
 	}
 
 	// Load geometry with coordinates
-	geometry, err := s.geometryRepo.GetByFeatureID(ctx, featureID)
+	geometry, _ := s.geometryRepo.GetByFeatureID(ctx, featureID)
 	var pbGeometry *pb.Geometry
 	if geometry != nil {
 		coordinates, err := s.geometryRepo.GetCoordinatesByFeatureID(ctx, featureID)
@@ -198,7 +198,7 @@ func (s *FeatureService) GetFeature(ctx context.Context, featureID uint64) (*pb.
 	}
 
 	// Load latest trade with seller
-	_, seller, err := s.tradeRepo.GetLatestForFeatureWithSeller(ctx, featureID)
+	_, seller, _ := s.tradeRepo.GetLatestForFeatureWithSeller(ctx, featureID)
 	var pbSeller *pb.Seller
 	if seller != nil && seller.ID > 0 {
 		pbSeller = &pb.Seller{
@@ -323,7 +323,7 @@ func (s *FeatureService) GetMyFeature(ctx context.Context, userID, featureID uin
 	}
 
 	// Load geometry with coordinates
-	geometry, err := s.geometryRepo.GetByFeatureID(ctx, featureID)
+	geometry, _ := s.geometryRepo.GetByFeatureID(ctx, featureID)
 	var pbGeometry *pb.Geometry
 	if geometry != nil {
 		coordinates, err := s.geometryRepo.GetCoordinatesByFeatureID(ctx, featureID)
@@ -365,7 +365,7 @@ func (s *FeatureService) GetMyFeature(ctx context.Context, userID, featureID uin
 	}
 
 	// Load latest trade with seller
-	_, seller, err := s.tradeRepo.GetLatestForFeatureWithSeller(ctx, featureID)
+	_, seller, _ := s.tradeRepo.GetLatestForFeatureWithSeller(ctx, featureID)
 	var pbSeller *pb.Seller
 	if seller != nil && seller.ID > 0 {
 		pbSeller = &pb.Seller{

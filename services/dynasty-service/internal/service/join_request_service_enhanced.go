@@ -72,7 +72,7 @@ func (s *JoinRequestServiceEnhanced) SendJoinRequest(
 			return nil, "", "", fmt.Errorf("failed to check receiver age: %w", err)
 		}
 		if !toUserUnder18 {
-			return nil, "", "", fmt.Errorf("شما مجاز به تعریف دسترسی برای فرزند بالای 18 سال نیستید.")
+			return nil, "", "", fmt.Errorf("شما مجاز به تعریف دسترسی برای فرزند بالای 18 سال نیستید")
 		}
 	}
 
@@ -232,7 +232,7 @@ func (s *JoinRequestServiceEnhanced) AcceptJoinRequest(
 				ESOO:     defaultPerms.ESOO,
 				COTB:     defaultPerms.COTB,
 			}
-			s.joinRequestRepo.CreateChildPermission(ctx, childPerm)
+			_ = s.joinRequestRepo.CreateChildPermission(ctx, childPerm)
 		}
 	} else if receiverUserUnder18 && request.Relationship == "offspring" {
 		// If receiver is under 18 and relationship is 'offspring'
@@ -240,7 +240,7 @@ func (s *JoinRequestServiceEnhanced) AcceptJoinRequest(
 		existingPerm, _ := s.joinRequestRepo.GetChildPermission(ctx, userID)
 		if existingPerm != nil {
 			existingPerm.Verified = true
-			s.joinRequestRepo.UpdateChildPermission(ctx, userID, existingPerm)
+			_ = s.joinRequestRepo.UpdateChildPermission(ctx, userID, existingPerm)
 		}
 	}
 
@@ -261,7 +261,7 @@ func (s *JoinRequestServiceEnhanced) AcceptJoinRequest(
 		)
 		if err == nil {
 			// Award prize to requester
-			s.prizeRepo.AwardPrize(ctx, requestedUser, prize.ID, requesterMsg)
+			_ = s.prizeRepo.AwardPrize(ctx, requestedUser, prize.ID, requesterMsg)
 		}
 	}
 

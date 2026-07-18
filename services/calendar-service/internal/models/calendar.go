@@ -1,3 +1,4 @@
+// Package models defines domain types for calendar events.
 package models
 
 import "time"

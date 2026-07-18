@@ -1,3 +1,4 @@
+// Package metrics provides Prometheus metrics for the features service.
 package metrics
 
 import (

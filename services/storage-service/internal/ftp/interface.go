@@ -1,3 +1,4 @@
+// Package ftp provides FTP client implementations for the storage service.
 package ftp
 
 import "io"

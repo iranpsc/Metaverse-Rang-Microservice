@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"time"
+
 	"metarang/support-service/internal/models"
 	"metarang/support-service/internal/repository"
-	"time"
 
 	pbNotification "metarang/shared/pb/notifications"
 	grpcutil "metarang/shared/pkg/grpc"
@@ -232,7 +233,7 @@ func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.Tic
 		fmt.Printf("Failed to connect to notification service: %v\n", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := pbNotification.NewNotificationServiceClient(conn)
 

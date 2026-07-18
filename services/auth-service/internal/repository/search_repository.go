@@ -124,7 +124,7 @@ func (r *searchRepository) SearchUsers(ctx context.Context, searchTerm string) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to search users: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*SearchUserResult
 	userMap := make(map[uint64]*SearchUserResult)
@@ -270,7 +270,7 @@ func (r *searchRepository) getProfilePhotos(ctx context.Context, userID uint64) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var photos []*models.Image
 	for rows.Next() {
@@ -341,7 +341,7 @@ func (r *searchRepository) SearchFeatures(ctx context.Context, searchTerm string
 	if err != nil {
 		return nil, fmt.Errorf("failed to search features: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*SearchFeatureResult
 	for rows.Next() {
@@ -391,7 +391,7 @@ func (r *searchRepository) getFeatureCoordinates(ctx context.Context, featureID 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var coordinates []*Coordinate
 	for rows.Next() {
@@ -419,7 +419,7 @@ func (r *searchRepository) SearchIsicCodes(ctx context.Context, searchTerm strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to search isic codes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*IsicCodeResult
 	for rows.Next() {

@@ -176,7 +176,7 @@ func mergeQueryParams(r *http.Request, v interface{}) {
 
 		// Get the first value and set it
 		value := values[0]
-		setFieldValue(fieldValue, value) // Ignore errors for merge
+		_ = setFieldValue(fieldValue, value) // Ignore errors for merge
 	}
 }
 
@@ -453,12 +453,12 @@ func setFieldValue(fieldValue reflect.Value, value string) error {
 		boolVal, err := strconv.ParseBool(value)
 		if err != nil {
 			// Also accept "1", "true", "yes", "on" as true, and "0", "false", "no", "off" as false
-			lowerValue := strings.ToLower(value)
-			if lowerValue == "1" || lowerValue == "true" || lowerValue == "yes" || lowerValue == "on" {
+			switch strings.ToLower(value) {
+			case "1", "true", "yes", "on":
 				boolVal = true
-			} else if lowerValue == "0" || lowerValue == "false" || lowerValue == "no" || lowerValue == "off" {
+			case "0", "false", "no", "off":
 				boolVal = false
-			} else {
+			default:
 				return fmt.Errorf("invalid boolean value: %w", err)
 			}
 		}

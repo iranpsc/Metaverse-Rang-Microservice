@@ -305,7 +305,7 @@ func initServiceDBConnections() {
 		if err := db.PingContext(ctx); err != nil {
 			log.Printf("⚠️  Warning: Failed to ping database for %s: %v", serviceName, err)
 			cancel()
-			db.Close()
+			_ = db.Close()
 			continue
 		}
 		cancel()
@@ -491,7 +491,7 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 
 	// Store results for metrics endpoint
 	for _, s := range services {
@@ -689,12 +689,12 @@ func checkCacheMetrics(ctx context.Context) CacheMetrics {
 	lines := strings.Split(info, "\r\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "keyspace_hits:") {
-			fmt.Sscanf(line, "keyspace_hits:%d", &metrics.Hits)
+			_, _ = fmt.Sscanf(line, "keyspace_hits:%d", &metrics.Hits)
 		} else if strings.HasPrefix(line, "keyspace_misses:") {
-			fmt.Sscanf(line, "keyspace_misses:%d", &metrics.Misses)
+			_, _ = fmt.Sscanf(line, "keyspace_misses:%d", &metrics.Misses)
 		} else if strings.HasPrefix(line, "used_memory:") {
 			var mem int64
-			fmt.Sscanf(line, "used_memory:%d", &mem)
+			_, _ = fmt.Sscanf(line, "used_memory:%d", &mem)
 			metrics.MemoryUsage = mem
 		}
 	}
@@ -747,7 +747,7 @@ func checkExternalAPI(ctx context.Context, name, url string) ExternalAPIStatus {
 		status.Error = err.Error()
 		return status
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
 		status.Status = "healthy"
@@ -906,8 +906,8 @@ func metricsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func exportServiceHealthMetrics(w http.ResponseWriter) {
-	fmt.Fprintf(w, "# HELP service_health_status Service health status (1=healthy, 0=unhealthy)\n")
-	fmt.Fprintf(w, "# TYPE service_health_status gauge\n")
+	_, _ = fmt.Fprintf(w, "# HELP service_health_status Service health status (1=healthy, 0=unhealthy)\n")
+	_, _ = fmt.Fprintf(w, "# TYPE service_health_status gauge\n")
 
 	// Track which services we've exported to avoid duplicates
 	exported := make(map[string]bool)
@@ -945,7 +945,7 @@ func exportServiceHealthMetrics(w http.ResponseWriter) {
 
 		// Always export metrics - this ensures the Grafana table always shows data
 		// Even unhealthy services will show with value 0
-		fmt.Fprintf(w, "service_health_status{service=\"%s\",display_name=\"%s\",port=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "service_health_status{service=\"%s\",display_name=\"%s\",port=\"%s\"} %d\n",
 			serviceLabel, displayName, port, value)
 		exportedCount++
 	}
@@ -972,31 +972,31 @@ func exportServiceHealthMetrics(w http.ResponseWriter) {
 		}
 	}
 
-	fmt.Fprintf(w, "\n# HELP service_health_total Total number of services checked\n")
-	fmt.Fprintf(w, "# TYPE service_health_total gauge\n")
-	fmt.Fprintf(w, "service_health_total %d\n", len(lastHealthCheck))
+	_, _ = fmt.Fprintf(w, "\n# HELP service_health_total Total number of services checked\n")
+	_, _ = fmt.Fprintf(w, "# TYPE service_health_total gauge\n")
+	_, _ = fmt.Fprintf(w, "service_health_total %d\n", len(lastHealthCheck))
 
-	fmt.Fprintf(w, "\n# HELP service_health_healthy Number of healthy services\n")
-	fmt.Fprintf(w, "# TYPE service_health_healthy gauge\n")
-	fmt.Fprintf(w, "service_health_healthy %d\n", healthy)
+	_, _ = fmt.Fprintf(w, "\n# HELP service_health_healthy Number of healthy services\n")
+	_, _ = fmt.Fprintf(w, "# TYPE service_health_healthy gauge\n")
+	_, _ = fmt.Fprintf(w, "service_health_healthy %d\n", healthy)
 
-	fmt.Fprintf(w, "\n# HELP service_health_unhealthy Number of unhealthy services\n")
-	fmt.Fprintf(w, "# TYPE service_health_unhealthy gauge\n")
-	fmt.Fprintf(w, "service_health_unhealthy %d\n", unhealthy)
+	_, _ = fmt.Fprintf(w, "\n# HELP service_health_unhealthy Number of unhealthy services\n")
+	_, _ = fmt.Fprintf(w, "# TYPE service_health_unhealthy gauge\n")
+	_, _ = fmt.Fprintf(w, "service_health_unhealthy %d\n", unhealthy)
 }
 
 func exportServiceAvailabilityMetrics(w http.ResponseWriter) {
-	fmt.Fprintf(w, "\n# HELP service_uptime_percentage Service uptime percentage (0-100)\n")
-	fmt.Fprintf(w, "# TYPE service_uptime_percentage gauge\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP service_uptime_percentage Service uptime percentage (0-100)\n")
+	_, _ = fmt.Fprintf(w, "# TYPE service_uptime_percentage gauge\n")
 
-	fmt.Fprintf(w, "\n# HELP service_uptime_seconds_total Total uptime in seconds\n")
-	fmt.Fprintf(w, "# TYPE service_uptime_seconds_total counter\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP service_uptime_seconds_total Total uptime in seconds\n")
+	_, _ = fmt.Fprintf(w, "# TYPE service_uptime_seconds_total counter\n")
 
-	fmt.Fprintf(w, "\n# HELP service_downtime_seconds_total Total downtime in seconds\n")
-	fmt.Fprintf(w, "# TYPE service_downtime_seconds_total counter\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP service_downtime_seconds_total Total downtime in seconds\n")
+	_, _ = fmt.Fprintf(w, "# TYPE service_downtime_seconds_total counter\n")
 
-	fmt.Fprintf(w, "\n# HELP service_downtime_incidents_total Total number of downtime incidents\n")
-	fmt.Fprintf(w, "# TYPE service_downtime_incidents_total counter\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP service_downtime_incidents_total Total number of downtime incidents\n")
+	_, _ = fmt.Fprintf(w, "# TYPE service_downtime_incidents_total counter\n")
 
 	uptimeMu.RLock()
 	defer uptimeMu.RUnlock()
@@ -1022,10 +1022,10 @@ func exportServiceAvailabilityMetrics(w http.ResponseWriter) {
 
 		uptimePercentage := (float64(currentUptime) / float64(totalTime)) * 100
 
-		fmt.Fprintf(w, "service_uptime_percentage{service=\"%s\"} %.2f\n", serviceLabel, uptimePercentage)
-		fmt.Fprintf(w, "service_uptime_seconds_total{service=\"%s\"} %.0f\n", serviceLabel, uptime.TotalUptime.Seconds())
-		fmt.Fprintf(w, "service_downtime_seconds_total{service=\"%s\"} %.0f\n", serviceLabel, uptime.TotalDowntime.Seconds())
-		fmt.Fprintf(w, "service_downtime_incidents_total{service=\"%s\"} %d\n", serviceLabel, len(uptime.DowntimeIncidents))
+		_, _ = fmt.Fprintf(w, "service_uptime_percentage{service=\"%s\"} %.2f\n", serviceLabel, uptimePercentage)
+		_, _ = fmt.Fprintf(w, "service_uptime_seconds_total{service=\"%s\"} %.0f\n", serviceLabel, uptime.TotalUptime.Seconds())
+		_, _ = fmt.Fprintf(w, "service_downtime_seconds_total{service=\"%s\"} %.0f\n", serviceLabel, uptime.TotalDowntime.Seconds())
+		_, _ = fmt.Fprintf(w, "service_downtime_incidents_total{service=\"%s\"} %d\n", serviceLabel, len(uptime.DowntimeIncidents))
 
 		uptime.mu.RUnlock()
 	}
@@ -1036,20 +1036,20 @@ func exportDependencyHealthMetrics(w http.ResponseWriter) {
 	defer cancel()
 
 	// Database connection metrics for each service
-	fmt.Fprintf(w, "\n# HELP db_connection_status Database connection status per service (1=connected, 0=disconnected)\n")
-	fmt.Fprintf(w, "# TYPE db_connection_status gauge\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP db_connection_status Database connection status per service (1=connected, 0=disconnected)\n")
+	_, _ = fmt.Fprintf(w, "# TYPE db_connection_status gauge\n")
 
-	fmt.Fprintf(w, "\n# HELP db_connection_latency_seconds Database connection latency per service\n")
-	fmt.Fprintf(w, "# TYPE db_connection_latency_seconds gauge\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP db_connection_latency_seconds Database connection latency per service\n")
+	_, _ = fmt.Fprintf(w, "# TYPE db_connection_latency_seconds gauge\n")
 
-	fmt.Fprintf(w, "\n# HELP db_connection_pool_open Database connection pool open connections per service\n")
-	fmt.Fprintf(w, "# TYPE db_connection_pool_open gauge\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP db_connection_pool_open Database connection pool open connections per service\n")
+	_, _ = fmt.Fprintf(w, "# TYPE db_connection_pool_open gauge\n")
 
-	fmt.Fprintf(w, "\n# HELP db_connection_pool_in_use Database connection pool in-use connections per service\n")
-	fmt.Fprintf(w, "# TYPE db_connection_pool_in_use gauge\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP db_connection_pool_in_use Database connection pool in-use connections per service\n")
+	_, _ = fmt.Fprintf(w, "# TYPE db_connection_pool_in_use gauge\n")
 
-	fmt.Fprintf(w, "\n# HELP db_connection_pool_idle Database connection pool idle connections per service\n")
-	fmt.Fprintf(w, "# TYPE db_connection_pool_idle gauge\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP db_connection_pool_idle Database connection pool idle connections per service\n")
+	_, _ = fmt.Fprintf(w, "# TYPE db_connection_pool_idle gauge\n")
 
 	// List of all services that should have database connections
 	allServices := []string{
@@ -1086,7 +1086,7 @@ func exportDependencyHealthMetrics(w http.ResponseWriter) {
 		// CRITICAL: Always export status metric for EVERY service
 		// Use consistent host/database values to ensure metrics are properly grouped
 		// Value: 0 = disconnected, 1 = connected
-		fmt.Fprintf(w, "db_connection_status{service=\"%s\",host=\"%s\",database=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "db_connection_status{service=\"%s\",host=\"%s\",database=\"%s\"} %d\n",
 			serviceName, dbHost, dbDatabase, dbValue)
 
 		// Export latency only if we have a valid connection and latency measurement
@@ -1094,20 +1094,20 @@ func exportDependencyHealthMetrics(w http.ResponseWriter) {
 			// Parse latency string (e.g., "10ms" or "1.5s")
 			latency, err := parseDuration(dbStatus.Latency)
 			if err == nil {
-				fmt.Fprintf(w, "db_connection_latency_seconds{service=\"%s\",host=\"%s\"} %.4f\n",
+				_, _ = fmt.Fprintf(w, "db_connection_latency_seconds{service=\"%s\",host=\"%s\"} %.4f\n",
 					serviceName, dbHost, latency.Seconds())
 			}
 		}
 
 		// Always export pool stats (will be 0 if connection doesn't exist)
 		// Use consistent host value for proper metric grouping
-		fmt.Fprintf(w, "db_connection_pool_open{service=\"%s\",host=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "db_connection_pool_open{service=\"%s\",host=\"%s\"} %d\n",
 			serviceName, dbHost, dbStatus.PoolStats.OpenConnections)
 
-		fmt.Fprintf(w, "db_connection_pool_in_use{service=\"%s\",host=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "db_connection_pool_in_use{service=\"%s\",host=\"%s\"} %d\n",
 			serviceName, dbHost, dbStatus.PoolStats.InUse)
 
-		fmt.Fprintf(w, "db_connection_pool_idle{service=\"%s\",host=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "db_connection_pool_idle{service=\"%s\",host=\"%s\"} %d\n",
 			serviceName, dbHost, dbStatus.PoolStats.Idle)
 	}
 	log.Printf("✅ Finished exporting database connection metrics for %d services", len(allServices))
@@ -1119,59 +1119,59 @@ func exportDependencyHealthMetrics(w http.ResponseWriter) {
 		if dbStatus.Connected {
 			dbValue = 1
 		}
-		fmt.Fprintf(w, "db_connection_status{service=\"legacy\",host=\"%s\",database=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "db_connection_status{service=\"legacy\",host=\"%s\",database=\"%s\"} %d\n",
 			dbStatus.Host, dbStatus.Database, dbValue)
 
 		if dbStatus.Latency != "" {
 			latency, _ := parseDuration(dbStatus.Latency)
-			fmt.Fprintf(w, "db_connection_latency_seconds{service=\"legacy\",host=\"%s\"} %.4f\n",
+			_, _ = fmt.Fprintf(w, "db_connection_latency_seconds{service=\"legacy\",host=\"%s\"} %.4f\n",
 				dbStatus.Host, latency.Seconds())
 		}
 
-		fmt.Fprintf(w, "db_connection_pool_open{service=\"legacy\",host=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "db_connection_pool_open{service=\"legacy\",host=\"%s\"} %d\n",
 			dbStatus.Host, dbStatus.PoolStats.OpenConnections)
 
-		fmt.Fprintf(w, "db_connection_pool_in_use{service=\"legacy\",host=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "db_connection_pool_in_use{service=\"legacy\",host=\"%s\"} %d\n",
 			dbStatus.Host, dbStatus.PoolStats.InUse)
 
-		fmt.Fprintf(w, "db_connection_pool_idle{service=\"legacy\",host=\"%s\"} %d\n",
+		_, _ = fmt.Fprintf(w, "db_connection_pool_idle{service=\"legacy\",host=\"%s\"} %d\n",
 			dbStatus.Host, dbStatus.PoolStats.Idle)
 	}
 
 	// Cache metrics
-	fmt.Fprintf(w, "\n# HELP cache_status Cache status (1=healthy, 0=unhealthy)\n")
-	fmt.Fprintf(w, "# TYPE cache_status gauge\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP cache_status Cache status (1=healthy, 0=unhealthy)\n")
+	_, _ = fmt.Fprintf(w, "# TYPE cache_status gauge\n")
 
 	cacheMetrics := checkCacheMetrics(ctx)
 	cacheValue := 0
 	if cacheMetrics.Status == "healthy" {
 		cacheValue = 1
 	}
-	fmt.Fprintf(w, "cache_status{cache=\"redis\"} %d\n", cacheValue)
+	_, _ = fmt.Fprintf(w, "cache_status{cache=\"redis\"} %d\n", cacheValue)
 
-	fmt.Fprintf(w, "\n# HELP cache_hit_rate Cache hit rate percentage\n")
-	fmt.Fprintf(w, "# TYPE cache_hit_rate gauge\n")
-	fmt.Fprintf(w, "cache_hit_rate{cache=\"redis\"} %.2f\n", cacheMetrics.HitRate)
+	_, _ = fmt.Fprintf(w, "\n# HELP cache_hit_rate Cache hit rate percentage\n")
+	_, _ = fmt.Fprintf(w, "# TYPE cache_hit_rate gauge\n")
+	_, _ = fmt.Fprintf(w, "cache_hit_rate{cache=\"redis\"} %.2f\n", cacheMetrics.HitRate)
 
-	fmt.Fprintf(w, "\n# HELP cache_miss_rate Cache miss rate percentage\n")
-	fmt.Fprintf(w, "# TYPE cache_miss_rate gauge\n")
-	fmt.Fprintf(w, "cache_miss_rate{cache=\"redis\"} %.2f\n", cacheMetrics.MissRate)
+	_, _ = fmt.Fprintf(w, "\n# HELP cache_miss_rate Cache miss rate percentage\n")
+	_, _ = fmt.Fprintf(w, "# TYPE cache_miss_rate gauge\n")
+	_, _ = fmt.Fprintf(w, "cache_miss_rate{cache=\"redis\"} %.2f\n", cacheMetrics.MissRate)
 
-	fmt.Fprintf(w, "\n# HELP cache_hits_total Total cache hits\n")
-	fmt.Fprintf(w, "# TYPE cache_hits_total counter\n")
-	fmt.Fprintf(w, "cache_hits_total{cache=\"redis\"} %d\n", cacheMetrics.Hits)
+	_, _ = fmt.Fprintf(w, "\n# HELP cache_hits_total Total cache hits\n")
+	_, _ = fmt.Fprintf(w, "# TYPE cache_hits_total counter\n")
+	_, _ = fmt.Fprintf(w, "cache_hits_total{cache=\"redis\"} %d\n", cacheMetrics.Hits)
 
-	fmt.Fprintf(w, "\n# HELP cache_misses_total Total cache misses\n")
-	fmt.Fprintf(w, "# TYPE cache_misses_total counter\n")
-	fmt.Fprintf(w, "cache_misses_total{cache=\"redis\"} %d\n", cacheMetrics.Misses)
+	_, _ = fmt.Fprintf(w, "\n# HELP cache_misses_total Total cache misses\n")
+	_, _ = fmt.Fprintf(w, "# TYPE cache_misses_total counter\n")
+	_, _ = fmt.Fprintf(w, "cache_misses_total{cache=\"redis\"} %d\n", cacheMetrics.Misses)
 
-	fmt.Fprintf(w, "\n# HELP cache_memory_usage_bytes Cache memory usage in bytes\n")
-	fmt.Fprintf(w, "# TYPE cache_memory_usage_bytes gauge\n")
-	fmt.Fprintf(w, "cache_memory_usage_bytes{cache=\"redis\"} %d\n", cacheMetrics.MemoryUsage)
+	_, _ = fmt.Fprintf(w, "\n# HELP cache_memory_usage_bytes Cache memory usage in bytes\n")
+	_, _ = fmt.Fprintf(w, "# TYPE cache_memory_usage_bytes gauge\n")
+	_, _ = fmt.Fprintf(w, "cache_memory_usage_bytes{cache=\"redis\"} %d\n", cacheMetrics.MemoryUsage)
 
 	// External API metrics
-	fmt.Fprintf(w, "\n# HELP external_api_status External API status (1=healthy, 0=unhealthy)\n")
-	fmt.Fprintf(w, "# TYPE external_api_status gauge\n")
+	_, _ = fmt.Fprintf(w, "\n# HELP external_api_status External API status (1=healthy, 0=unhealthy)\n")
+	_, _ = fmt.Fprintf(w, "# TYPE external_api_status gauge\n")
 
 	externalAPIs := checkExternalAPIs(ctx)
 	for _, api := range externalAPIs {
@@ -1179,7 +1179,7 @@ func exportDependencyHealthMetrics(w http.ResponseWriter) {
 		if api.Status == "healthy" {
 			value = 1
 		}
-		fmt.Fprintf(w, "external_api_status{name=\"%s\",url=\"%s\"} %d\n", api.Name, api.URL, value)
+		_, _ = fmt.Fprintf(w, "external_api_status{name=\"%s\",url=\"%s\"} %d\n", api.Name, api.URL, value)
 	}
 }
 
@@ -1216,7 +1216,7 @@ func checkTCP(ctx context.Context, name, host string, port int) ServiceStatus {
 			Latency: latency.String(),
 		}
 	}
-	conn.Close()
+	_ = conn.Close()
 
 	return ServiceStatus{
 		Service: name,
@@ -1253,7 +1253,7 @@ func checkHTTP(ctx context.Context, name, url string) ServiceStatus {
 			Latency: latency.String(),
 		}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	status := "healthy"
 	if resp.StatusCode >= 400 {

@@ -28,7 +28,7 @@ func (r *ImageRepository) GetImagesByFeatureID(ctx context.Context, featureID ui
 	if err != nil {
 		return nil, fmt.Errorf("failed to query images: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	images := []*Image{}
 	for rows.Next() {

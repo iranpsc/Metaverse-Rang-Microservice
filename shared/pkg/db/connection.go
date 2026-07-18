@@ -1,3 +1,4 @@
+// Package db provides shared database connection helpers and query utilities.
 package db
 
 import (

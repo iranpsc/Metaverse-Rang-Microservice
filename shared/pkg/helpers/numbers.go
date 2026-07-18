@@ -32,14 +32,14 @@ func FormatCompactNumber(num float64) string {
 
 	// Calculate the value divided by the appropriate power of 1000
 	value := num / math.Pow(1000, float64(power))
-	
+
 	// Format with 3 decimals
 	formatted := fmt.Sprintf("%.3f", value)
 	// Trim trailing zeros
 	formatted = strings.TrimRight(formatted, "0")
 	// Trim trailing dot
 	formatted = strings.TrimRight(formatted, ".")
-	
+
 	// Add unit (power-1 because arrays are 0-indexed but power starts at 1)
 	return formatted + units[power-1]
 }
@@ -134,4 +134,3 @@ func ParseInt(s string) (int64, error) {
 	normalized := NormalizePersianNumbers(s)
 	return strconv.ParseInt(normalized, 10, 64)
 }
-

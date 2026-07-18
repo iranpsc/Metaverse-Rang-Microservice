@@ -1,3 +1,4 @@
+// Package repository provides data access for the support service.
 package repository
 
 import (
@@ -5,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+
 	"metarang/support-service/internal/models"
 )
 
@@ -119,7 +121,7 @@ func (r *noteRepository) GetByUserID(ctx context.Context, userID uint64) ([]*mod
 	if err != nil {
 		return nil, fmt.Errorf("failed to get notes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var notes []*models.Note
 	for rows.Next() {

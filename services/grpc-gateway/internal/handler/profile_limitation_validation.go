@@ -188,7 +188,7 @@ func parseOptionalNote(raw map[string]json.RawMessage) (profileLimitationNoteInp
 }
 
 func readJSONObject(r *http.Request) (map[string]json.RawMessage, error) {
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 	decoder := json.NewDecoder(r.Body)
 	var raw map[string]json.RawMessage
 	if err := decoder.Decode(&raw); err != nil {
@@ -276,7 +276,7 @@ func notePtrFromInput(note profileLimitationNoteInput) *string {
 	return note.Value
 }
 
-// Test helpers exported for dedicated gateway tests.
+// ParseCreateProfileLimitationBodyForTest exposes parseCreateProfileLimitationBody for gateway tests.
 func ParseCreateProfileLimitationBodyForTest(r *http.Request) (*createProfileLimitationInput, map[string]string) {
 	return parseCreateProfileLimitationBody(r)
 }

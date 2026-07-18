@@ -58,7 +58,7 @@ func (h *AuthHandler) UploadProfilePhoto(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "image file is required")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read file data
 	imageData := make([]byte, header.Size)

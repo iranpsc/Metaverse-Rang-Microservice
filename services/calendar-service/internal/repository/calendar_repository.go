@@ -1,3 +1,4 @@
+// Package repository provides data access for calendar events.
 package repository
 
 import (
@@ -80,7 +81,7 @@ func (r *CalendarRepository) GetEvents(ctx context.Context, eventType, search, d
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get events: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []*models.Calendar
 	for rows.Next() {
@@ -153,7 +154,7 @@ func (r *CalendarRepository) FilterByDateRange(ctx context.Context, startDate, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to filter events: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []*models.Calendar
 	for rows.Next() {
@@ -192,13 +193,13 @@ func (r *CalendarRepository) GetEventStats(ctx context.Context, eventID uint64) 
 	stats := &models.CalendarStats{}
 
 	viewQuery := "SELECT COUNT(*) FROM views WHERE viewable_type = ? AND viewable_id = ?"
-	r.db.QueryRowContext(ctx, viewQuery, calendarMorphType, eventID).Scan(&stats.ViewsCount)
+	_ = r.db.QueryRowContext(ctx, viewQuery, calendarMorphType, eventID).Scan(&stats.ViewsCount)
 
 	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND liked = 1"
-	r.db.QueryRowContext(ctx, likeQuery, calendarMorphType, eventID).Scan(&stats.LikesCount)
+	_ = r.db.QueryRowContext(ctx, likeQuery, calendarMorphType, eventID).Scan(&stats.LikesCount)
 
 	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND liked = 0"
-	r.db.QueryRowContext(ctx, dislikeQuery, calendarMorphType, eventID).Scan(&stats.DislikesCount)
+	_ = r.db.QueryRowContext(ctx, dislikeQuery, calendarMorphType, eventID).Scan(&stats.DislikesCount)
 
 	return stats, nil
 }
@@ -208,10 +209,10 @@ func (r *CalendarRepository) GetInteractionStats(ctx context.Context, eventID ui
 	stats := &models.CalendarStats{}
 
 	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND liked = 1"
-	r.db.QueryRowContext(ctx, likeQuery, calendarMorphType, eventID).Scan(&stats.LikesCount)
+	_ = r.db.QueryRowContext(ctx, likeQuery, calendarMorphType, eventID).Scan(&stats.LikesCount)
 
 	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = ? AND likeable_id = ? AND liked = 0"
-	r.db.QueryRowContext(ctx, dislikeQuery, calendarMorphType, eventID).Scan(&stats.DislikesCount)
+	_ = r.db.QueryRowContext(ctx, dislikeQuery, calendarMorphType, eventID).Scan(&stats.DislikesCount)
 
 	return stats, nil
 }

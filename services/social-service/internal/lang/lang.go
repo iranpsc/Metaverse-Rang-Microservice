@@ -1,3 +1,4 @@
+// Package lang provides localization helpers for the social service.
 package lang
 
 import (

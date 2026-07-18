@@ -1,3 +1,4 @@
+// Package service implements business logic for the auth service.
 package service
 
 import (
@@ -406,7 +407,7 @@ func (s *authService) GetMe(ctx context.Context, token string) (*UserDetails, er
 	}
 
 	// Get KYC
-	kyc, err := s.userRepo.GetKYC(ctx, user.ID)
+	kyc, _ := s.userRepo.GetKYC(ctx, user.ID)
 
 	// Get unread notifications count
 	notificationsCount, _ := s.userRepo.GetUnreadNotificationsCount(ctx, user.ID)
@@ -765,7 +766,7 @@ func (s *authService) exchangeCodeForToken(ctx context.Context, code string) (*O
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -791,7 +792,7 @@ func (s *authService) getUserFromOAuth(ctx context.Context, accessToken string) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -829,7 +830,7 @@ func generateState() (string, error) {
 func generateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	for i := range b {
 		b[i] = charset[b[i]%byte(len(charset))]
 	}

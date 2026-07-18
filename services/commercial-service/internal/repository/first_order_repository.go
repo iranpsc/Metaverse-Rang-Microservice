@@ -1,3 +1,4 @@
+// Package repository provides data access for the commercial service.
 package repository
 
 import (

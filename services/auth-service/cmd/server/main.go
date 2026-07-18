@@ -97,7 +97,7 @@ func main() {
 
 	// Open database using connector
 	db := sql.OpenDB(connector)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Configure connection pool
 	db.SetMaxOpenConns(25)
@@ -188,7 +188,7 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: Failed to connect to notifications service: %v (continuing without notification support)", err)
 	} else {
-		defer notificationsConn.Close()
+		defer func() { _ = notificationsConn.Close() }()
 		smsClient = notificationspb.NewSMSServiceClient(notificationsConn)
 		notificationClient = notificationspb.NewNotificationServiceClient(notificationsConn)
 		log.Println("Successfully connected to notifications service")
@@ -273,7 +273,7 @@ func main() {
 		log.Printf("Warning: Failed to connect to storage service: %v (profile photo uploads will fail)", err)
 		storageClient = nil
 	} else {
-		defer storageConn.Close()
+		defer func() { _ = storageConn.Close() }()
 		storageClient = storagepb.NewFileStorageServiceClient(storageConn)
 		log.Printf("Successfully connected to storage service at %s", storageServiceAddr)
 	}
@@ -302,7 +302,7 @@ func main() {
 	profilePhotoHandler := &handler.ProfilePhotoHandler{
 		ProfilePhotoService: profilePhotoService,
 		StorageClient:       storageClient,
-		ApiGatewayURL:       apiGatewayURL,
+		APIGatewayURL:       apiGatewayURL,
 	}
 
 	// Register handlers

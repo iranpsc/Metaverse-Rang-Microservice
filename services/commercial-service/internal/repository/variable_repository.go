@@ -53,7 +53,7 @@ func (r *variableRepository) GetAllRates(ctx context.Context) (map[string]float6
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all rates: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	rates := make(map[string]float64)
 	for rows.Next() {

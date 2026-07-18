@@ -1,3 +1,4 @@
+// Package handler provides gRPC handlers for the financial service.
 package handler
 
 import (

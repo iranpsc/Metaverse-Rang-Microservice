@@ -1,3 +1,4 @@
+// Package models defines domain types for the social service.
 package models
 
 import "time"

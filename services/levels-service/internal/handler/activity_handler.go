@@ -1,3 +1,4 @@
+// Package handler provides gRPC handlers for the levels service.
 package handler
 
 import (

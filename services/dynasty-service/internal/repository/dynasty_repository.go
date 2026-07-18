@@ -1,3 +1,4 @@
+// Package repository provides data access for the dynasty service.
 package repository
 
 import (
@@ -153,7 +154,7 @@ func (r *DynastyRepository) GetUserFeatures(ctx context.Context, userID, exclude
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user features: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var features []map[string]interface{}
 	for rows.Next() {

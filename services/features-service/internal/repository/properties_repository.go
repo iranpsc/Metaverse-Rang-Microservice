@@ -54,20 +54,7 @@ func (r *PropertiesRepository) Update(ctx context.Context, featureID uint64, upd
 	}
 
 	args = append(args, featureID)
-	query := fmt.Sprintf(
-		"UPDATE feature_properties SET %s, updated_at = NOW() WHERE feature_id = ?",
-		fmt.Sprintf("%s", setParts[0]),
-	)
-
-	for i := 1; i < len(setParts); i++ {
-		query = fmt.Sprintf(
-			"UPDATE feature_properties SET %s, updated_at = NOW() WHERE feature_id = ?",
-			fmt.Sprintf("%s, %s", setParts[0], setParts[i]),
-		)
-	}
-
-	// Rebuild properly
-	query = "UPDATE feature_properties SET " + joinStrings(setParts, ", ") + ", updated_at = NOW() WHERE feature_id = ?"
+	query := "UPDATE feature_properties SET " + joinStrings(setParts, ", ") + ", updated_at = NOW() WHERE feature_id = ?"
 
 	_, err := r.db.ExecContext(ctx, query, args...)
 	return err

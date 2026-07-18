@@ -1,3 +1,4 @@
+// Package service implements business logic for the levels service.
 package service
 
 import (

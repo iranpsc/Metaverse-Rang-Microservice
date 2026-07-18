@@ -29,7 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database", "error", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

@@ -1,3 +1,4 @@
+// Package service implements business logic for the training service.
 package service
 
 import (

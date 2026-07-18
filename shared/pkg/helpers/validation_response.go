@@ -17,23 +17,23 @@ type ValidationErrorResponse struct {
 
 // LocaleTranslations holds error message translations for different locales
 type LocaleTranslations struct {
-	Required      string
-	Email         string
-	Min           string
-	Max           string
-	Len           string
-	OneOf         string
-	Unique        string
-	Persian       string
-	PersianAlpha  string
-	PersianNum    string
-	PersianAlphaNum string
-	IranianMobile string
-	IranianPostalCode string
+	Required            string
+	Email               string
+	Min                 string
+	Max                 string
+	Len                 string
+	OneOf               string
+	Unique              string
+	Persian             string
+	PersianAlpha        string
+	PersianNum          string
+	PersianAlphaNum     string
+	IranianMobile       string
+	IranianPostalCode   string
 	IranianNationalCode string
-	IranianSheba  string
-	IranianBankCard string
-	Invalid       string
+	IranianSheba        string
+	IranianBankCard     string
+	Invalid             string
 }
 
 // translations holds locale-specific translations
@@ -95,7 +95,7 @@ func GetLocaleTranslations(locale string) LocaleTranslations {
 func FormatValidationError(fe validator.FieldError, locale string) string {
 	t := GetLocaleTranslations(locale)
 	fieldName := getFieldName(fe)
-	
+
 	switch fe.Tag() {
 	case "required":
 		return fmt.Sprintf(t.Required, fieldName)
@@ -137,13 +137,13 @@ func FormatValidationError(fe validator.FieldError, locale string) string {
 // getFieldName extracts a human-readable field name from the FieldError
 func getFieldName(fe validator.FieldError) string {
 	fieldName := fe.Field()
-	
+
 	// Convert camelCase to space-separated words
 	fieldName = strings.ToLower(fieldName)
-	
+
 	// Replace common field name patterns
 	fieldName = strings.ReplaceAll(fieldName, "_", " ")
-	
+
 	return fieldName
 }
 
@@ -152,27 +152,27 @@ func getFieldName(fe validator.FieldError) string {
 func WriteValidationErrorResponse(w http.ResponseWriter, validationErrors validator.ValidationErrors, locale string) {
 	errors := make(map[string]string)
 	var firstMessage string
-	
+
 	for i, err := range validationErrors {
 		fieldName := err.Field()
 		errorMessage := FormatValidationError(err, locale)
-		
+
 		errors[fieldName] = errorMessage
-		
+
 		// First error message becomes the main message
 		if i == 0 {
 			firstMessage = errorMessage
 		}
 	}
-	
+
 	response := ValidationErrorResponse{
 		Message: firstMessage,
 		Errors:  errors,
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // WriteValidationErrorResponseFromMap writes a validation error response from a map of field errors
@@ -187,44 +187,43 @@ func WriteValidationErrorResponseFromMap(w http.ResponseWriter, fieldErrors map[
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Get first error message
 	var firstMessage string
 	for _, msg := range fieldErrors {
 		firstMessage = msg
 		break
 	}
-	
+
 	response := ValidationErrorResponse{
 		Message: firstMessage,
 		Errors:  fieldErrors,
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // WriteValidationErrorResponseFromString writes a validation error response from a single error message
 // This creates a generic error response when you don't have field-specific errors
 func WriteValidationErrorResponseFromString(w http.ResponseWriter, message string, locale string) {
 	t := GetLocaleTranslations(locale)
-	
+
 	// If message is empty, use default invalid message
 	if message == "" {
 		message = t.Invalid
 	}
-	
+
 	response := ValidationErrorResponse{
 		Message: message,
 		Errors:  make(map[string]string),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
-

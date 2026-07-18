@@ -1,3 +1,4 @@
+// Package service implements social business logic.
 package service
 
 import (

@@ -66,7 +66,7 @@ func main() {
 	if err != nil {
 		structLog.Fatal("Failed to connect to database", "error", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(5)
@@ -91,7 +91,7 @@ func main() {
 		commercialClient = nil
 	} else {
 		structLog.Info("Connected to commercial service", "addr", commercialAddr)
-		defer commercialClient.Close()
+		defer func() { _ = commercialClient.Close() }()
 	}
 
 	var levelsClient client.LevelsClient
@@ -102,7 +102,7 @@ func main() {
 		levelsClient = nil
 	} else {
 		structLog.Info("Connected to levels service", "addr", levelsAddr)
-		defer levelsClient.Close()
+		defer func() { _ = levelsClient.Close() }()
 	}
 
 	var authClient client.AuthClient
@@ -113,7 +113,7 @@ func main() {
 		authClient = nil
 	} else {
 		structLog.Info("Connected to auth service", "addr", authAddr)
-		defer authClient.Close()
+		defer func() { _ = authClient.Close() }()
 	}
 
 	challengeService := service.NewChallengeService(

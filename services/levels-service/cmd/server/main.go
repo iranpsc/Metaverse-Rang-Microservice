@@ -69,7 +69,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database", "error", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	database.SetMaxOpenConns(25)
 	database.SetMaxIdleConns(5)
@@ -108,7 +108,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to commercial service", "error", err, "address", commercialServiceAddr)
 	}
-	defer commercialClient.Close()
+	defer func() { _ = commercialClient.Close() }()
 
 	// Initialize services
 	levelService := service.NewLevelService(levelRepo, userLogRepo, commercialClient)
@@ -156,7 +156,7 @@ func main() {
 
 		log.Info("Shutting down gracefully...")
 		grpcServer.GracefulStop()
-		database.Close()
+		_ = database.Close()
 		log.Info("Shutdown complete")
 	}()
 

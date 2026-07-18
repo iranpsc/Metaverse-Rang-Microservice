@@ -1,3 +1,4 @@
+// Package service implements business logic for the dynasty service.
 package service
 
 import (

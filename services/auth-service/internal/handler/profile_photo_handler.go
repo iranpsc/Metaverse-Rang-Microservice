@@ -23,14 +23,14 @@ type ProfilePhotoHandler struct {
 	pb.UnimplementedProfilePhotoServiceServer
 	ProfilePhotoService service.ProfilePhotoService
 	StorageClient       storagepb.FileStorageServiceClient
-	ApiGatewayURL       string
+	APIGatewayURL       string
 }
 
 func RegisterProfilePhotoHandler(grpcServer *grpc.Server, profilePhotoService service.ProfilePhotoService, storageClient storagepb.FileStorageServiceClient, apiGatewayURL string) {
 	pb.RegisterProfilePhotoServiceServer(grpcServer, &ProfilePhotoHandler{
 		ProfilePhotoService: profilePhotoService,
 		StorageClient:       storageClient,
-		ApiGatewayURL:       apiGatewayURL,
+		APIGatewayURL:       apiGatewayURL,
 	})
 }
 
@@ -45,13 +45,13 @@ func (h *ProfilePhotoHandler) PrependGatewayURL(url string) string {
 		return url
 	}
 	// If API gateway URL is not set, return the original URL
-	if h.ApiGatewayURL == "" {
+	if h.APIGatewayURL == "" {
 		return url
 	}
 	// Remove leading slash from URL if present
 	url = strings.TrimPrefix(url, "/")
 	// Remove trailing slash from gateway URL if present
-	gatewayURL := strings.TrimSuffix(h.ApiGatewayURL, "/")
+	gatewayURL := strings.TrimSuffix(h.APIGatewayURL, "/")
 	// Prepend gateway URL
 	return gatewayURL + "/" + url
 }

@@ -120,7 +120,7 @@ func (r *PrizeRepository) GetUserReceivedPrizes(ctx context.Context, userID uint
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user prizes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var prizes []*models.ReceivedPrize
 	for rows.Next() {
@@ -185,7 +185,7 @@ func (r *PrizeRepository) GetAllDynastyPrizes(ctx context.Context) ([]*models.Dy
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dynasty prizes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var prizes []*models.DynastyPrize
 	for rows.Next() {
@@ -234,7 +234,7 @@ func (r *PrizeRepository) GetAllPrizes(ctx context.Context, page, perPage int32)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get dynasty prizes: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var prizes []*models.DynastyPrize
 	for rows.Next() {

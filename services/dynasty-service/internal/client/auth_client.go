@@ -1,3 +1,4 @@
+// Package client provides gRPC clients for external services.
 package client
 
 import (

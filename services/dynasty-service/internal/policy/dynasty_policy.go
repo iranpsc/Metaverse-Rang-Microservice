@@ -1,3 +1,4 @@
+// Package policy encodes authorization rules for the dynasty service.
 package policy
 
 import (

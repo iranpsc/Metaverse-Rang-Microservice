@@ -1,6 +1,8 @@
+// Package helpers provides shared validation, formatting, and utility helpers.
 package helpers
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -16,16 +18,22 @@ type CustomValidator struct {
 func NewCustomValidator() *CustomValidator {
 	v := validator.New()
 
+	registerValidation := func(tag string, fn validator.Func) {
+		if err := v.RegisterValidation(tag, fn); err != nil {
+			panic(fmt.Sprintf("register validation %q: %v", tag, err))
+		}
+	}
+
 	// Register custom validators
-	v.RegisterValidation("persian", validatePersian)
-	v.RegisterValidation("persian_alpha", validatePersianAlpha)
-	v.RegisterValidation("persian_num", validatePersianNum)
-	v.RegisterValidation("persian_alpha_num", validatePersianAlphaNum)
-	v.RegisterValidation("iranian_mobile", validateIranianMobile)
-	v.RegisterValidation("iranian_postal_code", validateIranianPostalCode)
-	v.RegisterValidation("iranian_national_code", validateIranianNationalCode)
-	v.RegisterValidation("ir_sheba", validateIranianSheba)
-	v.RegisterValidation("ir_bank_card_number", validateIranianBankCardNumber)
+	registerValidation("persian", validatePersian)
+	registerValidation("persian_alpha", validatePersianAlpha)
+	registerValidation("persian_num", validatePersianNum)
+	registerValidation("persian_alpha_num", validatePersianAlphaNum)
+	registerValidation("iranian_mobile", validateIranianMobile)
+	registerValidation("iranian_postal_code", validateIranianPostalCode)
+	registerValidation("iranian_national_code", validateIranianNationalCode)
+	registerValidation("ir_sheba", validateIranianSheba)
+	registerValidation("ir_bank_card_number", validateIranianBankCardNumber)
 
 	return &CustomValidator{validate: v}
 }

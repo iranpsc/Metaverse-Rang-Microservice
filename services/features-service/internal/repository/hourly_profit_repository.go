@@ -106,7 +106,7 @@ func (r *HourlyProfitRepository) FindByUserID(ctx context.Context, userID uint64
 	if err != nil {
 		return nil, false, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	profits := []*models.FeatureHourlyProfit{}
 	for rows.Next() {
@@ -144,7 +144,7 @@ func (r *HourlyProfitRepository) GetTotalsByKarbari(ctx context.Context, userID 
 	if err != nil {
 		return "0", "0", "0", err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	totals := map[string]float64{
 		"m": 0,
@@ -206,7 +206,7 @@ func (r *HourlyProfitRepository) CalculateAndUpdateProfits(ctx context.Context) 
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	profits := []struct {
 		ID        uint64
@@ -344,7 +344,7 @@ func (r *HourlyProfitRepository) GetAllByUserAndKarbari(ctx context.Context, use
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	profits := []*models.FeatureHourlyProfit{}
 	for rows.Next() {

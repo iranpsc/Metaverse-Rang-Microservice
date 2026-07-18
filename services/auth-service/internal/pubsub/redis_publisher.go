@@ -1,3 +1,4 @@
+// Package pubsub provides Redis pub/sub publishing for the auth service.
 package pubsub
 
 import (

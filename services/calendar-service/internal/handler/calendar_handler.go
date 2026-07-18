@@ -1,3 +1,4 @@
+// Package handler implements gRPC handlers for calendar events.
 package handler
 
 import (

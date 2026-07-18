@@ -69,7 +69,7 @@ func (r *profilePhotoRepository) FindByUserID(ctx context.Context, userID uint64
 	if err != nil {
 		return nil, fmt.Errorf("failed to find profile photos: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var images []*models.Image
 	for rows.Next() {

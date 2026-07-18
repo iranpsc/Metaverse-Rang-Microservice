@@ -1,3 +1,4 @@
+// Package models defines domain types for the dynasty service.
 package models
 
 import "time"
@@ -99,7 +100,7 @@ type DynastyMessage struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// User basic info for join requests
+// UserBasic holds basic user info for join requests.
 type UserBasic struct {
 	ID           uint64
 	Code         string

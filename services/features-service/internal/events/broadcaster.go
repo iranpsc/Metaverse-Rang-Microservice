@@ -1,3 +1,4 @@
+// Package events provides event broadcasting for the features service.
 package events
 
 import (
@@ -69,4 +70,3 @@ func (b *RedisBroadcaster) Close() error {
 	}
 	return nil
 }
-

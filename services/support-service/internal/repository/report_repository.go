@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"metarang/support-service/internal/models"
 )
 
@@ -81,7 +82,7 @@ func (r *reportRepository) GetByID(ctx context.Context, reportID uint64) (*model
 	if err != nil {
 		return nil, fmt.Errorf("failed to get images: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var images []models.Image
 	for rows.Next() {
@@ -120,7 +121,7 @@ func (r *reportRepository) GetByUserID(ctx context.Context, userID uint64, page,
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get reports: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var reports []*models.Report
 	for rows.Next() {

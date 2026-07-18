@@ -1,3 +1,4 @@
+// Package repository provides data access for the training service.
 package repository
 
 import (
@@ -59,7 +60,7 @@ func (r *CategoryRepository) GetCategories(ctx context.Context, page, perPage in
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get categories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var categories []*models.VideoCategory
 	for rows.Next() {
@@ -155,7 +156,7 @@ func (r *CategoryRepository) GetSubCategoriesByCategoryID(ctx context.Context, c
 	if err != nil {
 		return nil, fmt.Errorf("failed to get subcategories: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var subCategories []*models.VideoSubCategory
 	for rows.Next() {
@@ -253,7 +254,9 @@ func (r *CategoryRepository) GetCategoryStats(ctx context.Context, categoryID ui
 		INNER JOIN video_sub_categories vsc ON vsc.id = v.video_sub_category_id
 		WHERE vsc.video_category_id = ?
 	`
-	r.db.QueryRowContext(ctx, videoQuery, categoryID).Scan(&stats.VideosCount)
+	if err := r.db.QueryRowContext(ctx, videoQuery, categoryID).Scan(&stats.VideosCount); err != nil {
+		return nil, fmt.Errorf("failed to get videos count: %w", err)
+	}
 
 	// Get views count
 	viewQuery := `
@@ -263,7 +266,9 @@ func (r *CategoryRepository) GetCategoryStats(ctx context.Context, categoryID ui
 		INNER JOIN video_sub_categories vsc ON vsc.id = vid.video_sub_category_id
 		WHERE v.viewable_type = 'App\\Models\\Video' AND vsc.video_category_id = ?
 	`
-	r.db.QueryRowContext(ctx, viewQuery, categoryID).Scan(&stats.ViewsCount)
+	if err := r.db.QueryRowContext(ctx, viewQuery, categoryID).Scan(&stats.ViewsCount); err != nil {
+		return nil, fmt.Errorf("failed to get views count: %w", err)
+	}
 
 	// Get likes count
 	likeQuery := `
@@ -273,7 +278,9 @@ func (r *CategoryRepository) GetCategoryStats(ctx context.Context, categoryID ui
 		INNER JOIN video_sub_categories vsc ON vsc.id = vid.video_sub_category_id
 		WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 1 AND vsc.video_category_id = ?
 	`
-	r.db.QueryRowContext(ctx, likeQuery, categoryID).Scan(&stats.LikesCount)
+	if err := r.db.QueryRowContext(ctx, likeQuery, categoryID).Scan(&stats.LikesCount); err != nil {
+		return nil, fmt.Errorf("failed to get likes count: %w", err)
+	}
 
 	// Get dislikes count
 	dislikeQuery := `
@@ -283,7 +290,9 @@ func (r *CategoryRepository) GetCategoryStats(ctx context.Context, categoryID ui
 		INNER JOIN video_sub_categories vsc ON vsc.id = vid.video_sub_category_id
 		WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 0 AND vsc.video_category_id = ?
 	`
-	r.db.QueryRowContext(ctx, dislikeQuery, categoryID).Scan(&stats.DislikesCount)
+	if err := r.db.QueryRowContext(ctx, dislikeQuery, categoryID).Scan(&stats.DislikesCount); err != nil {
+		return nil, fmt.Errorf("failed to get dislikes count: %w", err)
+	}
 
 	return stats, nil
 }
@@ -294,7 +303,9 @@ func (r *CategoryRepository) GetSubCategoryStats(ctx context.Context, subCategor
 
 	// Get videos count
 	videoQuery := "SELECT COUNT(*) FROM videos WHERE video_sub_category_id = ?"
-	r.db.QueryRowContext(ctx, videoQuery, subCategoryID).Scan(&stats.VideosCount)
+	if err := r.db.QueryRowContext(ctx, videoQuery, subCategoryID).Scan(&stats.VideosCount); err != nil {
+		return nil, fmt.Errorf("failed to get videos count: %w", err)
+	}
 
 	// Get views count
 	viewQuery := `
@@ -303,7 +314,9 @@ func (r *CategoryRepository) GetSubCategoryStats(ctx context.Context, subCategor
 		INNER JOIN videos vid ON vid.id = v.viewable_id
 		WHERE v.viewable_type = 'App\\Models\\Video' AND vid.video_sub_category_id = ?
 	`
-	r.db.QueryRowContext(ctx, viewQuery, subCategoryID).Scan(&stats.ViewsCount)
+	if err := r.db.QueryRowContext(ctx, viewQuery, subCategoryID).Scan(&stats.ViewsCount); err != nil {
+		return nil, fmt.Errorf("failed to get views count: %w", err)
+	}
 
 	// Get likes count
 	likeQuery := `
@@ -312,7 +325,9 @@ func (r *CategoryRepository) GetSubCategoryStats(ctx context.Context, subCategor
 		INNER JOIN videos vid ON vid.id = i.likeable_id
 		WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 1 AND vid.video_sub_category_id = ?
 	`
-	r.db.QueryRowContext(ctx, likeQuery, subCategoryID).Scan(&stats.LikesCount)
+	if err := r.db.QueryRowContext(ctx, likeQuery, subCategoryID).Scan(&stats.LikesCount); err != nil {
+		return nil, fmt.Errorf("failed to get likes count: %w", err)
+	}
 
 	// Get dislikes count
 	dislikeQuery := `
@@ -321,7 +336,9 @@ func (r *CategoryRepository) GetSubCategoryStats(ctx context.Context, subCategor
 		INNER JOIN videos vid ON vid.id = i.likeable_id
 		WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 0 AND vid.video_sub_category_id = ?
 	`
-	r.db.QueryRowContext(ctx, dislikeQuery, subCategoryID).Scan(&stats.DislikesCount)
+	if err := r.db.QueryRowContext(ctx, dislikeQuery, subCategoryID).Scan(&stats.DislikesCount); err != nil {
+		return nil, fmt.Errorf("failed to get dislikes count: %w", err)
+	}
 
 	return stats, nil
 }

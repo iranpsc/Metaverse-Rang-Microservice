@@ -1,3 +1,4 @@
+// Package sadad provides a client for the Sadad payment gateway.
 package sadad
 
 import (
@@ -107,7 +108,7 @@ type RequestParams struct {
 	MerchantID       string
 	TerminalID       string
 	SignData         string // base64-encoded TripleDES merchant key used to generate request SignData
-	OrderId          int64
+	OrderID          int64
 	Amount           int64 // Rials
 	ReturnURL        string
 	LocalDateTime    string            // if empty, current Tehran datetime is used
@@ -141,7 +142,7 @@ type multiplexedPaymentRequestBody struct {
 	TerminalID       string           `json:"TerminalId"`
 	MerchantID       string           `json:"MerchantId"`
 	Amount           int64            `json:"Amount"`
-	OrderId          int64            `json:"OrderId"`
+	OrderID          int64            `json:"OrderId"`
 	LocalDateTime    string           `json:"LocalDateTime"`
 	ReturnURL        string           `json:"ReturnUrl"`
 	SignData         string           `json:"SignData"`
@@ -152,7 +153,7 @@ type paymentRequestBody struct {
 	TerminalID    string `json:"TerminalId"`
 	MerchantID    string `json:"MerchantId"`
 	Amount        int64  `json:"Amount"`
-	OrderId       int64  `json:"OrderId"`
+	OrderID       int64  `json:"OrderId"`
 	LocalDateTime string `json:"LocalDateTime"`
 	ReturnURL     string `json:"ReturnUrl"`
 	SignData      string `json:"SignData"`
@@ -190,7 +191,7 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 	}
 
 	signedPayload, err := generateSignData(
-		fmt.Sprintf("%s;%d;%d", params.TerminalID, params.OrderId, params.Amount),
+		fmt.Sprintf("%s;%d;%d", params.TerminalID, params.OrderID, params.Amount),
 		params.SignData,
 	)
 	if err != nil {
@@ -207,7 +208,7 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 			TerminalID:       params.TerminalID,
 			MerchantID:       params.MerchantID,
 			Amount:           params.Amount,
-			OrderId:          params.OrderId,
+			OrderID:          params.OrderID,
 			LocalDateTime:    localDateTime,
 			ReturnURL:        params.ReturnURL,
 			SignData:         signedPayload,
@@ -218,7 +219,7 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 			TerminalID:    params.TerminalID,
 			MerchantID:    params.MerchantID,
 			Amount:        params.Amount,
-			OrderId:       params.OrderId,
+			OrderID:       params.OrderID,
 			LocalDateTime: localDateTime,
 			ReturnURL:     params.ReturnURL,
 			SignData:      signedPayload,
@@ -240,7 +241,7 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -294,7 +295,7 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 	if err != nil {
 		return nil, fmt.Errorf("failed to send verification request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -15,7 +15,7 @@ type MockFTPClient struct {
 
 func NewMockFTPClient(baseDir, baseURL string) *MockFTPClient {
 	// Create base directory if it doesn't exist
-	os.MkdirAll(baseDir, 0755)
+	_ = os.MkdirAll(baseDir, 0755)
 
 	return &MockFTPClient{
 		baseDir: baseDir,
@@ -39,7 +39,7 @@ func (c *MockFTPClient) UploadFile(remotePath string, data io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Copy data
 	if _, err := io.Copy(file, data); err != nil {

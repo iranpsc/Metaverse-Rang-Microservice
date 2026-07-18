@@ -228,14 +228,6 @@ func (s *kycService) validateKYCInput(fname, lname, melliCode, birthdate, provin
 	return nil
 }
 
-// validateIranianNationalCode validates Iranian national code using the helpers package
-func (s *kycService) validateIranianNationalCode(code string) bool {
-	cv := helpers.NewCustomValidator()
-	return cv.Validate(struct {
-		Code string `validate:"required,iranian_national_code"`
-	}{Code: code}) == nil
-}
-
 // hasApprovedKYC matches Laravel User::verified() (kyc.status === 1).
 func (s *kycService) hasApprovedKYC(ctx context.Context, userID uint64) (bool, error) {
 	kyc, err := s.kycRepo.FindByUserID(ctx, userID)

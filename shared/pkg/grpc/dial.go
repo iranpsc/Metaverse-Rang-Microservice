@@ -1,3 +1,4 @@
+// Package grpcutil provides shared gRPC client and server dial helpers.
 package grpcutil
 
 import (
@@ -45,13 +46,14 @@ func NewClient(target string, extra ...grpc.DialOption) (*grpc.ClientConn, error
 	return grpc.NewClient(target, opts...)
 }
 
-// DialContext dials a gRPC server with a timeout, TLS, and service-auth propagation.
+// DialContext dials a gRPC server with TLS and service-auth propagation.
 func DialContext(ctx context.Context, target string, extra ...grpc.DialOption) (*grpc.ClientConn, error) {
+	_ = ctx
 	opts, err := ClientDialOptions(extra...)
 	if err != nil {
 		return nil, err
 	}
-	return grpc.DialContext(ctx, target, opts...)
+	return grpc.NewClient(target, opts...)
 }
 
 // DialContextWithTimeout dials with the given timeout (blocking until connected or deadline).

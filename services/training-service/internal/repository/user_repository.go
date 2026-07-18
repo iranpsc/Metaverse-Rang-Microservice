@@ -101,7 +101,7 @@ func (r *UserRepository) getProfilePhotoFromDB(ctx context.Context, userID uint6
 		LIMIT 1
 	`
 	var photoURL sql.NullString
-	r.db.QueryRowContext(ctx, photoQuery, userID).Scan(&photoURL)
+	_ = r.db.QueryRowContext(ctx, photoQuery, userID).Scan(&photoURL)
 	if photoURL.Valid {
 		return photoURL.String
 	}

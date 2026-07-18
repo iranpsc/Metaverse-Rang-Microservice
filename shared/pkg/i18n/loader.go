@@ -1,3 +1,4 @@
+// Package i18n loads and serves localized message catalogs.
 package i18n
 
 import (

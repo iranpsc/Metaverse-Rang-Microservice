@@ -65,7 +65,7 @@ func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featur
 	}
 
 	if minimumPricePercentage < minAllowed {
-		return fmt.Errorf("حداقل درصد قیمت مجاز برای شما %d%% می‌باشد", minAllowed)
+		return fmt.Errorf("حداقل درصد قیمت مجاز برای شما %d%% می\u200cباشد", minAllowed)
 	}
 
 	// Calculate pricing

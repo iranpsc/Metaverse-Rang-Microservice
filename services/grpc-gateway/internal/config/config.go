@@ -1,3 +1,4 @@
+// Package config loads configuration for the gRPC gateway service.
 package config
 
 import (

@@ -76,7 +76,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Configure connection pool
 	db.SetMaxOpenConns(25)
@@ -99,7 +99,7 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: failed to dial commercial service at %s — wallet updates disabled: %v", commercialAddr, err)
 	} else {
-		defer commercialConn.Close()
+		defer func() { _ = commercialConn.Close() }()
 		log.Printf("Connected to commercial service at %s", commercialAddr)
 		walletClient = commercialpb.NewWalletServiceClient(commercialConn)
 	}
@@ -111,7 +111,7 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: failed to dial notifications service at %s — payment SMS disabled: %v", notificationsAddr, err)
 	} else {
-		defer notificationsConn.Close()
+		defer func() { _ = notificationsConn.Close() }()
 		log.Printf("Connected to notifications service at %s", notificationsAddr)
 		smsClient = notificationspb.NewSMSServiceClient(notificationsConn)
 	}
@@ -185,7 +185,7 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: failed to dial auth service at %s — user auth disabled: %v", authServiceAddr, err)
 	} else {
-		defer authConn.Close()
+		defer func() { _ = authConn.Close() }()
 		log.Printf("Connected to auth service at %s", authServiceAddr)
 	}
 

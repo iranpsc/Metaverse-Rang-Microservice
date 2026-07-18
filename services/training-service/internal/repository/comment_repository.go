@@ -67,7 +67,7 @@ func (r *CommentRepository) GetComments(ctx context.Context, videoID uint64, pag
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get comments: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var comments []*models.Comment
 	for rows.Next() {
@@ -222,7 +222,7 @@ func (r *CommentRepository) GetReplies(ctx context.Context, commentID uint64, pa
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get replies: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var replies []*models.Comment
 	for rows.Next() {
@@ -301,15 +301,21 @@ func (r *CommentRepository) GetCommentStats(ctx context.Context, commentID uint6
 
 	// Get likes count
 	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\Models\\Comment' AND likeable_id = ? AND liked = 1"
-	r.db.QueryRowContext(ctx, likeQuery, commentID).Scan(&stats.LikesCount)
+	if err := r.db.QueryRowContext(ctx, likeQuery, commentID).Scan(&stats.LikesCount); err != nil {
+		return nil, fmt.Errorf("failed to get likes count: %w", err)
+	}
 
 	// Get dislikes count
 	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\Models\\Comment' AND likeable_id = ? AND liked = 0"
-	r.db.QueryRowContext(ctx, dislikeQuery, commentID).Scan(&stats.DislikesCount)
+	if err := r.db.QueryRowContext(ctx, dislikeQuery, commentID).Scan(&stats.DislikesCount); err != nil {
+		return nil, fmt.Errorf("failed to get dislikes count: %w", err)
+	}
 
 	// Get replies count
 	replyQuery := "SELECT COUNT(*) FROM comments WHERE parent_id = ?"
-	r.db.QueryRowContext(ctx, replyQuery, commentID).Scan(&stats.RepliesCount)
+	if err := r.db.QueryRowContext(ctx, replyQuery, commentID).Scan(&stats.RepliesCount); err != nil {
+		return nil, fmt.Errorf("failed to get replies count: %w", err)
+	}
 
 	return stats, nil
 }
@@ -341,7 +347,7 @@ func (r *CommentRepository) GetUserInteractionsForComments(ctx context.Context, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get comment interactions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var commentID uint64

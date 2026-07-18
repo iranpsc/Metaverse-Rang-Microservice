@@ -55,7 +55,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to prepare database connection: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := pingDatabase(db); err != nil {
 		log.Fatalf("Failed to ping database: %v", err)

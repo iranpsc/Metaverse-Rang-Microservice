@@ -59,6 +59,7 @@ func (h *AuthHandler) GetProfileLimitations(w http.ResponseWriter, r *http.Reque
 		"data": profileLimitationResourceJSON(resp.Data, callerUserID),
 	})
 }
+
 // ============================================================================
 // Profile Limitation Service Handlers
 // ============================================================================

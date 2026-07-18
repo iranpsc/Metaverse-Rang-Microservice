@@ -1,3 +1,4 @@
+// Package handler implements gRPC handlers for notifications.
 package handler
 
 import (

@@ -1,3 +1,4 @@
+// Package config provides configuration utilities for the financial service.
 package config
 
 import (

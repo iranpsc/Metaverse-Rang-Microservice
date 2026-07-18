@@ -71,7 +71,7 @@ func (r *followRepository) GetFollowers(ctx context.Context, userID uint64) ([]u
 	if err != nil {
 		return nil, fmt.Errorf("failed to get followers: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var followers []uint64
 	for rows.Next() {
@@ -97,7 +97,7 @@ func (r *followRepository) GetFollowing(ctx context.Context, userID uint64) ([]u
 	if err != nil {
 		return nil, fmt.Errorf("failed to get following: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var following []uint64
 	for rows.Next() {

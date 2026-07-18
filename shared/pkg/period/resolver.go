@@ -1,3 +1,4 @@
+// Package period resolves reporting periods for analytics and summaries.
 package period
 
 import (

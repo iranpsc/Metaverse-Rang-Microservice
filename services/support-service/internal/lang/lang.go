@@ -1,3 +1,4 @@
+// Package lang provides locale and translation helpers for the support service.
 package lang
 
 import (

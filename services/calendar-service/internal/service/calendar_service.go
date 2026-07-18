@@ -1,3 +1,4 @@
+// Package service implements calendar business logic.
 package service
 
 import (

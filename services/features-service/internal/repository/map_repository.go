@@ -31,7 +31,7 @@ func (r *MapRepository) FindAll(ctx context.Context) ([]*models.Map, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query maps: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	maps := []*models.Map{}
 	for rows.Next() {
@@ -97,7 +97,7 @@ func (r *MapRepository) FindFeaturesByMapID(ctx context.Context, mapID uint64) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to query features: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	features := []*models.MapFeature{}
 	for rows.Next() {

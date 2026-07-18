@@ -1,3 +1,4 @@
+// Package lang provides localized message helpers for the training service.
 package lang
 
 import (

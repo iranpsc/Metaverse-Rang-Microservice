@@ -1,3 +1,4 @@
+// Package mocks provides test doubles for the levels service.
 package mocks
 
 import (

@@ -35,14 +35,3 @@ func validateRequired(fieldName string, value interface{}, locale string) map[st
 
 	return validationErrors
 }
-
-// mergeValidationErrors merges multiple validation error maps
-func mergeValidationErrors(errors ...map[string]string) map[string]string {
-	result := make(map[string]string)
-	for _, errs := range errors {
-		for field, msg := range errs {
-			result[field] = msg
-		}
-	}
-	return result
-}

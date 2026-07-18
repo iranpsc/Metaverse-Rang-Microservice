@@ -209,14 +209,13 @@ func (h *FeaturesHandler) AddMyFeatureImages(w http.ResponseWriter, r *http.Requ
 			writeError(w, http.StatusBadRequest, "failed to read file")
 			return
 		}
+		defer func() { _ = file.Close() }()
 
 		data := make([]byte, fileHeader.Size)
 		if _, err := file.Read(data); err != nil {
-			file.Close()
 			writeError(w, http.StatusBadRequest, "failed to read file data")
 			return
 		}
-		file.Close()
 
 		imageData = append(imageData, data)
 		filenames = append(filenames, fileHeader.Filename)

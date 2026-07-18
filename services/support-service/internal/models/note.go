@@ -1,3 +1,4 @@
+// Package models defines domain types for the support service.
 package models
 
 import (

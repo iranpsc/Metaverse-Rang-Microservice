@@ -93,7 +93,7 @@ func (r *UserLogRepository) UpdateScore(ctx context.Context, userID uint64, scor
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Update user_logs
 	_, err = tx.ExecContext(ctx, "UPDATE user_logs SET score = ?, updated_at = NOW() WHERE user_id = ?", fmt.Sprintf("%d", score), userID)

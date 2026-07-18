@@ -1,3 +1,4 @@
+// Package jalali converts between Gregorian and Jalali calendar dates.
 package jalali
 
 import (
@@ -66,7 +67,7 @@ func CarbonToJalaliDateTime(t time.Time) string {
 
 // gregorianToJalali converts Gregorian date to Jalali date
 func gregorianToJalali(gy, gm, gd int) (jy, jm, jd int) {
-	var g_d_m = []int{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334}
+	gDM := []int{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334}
 
 	if gy > 1600 {
 		jy = 979
@@ -79,7 +80,7 @@ func gregorianToJalali(gy, gm, gd int) (jy, jm, jd int) {
 	if gm > 2 {
 		gy2 := gy + 1
 		if (gy2%4 == 0 && gy2%100 != 0) || (gy2%400 == 0) {
-			g_d_m[2] = 60
+			gDM[2] = 60
 		}
 	}
 
@@ -91,7 +92,7 @@ func gregorianToJalali(gy, gm, gd int) (jy, jm, jd int) {
 		}
 	}
 
-	days := 365*gy + ((gy + 3) / 4) - ((gy + 99) / 100) + ((gy + 399) / 400) + gd + g_d_m[gm-1] - 1
+	days := 365*gy + ((gy + 3) / 4) - ((gy + 99) / 100) + ((gy + 399) / 400) + gd + gDM[gm-1] - 1
 
 	jy += 33 * (days / 12053)
 	days %= 12053

@@ -1,3 +1,4 @@
+// Package lang provides locale and translation helpers for the dynasty service.
 package lang
 
 import (

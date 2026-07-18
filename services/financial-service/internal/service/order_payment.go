@@ -48,7 +48,7 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 		MerchantID:       s.sadadConfig.SadadMerchantID,
 		TerminalID:       s.sadadConfig.SadadTerminalID,
 		SignData:         s.sadadConfig.SadadTransactionKey,
-		OrderId:          int64(orderID),
+		OrderID:          int64(orderID),
 		Amount:           amountRials,
 		ReturnURL:        returnURL,
 		MultiplexingData: multiplexingData,
@@ -273,15 +273,15 @@ func (s *orderService) markOrderAndTransactionFailed(ctx context.Context, order 
 	statusCode := parseStatusCode(resCode)
 
 	order.Status = statusCode
-	s.orderRepo.Update(ctx, order)
+	_ = s.orderRepo.Update(ctx, order)
 
 	transaction.Status = statusCode
-	s.transactionRepo.Update(ctx, transaction)
+	_ = s.transactionRepo.Update(ctx, transaction)
 }
 
 func (s *orderService) markOrderFailed(ctx context.Context, order *models.Order, resCode string) {
 	order.Status = parseStatusCode(resCode)
-	s.orderRepo.Update(ctx, order)
+	_ = s.orderRepo.Update(ctx, order)
 }
 
 func parseStatusCode(resCode string) int32 {

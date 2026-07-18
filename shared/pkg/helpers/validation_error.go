@@ -22,11 +22,11 @@ func EncodeValidationError(fields map[string]string) string {
 	if len(fields) == 0 {
 		return ""
 	}
-	
+
 	data := ValidationErrorData{
 		Fields: fields,
 	}
-	
+
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		// Fallback: return first error message
@@ -35,7 +35,7 @@ func EncodeValidationError(fields map[string]string) string {
 		}
 		return "validation error"
 	}
-	
+
 	return string(jsonData)
 }
 
@@ -49,11 +49,11 @@ func DecodeValidationError(errorMsg string) (map[string]string, bool) {
 			return data.Fields, true
 		}
 	}
-	
+
 	// If not JSON, check if it's a simple error message that might map to a field
 	// This handles cases where services return simple error messages
 	errorMsgLower := strings.ToLower(errorMsg)
-	
+
 	// Common field mappings based on error message content
 	fieldMappings := map[string][]string{
 		"code":           {"code", "verification code", "otp", "verification"},
@@ -81,7 +81,7 @@ func DecodeValidationError(errorMsg string) (map[string]string, bool) {
 		"asset":          {"asset"},
 		"codes":          {"codes"},
 	}
-	
+
 	// Try to find a matching field
 	for field, keywords := range fieldMappings {
 		for _, keyword := range keywords {
@@ -90,7 +90,7 @@ func DecodeValidationError(errorMsg string) (map[string]string, bool) {
 			}
 		}
 	}
-	
+
 	return nil, false
 }
 
@@ -99,12 +99,12 @@ func FormatValidationErrorMessage(fields map[string]string, locale string) strin
 	if len(fields) == 0 {
 		return GetLocaleTranslations(locale).Invalid
 	}
-	
+
 	// Return the first error message
 	for _, msg := range fields {
 		return msg
 	}
-	
+
 	return GetLocaleTranslations(locale).Invalid
 }
 
@@ -123,4 +123,3 @@ func MergeValidationErrors(errors ...map[string]string) map[string]string {
 	}
 	return result
 }
-

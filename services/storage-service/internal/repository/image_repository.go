@@ -1,3 +1,4 @@
+// Package repository provides data access for the storage service.
 package repository
 
 import (
@@ -59,7 +60,7 @@ func (r *ImageRepository) GetImages(ctx context.Context, imageableType string, i
 	if err != nil {
 		return nil, fmt.Errorf("failed to get images: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var images []*models.Image
 	for rows.Next() {

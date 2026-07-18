@@ -63,7 +63,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	db := conn.DB
 	log.Println("Successfully connected to database")
 
@@ -88,7 +88,7 @@ func main() {
 	if err != nil {
 		log.Printf("Warning: Failed to connect to auth service - authentication disabled: %v", err)
 	} else {
-		defer authConn.Close()
+		defer func() { _ = authConn.Close() }()
 		log.Printf("Connected to auth service at %s", authServiceAddr)
 	}
 

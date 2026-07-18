@@ -410,9 +410,9 @@ func (h *FeaturesHandler) GetBuildPackage(w http.ResponseWriter, r *http.Request
 	models := make([]map[string]interface{}, 0, len(resp.Models))
 	for _, model := range resp.Models {
 		var images, attributes, file interface{}
-		json.Unmarshal([]byte(model.Images), &images)
-		json.Unmarshal([]byte(model.Attributes), &attributes)
-		json.Unmarshal([]byte(model.File), &file)
+		_ = json.Unmarshal([]byte(model.Images), &images)
+		_ = json.Unmarshal([]byte(model.Attributes), &attributes)
+		_ = json.Unmarshal([]byte(model.File), &file)
 
 		modelMap := map[string]interface{}{
 			"id":                    model.Id,
@@ -541,9 +541,9 @@ func (h *FeaturesHandler) GetBuildings(w http.ResponseWriter, r *http.Request) {
 	for _, building := range resp.Buildings {
 		var modelImages, modelAttributes, modelFile interface{}
 		if building.Model != nil {
-			json.Unmarshal([]byte(building.Model.Images), &modelImages)
-			json.Unmarshal([]byte(building.Model.Attributes), &modelAttributes)
-			json.Unmarshal([]byte(building.Model.File), &modelFile)
+			_ = json.Unmarshal([]byte(building.Model.Images), &modelImages)
+			_ = json.Unmarshal([]byte(building.Model.Attributes), &modelAttributes)
+			_ = json.Unmarshal([]byte(building.Model.File), &modelFile)
 
 			buildingMap := map[string]interface{}{
 				"id":                    building.Model.Id,

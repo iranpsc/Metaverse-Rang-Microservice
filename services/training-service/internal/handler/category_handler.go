@@ -1,3 +1,4 @@
+// Package handler provides gRPC handlers for the training service.
 package handler
 
 import (

@@ -124,7 +124,7 @@ func (r *kycRepository) FindBankAccountsByUserID(ctx context.Context, userID uin
 	if err != nil {
 		return nil, fmt.Errorf("failed to find bank accounts: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var accounts []*models.BankAccount
 	for rows.Next() {

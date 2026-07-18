@@ -1,3 +1,5 @@
+// Package service implements business logic for the features service.
+//
 // BuyRequestService (this file) is a legacy alternate implementation of buy-request flows that mirrors
 // MarketplaceService. It is not constructed in cmd/server/main.go; production uses MarketplaceService
 // for all FeatureMarketplaceService RPCs. Kept for reference and potential extraction of shared helpers.
@@ -76,7 +78,7 @@ func (s *BuyRequestService) SendBuyRequest(ctx context.Context, buyerID, feature
 	actualPercentage := (totalRequestedPrice / totalFeaturePrice) * 100
 
 	if actualPercentage < floorPercentage {
-		return 0, fmt.Errorf("شما مجاز به ارسال درخواست خرید به کمتر از %.0f%% قیمت ملک نمی باشید!", floorPercentage)
+		return 0, fmt.Errorf("شما مجاز به ارسال درخواست خرید به کمتر از %.0f%% قیمت ملک نمی باشید", floorPercentage)
 	}
 
 	// Calculate amounts with fees
@@ -102,7 +104,7 @@ func (s *BuyRequestService) SendBuyRequest(ctx context.Context, buyerID, feature
 	}
 	if err := s.commercialClient.DeductBalance(ctx, buyerID, "irr", buyerChargeIRR); err != nil {
 		// Rollback PSC
-		s.commercialClient.AddBalance(ctx, buyerID, "psc", buyerChargePSC)
+		_ = s.commercialClient.AddBalance(ctx, buyerID, "psc", buyerChargePSC)
 		return 0, fmt.Errorf("failed to lock IRR: %w", err)
 	}
 
@@ -112,8 +114,8 @@ func (s *BuyRequestService) SendBuyRequest(ctx context.Context, buyerID, feature
 	}
 
 	// Create transactions via gRPC
-	s.commercialClient.CreateTransaction(ctx, buyerID, "psc", buyerChargePSC, "withdraw", 0, "App\\Models\\BuyFeatureRequest", requestID)
-	s.commercialClient.CreateTransaction(ctx, buyerID, "irr", buyerChargeIRR, "withdraw", 0, "App\\Models\\BuyFeatureRequest", requestID)
+	_, _ = s.commercialClient.CreateTransaction(ctx, buyerID, "psc", buyerChargePSC, "withdraw", 0, "App\\Models\\BuyFeatureRequest", requestID)
+	_, _ = s.commercialClient.CreateTransaction(ctx, buyerID, "irr", buyerChargeIRR, "withdraw", 0, "App\\Models\\BuyFeatureRequest", requestID)
 
 	s.log.Info("Buy request created with locked assets",
 		"request_id", requestID,
@@ -174,8 +176,8 @@ func (s *BuyRequestService) AcceptBuyRequest(ctx context.Context, requestID, sel
 	// Pay RGB platform via gRPC (fee × 2)
 	rgbUserID, err := s.getRGBUserID(ctx)
 	if err == nil {
-		s.commercialClient.AddBalance(ctx, rgbUserID, "psc", pscFee*2)
-		s.commercialClient.AddBalance(ctx, rgbUserID, "irr", irrFee*2)
+		_ = s.commercialClient.AddBalance(ctx, rgbUserID, "psc", pscFee*2)
+		_ = s.commercialClient.AddBalance(ctx, rgbUserID, "irr", irrFee*2)
 	}
 
 	// Create trade
@@ -188,8 +190,8 @@ func (s *BuyRequestService) AcceptBuyRequest(ctx context.Context, requestID, sel
 	s.createCommission(ctx, tradeID, pscFee*2, irrFee*2)
 
 	// Create transactions for seller via gRPC
-	s.commercialClient.CreateTransaction(ctx, sellerID, "psc", pscAmount-pscFee, "deposit", 1, "App\\Models\\Trade", tradeID)
-	s.commercialClient.CreateTransaction(ctx, sellerID, "irr", irrAmount-irrFee, "deposit", 1, "App\\Models\\Trade", tradeID)
+	_, _ = s.commercialClient.CreateTransaction(ctx, sellerID, "psc", pscAmount-pscFee, "deposit", 1, "App\\Models\\Trade", tradeID)
+	_, _ = s.commercialClient.CreateTransaction(ctx, sellerID, "irr", irrAmount-irrFee, "deposit", 1, "App\\Models\\Trade", tradeID)
 
 	// Transfer ownership
 	if err := s.featureRepo.UpdateOwner(ctx, feature.ID, buyRequest.BuyerID); err != nil {
@@ -217,15 +219,15 @@ func (s *BuyRequestService) AcceptBuyRequest(ctx context.Context, requestID, sel
 
 	oldProfit, _ := s.hourlyProfitRepo.GetByFeatureAndUser(ctx, feature.ID, sellerID)
 	if oldProfit != nil && oldProfit.Amount > 0 {
-		s.commercialClient.AddBalance(ctx, sellerID, oldProfit.Asset, oldProfit.Amount)
+		_ = s.commercialClient.AddBalance(ctx, sellerID, oldProfit.Asset, oldProfit.Amount)
 	}
 
-	s.hourlyProfitRepo.TransferProfitToNewOwner(ctx, feature.ID, sellerID, buyRequest.BuyerID, withdrawProfitDays)
+	_ = s.hourlyProfitRepo.TransferProfitToNewOwner(ctx, feature.ID, sellerID, buyRequest.BuyerID, withdrawProfitDays)
 
 	// Update request and delete locked asset
-	s.buyRequestRepo.UpdateStatus(ctx, requestID, 1)
-	s.buyRequestRepo.SoftDelete(ctx, requestID)
-	s.lockedAssetRepo.Delete(ctx, requestID)
+	_ = s.buyRequestRepo.UpdateStatus(ctx, requestID, 1)
+	_ = s.buyRequestRepo.SoftDelete(ctx, requestID)
+	_ = s.lockedAssetRepo.Delete(ctx, requestID)
 
 	// Cancel other requests and refund
 	allRequests, _ := s.buyRequestRepo.GetAllForFeature(ctx, buyRequest.FeatureID)
@@ -236,7 +238,7 @@ func (s *BuyRequestService) AcceptBuyRequest(ctx context.Context, requestID, sel
 	}
 
 	// Update sell requests
-	s.sellRequestRepo.UpdateAllForFeatureToCompleted(ctx, buyRequest.FeatureID)
+	_ = s.sellRequestRepo.UpdateAllForFeatureToCompleted(ctx, buyRequest.FeatureID)
 
 	s.log.Info("Buy request accepted",
 		"request_id", requestID,
@@ -262,12 +264,12 @@ func (s *BuyRequestService) refundBuyRequest(ctx context.Context, requestID uint
 	}
 
 	// Refund buyer via gRPC
-	s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", lockedAsset.PSC)
-	s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", lockedAsset.IRR)
+	_ = s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", lockedAsset.PSC)
+	_ = s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", lockedAsset.IRR)
 
 	// Delete locked asset and soft delete request
-	s.lockedAssetRepo.Delete(ctx, requestID)
-	s.buyRequestRepo.SoftDelete(ctx, requestID)
+	_ = s.lockedAssetRepo.Delete(ctx, requestID)
+	_ = s.buyRequestRepo.SoftDelete(ctx, requestID)
 
 	s.log.Info("Buy request refunded", "request_id", requestID, "buyer_id", buyRequest.BuyerID)
 }
@@ -318,7 +320,7 @@ func (s *BuyRequestService) getRGBUserID(ctx context.Context) (uint64, error) {
 
 func (s *BuyRequestService) getUserName(ctx context.Context, userID uint64) string {
 	var name string
-	s.db.QueryRowContext(ctx, "SELECT name FROM users WHERE id = ?", userID).Scan(&name)
+	_ = s.db.QueryRowContext(ctx, "SELECT name FROM users WHERE id = ?", userID).Scan(&name)
 	return name
 }
 
@@ -341,7 +343,7 @@ func (s *BuyRequestService) getUserVariableWithdrawProfit(ctx context.Context, u
 
 func (s *BuyRequestService) createCommission(ctx context.Context, tradeID uint64, psc, irr float64) {
 	query := "INSERT INTO comissions (trade_id, psc, irr, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())"
-	s.db.ExecContext(ctx, query, tradeID, psc, irr)
+	_, _ = s.db.ExecContext(ctx, query, tradeID, psc, irr)
 }
 
 // ListBuyRequests lists all buy requests for a buyer

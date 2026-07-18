@@ -1,3 +1,4 @@
+// Package handler implements gRPC handlers for social features.
 package handler
 
 import (

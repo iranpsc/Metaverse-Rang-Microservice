@@ -1,3 +1,4 @@
+// Package handler provides gRPC handlers for the auth service.
 package handler
 
 import (
@@ -227,10 +228,6 @@ func (h *authHandler) VerifyAccountSecurity(ctx context.Context, req *pb.VerifyA
 		return nil, mapAccountSecurityErrorWithFields(err, h.locale)
 	}
 	return &emptypb.Empty{}, nil
-}
-
-func mapAccountSecurityError(err error, locale string) error {
-	return mapAccountSecurityErrorWithFields(err, locale)
 }
 
 func mapAccountSecurityErrorWithFields(err error, locale string) error {

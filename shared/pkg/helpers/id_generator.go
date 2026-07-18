@@ -30,10 +30,10 @@ func (g *IDGenerator) GenerateUUID() string {
 func (g *IDGenerator) GenerateTransactionID() string {
 	now := time.Now()
 	dateStr := now.Format("20060102")
-	
+
 	// Generate 6 character random alphanumeric suffix
 	suffix := g.randomAlphanumeric(6)
-	
+
 	return fmt.Sprintf("TRX-%s-%s", dateStr, suffix)
 }
 
@@ -84,4 +84,3 @@ func ParseFeaturePropertyID(id string) (prefix string, postfix uint64, err error
 	}
 	return prefix, p, nil
 }
-

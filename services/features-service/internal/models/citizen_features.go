@@ -1,3 +1,4 @@
+// Package models defines data models for the features service.
 package models
 
 import "time"

@@ -68,7 +68,7 @@ func (r *VideoRepository) GetVideos(ctx context.Context, page, perPage int32, ca
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get videos: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var videos []*models.Video
 	for rows.Next() {
@@ -185,7 +185,7 @@ func (r *VideoRepository) SearchVideos(ctx context.Context, searchTerm string, p
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to search videos: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var videos []*models.Video
 	for rows.Next() {
@@ -216,19 +216,27 @@ func (r *VideoRepository) GetVideoStats(ctx context.Context, videoID uint64) (*m
 
 	// Get views count
 	viewQuery := "SELECT COUNT(*) FROM views WHERE viewable_type = 'App\\Models\\Video' AND viewable_id = ?"
-	r.db.QueryRowContext(ctx, viewQuery, videoID).Scan(&stats.ViewsCount)
+	if err := r.db.QueryRowContext(ctx, viewQuery, videoID).Scan(&stats.ViewsCount); err != nil {
+		return nil, fmt.Errorf("failed to get views count: %w", err)
+	}
 
 	// Get likes count
 	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\Models\\Video' AND likeable_id = ? AND liked = 1"
-	r.db.QueryRowContext(ctx, likeQuery, videoID).Scan(&stats.LikesCount)
+	if err := r.db.QueryRowContext(ctx, likeQuery, videoID).Scan(&stats.LikesCount); err != nil {
+		return nil, fmt.Errorf("failed to get likes count: %w", err)
+	}
 
 	// Get dislikes count
 	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\Models\\Video' AND likeable_id = ? AND liked = 0"
-	r.db.QueryRowContext(ctx, dislikeQuery, videoID).Scan(&stats.DislikesCount)
+	if err := r.db.QueryRowContext(ctx, dislikeQuery, videoID).Scan(&stats.DislikesCount); err != nil {
+		return nil, fmt.Errorf("failed to get dislikes count: %w", err)
+	}
 
 	// Get comments count
 	commentQuery := "SELECT COUNT(*) FROM comments WHERE commentable_type = 'App\\Models\\Video' AND commentable_id = ? AND parent_id IS NULL"
-	r.db.QueryRowContext(ctx, commentQuery, videoID).Scan(&stats.CommentsCount)
+	if err := r.db.QueryRowContext(ctx, commentQuery, videoID).Scan(&stats.CommentsCount); err != nil {
+		return nil, fmt.Errorf("failed to get comments count: %w", err)
+	}
 
 	return stats, nil
 }

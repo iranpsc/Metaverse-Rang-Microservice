@@ -146,7 +146,7 @@ func (r *LevelRepository) GetLevelsBelowScore(ctx context.Context, score int32) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var levels []*pb.Level
 	for rows.Next() {
@@ -229,7 +229,7 @@ func (r *LevelRepository) GetAllLevels(ctx context.Context) ([]*pb.Level, error)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var levels []*pb.Level
 	for rows.Next() {

@@ -86,7 +86,7 @@ func main() {
 
 	// Open database using connector
 	db := sql.OpenDB(connector)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Configure connection pool
 	db.SetMaxOpenConns(25)
@@ -119,7 +119,7 @@ func main() {
 		log.Printf("Warning: Failed to connect to auth service at %s: %v (falling back to direct DB queries)", authServiceAddr, err)
 		authClient = nil
 	} else {
-		defer authClient.Close()
+		defer func() { _ = authClient.Close() }()
 		log.Printf("Successfully connected to auth service at %s", authServiceAddr)
 	}
 

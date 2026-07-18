@@ -64,7 +64,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Configure connection pool
 	db.SetMaxOpenConns(25)

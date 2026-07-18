@@ -1,3 +1,4 @@
+// Package models defines domain types for the training service.
 package models
 
 import "time"

@@ -74,7 +74,7 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}, skipWrap ...
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {

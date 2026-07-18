@@ -241,16 +241,3 @@ func (h *FinancialHandler) GetStorePackages(w http.ResponseWriter, r *http.Reque
 
 	writeJSON(w, http.StatusOK, packages)
 }
-
-// Helper function (deprecated - use helpers.WriteValidationErrorResponseFromMap instead)
-// This function is kept for backward compatibility but should not be used in new code
-func writeValidationErrorWithErrors(w http.ResponseWriter, message string, errors map[string][]string) {
-	// Convert map[string][]string to map[string]string (take first error for each field)
-	errorsMap := make(map[string]string)
-	for field, errs := range errors {
-		if len(errs) > 0 {
-			errorsMap[field] = errs[0]
-		}
-	}
-	helpers.WriteValidationErrorResponseFromMap(w, errorsMap, "en")
-}

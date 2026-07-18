@@ -5,7 +5,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	commonpb "metarang/shared/pb/common"
@@ -207,17 +206,4 @@ func getStringValue(s *string) string {
 		return ""
 	}
 	return *s
-}
-
-// getIPAddress extracts IP address from context metadata
-func (h *VideoHandler) getIPAddress(ctx context.Context) string {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if ips := md.Get("x-forwarded-for"); len(ips) > 0 {
-			return ips[0]
-		}
-		if ips := md.Get("x-real-ip"); len(ips) > 0 {
-			return ips[0]
-		}
-	}
-	return "unknown"
 }

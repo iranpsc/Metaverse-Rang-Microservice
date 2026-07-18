@@ -53,7 +53,7 @@ func (r *GeometryRepository) GetCoordinatesByFeatureID(ctx context.Context, feat
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	coordinates := []string{}
 	for rows.Next() {
@@ -105,7 +105,7 @@ func (r *GeometryRepository) GetByFeatureIDs(ctx context.Context, featureIDs []u
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		geometry := &models.Geometry{}
@@ -139,7 +139,7 @@ func (r *GeometryRepository) GetCoordinatesByFeatureIDs(ctx context.Context, fea
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		coord := &models.Coordinate{}
@@ -170,7 +170,7 @@ func (r *GeometryRepository) GetCoordinatesWithIDs(ctx context.Context, featureI
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	coordinates := []*models.Coordinate{}
 	for rows.Next() {

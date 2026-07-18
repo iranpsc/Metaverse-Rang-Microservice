@@ -1,3 +1,4 @@
+// Package handler implements gRPC handlers for the commercial service.
 package handler
 
 import (

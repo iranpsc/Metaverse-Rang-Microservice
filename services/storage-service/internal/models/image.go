@@ -1,3 +1,4 @@
+// Package models defines domain types for the storage service.
 package models
 
 import "time"

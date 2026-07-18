@@ -1,3 +1,4 @@
+// Package grpcclients provides gRPC client adapters for the financial service.
 package grpcclients
 
 import (

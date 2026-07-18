@@ -99,7 +99,7 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	geometryIDs := []uint64{}
 	for rows.Next() {
@@ -135,7 +135,7 @@ func (r *FeatureRepository) FindByBoundingBox(ctx context.Context, points []stri
 	if err != nil {
 		return nil, err
 	}
-	defer featureRows.Close()
+	defer func() { _ = featureRows.Close() }()
 
 	features := []*models.Feature{}
 	for featureRows.Next() {
@@ -176,7 +176,7 @@ func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context,
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	geometryIDs := []uint64{}
 	for rows.Next() {
@@ -211,7 +211,7 @@ func (r *FeatureRepository) FindByBoundingBoxWithProperties(ctx context.Context,
 	if err != nil {
 		return nil, nil, err
 	}
-	defer featureRows.Close()
+	defer func() { _ = featureRows.Close() }()
 
 	features := []*models.Feature{}
 	propertiesList := []*models.FeatureProperties{}
@@ -247,7 +247,7 @@ func (r *FeatureRepository) FindByOwner(ctx context.Context, ownerID uint64) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	features := []*models.Feature{}
 	for rows.Next() {
@@ -325,7 +325,7 @@ func (r *FeatureRepository) FindByOwnerPaginated(ctx context.Context, ownerID ui
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	features := []*models.Feature{}
 	propertiesList := []*models.FeatureProperties{}

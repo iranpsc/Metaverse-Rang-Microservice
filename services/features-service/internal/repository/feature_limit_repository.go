@@ -93,7 +93,7 @@ func (r *FeatureLimitRepository) GetActiveLimitations(ctx context.Context) ([]*m
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	limits := []*models.FeatureLimit{}
 	for rows.Next() {

@@ -45,26 +45,6 @@ func (h *SupportHandler) getAuthUserID(r *http.Request) (uint64, error) {
 	return userCtx.UserID, nil
 }
 
-func userEventStatusLabel(ok bool) string {
-	if ok {
-		return "موفق"
-	}
-	return "ناموفق"
-}
-
-// displayNameFromAuth returns a short display name for ticket responses (Laravel uses user name).
-func (h *SupportHandler) displayNameFromAuth(r *http.Request) string {
-	userCtx, err := middleware.GetUserFromRequest(r)
-	if err != nil || userCtx == nil || userCtx.Email == "" {
-		return "User"
-	}
-	email := userCtx.Email
-	if i := strings.Index(email, "@"); i > 0 {
-		return email[:i]
-	}
-	return email
-}
-
 // ============================================================================
 // Tickets API
 // ============================================================================

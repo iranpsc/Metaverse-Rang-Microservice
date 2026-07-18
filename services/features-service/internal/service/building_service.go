@@ -305,7 +305,7 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	// 10. Deactivate hourly profits for this feature
 	if err := s.hourlyProfitRepo.DeactivateProfitsForFeature(ctx, req.FeatureId); err != nil {
 		// Refund wallet on error
-		s.commercialClient.AddBalance(ctx, user.UserID, "satisfaction", launchedSatisfaction)
+		_ = s.commercialClient.AddBalance(ctx, user.UserID, "satisfaction", launchedSatisfaction)
 		return nil, fmt.Errorf("failed to deactivate profits: %w", err)
 	}
 
@@ -320,8 +320,8 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 		constructionStartDate, constructionEndDate, bubbleDiameter)
 	if err != nil {
 		// Rollback: reactivate profits and refund wallet on error
-		s.hourlyProfitRepo.ActivateProfitsForFeature(ctx, req.FeatureId)
-		s.commercialClient.AddBalance(ctx, user.UserID, "satisfaction", launchedSatisfaction)
+		_ = s.hourlyProfitRepo.ActivateProfitsForFeature(ctx, req.FeatureId)
+		_ = s.commercialClient.AddBalance(ctx, user.UserID, "satisfaction", launchedSatisfaction)
 		return nil, fmt.Errorf("failed to create building: %w", err)
 	}
 

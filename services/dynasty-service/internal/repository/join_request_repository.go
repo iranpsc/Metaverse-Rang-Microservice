@@ -86,7 +86,7 @@ func (r *JoinRequestRepository) GetSentRequests(ctx context.Context, userID uint
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get sent requests: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var requests []*models.JoinRequest
 	for rows.Next() {
@@ -132,7 +132,7 @@ func (r *JoinRequestRepository) GetReceivedRequests(ctx context.Context, userID 
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get received requests: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var requests []*models.JoinRequest
 	for rows.Next() {

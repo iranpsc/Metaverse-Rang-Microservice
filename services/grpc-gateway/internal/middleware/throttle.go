@@ -138,7 +138,7 @@ func ThrottleMiddleware(maxRequests int, period time.Duration) func(http.Handler
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Retry-After", formatRetryAfter(period))
 				w.WriteHeader(http.StatusTooManyRequests)
-				w.Write([]byte(`{"error":"rate limit exceeded"}`))
+				_, _ = w.Write([]byte(`{"error":"rate limit exceeded"}`))
 				return
 			}
 

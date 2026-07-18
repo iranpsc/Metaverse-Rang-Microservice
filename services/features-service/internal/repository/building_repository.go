@@ -1,3 +1,4 @@
+// Package repository provides data access for the features service.
 package repository
 
 import (
@@ -154,7 +155,7 @@ func (r *BuildingRepository) FindByFeatureID(ctx context.Context, featureID uint
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	buildings := []*pb.Building{}
 	for rows.Next() {
@@ -284,7 +285,7 @@ func (r *BuildingRepository) FindByFeatureIDs(ctx context.Context, featureIDs []
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		building := &pb.Building{}
@@ -591,7 +592,7 @@ func (r *BuildingRepository) FindCompleted(ctx context.Context, now time.Time, l
 	if err != nil {
 		return nil, fmt.Errorf("failed to list completed buildings: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make([]models.CompletedBuildingRow, 0)
 	for rows.Next() {

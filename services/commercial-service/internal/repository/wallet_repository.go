@@ -186,7 +186,7 @@ func (r *walletRepository) LockBalance(ctx context.Context, userID uint64, asset
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Deduct from wallet
 	query := fmt.Sprintf(`
@@ -228,7 +228,7 @@ func (r *walletRepository) UnlockBalance(ctx context.Context, userID uint64, ass
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Add back to wallet
 	query := fmt.Sprintf(`

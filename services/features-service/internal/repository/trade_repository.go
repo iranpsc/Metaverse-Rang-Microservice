@@ -96,7 +96,7 @@ type SellerInfo struct {
 	Code string
 }
 
-// GetLatestForSeller gets the most recent underpriced trade for a seller
+// GetLatestUnderpricedForSeller gets the most recent underpriced trade for a seller.
 func (r *TradeRepository) GetLatestUnderpricedForSeller(ctx context.Context, sellerID, featureID uint64) (*models.Trade, error) {
 	trade := &models.Trade{}
 
@@ -178,7 +178,7 @@ func (r *TradeRepository) ListByFeatureWithDetails(ctx context.Context, featureI
 	if err != nil {
 		return nil, fmt.Errorf("list trades for feature %d: %w", featureID, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	trades := make([]models.TradeHistoryTrade, 0)
 	tradeIDs := make([]uint64, 0)
@@ -228,7 +228,7 @@ func (r *TradeRepository) ListByFeatureWithDetails(ctx context.Context, featureI
 	if err != nil {
 		return nil, fmt.Errorf("list trade transactions: %w", err)
 	}
-	defer txRows.Close()
+	defer func() { _ = txRows.Close() }()
 
 	for txRows.Next() {
 		var payableID uint64

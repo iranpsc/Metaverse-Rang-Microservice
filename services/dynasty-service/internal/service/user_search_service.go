@@ -49,7 +49,7 @@ func (s *UserSearchService) SearchUsers(
 	if err != nil {
 		return nil, fmt.Errorf("failed to search users: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []*UserSearchResult
 	for rows.Next() {

@@ -1,3 +1,4 @@
+// Package service implements business logic for the storage service.
 package service
 
 import (
@@ -197,20 +198,20 @@ func (cm *ChunkManager) CleanupSession(uploadID string) error {
 // Format: {hash}.{ext} (e.g., "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6.jpg")
 func (cm *ChunkManager) createUniqueFilename(originalFilename string, fileData []byte) string {
 	ext := filepath.Ext(originalFilename)
-	
+
 	// Create MD5 hash of file content for unique identification
 	hash := md5.New()
 	hash.Write(fileData)
 	hashSum := hash.Sum(nil)
-	
+
 	// Use first 16 characters of hash (32 hex characters = 16 bytes)
 	hashStr := fmt.Sprintf("%x", hashSum)
-	
+
 	// If no extension, use empty string
 	if ext == "" {
 		return hashStr
 	}
-	
+
 	return fmt.Sprintf("%s%s", hashStr, ext)
 }
 
@@ -224,7 +225,7 @@ func (cm *ChunkManager) cleanupExpiredSessions() {
 		now := time.Now()
 		for uploadID, session := range cm.sessions {
 			if now.Sub(session.CreatedAt) > 24*time.Hour {
-				os.RemoveAll(session.TempDir)
+				_ = os.RemoveAll(session.TempDir)
 				delete(cm.sessions, uploadID)
 			}
 		}

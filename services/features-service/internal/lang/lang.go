@@ -1,3 +1,4 @@
+// Package lang provides localized message strings for the features service.
 package lang
 
 import (

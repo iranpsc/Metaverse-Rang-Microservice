@@ -1,3 +1,4 @@
+// Package handler provides gRPC handlers for the features service.
 package handler
 
 import (
@@ -56,7 +57,7 @@ func (h *BuildingHandler) BuildFeature(ctx context.Context, req *pb.BuildFeature
 		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
 	}
 	if strings.TrimSpace(req.BuildingModelId) == "" {
-		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "building_model_id is required"))
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "building_model_id is required"))
 	}
 
 	featureResp, err := h.service.BuildFeature(ctx, req)
@@ -104,7 +105,7 @@ func (h *BuildingHandler) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
 	}
 	if strings.TrimSpace(req.BuildingModelId) == "" {
-		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "building_model_id is required"))
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "building_model_id is required"))
 	}
 
 	building, err := h.service.UpdateBuilding(ctx, req)
@@ -136,7 +137,7 @@ func (h *BuildingHandler) DestroyBuilding(ctx context.Context, req *pb.DestroyBu
 		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
 	}
 	if strings.TrimSpace(req.BuildingModelId) == "" {
-		return nil, status.Errorf(codes.InvalidArgument, lang.T(locale, "building_model_id is required"))
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "building_model_id is required"))
 	}
 
 	// Get authenticated user (ownership check should be done in service)

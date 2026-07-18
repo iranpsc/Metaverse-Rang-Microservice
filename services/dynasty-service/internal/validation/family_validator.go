@@ -1,3 +1,4 @@
+// Package validation provides request validation for the dynasty service.
 package validation
 
 import (

@@ -1,3 +1,4 @@
+// Package handler implements gRPC handlers for the dynasty service.
 package handler
 
 import (

@@ -1,3 +1,4 @@
+// Package constants provides configuration and domain constants for the features service.
 package constants
 
 // RGB System Configuration Constants

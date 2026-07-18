@@ -80,4 +80,3 @@ func (r *VariableRepository) InvalidateCache(asset string) {
 	defer r.mu.Unlock()
 	delete(r.cache, asset)
 }
-

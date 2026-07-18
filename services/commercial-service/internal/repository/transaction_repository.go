@@ -210,7 +210,7 @@ func (r *transactionRepository) FindByUserID(ctx context.Context, userID uint64,
 	if err != nil {
 		return nil, fmt.Errorf("failed to query transactions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var transactions []*models.Transaction
 	for rows.Next() {

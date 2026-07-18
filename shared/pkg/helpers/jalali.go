@@ -3,7 +3,7 @@ package helpers
 import (
 	"fmt"
 	"time"
-	
+
 	ptime "github.com/yaa110/go-persian-calendar"
 )
 
@@ -43,13 +43,13 @@ func ParseJalaliDate(jalaliDate string) (time.Time, error) {
 		// If it's a valid Gregorian date, return it as-is
 		return time.Parse("2006/01/02", jalaliDate)
 	}
-	
+
 	// Try parsing as Jalali date components
 	_, err = fmt.Sscanf(jalaliDate, "%d/%d/%d", &year, &month, &day)
 	if err != nil {
 		return time.Time{}, err
 	}
-	
+
 	// Create a Persian time and convert to Gregorian
 	pt := ptime.Date(year, ptime.Month(month), day, 0, 0, 0, 0, ptime.Iran())
 	return pt.Time(), nil
@@ -64,7 +64,7 @@ func ParseJalaliDateTime(jalaliDateTime string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
-	
+
 	// Create a Persian time and convert to Gregorian
 	pt := ptime.Date(year, ptime.Month(month), day, hour, min, sec, 0, ptime.Iran())
 	return pt.Time(), nil

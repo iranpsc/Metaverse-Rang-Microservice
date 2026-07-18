@@ -1,3 +1,4 @@
+// Package repository provides data access for the financial service.
 package repository
 
 import (

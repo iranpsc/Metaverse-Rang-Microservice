@@ -1,3 +1,4 @@
+// Package formatter shapes API responses for the dynasty service.
 package formatter
 
 import (

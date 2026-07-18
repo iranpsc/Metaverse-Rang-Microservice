@@ -184,14 +184,14 @@ func (s *JoinRequestService) AcceptJoinRequest(ctx context.Context, requestID, u
 				ESOO:     defaultPerms.ESOO,
 				COTB:     defaultPerms.COTB,
 			}
-			s.joinRequestRepo.CreateChildPermission(ctx, childPerm)
+			_ = s.joinRequestRepo.CreateChildPermission(ctx, childPerm)
 		}
 	} else if receiverUserUnder18 && request.Relationship == "offspring" {
 		// Verify existing permissions
 		existingPerm, _ := s.joinRequestRepo.GetChildPermission(ctx, userID)
 		if existingPerm != nil {
 			existingPerm.Verified = true
-			s.joinRequestRepo.UpdateChildPermission(ctx, userID, existingPerm)
+			_ = s.joinRequestRepo.UpdateChildPermission(ctx, userID, existingPerm)
 		}
 	}
 

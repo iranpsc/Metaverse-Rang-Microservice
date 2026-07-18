@@ -125,7 +125,7 @@ func (r *FamilyRepository) GetFamilyMembers(ctx context.Context, familyID uint64
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get family members: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var members []*models.FamilyMember
 	for rows.Next() {

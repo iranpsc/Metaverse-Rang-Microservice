@@ -158,7 +158,7 @@ func (s *MarketplaceService) handleLimitedFeature(ctx context.Context, feature *
 	if limitation.PriceLimit {
 		hasBalance, err := s.commercialClient.CheckBalance(ctx, buyerID, color, properties.Stability)
 		if err != nil || !hasBalance {
-			return fmt.Errorf("برای خرید این ملک شما نیاز به %.2f لیتر رنگ %s دارید!",
+			return fmt.Errorf("برای خرید این ملک شما نیاز به %.2f لیتر رنگ %s دارید",
 				properties.Stability, constants.GetColorPersian(properties.Karbari))
 		}
 	}
@@ -171,7 +171,7 @@ func (s *MarketplaceService) handleLimitedFeature(ctx context.Context, feature *
 	// Credit seller's color wallet via gRPC
 	if err := s.commercialClient.AddBalance(ctx, feature.OwnerID, color, properties.Stability); err != nil {
 		// Rollback buyer deduction
-		s.commercialClient.AddBalance(ctx, buyerID, color, properties.Stability)
+		_ = s.commercialClient.AddBalance(ctx, buyerID, color, properties.Stability)
 		return fmt.Errorf("failed to credit seller wallet: %w", err)
 	}
 
@@ -262,7 +262,7 @@ func (s *MarketplaceService) buyFromRGB(ctx context.Context, feature *models.Fea
 	// Check buyer balance via gRPC
 	hasBalance, err := s.commercialClient.CheckBalance(ctx, buyerID, color, properties.Stability)
 	if err != nil || !hasBalance {
-		return fmt.Errorf("برای خرید این ملک شما نیاز به %.2f لیتر رنگ %s دارید!",
+		return fmt.Errorf("برای خرید این ملک شما نیاز به %.2f لیتر رنگ %s دارید",
 			properties.Stability, constants.GetColorPersian(properties.Karbari))
 	}
 
@@ -274,7 +274,7 @@ func (s *MarketplaceService) buyFromRGB(ctx context.Context, feature *models.Fea
 	// Credit RGB's wallet via gRPC
 	if err := s.commercialClient.AddBalance(ctx, feature.OwnerID, color, properties.Stability); err != nil {
 		// Rollback
-		s.commercialClient.AddBalance(ctx, buyerID, color, properties.Stability)
+		_ = s.commercialClient.AddBalance(ctx, buyerID, color, properties.Stability)
 		return err
 	}
 
@@ -383,7 +383,7 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 	}
 	if err := s.commercialClient.DeductBalance(ctx, buyerID, "irr", buyerChargeIRR); err != nil {
 		// Rollback PSC
-		s.commercialClient.AddBalance(ctx, buyerID, "psc", buyerChargePSC)
+		_ = s.commercialClient.AddBalance(ctx, buyerID, "psc", buyerChargePSC)
 		return err
 	}
 
@@ -398,8 +398,8 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 	// Pay RGB platform via gRPC
 	rgbUserID, err := s.getRGBUserID(ctx)
 	if err == nil {
-		s.commercialClient.AddBalance(ctx, rgbUserID, "psc", platformFeePSC)
-		s.commercialClient.AddBalance(ctx, rgbUserID, "irr", platformFeeIRR)
+		_ = s.commercialClient.AddBalance(ctx, rgbUserID, "psc", platformFeePSC)
+		_ = s.commercialClient.AddBalance(ctx, rgbUserID, "irr", platformFeeIRR)
 	}
 
 	// Create trade
@@ -409,7 +409,7 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 	}
 
 	// Create commission via direct SQL (Commercial service doesn't have commission endpoint yet)
-	s.createCommission(ctx, tradeID, platformFeePSC, platformFeeIRR)
+	_ = s.createCommission(ctx, tradeID, platformFeePSC, platformFeeIRR)
 
 	// Transfer ownership
 	if err := s.featureRepo.UpdateOwner(ctx, feature.ID, buyerID); err != nil {
@@ -559,7 +559,7 @@ func (s *MarketplaceService) createCommissionWithTx(ctx context.Context, tx *sql
 
 func parseFloat(s string) float64 {
 	var f float64
-	fmt.Sscanf(s, "%f", &f)
+	_, _ = fmt.Sscanf(s, "%f", &f)
 	return f
 }
 
@@ -605,7 +605,7 @@ func (s *MarketplaceService) SendBuyRequest(ctx context.Context, req *pb.SendBuy
 	actualPercentage := (totalRequestedPrice / totalFeaturePrice) * 100
 
 	if actualPercentage < floorPercentage {
-		return nil, fmt.Errorf("شما مجاز به ارسال درخواست خرید به کمتر از %.0f%% قیمت ملک نمی باشید!", floorPercentage)
+		return nil, fmt.Errorf("شما مجاز به ارسال درخواست خرید به کمتر از %.0f%% قیمت ملک نمی باشید", floorPercentage)
 	}
 
 	// Calculate amounts with fees
@@ -617,10 +617,10 @@ func (s *MarketplaceService) SendBuyRequest(ctx context.Context, req *pb.SendBuy
 		hasPSC, _ := s.commercialClient.CheckBalance(ctx, buyerID, "psc", buyerChargePSC)
 		hasIRR, _ := s.commercialClient.CheckBalance(ctx, buyerID, "irr", buyerChargeIRR)
 		if !hasPSC {
-			return nil, fmt.Errorf("موجودی psc شما کافی نیست!")
+			return nil, fmt.Errorf("موجودی psc شما کافی نیست")
 		}
 		if !hasIRR {
-			return nil, fmt.Errorf("موجودی ریال شما کافی نیست!")
+			return nil, fmt.Errorf("موجودی ریال شما کافی نیست")
 		}
 	}
 
@@ -637,7 +637,7 @@ func (s *MarketplaceService) SendBuyRequest(ctx context.Context, req *pb.SendBuy
 		}
 		if err := s.commercialClient.DeductBalance(ctx, buyerID, "irr", buyerChargeIRR); err != nil {
 			// Rollback PSC
-			s.commercialClient.AddBalance(ctx, buyerID, "psc", buyerChargePSC)
+			_ = s.commercialClient.AddBalance(ctx, buyerID, "psc", buyerChargePSC)
 			return nil, fmt.Errorf("failed to lock IRR: %w", err)
 		}
 
@@ -647,8 +647,8 @@ func (s *MarketplaceService) SendBuyRequest(ctx context.Context, req *pb.SendBuy
 		}
 
 		// Create transactions via gRPC
-		s.commercialClient.CreateTransaction(ctx, buyerID, "psc", buyerChargePSC, "withdraw", 0, "App\\Models\\BuyFeatureRequest", requestID)
-		s.commercialClient.CreateTransaction(ctx, buyerID, "irr", buyerChargeIRR, "withdraw", 0, "App\\Models\\BuyFeatureRequest", requestID)
+		_, _ = s.commercialClient.CreateTransaction(ctx, buyerID, "psc", buyerChargePSC, "withdraw", 0, "App\\Models\\BuyFeatureRequest", requestID)
+		_, _ = s.commercialClient.CreateTransaction(ctx, buyerID, "irr", buyerChargeIRR, "withdraw", 0, "App\\Models\\BuyFeatureRequest", requestID)
 	}
 
 	// Get the created request
@@ -738,15 +738,15 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 		}
 		if err := s.commercialClient.AddBalance(ctx, sellerID, "irr", irrAmount-irrFee); err != nil {
 			// Attempt rollback of PSC (best effort)
-			s.commercialClient.DeductBalance(ctx, sellerID, "psc", pscAmount-pscFee)
+			_ = s.commercialClient.DeductBalance(ctx, sellerID, "psc", pscAmount-pscFee)
 			return nil, fmt.Errorf("failed to pay seller IRR: %w", err)
 		}
 
 		// Pay RGB platform via gRPC (fee × 2)
 		rgbUserID, err := s.getRGBUserID(ctx)
 		if err == nil {
-			s.commercialClient.AddBalance(ctx, rgbUserID, "psc", pscFee*2)
-			s.commercialClient.AddBalance(ctx, rgbUserID, "irr", irrFee*2)
+			_ = s.commercialClient.AddBalance(ctx, rgbUserID, "psc", pscFee*2)
+			_ = s.commercialClient.AddBalance(ctx, rgbUserID, "irr", irrFee*2)
 		}
 
 		// Transfer hourly profit to seller if any
@@ -763,7 +763,7 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback() // Auto-rollback if not committed
+	defer func() { _ = tx.Rollback() }() // Auto-rollback if not committed
 
 	// Create trade within transaction
 	// Note: We need to use a transaction-aware version or execute directly
@@ -774,8 +774,8 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 
 	// Create transactions for seller via gRPC (outside transaction - these are external)
 	if s.commercialClient != nil {
-		s.commercialClient.CreateTransaction(ctx, sellerID, "psc", pscAmount-pscFee, "deposit", 1, "App\\Models\\Trade", tradeID)
-		s.commercialClient.CreateTransaction(ctx, sellerID, "irr", irrAmount-irrFee, "deposit", 1, "App\\Models\\Trade", tradeID)
+		_, _ = s.commercialClient.CreateTransaction(ctx, sellerID, "psc", pscAmount-pscFee, "deposit", 1, "App\\Models\\Trade", tradeID)
+		_, _ = s.commercialClient.CreateTransaction(ctx, sellerID, "irr", irrAmount-irrFee, "deposit", 1, "App\\Models\\Trade", tradeID)
 	}
 
 	// Create commission within transaction
@@ -1304,13 +1304,13 @@ func (s *MarketplaceService) refundBuyRequest(ctx context.Context, requestID uin
 
 	if s.commercialClient != nil {
 		// Refund buyer via gRPC
-		s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", lockedAsset.PSC)
-		s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", lockedAsset.IRR)
+		_ = s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", lockedAsset.PSC)
+		_ = s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", lockedAsset.IRR)
 	}
 
 	// Delete locked asset and soft delete request
-	s.lockedAssetRepo.Delete(ctx, requestID)
-	s.buyRequestRepo.SoftDelete(ctx, requestID)
+	_ = s.lockedAssetRepo.Delete(ctx, requestID)
+	_ = s.buyRequestRepo.SoftDelete(ctx, requestID)
 
 	s.log.Info("Buy request refunded", "request_id", requestID, "buyer_id", buyRequest.BuyerID)
 }
@@ -1343,7 +1343,7 @@ func (s *MarketplaceService) updateLockedAssetsMetrics(ctx context.Context) {
 
 func (s *MarketplaceService) getUserName(ctx context.Context, userID uint64) string {
 	var name string
-	s.db.QueryRowContext(ctx, "SELECT name FROM users WHERE id = ?", userID).Scan(&name)
+	_ = s.db.QueryRowContext(ctx, "SELECT name FROM users WHERE id = ?", userID).Scan(&name)
 	return name
 }
 

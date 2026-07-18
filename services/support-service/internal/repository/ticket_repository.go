@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"metarang/support-service/internal/models"
 )
 
@@ -136,10 +137,7 @@ func (r *ticketRepository) GetByID(ctx context.Context, ticketID uint64) (*model
 
 func (r *ticketRepository) GetByUserID(ctx context.Context, userID uint64, page, perPage int32, received bool) ([]*models.TicketWithRelations, int, error) {
 	// Count total tickets
-	countQuery := `
-		SELECT COUNT(*) FROM tickets 
-		WHERE user_id = ? OR reciever_id = ?
-	`
+	var countQuery string
 	if received {
 		countQuery = `SELECT COUNT(*) FROM tickets WHERE reciever_id = ?`
 	} else {
@@ -204,7 +202,7 @@ func (r *ticketRepository) GetByUserID(ctx context.Context, userID uint64, page,
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get tickets: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tickets []*models.TicketWithRelations
 	for rows.Next() {
@@ -286,7 +284,7 @@ func (r *ticketRepository) GetResponsesByTicketID(ctx context.Context, ticketID 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get responses: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var responses []models.TicketResponse
 	for rows.Next() {

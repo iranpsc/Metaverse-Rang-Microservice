@@ -124,7 +124,7 @@ func (h *kycHandler) UpdateKYC(ctx context.Context, req *pb.UpdateKYCRequest) (*
 
 	videoURL, err := h.promoteKYCVideo(ctx, req.Video.Path, req.Video.Name)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, lang.Tf(locale, "failed to promote kyc video: %v", err))
+		return nil, status.Errorf(codes.Internal, "%s", lang.Tf(locale, "failed to promote kyc video: %v", err))
 	}
 	melliCardURL = h.prependGatewayURL(melliCardURL)
 	videoURL = h.prependGatewayURL(videoURL)

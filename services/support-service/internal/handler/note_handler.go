@@ -1,7 +1,9 @@
+// Package handler implements gRPC handlers for the support service.
 package handler
 
 import (
 	"context"
+
 	"metarang/support-service/internal/models"
 	"metarang/support-service/internal/service"
 	"metarang/support-service/internal/utils"

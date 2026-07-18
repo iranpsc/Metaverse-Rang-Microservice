@@ -88,18 +88,6 @@ func validateMin(fieldName string, value int64, min int64, locale string) map[st
 	return validationErrors
 }
 
-// validateMinLength validates that a string has at least the minimum length
-func validateMinLength(fieldName string, value string, minLength int, locale string) map[string]string {
-	validationErrors := make(map[string]string)
-	t := helpers.GetLocaleTranslations(locale)
-
-	if len(value) < minLength {
-		validationErrors[fieldName] = fmt.Sprintf(t.Min, fieldName, fmt.Sprintf("%d", minLength))
-	}
-
-	return validationErrors
-}
-
 // validateOneOf validates that a string value is one of the allowed values
 func validateOneOf(fieldName string, value string, allowedValues []string, locale string) map[string]string {
 	validationErrors := make(map[string]string)

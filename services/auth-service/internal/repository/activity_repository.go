@@ -1,3 +1,4 @@
+// Package repository provides data access for the auth service.
 package repository
 
 import (
@@ -85,7 +86,7 @@ func (r *activityRepository) GetUserEventsByUserID(ctx context.Context, userID u
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user events: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []*models.UserEvent
 	for rows.Next() {
@@ -249,7 +250,7 @@ func (r *activityRepository) GetUserEventReportResponses(ctx context.Context, re
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user event report responses: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var responses []*models.UserEventReportResponse
 	for rows.Next() {

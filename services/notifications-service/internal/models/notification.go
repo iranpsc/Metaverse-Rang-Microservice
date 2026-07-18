@@ -1,3 +1,4 @@
+// Package models defines domain types for notifications.
 package models
 
 import "time"

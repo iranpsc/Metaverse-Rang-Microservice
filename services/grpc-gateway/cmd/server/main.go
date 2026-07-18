@@ -57,7 +57,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to auth service: %v", err)
 	}
-	defer authConn.Close()
+	defer func() { _ = authConn.Close() }()
 	log.Printf("✅ Created auth service client for %s (connection will be established on first RPC call)", cfg.AuthServiceAddr)
 
 	// Create connections to other services (with fallback if not configured)
@@ -70,7 +70,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️  Failed to connect to calendar service: %v", err)
 		} else {
-			defer calendarConn.Close()
+			defer func() { _ = calendarConn.Close() }()
 			log.Printf("✅ Connected to calendar service at %s", cfg.CalendarServiceAddr)
 		}
 	}
@@ -82,7 +82,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️  Failed to connect to dynasty service: %v", err)
 		} else {
-			defer dynastyConn.Close()
+			defer func() { _ = dynastyConn.Close() }()
 			log.Printf("✅ Connected to dynasty service at %s", cfg.DynastyServiceAddr)
 		}
 	}
@@ -94,7 +94,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️  Failed to connect to features service: %v", err)
 		} else {
-			defer featuresConn.Close()
+			defer func() { _ = featuresConn.Close() }()
 			log.Printf("✅ Connected to features service at %s", cfg.FeaturesServiceAddr)
 		}
 	}
@@ -106,7 +106,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️  Failed to connect to financial service: %v", err)
 		} else {
-			defer financialConn.Close()
+			defer func() { _ = financialConn.Close() }()
 			log.Printf("✅ Connected to financial service at %s", cfg.FinancialServiceAddr)
 		}
 	}
@@ -118,7 +118,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️  Failed to connect to commercial service: %v", err)
 		} else {
-			defer commercialConn.Close()
+			defer func() { _ = commercialConn.Close() }()
 			log.Printf("✅ Connected to commercial service at %s", cfg.CommercialServiceAddr)
 		}
 	}
@@ -132,7 +132,7 @@ func main() {
 			log.Printf("⚠️  Social routes will not be available until service is running")
 			socialConn = nil
 		} else {
-			defer socialConn.Close()
+			defer func() { _ = socialConn.Close() }()
 			log.Printf("✅ Connected to social service at %s", cfg.SocialServiceAddr)
 		}
 	} else {
@@ -146,7 +146,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️  Failed to connect to levels service: %v", err)
 		} else {
-			defer levelsConn.Close()
+			defer func() { _ = levelsConn.Close() }()
 			log.Printf("✅ Connected to levels service at %s", cfg.LevelsServiceAddr)
 		}
 	}
@@ -160,7 +160,7 @@ func main() {
 			log.Printf("⚠️  Training routes will not be available until service is running")
 			trainingConn = nil
 		} else {
-			defer trainingConn.Close()
+			defer func() { _ = trainingConn.Close() }()
 			log.Printf("✅ Connected to training service at %s", cfg.TrainingServiceAddr)
 		}
 	} else {
@@ -174,7 +174,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️  Failed to connect to support service: %v", err)
 		} else {
-			defer supportConn.Close()
+			defer func() { _ = supportConn.Close() }()
 			log.Printf("✅ Connected to support service at %s", cfg.SupportServiceAddr)
 		}
 	}
@@ -186,7 +186,7 @@ func main() {
 		if err != nil {
 			log.Printf("⚠️  Failed to connect to notification service: %v", err)
 		} else {
-			defer notificationConn.Close()
+			defer func() { _ = notificationConn.Close() }()
 			log.Printf("✅ Connected to notification service at %s", cfg.NotificationServiceAddr)
 		}
 	}
@@ -284,7 +284,7 @@ func main() {
 	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	// Guest-only auth routes (only accessible to unauthenticated users)
@@ -383,11 +383,12 @@ func main() {
 		return authMiddleware(authHandler.RequireVerifiedEmail(next))
 	}
 	mux.Handle("/api/bank-accounts", bankAccountsVerified(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			authHandler.ListBankAccounts(w, r)
-		} else if r.Method == http.MethodPost {
+		case http.MethodPost:
 			authHandler.CreateBankAccount(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))
@@ -436,49 +437,54 @@ func main() {
 
 	// Profile Photo routes
 	mux.Handle("/api/profilePhotos", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			authHandler.ListProfilePhotos(w, r)
-		} else if r.Method == http.MethodPost {
+		case http.MethodPost:
 			authHandler.UploadProfilePhoto(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))
 	mux.Handle("/api/profile-photos", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			authHandler.ListProfilePhotos(w, r)
-		} else if r.Method == http.MethodPost {
+		case http.MethodPost:
 			authHandler.UploadProfilePhoto(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))
 	mux.Handle("/api/profilePhotos/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			authHandler.GetProfilePhoto(w, r)
-		} else if r.Method == http.MethodDelete {
+		case http.MethodDelete:
 			authHandler.DeleteProfilePhoto(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))
 	mux.Handle("/api/profile-photos/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			authHandler.GetProfilePhoto(w, r)
-		} else if r.Method == http.MethodDelete {
+		case http.MethodDelete:
 			authHandler.DeleteProfilePhoto(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))
 
 	// Settings routes
 	mux.Handle("/api/settings", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			authHandler.GetSettings(w, r)
-		} else if r.Method == http.MethodPost {
+		case http.MethodPost:
 			authHandler.UpdateSettings(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))
@@ -497,11 +503,12 @@ func main() {
 		}
 	})))
 	mux.Handle("/api/privacy", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			authHandler.GetPrivacySettings(w, r)
-		} else if r.Method == http.MethodPost {
+		case http.MethodPost:
 			authHandler.UpdatePrivacySettings(w, r)
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	})))
@@ -579,11 +586,12 @@ func main() {
 		// GET /api/dynasty/requests/sent/{joinRequest} - View sent request
 		// DELETE /api/dynasty/requests/sent/{joinRequest} - Delete sent request
 		mux.Handle("/api/dynasty/requests/sent/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				dynastyHandler.GetSentRequest(w, r)
-			} else if r.Method == http.MethodDelete {
+			case http.MethodDelete:
 				dynastyHandler.DeleteJoinRequest(w, r)
-			} else {
+			default:
 				http.NotFound(w, r)
 			}
 		})))
@@ -600,13 +608,14 @@ func main() {
 		// POST /api/dynasty/requests/recieved/{joinRequest} - Accept request
 		// DELETE /api/dynasty/requests/recieved/{joinRequest} - Reject request
 		mux.Handle("/api/dynasty/requests/recieved/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				dynastyHandler.GetReceivedRequest(w, r)
-			} else if r.Method == http.MethodPost {
+			case http.MethodPost:
 				dynastyHandler.AcceptJoinRequest(w, r)
-			} else if r.Method == http.MethodDelete {
+			case http.MethodDelete:
 				dynastyHandler.RejectJoinRequest(w, r)
-			} else {
+			default:
 				http.NotFound(w, r)
 			}
 		})))
@@ -643,12 +652,13 @@ func main() {
 			}
 		})))
 		mux.Handle("/api/dynasty/prizes/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				// View prize handler would go here
 				http.NotFound(w, r)
-			} else if r.Method == http.MethodPost {
+			case http.MethodPost:
 				dynastyHandler.ClaimPrize(w, r)
-			} else {
+			default:
 				http.NotFound(w, r)
 			}
 		})))
@@ -858,20 +868,22 @@ func main() {
 						}
 					} else if len(parts) == 3 && parts[1] == "comments" {
 						// /api/tutorials/{video}/comments/{comment}
-						if r.Method == http.MethodPut || r.Method == http.MethodPost {
+						switch r.Method {
+						case http.MethodPut, http.MethodPost:
 							authMiddleware(http.HandlerFunc(trainingHandler.UpdateComment)).ServeHTTP(w, r)
-						} else if r.Method == http.MethodDelete {
+						case http.MethodDelete:
 							authMiddleware(http.HandlerFunc(trainingHandler.DeleteComment)).ServeHTTP(w, r)
-						} else {
+						default:
 							http.NotFound(w, r)
 						}
 					} else if len(parts) == 2 {
 						// /api/tutorials/{video}/comments
-						if r.Method == http.MethodGet {
+						switch r.Method {
+						case http.MethodGet:
 							trainingHandler.GetComments(w, r)
-						} else if r.Method == http.MethodPost {
+						case http.MethodPost:
 							authMiddleware(http.HandlerFunc(trainingHandler.AddComment)).ServeHTTP(w, r)
-						} else {
+						default:
 							http.NotFound(w, r)
 						}
 					} else {
@@ -920,11 +932,12 @@ func main() {
 					}
 				} else if len(parts) == 3 {
 					// /api/comments/{comment}/replies/{reply}
-					if r.Method == http.MethodPut {
+					switch r.Method {
+					case http.MethodPut:
 						trainingHandler.UpdateReply(w, r)
-					} else if r.Method == http.MethodDelete {
+					case http.MethodDelete:
 						trainingHandler.DeleteReply(w, r)
-					} else {
+					default:
 						http.NotFound(w, r)
 					}
 				} else if len(parts) == 4 && parts[3] == "interactions" {
@@ -973,11 +986,12 @@ func main() {
 	// Support routes
 	if supportHandler != nil {
 		mux.Handle("/api/support/tickets", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				supportHandler.ListTickets(w, r)
-			} else if r.Method == http.MethodPost {
+			case http.MethodPost:
 				supportHandler.CreateTicket(w, r)
-			} else {
+			default:
 				http.NotFound(w, r)
 			}
 		})))
@@ -996,11 +1010,12 @@ func main() {
 			}
 		})))
 		mux.Handle("/api/support/reports", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
+			switch r.Method {
+			case http.MethodGet:
 				supportHandler.ListReports(w, r)
-			} else if r.Method == http.MethodPost {
+			case http.MethodPost:
 				supportHandler.CreateReport(w, r)
-			} else {
+			default:
 				http.NotFound(w, r)
 			}
 		})))

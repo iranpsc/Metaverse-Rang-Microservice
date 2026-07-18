@@ -43,7 +43,7 @@ func (sg *SchemaGuard) ValidateTable(schema TableSchema) error {
 	if err != nil {
 		return fmt.Errorf("failed to query table schema for %s: %w", schema.Name, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	actualColumns := make(map[string]ColumnType)
 	for rows.Next() {
@@ -85,12 +85,12 @@ func matchesDataType(actual, expected string) bool {
 	if actual == expected {
 		return true
 	}
-	
+
 	// Handle base type matching (e.g., varchar matches varchar(191))
 	if len(actual) >= len(expected) && actual[:len(expected)] == expected {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -103,4 +103,3 @@ func (sg *SchemaGuard) ValidateTables(schemas []TableSchema) error {
 	}
 	return nil
 }
-

@@ -87,7 +87,7 @@ func (h *AuthHandler) UpdateKYC(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "melli_card file is required")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read full file body (multipart size may be unknown; single Read is not enough).
 	melliCardData, err := io.ReadAll(file)

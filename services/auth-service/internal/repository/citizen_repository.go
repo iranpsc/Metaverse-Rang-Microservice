@@ -173,7 +173,7 @@ func (r *citizenRepository) GetCitizenByCode(ctx context.Context, code string) (
 	`
 	rows, err := r.db.QueryContext(ctx, photosQuery, user.ID)
 	if err == nil {
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var photo models.ProfilePhoto
 			if err := rows.Scan(&photo.ID, &photo.URL); err == nil {
@@ -276,7 +276,7 @@ func (r *citizenRepository) GetCitizenReferrals(ctx context.Context, referrerID 
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get referrals: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var referrals []*models.CitizenReferral
 	for rows.Next() {
@@ -355,7 +355,7 @@ func (r *citizenRepository) GetCitizenReferralOrders(ctx context.Context, referr
 	if err != nil {
 		return nil, fmt.Errorf("failed to get referral orders: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var orders []*models.ReferrerOrder
 	for rows.Next() {
@@ -389,7 +389,7 @@ func (r *citizenRepository) GetCitizenReferralChartData(ctx context.Context, ref
 	if err != nil {
 		return nil, fmt.Errorf("failed to get referrals: %w", err)
 	}
-	defer referralRows.Close()
+	defer func() { _ = referralRows.Close() }()
 
 	var referralIDs []uint64
 	for referralRows.Next() {
@@ -484,7 +484,7 @@ func (r *citizenRepository) GetCitizenReferralChartData(ctx context.Context, ref
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chart data: %w", err)
 	}
-	defer chartRows.Close()
+	defer func() { _ = chartRows.Close() }()
 
 	var chartData []*models.ChartDataPoint
 	for chartRows.Next() {

@@ -81,7 +81,7 @@ func (r *SellRequestRepository) GetLatestUnderpricedForSeller(ctx context.Contex
 	return request, err
 }
 
-// UpdateStatus updates all sell requests for a feature to completed
+// UpdateAllForFeatureToCompleted updates all sell requests for a feature to completed.
 func (r *SellRequestRepository) UpdateAllForFeatureToCompleted(ctx context.Context, featureID uint64) error {
 	query := "UPDATE sell_feature_requests SET status = 1, updated_at = NOW() WHERE feature_id = ?"
 	_, err := r.db.ExecContext(ctx, query, featureID)
@@ -126,7 +126,7 @@ func (r *SellRequestRepository) ListBySellerID(ctx context.Context, sellerID uin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	requests := []*models.SellFeatureRequest{}
 	for rows.Next() {

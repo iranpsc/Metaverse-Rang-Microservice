@@ -1,3 +1,4 @@
+// Package logger provides structured logging helpers for services.
 package logger
 
 import (
@@ -121,4 +122,3 @@ func StreamServerInterceptor(logger *Logger) grpc.StreamServerInterceptor {
 		return err
 	}
 }
-

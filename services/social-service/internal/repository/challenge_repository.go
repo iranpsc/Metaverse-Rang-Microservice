@@ -1,3 +1,4 @@
+// Package repository provides data access for social features.
 package repository
 
 import (
@@ -91,7 +92,7 @@ func (r *challengeRepository) GetAnswersByQuestionID(ctx context.Context, questi
 	if err != nil {
 		return nil, fmt.Errorf("failed to get answers: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var answers []*models.Answer
 	for rows.Next() {

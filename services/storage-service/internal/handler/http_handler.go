@@ -1,3 +1,4 @@
+// Package handler provides HTTP and gRPC handlers for the storage service.
 package handler
 
 import (
@@ -27,7 +28,7 @@ func NewHTTPHandler(storageService *service.StorageService, uploadRoot string) *
 	}
 }
 
-// ChunkUploadRequest represents the HTTP request for chunk upload
+// ChunkUploadHTTPRequest represents the HTTP request for chunk upload
 type ChunkUploadHTTPRequest struct {
 	UploadID    string `json:"upload_id"`
 	ChunkIndex  int32  `json:"chunk_index"`
@@ -38,7 +39,7 @@ type ChunkUploadHTTPRequest struct {
 	UploadPath  string `json:"upload_path,omitempty"`
 }
 
-// ChunkUploadResponse represents the HTTP response for chunk upload
+// ChunkUploadHTTPResponse represents the HTTP response for chunk upload
 type ChunkUploadHTTPResponse struct {
 	Success        bool    `json:"success"`
 	Message        string  `json:"message"`
@@ -81,7 +82,7 @@ func (h *HTTPHandler) HandleChunkUpload(w http.ResponseWriter, r *http.Request) 
 		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("Failed to get file: %v", err))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read chunk data
 	chunkData, err := io.ReadAll(file)
@@ -155,13 +156,13 @@ func (h *HTTPHandler) HandleChunkUpload(w http.ResponseWriter, r *http.Request) 
 			"name":      finalFilename, // e.g., "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6.jpg"
 			"mime_type": mimeType,      // e.g., "image/jpeg"
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	} else {
 		// In-progress chunk: { "done": <float 0-100> }
 		response := map[string]interface{}{
 			"done": progress,
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}
 }
 
@@ -169,7 +170,7 @@ func (h *HTTPHandler) HandleChunkUpload(w http.ResponseWriter, r *http.Request) 
 func (h *HTTPHandler) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "healthy",
 		"service": "storage-service",
 		"version": "1.0.0",
@@ -180,7 +181,7 @@ func (h *HTTPHandler) HandleHealthCheck(w http.ResponseWriter, r *http.Request) 
 func (h *HTTPHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": false,
 		"error":   message,
 	})

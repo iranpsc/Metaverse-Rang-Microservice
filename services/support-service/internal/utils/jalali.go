@@ -1,3 +1,4 @@
+// Package utils provides shared utility helpers for the support service.
 package utils
 
 import (
@@ -39,7 +40,7 @@ func GregorianToJalali(t time.Time) JalaliDate {
 	gm := int(t.Month())
 	gd := t.Day()
 
-	var g_d_m = []int{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334}
+	gDM := []int{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334}
 
 	var jy int
 	if gy > 1600 {
@@ -53,11 +54,11 @@ func GregorianToJalali(t time.Time) JalaliDate {
 	if gm > 2 {
 		gy2 := gy + 1
 		if gy2%4 == 0 && (gy2%100 != 0 || gy2%400 == 0) {
-			g_d_m[2] = 60
+			gDM[2] = 60
 		}
 	} else {
 		if gy%4 == 0 && (gy%100 != 0 || gy%400 == 0) {
-			g_d_m[2] = 60
+			gDM[2] = 60
 		}
 	}
 
@@ -66,7 +67,7 @@ func GregorianToJalali(t time.Time) JalaliDate {
 		gy2++
 	}
 
-	days := 365*gy + ((gy2 + 3) / 4) - ((gy2 + 99) / 100) + ((gy2 + 399) / 400) - 80 + gd + g_d_m[gm-1]
+	days := 365*gy + ((gy2 + 3) / 4) - ((gy2 + 99) / 100) + ((gy2 + 399) / 400) - 80 + gd + gDM[gm-1]
 	jy += 33 * (days / 12053)
 	days %= 12053
 

@@ -136,20 +136,6 @@ func (s *DynastyServiceEnhanced) UpdateDynastyFeature(
 	return nil
 }
 
-// Helper function to get feature color based on karbari
-func getFeatureColor(karbari string) string {
-	switch karbari {
-	case "m": // maskoni (residential)
-		return "yellow"
-	case "t": // tejari (commercial)
-		return "red"
-	case "a": // amozeshi (educational)
-		return "blue"
-	default:
-		return "yellow"
-	}
-}
-
 // CalculateFeatureProfitIncrease calculates profit increase from stability
 // Implements Laravel: (stability / 10000 - 1) if stability > 10000, else 0
 func (s *DynastyServiceEnhanced) CalculateFeatureProfitIncrease(stability float64) string {

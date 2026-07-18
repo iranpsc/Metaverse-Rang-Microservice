@@ -1,3 +1,4 @@
+// Package service implements notification delivery and business logic.
 package service
 
 import (

@@ -62,7 +62,7 @@ func (s *StorageService) GetFile(filePath string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to download file: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
@@ -163,7 +163,7 @@ func (s *StorageService) HandleChunkUpload(uploadID, filename, contentType strin
 	// Assemble file
 	assembledData, relativePath, finalFilename, err := s.chunkManager.AssembleFile(session)
 	if err != nil {
-		s.chunkManager.CleanupSession(uploadID)
+		_ = s.chunkManager.CleanupSession(uploadID)
 		return false, 0, "", "", "", fmt.Errorf("failed to assemble file: %w", err)
 	}
 
@@ -172,13 +172,13 @@ func (s *StorageService) HandleChunkUpload(uploadID, filename, contentType strin
 
 	// Create directory if it doesn't exist
 	if err := os.MkdirAll(localDir, 0755); err != nil {
-		s.chunkManager.CleanupSession(uploadID)
+		_ = s.chunkManager.CleanupSession(uploadID)
 		return false, 0, "", "", "", fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
 	// Write file to local storage
 	if err := os.WriteFile(localPath, assembledData, 0644); err != nil {
-		s.chunkManager.CleanupSession(uploadID)
+		_ = s.chunkManager.CleanupSession(uploadID)
 		return false, 0, "", "", "", fmt.Errorf("failed to save file: %w", err)
 	}
 
@@ -190,7 +190,7 @@ func (s *StorageService) HandleChunkUpload(uploadID, filename, contentType strin
 	pathDir := resolveChunkPublicDir(relativePath, uploadSubdir, customUpload)
 
 	// Cleanup session
-	s.chunkManager.CleanupSession(uploadID)
+	_ = s.chunkManager.CleanupSession(uploadID)
 
 	return true, 100.0, pathDir, finalFilename, mimeType, nil
 }

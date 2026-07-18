@@ -36,7 +36,7 @@ func (c *FTPClient) Connect() error {
 	}
 
 	if err := conn.Login(c.user, c.password); err != nil {
-		conn.Quit()
+		_ = conn.Quit()
 		return fmt.Errorf("failed to login to FTP: %w", err)
 	}
 

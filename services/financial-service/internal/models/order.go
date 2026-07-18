@@ -1,3 +1,4 @@
+// Package models defines domain types for the financial service.
 package models
 
 import "time"

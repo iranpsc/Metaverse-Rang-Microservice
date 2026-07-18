@@ -1,3 +1,4 @@
+// Package errs defines sentinel errors for the notifications service.
 package errs
 
 import "errors"

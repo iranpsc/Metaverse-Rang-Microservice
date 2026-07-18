@@ -1,3 +1,4 @@
+// Package lang provides localized strings for the financial service.
 package lang
 
 import (

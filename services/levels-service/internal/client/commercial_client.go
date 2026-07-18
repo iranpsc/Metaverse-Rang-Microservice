@@ -1,3 +1,4 @@
+// Package client provides gRPC clients for external services used by the levels service.
 package client
 
 import (

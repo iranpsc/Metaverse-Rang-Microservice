@@ -1,3 +1,4 @@
+// Package repository provides data access for notifications.
 package repository
 
 import (
@@ -138,7 +139,7 @@ func (r *NotificationRepository) ListNotifications(ctx context.Context, userID u
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query notifications: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	notifications := make([]models.Notification, 0)
 	for rows.Next() {

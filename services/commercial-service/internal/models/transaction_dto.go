@@ -1,3 +1,4 @@
+// Package models defines domain types for the commercial service.
 package models
 
 // TransactionDTO represents the formatted transaction response

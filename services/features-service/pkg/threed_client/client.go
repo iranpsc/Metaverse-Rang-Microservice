@@ -1,4 +1,5 @@
-package threed_client
+// Package threed_client provides an HTTP client for the 3D Meta API.
+package threed_client //nolint:staticcheck // package name matches directory layout
 
 import (
 	"encoding/json"
@@ -61,7 +62,7 @@ func (c *Client) GetBuildPackage(req BuildPackageRequest) (*BuildPackageResponse
 	if err != nil {
 		return nil, fmt.Errorf("failed to call 3D Meta API: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

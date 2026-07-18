@@ -115,7 +115,7 @@ func extractTokenFromHeader(r *http.Request) string {
 func writeError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	w.Write([]byte(`{"error":"` + message + `"}`))
+	_, _ = w.Write([]byte(`{"error":"` + message + `"}`))
 }
 
 // GuestMiddleware creates an HTTP middleware that only allows unauthenticated users.

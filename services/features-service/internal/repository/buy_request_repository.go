@@ -81,7 +81,7 @@ func (r *BuyRequestRepository) GetAllForFeature(ctx context.Context, featureID u
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	requests := []*models.BuyFeatureRequest{}
 	for rows.Next() {
@@ -133,7 +133,7 @@ func (r *BuyRequestRepository) ListByBuyerID(ctx context.Context, buyerID uint64
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	requests := []*models.BuyFeatureRequest{}
 	for rows.Next() {
@@ -164,7 +164,7 @@ func (r *BuyRequestRepository) ListBySellerID(ctx context.Context, sellerID uint
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	requests := []*models.BuyFeatureRequest{}
 	for rows.Next() {

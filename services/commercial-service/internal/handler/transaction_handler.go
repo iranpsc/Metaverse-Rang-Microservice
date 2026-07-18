@@ -17,8 +17,6 @@ import (
 type TransactionHandler struct {
 	pb.UnimplementedTransactionServiceServer
 	transactionService service.TransactionService
-	orderRepo          interface{} // Simplified
-	paymentRepo        interface{} // Simplified
 }
 
 func NewTransactionHandler(transactionService service.TransactionService) *TransactionHandler {

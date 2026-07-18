@@ -110,7 +110,7 @@ func (r *CitizenFeaturesRepository) ListTradeTimestamps(
 	if err != nil {
 		return nil, fmt.Errorf("list %s trade timestamps: %w", role, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]models.CitizenTradeTimestamp, 0)
 	for rows.Next() {
@@ -172,7 +172,7 @@ func (r *CitizenFeaturesRepository) ListOwnedFeatures(
 	if err != nil {
 		return nil, 0, fmt.Errorf("list owned features: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	items := make([]models.CitizenFeatureListItem, 0)
 	featureIDs := make([]uint64, 0)
@@ -244,7 +244,7 @@ func (r *CitizenFeaturesRepository) ListMapMarkers(
 	if err != nil {
 		return nil, fmt.Errorf("list map markers: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	markers := make([]models.CitizenFeatureMapMarker, 0)
 	featureIDs := make([]uint64, 0)
@@ -304,7 +304,7 @@ func (r *CitizenFeaturesRepository) GetFeatureCenters(
 	if err != nil {
 		return nil, fmt.Errorf("get feature centers: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var featureID uint64
@@ -365,7 +365,7 @@ func (r *CitizenFeaturesRepository) getImagesByFeatureIDs(
 	if err != nil {
 		return nil, fmt.Errorf("list feature images: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var img models.CitizenFeatureImage

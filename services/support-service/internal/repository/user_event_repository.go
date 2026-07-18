@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"metarang/support-service/internal/models"
 )
 
@@ -116,7 +117,7 @@ func (r *userEventRepository) GetByUserID(ctx context.Context, userID uint64, pa
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get user events: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []*models.UserEvent
 	for rows.Next() {
@@ -249,7 +250,7 @@ func (r *userEventRepository) GetReportResponses(ctx context.Context, reportID u
 	if err != nil {
 		return nil, fmt.Errorf("failed to get report responses: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var responses []models.UserEventReportResponse
 	for rows.Next() {

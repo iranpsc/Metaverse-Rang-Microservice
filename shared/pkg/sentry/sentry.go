@@ -1,3 +1,4 @@
+// Package sentry initializes Sentry error reporting for HTTP and gRPC services.
 package sentry
 
 import (

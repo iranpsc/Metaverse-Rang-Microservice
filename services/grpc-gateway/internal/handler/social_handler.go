@@ -26,20 +26,6 @@ func NewSocialHandler(socialConn *grpc.ClientConn, _ *grpc.ClientConn) *SocialHa
 	}
 }
 
-// extractTokenFromHeader extracts the token from Authorization header
-func (h *SocialHandler) extractTokenFromHeader(r *http.Request) string {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return ""
-	}
-	// Support both "Bearer <token>" and just "<token>"
-	parts := strings.Split(authHeader, " ")
-	if len(parts) == 2 {
-		return parts[1]
-	}
-	return authHeader
-}
-
 // getUserIDFromToken extracts user ID from context (set by auth middleware)
 func (h *SocialHandler) getUserIDFromToken(r *http.Request) (uint64, error) {
 	userCtx, err := middleware.GetUserFromRequest(r)

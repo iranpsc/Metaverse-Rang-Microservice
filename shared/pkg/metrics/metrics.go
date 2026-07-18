@@ -1,3 +1,4 @@
+// Package metrics exposes Prometheus metrics registration helpers.
 package metrics
 
 import (

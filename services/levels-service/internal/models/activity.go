@@ -1,3 +1,4 @@
+// Package models defines domain types for the levels service.
 package models
 
 import "time"

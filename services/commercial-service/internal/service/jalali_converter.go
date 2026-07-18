@@ -44,30 +44,30 @@ func (c *jalaliConverter) FormatJalaliTime(t time.Time) string {
 func gregorianToJalali(gy, gm, gd int) (int, int, int) {
 	var jy, jm, jd int
 
-	g_d_n := 365*gy + ((gy + 3) / 4) - ((gy + 99) / 100) + ((gy + 399) / 400)
+	gDN := 365*gy + ((gy + 3) / 4) - ((gy + 99) / 100) + ((gy + 399) / 400)
 	for i := 0; i < gm-1; i++ {
-		g_d_n += daysInGregorianMonth(i+1, gy)
+		gDN += daysInGregorianMonth(i+1, gy)
 	}
-	g_d_n += gd
+	gDN += gd
 
-	j_d_n := g_d_n - 79
-	j_np := j_d_n / 12053
-	j_d_n = j_d_n % 12053
+	jDN := gDN - 79
+	jNp := jDN / 12053
+	jDN = jDN % 12053
 
-	jy = 979 + 33*j_np + 4*(j_d_n/1461)
-	j_d_n = j_d_n % 1461
+	jy = 979 + 33*jNp + 4*(jDN/1461)
+	jDN = jDN % 1461
 
-	if j_d_n >= 366 {
-		jy += (j_d_n - 1) / 365
-		j_d_n = (j_d_n - 1) % 365
+	if jDN >= 366 {
+		jy += (jDN - 1) / 365
+		jDN = (jDN - 1) % 365
 	}
 
-	if j_d_n < 186 {
-		jm = 1 + j_d_n/31
-		jd = 1 + (j_d_n % 31)
+	if jDN < 186 {
+		jm = 1 + jDN/31
+		jd = 1 + (jDN % 31)
 	} else {
-		jm = 7 + (j_d_n-186)/30
-		jd = 1 + ((j_d_n - 186) % 30)
+		jm = 7 + (jDN-186)/30
+		jd = 1 + ((jDN - 186) % 30)
 	}
 
 	if gy > 1600 {

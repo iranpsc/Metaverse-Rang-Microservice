@@ -88,7 +88,7 @@ const (
 	TitleGardeshgari = "گردشگری"
 )
 
-// Karbari coefficients (used in calculations)
+// KarbariCoefficients maps karbari types to their pricing coefficients.
 var KarbariCoefficients = map[string]float64{
 	Amozeshi: 0.3,
 	Tejari:   0.2,
