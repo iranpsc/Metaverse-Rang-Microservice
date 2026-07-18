@@ -416,7 +416,7 @@ func (h *FeaturesHandler) HandleFeaturesRoutes(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if strings.HasSuffix(path, "/trade-history") {
+	if IsFeatureTradeHistoryPath(path) {
 		if r.Method == http.MethodGet {
 			h.GetFeatureTradeHistory(w, r)
 		} else {

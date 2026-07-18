@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// GetFeatureTradeHistory handles GET /api/features/{feature}/trade-history.
+// GetFeatureTradeHistory handles GET /api/features/{feature}/trade-history
 func (h *FeatureHandler) GetFeatureTradeHistory(
 	ctx context.Context,
 	req *pb.GetFeatureTradeHistoryRequest,

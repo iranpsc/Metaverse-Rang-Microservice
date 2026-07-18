@@ -465,6 +465,22 @@ routes:
         format: int64
         description: Feature ID
         example: 1
+  - path: /api/features/{feature}/trade-history
+    methods: [get]
+    tag: Features
+    summary: Get feature trade history
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+      - name: page
+        in: query
+        type: integer
+        description: Page number for pagination
   - path: /api/my-features
     methods: [get]
     tag: Features

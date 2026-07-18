@@ -10,6 +10,7 @@ func TestParseMethodsAndPath(t *testing.T) {
 	}{
 		{"POST /api/auth/register", []string{"post"}, "/api/auth/register"},
 		{"GET /api/features/{feature}", []string{"get"}, "/api/features/{feature}"},
+		{"GET /api/features/{feature}/trade-history.", []string{"get"}, "/api/features/{feature}/trade-history"},
 		{"PUT/PATCH /api/kyc", []string{"put", "patch"}, "/api/kyc"},
 		{"GET /api/tutorials/categories/{category:slug}", []string{"get"}, "/api/tutorials/categories/{category:slug}"},
 	}

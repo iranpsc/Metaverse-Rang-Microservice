@@ -2915,9 +2915,9 @@ paths:
             summary: GetBuildPackage
             tags:
                 - Features
-    /api/features/{feature}/trade-history.:
+    /api/features/{feature}/trade-history:
         get:
-            operationId: get_features_feature_trade-history.
+            operationId: get_features_feature_trade-history
             parameters:
                 - description: Feature ID
                   in: path
@@ -2949,9 +2949,8 @@ paths:
                                 $ref: '#/components/schemas/ValidationError'
                     description: Validation error
             security:
-                - {}
                 - BearerAuth: []
-            summary: GetFeatureTradeHistory
+            summary: Get feature trade history
             tags:
                 - Features
     /api/features/{id}:
@@ -2990,27 +2989,6 @@ paths:
     /api/features/build/completed:
         get:
             operationId: get_features_build_completed
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            summary: List construction-completed buildings (paginated, 10 per page)
-            tags:
-                - Features
-    /api/features/build/completed.:
-        get:
-            operationId: get_features_build_completed.
             parameters:
                 - description: Page number for pagination
                   in: query
@@ -3033,10 +3011,7 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/ValidationError'
                     description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: ListCompletedBuildings
+            summary: List construction-completed buildings (paginated, 10 per page)
             tags:
                 - Features
     /api/features/buy/{feature}:

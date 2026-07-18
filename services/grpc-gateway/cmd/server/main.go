@@ -666,6 +666,8 @@ func main() {
 	// Features routes
 	if featuresHandler != nil {
 		mux.Handle("/api/features", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.ListFeatures)))
+		// Auth-required trade history must be registered before the /api/features/ catch-all.
+		mux.Handle("GET /api/features/{feature}/trade-history", authMiddleware(http.HandlerFunc(featuresHandler.GetFeatureTradeHistory)))
 		mux.Handle("/api/features/", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.HandleFeaturesRoutes)))
 
 		mux.Handle("/api/my-features", authMiddleware(http.HandlerFunc(featuresHandler.ListMyFeatures)))

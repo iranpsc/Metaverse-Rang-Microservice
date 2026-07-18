@@ -155,6 +155,9 @@ func parseMethodsAndPath(routePart string) ([]string, string, bool) {
 		path = strings.Join(parts[pathIndex:], " ")
 		path = strings.Fields(path)[0]
 	}
+	// Handler comments are full sentences ("handles GET /api/foo."), so strip
+	// trailing sentence punctuation that is not part of the URL path.
+	path = strings.TrimRight(path, ".,;:!")
 
 	var methods []string
 	for _, chunk := range strings.Fields(methodsPart) {

@@ -9,7 +9,7 @@ import (
 	featurespb "metarang/shared/pb/features"
 )
 
-// GetFeatureTradeHistory handles GET /api/features/{feature}/trade-history.
+// GetFeatureTradeHistory handles GET /api/features/{feature}/trade-history
 func (h *FeaturesHandler) GetFeatureTradeHistory(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -21,15 +21,13 @@ func (h *FeaturesHandler) GetFeatureTradeHistory(w http.ResponseWriter, r *http.
 		return
 	}
 
-	path := strings.TrimPrefix(r.URL.Path, "/api/features/")
-	path = strings.Trim(path, "/")
-	parts := strings.Split(path, "/")
-	if len(parts) < 2 || parts[1] != "trade-history" {
+	featureIDStr := ExtractFeatureIDFromTradeHistoryPath(r)
+	if featureIDStr == "" {
 		writeError(w, http.StatusBadRequest, "feature ID is required")
 		return
 	}
 
-	featureID, err := strconv.ParseUint(parts[0], 10, 64)
+	featureID, err := strconv.ParseUint(featureIDStr, 10, 64)
 	if err != nil || featureID == 0 {
 		writeError(w, http.StatusBadRequest, "invalid feature ID")
 		return
@@ -152,4 +150,36 @@ func emptyToNil(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+// ExtractFeatureIDFromTradeHistoryPath reads the feature ID from a Go ServeMux
+// path value when registered as /api/features/{feature}/trade-history, otherwise
+// from /api/features/{id}/trade-history in the URL path.
+func ExtractFeatureIDFromTradeHistoryPath(r *http.Request) string {
+	if id := r.PathValue("feature"); id != "" {
+		return id
+	}
+
+	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/")
+	return FeatureIDFromTradeHistoryPath(path)
+}
+
+// IsFeatureTradeHistoryPath reports whether path is "{featureID}/trade-history".
+func IsFeatureTradeHistoryPath(path string) bool {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) < 2 {
+		return false
+	}
+	return strings.TrimRight(parts[len(parts)-1], ".") == "trade-history"
+}
+
+// FeatureIDFromTradeHistoryPath returns the feature ID segment before trade-history.
+func FeatureIDFromTradeHistoryPath(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	for i := 0; i < len(parts)-1; i++ {
+		if strings.TrimRight(parts[i+1], ".") == "trade-history" {
+			return parts[i]
+		}
+	}
+	return ""
 }
