@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"time"
 
 	"metarang/features-service/internal/models"
 	pb "metarang/shared/pb/features"
@@ -67,4 +68,11 @@ type BuildingServicePort interface {
 // CompletedBuildingServicePort is implemented by *service.CompletedBuildingService.
 type CompletedBuildingServicePort interface {
 	Paginate(ctx context.Context, page int) (*models.CompletedBuildingPage, error)
+}
+
+// CitizenFeaturesServicePort is implemented by *service.CitizenFeaturesService.
+type CitizenFeaturesServicePort interface {
+	GetSummary(ctx context.Context, userID uint64, period string, allowedKarbaris []string, reference time.Time) (*models.CitizenFeatureSummaryResult, error)
+	GetChart(ctx context.Context, userID uint64, period string, allowedKarbaris []string, reference time.Time) (*models.CitizenFeatureChartData, error)
+	GetFeatures(ctx context.Context, userID uint64, allowedKarbaris []string, search string, page, perPage int) (*models.CitizenFeaturesPage, error)
 }

@@ -13,6 +13,7 @@ import (
 
 type CitizenRepository interface {
 	GetCitizenByCode(ctx context.Context, code string) (*models.CitizenProfile, error)
+	GetCitizenUserInfoByCode(ctx context.Context, code string) (*models.CitizenUserInfo, error)
 	GetCitizenReferrals(ctx context.Context, referrerID uint64, search string, page int, pageSize int) ([]*models.CitizenReferral, *models.PaginationMeta, error)
 	GetCitizenReferralOrders(ctx context.Context, referralID uint64) ([]*models.ReferrerOrder, error)
 	GetCitizenReferralChartData(ctx context.Context, referrerID uint64, rangeType string) (*models.ReferralChartData, error)
@@ -25,6 +26,73 @@ type citizenRepository struct {
 
 func NewCitizenRepository(db *sql.DB) CitizenRepository {
 	return &citizenRepository{db: db}
+}
+
+// GetCitizenUserInfoByCode returns user_id and privacy settings for a citizen code.
+func (r *citizenRepository) GetCitizenUserInfoByCode(ctx context.Context, code string) (*models.CitizenUserInfo, error) {
+	query := `
+		SELECT id
+		FROM users
+		WHERE LOWER(code) = LOWER(?)
+		LIMIT 1
+	`
+	var userID uint64
+	err := r.db.QueryRowContext(ctx, query, code).Scan(&userID)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find citizen by code: %w", err)
+	}
+
+	info := &models.CitizenUserInfo{
+		UserID:  userID,
+		Privacy: map[string]int32{},
+	}
+
+	settingsQuery := `
+		SELECT privacy
+		FROM settings
+		WHERE user_id = ?
+		LIMIT 1
+	`
+	var privacyJSON sql.NullString
+	err = r.db.QueryRowContext(ctx, settingsQuery, userID).Scan(&privacyJSON)
+	if err == nil && privacyJSON.Valid && privacyJSON.String != "" {
+		var raw map[string]interface{}
+		if err := json.Unmarshal([]byte(privacyJSON.String), &raw); err == nil {
+			for key, value := range raw {
+				info.Privacy[key] = privacyValueToInt32(value)
+			}
+		}
+	}
+
+	return info, nil
+}
+
+func privacyValueToInt32(value interface{}) int32 {
+	switch v := value.(type) {
+	case bool:
+		if v {
+			return 1
+		}
+		return 0
+	case float64:
+		return int32(v)
+	case json.Number:
+		i, err := v.Int64()
+		if err != nil {
+			return 0
+		}
+		return int32(i)
+	case string:
+		if v == "1" || strings.EqualFold(v, "true") {
+			return 1
+		}
+		return 0
+	default:
+		return 0
+	}
 }
 
 // GetCitizenByCode retrieves a citizen's profile data by code

@@ -1289,6 +1289,159 @@ paths:
             summary: Get citizen public profile
             tags:
                 - Citizen
+    /api/citizen/{code}/features:
+        get:
+            operationId: get_citizen_code_features
+            parameters:
+                - description: Citizen code
+                  in: path
+                  name: code
+                  required: true
+                  schema:
+                    example: HM-2000000
+                    type: string
+                - description: Optional filter to specific karbari codes (affects list and map markers). Privacy settings still apply.
+                  in: query
+                  name: karbari
+                  required: false
+                  schema:
+                    example:
+                        - t
+                    items:
+                        type: string
+                    type: array
+                - description: Page number
+                  in: query
+                  name: page
+                  required: false
+                  schema:
+                    example: 1
+                    type: integer
+                - description: Items per page (default 15)
+                  in: query
+                  name: per_page
+                  required: false
+                  schema:
+                    example: 15
+                    type: integer
+                - description: Optional search by feature properties ID or address (affects list/count only, not map markers)
+                  in: query
+                  name: search
+                  required: false
+                  schema:
+                    example: TO111
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            summary: Paginated searchable feature list with map markers
+            tags:
+                - Citizen
+    /api/citizen/{code}/features/chart:
+        get:
+            operationId: get_citizen_code_features_chart
+            parameters:
+                - description: Citizen code
+                  in: path
+                  name: code
+                  required: true
+                  schema:
+                    example: HM-2000000
+                    type: string
+                - description: Optional filter to specific karbari codes. Privacy settings still apply.
+                  in: query
+                  name: karbari
+                  required: false
+                  schema:
+                    example:
+                        - t
+                    items:
+                        type: string
+                    type: array
+                - description: Time window (`daily`, `weekly`, `monthly`, or `yearly`). Defaults to `daily`.
+                  in: query
+                  name: period
+                  required: false
+                  schema:
+                    example: weekly
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            summary: Bought vs sold feature timeline chart for a period
+            tags:
+                - Citizen
+    /api/citizen/{code}/features/summary:
+        get:
+            operationId: get_citizen_code_features_summary
+            parameters:
+                - description: Citizen code
+                  in: path
+                  name: code
+                  required: true
+                  schema:
+                    example: HM-2000000
+                    type: string
+                - description: Optional filter to specific karbari codes (e.g. `t`, `m`, `a`). Privacy settings still apply.
+                  in: query
+                  name: karbari
+                  required: false
+                  schema:
+                    example:
+                        - t
+                        - m
+                    items:
+                        type: string
+                    type: array
+                - description: Time window for bought/sold counts (`daily`, `weekly`, `monthly`, or `yearly`). Defaults to `daily`.
+                  in: query
+                  name: period
+                  required: false
+                  schema:
+                    example: weekly
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            summary: Per-karbari feature summary cards (current, bought, sold) for a period
+            tags:
+                - Citizen
     /api/citizen/{code}/referrals:
         get:
             operationId: get_citizen_code_referrals
@@ -1344,7 +1497,7 @@ paths:
                   schema:
                     example: example-slug
                     type: string
-                - description: range query parameter
+                - description: 'Chart range: daily, weekly, monthly, or yearly'
                   in: query
                   name: range
                   required: false

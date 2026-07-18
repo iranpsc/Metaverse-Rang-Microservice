@@ -55,6 +55,8 @@ service CitizenService {
   rpc GetCitizenProfile(GetCitizenProfileRequest) returns (CitizenProfileResponse);
   rpc GetCitizenReferrals(GetCitizenReferralsRequest) returns (CitizenReferralsResponse);
   rpc GetCitizenReferralChart(GetCitizenReferralChartRequest) returns (CitizenReferralChartResponse);
+  // Lightweight identity + privacy for public citizen feature assets
+  rpc GetCitizenUserInfo(GetCitizenUserInfoRequest) returns (GetCitizenUserInfoResponse);
 }
 
 // PersonalInfo Service - handles personal information endpoints
@@ -465,6 +467,15 @@ message ChartDataPoint {
   string label = 1; // Jalali date/time label
   int32 count = 2;
   int64 total_amount = 3; // bigint in database
+}
+
+message GetCitizenUserInfoRequest {
+  string code = 1; // Case-insensitive citizen code
+}
+
+message GetCitizenUserInfoResponse {
+  uint64 user_id = 1;
+  map<string, int32> privacy = 2; // privacy_key -> 0|1
 }
 
 // ============== PersonalInfo Service Messages ==============

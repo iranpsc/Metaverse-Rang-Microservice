@@ -13,13 +13,13 @@ type CitizenProfile struct {
 	Code            string
 	Score           int32
 	EmailVerifiedAt time.Time
-	KYC            *CitizenKYC
-	Privacy        map[string]bool
-	ProfilePhotos  []*ProfilePhoto
-	PersonalInfo   *CitizenPersonalInfo
-	CurrentLevel   *CitizenLevel   // Current level (if privacy allows)
-	AchievedLevels []*CitizenLevel // All achieved levels (if privacy allows)
-	Avatar         string          // Avatar URL (if privacy allows)
+	KYC             *CitizenKYC
+	Privacy         map[string]bool
+	ProfilePhotos   []*ProfilePhoto
+	PersonalInfo    *CitizenPersonalInfo
+	CurrentLevel    *CitizenLevel   // Current level (if privacy allows)
+	AchievedLevels  []*CitizenLevel // All achieved levels (if privacy allows)
+	Avatar          string          // Avatar URL (if privacy allows)
 }
 
 // CitizenKYC represents KYC data for citizen profile
@@ -101,4 +101,10 @@ type CitizenLevel struct {
 	Slug  string
 	Score int32
 	Image string
+}
+
+// CitizenUserInfo is a lightweight identity + privacy payload for public feature assets.
+type CitizenUserInfo struct {
+	UserID  uint64
+	Privacy map[string]int32
 }

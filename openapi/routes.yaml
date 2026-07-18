@@ -117,6 +117,79 @@ routes:
     tag: Citizen
     summary: Get citizen public profile
     security: none
+  - path: /api/citizen/{code}/features/summary
+    methods: [get]
+    tag: Citizen
+    summary: Per-karbari feature summary cards (current, bought, sold) for a period
+    security: none
+    params:
+      - name: code
+        in: path
+        type: string
+        description: Citizen code
+        example: HM-2000000
+      - name: period
+        in: query
+        type: string
+        description: Time window for bought/sold counts (`daily`, `weekly`, `monthly`, or `yearly`). Defaults to `daily`.
+        example: weekly
+      - name: karbari
+        in: query
+        type: array
+        description: Optional filter to specific karbari codes (e.g. `t`, `m`, `a`). Privacy settings still apply.
+        example: [t, m]
+  - path: /api/citizen/{code}/features/chart
+    methods: [get]
+    tag: Citizen
+    summary: Bought vs sold feature timeline chart for a period
+    security: none
+    params:
+      - name: code
+        in: path
+        type: string
+        description: Citizen code
+        example: HM-2000000
+      - name: period
+        in: query
+        type: string
+        description: Time window (`daily`, `weekly`, `monthly`, or `yearly`). Defaults to `daily`.
+        example: weekly
+      - name: karbari
+        in: query
+        type: array
+        description: Optional filter to specific karbari codes. Privacy settings still apply.
+        example: [t]
+  - path: /api/citizen/{code}/features
+    methods: [get]
+    tag: Citizen
+    summary: Paginated searchable feature list with map markers
+    security: none
+    params:
+      - name: code
+        in: path
+        type: string
+        description: Citizen code
+        example: HM-2000000
+      - name: karbari
+        in: query
+        type: array
+        description: Optional filter to specific karbari codes (affects list and map markers). Privacy settings still apply.
+        example: [t]
+      - name: search
+        in: query
+        type: string
+        description: Optional search by feature properties ID or address (affects list/count only, not map markers)
+        example: TO111
+      - name: page
+        in: query
+        type: integer
+        description: Page number
+        example: 1
+      - name: per_page
+        in: query
+        type: integer
+        description: Items per page (default 15)
+        example: 15
 
   # --- Search ---
   - path: /api/search/users

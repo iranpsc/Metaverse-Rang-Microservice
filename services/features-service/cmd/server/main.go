@@ -226,6 +226,9 @@ func main() {
 
 	completedBuildingService := service.NewCompletedBuildingService(buildingRepo)
 
+	citizenFeaturesRepo := repository.NewCitizenFeaturesRepository(database)
+	citizenFeaturesService := service.NewCitizenFeaturesService(citizenFeaturesRepo)
+
 	// Initialize gRPC handlers
 	handler.SetProjectLocale(getEnv("PROJECT_LOCALE", "EN"))
 	featureHandler := handler.NewFeatureHandler(featureService, tradeHistoryService)
@@ -233,6 +236,7 @@ func main() {
 	profitHandler := handler.NewProfitHandler(profitService)
 	buildingHandler := handler.NewBuildingHandler(buildingService, completedBuildingService)
 	mapHandler := handler.NewMapHandler(mapService)
+	citizenFeaturesHandler := handler.NewCitizenFeaturesHandler(citizenFeaturesService)
 
 	// Initialize token validator for authentication
 	// Connect to auth service for token validation
@@ -281,6 +285,7 @@ func main() {
 	pb.RegisterFeatureProfitServiceServer(grpcServer, profitHandler)
 	pb.RegisterBuildingServiceServer(grpcServer, buildingHandler)
 	pb.RegisterMapsServiceServer(grpcServer, mapHandler)
+	pb.RegisterCitizenFeaturesServiceServer(grpcServer, citizenFeaturesHandler)
 
 	// Enable reflection for debugging
 	reflection.Register(grpcServer)

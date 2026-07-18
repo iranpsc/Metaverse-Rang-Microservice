@@ -5084,6 +5084,746 @@ func (x *MapFeatureCount) GetSold() int32 {
 	return 0
 }
 
+type GetCitizenFeatureSummaryRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Period          string                 `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`                                          // daily | weekly | monthly | yearly
+	AllowedKarbaris []string               `protobuf:"bytes,3,rep,name=allowed_karbaris,json=allowedKarbaris,proto3" json:"allowed_karbaris,omitempty"` // already privacy-filtered
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetCitizenFeatureSummaryRequest) Reset() {
+	*x = GetCitizenFeatureSummaryRequest{}
+	mi := &file_features_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCitizenFeatureSummaryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCitizenFeatureSummaryRequest) ProtoMessage() {}
+
+func (x *GetCitizenFeatureSummaryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCitizenFeatureSummaryRequest.ProtoReflect.Descriptor instead.
+func (*GetCitizenFeatureSummaryRequest) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *GetCitizenFeatureSummaryRequest) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *GetCitizenFeatureSummaryRequest) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+func (x *GetCitizenFeatureSummaryRequest) GetAllowedKarbaris() []string {
+	if x != nil {
+		return x.AllowedKarbaris
+	}
+	return nil
+}
+
+type GetCitizenFeatureSummaryResponse struct {
+	state         protoimpl.MessageState       `protogen:"open.v1"`
+	Data          []*CitizenFeatureSummaryItem `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
+	Period        string                       `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCitizenFeatureSummaryResponse) Reset() {
+	*x = GetCitizenFeatureSummaryResponse{}
+	mi := &file_features_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCitizenFeatureSummaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCitizenFeatureSummaryResponse) ProtoMessage() {}
+
+func (x *GetCitizenFeatureSummaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCitizenFeatureSummaryResponse.ProtoReflect.Descriptor instead.
+func (*GetCitizenFeatureSummaryResponse) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *GetCitizenFeatureSummaryResponse) GetData() []*CitizenFeatureSummaryItem {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *GetCitizenFeatureSummaryResponse) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+type CitizenFeatureSummaryItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Karbari       string                 `protobuf:"bytes,1,opt,name=karbari,proto3" json:"karbari,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	CurrentCount  int32                  `protobuf:"varint,3,opt,name=current_count,json=currentCount,proto3" json:"current_count,omitempty"`
+	BoughtCount   int32                  `protobuf:"varint,4,opt,name=bought_count,json=boughtCount,proto3" json:"bought_count,omitempty"`
+	SoldCount     int32                  `protobuf:"varint,5,opt,name=sold_count,json=soldCount,proto3" json:"sold_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CitizenFeatureSummaryItem) Reset() {
+	*x = CitizenFeatureSummaryItem{}
+	mi := &file_features_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CitizenFeatureSummaryItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CitizenFeatureSummaryItem) ProtoMessage() {}
+
+func (x *CitizenFeatureSummaryItem) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CitizenFeatureSummaryItem.ProtoReflect.Descriptor instead.
+func (*CitizenFeatureSummaryItem) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *CitizenFeatureSummaryItem) GetKarbari() string {
+	if x != nil {
+		return x.Karbari
+	}
+	return ""
+}
+
+func (x *CitizenFeatureSummaryItem) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *CitizenFeatureSummaryItem) GetCurrentCount() int32 {
+	if x != nil {
+		return x.CurrentCount
+	}
+	return 0
+}
+
+func (x *CitizenFeatureSummaryItem) GetBoughtCount() int32 {
+	if x != nil {
+		return x.BoughtCount
+	}
+	return 0
+}
+
+func (x *CitizenFeatureSummaryItem) GetSoldCount() int32 {
+	if x != nil {
+		return x.SoldCount
+	}
+	return 0
+}
+
+type GetCitizenFeatureChartRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Period          string                 `protobuf:"bytes,2,opt,name=period,proto3" json:"period,omitempty"`
+	AllowedKarbaris []string               `protobuf:"bytes,3,rep,name=allowed_karbaris,json=allowedKarbaris,proto3" json:"allowed_karbaris,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetCitizenFeatureChartRequest) Reset() {
+	*x = GetCitizenFeatureChartRequest{}
+	mi := &file_features_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCitizenFeatureChartRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCitizenFeatureChartRequest) ProtoMessage() {}
+
+func (x *GetCitizenFeatureChartRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCitizenFeatureChartRequest.ProtoReflect.Descriptor instead.
+func (*GetCitizenFeatureChartRequest) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *GetCitizenFeatureChartRequest) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *GetCitizenFeatureChartRequest) GetPeriod() string {
+	if x != nil {
+		return x.Period
+	}
+	return ""
+}
+
+func (x *GetCitizenFeatureChartRequest) GetAllowedKarbaris() []string {
+	if x != nil {
+		return x.AllowedKarbaris
+	}
+	return nil
+}
+
+type GetCitizenFeatureChartResponse struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Data          *CitizenFeatureChartData `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCitizenFeatureChartResponse) Reset() {
+	*x = GetCitizenFeatureChartResponse{}
+	mi := &file_features_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCitizenFeatureChartResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCitizenFeatureChartResponse) ProtoMessage() {}
+
+func (x *GetCitizenFeatureChartResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCitizenFeatureChartResponse.ProtoReflect.Descriptor instead.
+func (*GetCitizenFeatureChartResponse) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{84}
+}
+
+func (x *GetCitizenFeatureChartResponse) GetData() *CitizenFeatureChartData {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type CitizenFeatureChartData struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Labels        []string               `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty"`
+	Bought        []int32                `protobuf:"varint,2,rep,packed,name=bought,proto3" json:"bought,omitempty"`
+	Sold          []int32                `protobuf:"varint,3,rep,packed,name=sold,proto3" json:"sold,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CitizenFeatureChartData) Reset() {
+	*x = CitizenFeatureChartData{}
+	mi := &file_features_proto_msgTypes[85]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CitizenFeatureChartData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CitizenFeatureChartData) ProtoMessage() {}
+
+func (x *CitizenFeatureChartData) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[85]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CitizenFeatureChartData.ProtoReflect.Descriptor instead.
+func (*CitizenFeatureChartData) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{85}
+}
+
+func (x *CitizenFeatureChartData) GetLabels() []string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
+func (x *CitizenFeatureChartData) GetBought() []int32 {
+	if x != nil {
+		return x.Bought
+	}
+	return nil
+}
+
+func (x *CitizenFeatureChartData) GetSold() []int32 {
+	if x != nil {
+		return x.Sold
+	}
+	return nil
+}
+
+type ListCitizenFeaturesRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	AllowedKarbaris []string               `protobuf:"bytes,2,rep,name=allowed_karbaris,json=allowedKarbaris,proto3" json:"allowed_karbaris,omitempty"`
+	Search          string                 `protobuf:"bytes,3,opt,name=search,proto3" json:"search,omitempty"` // optional; filters list only
+	Page            int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage         int32                  `protobuf:"varint,5,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"` // default 15
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ListCitizenFeaturesRequest) Reset() {
+	*x = ListCitizenFeaturesRequest{}
+	mi := &file_features_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCitizenFeaturesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCitizenFeaturesRequest) ProtoMessage() {}
+
+func (x *ListCitizenFeaturesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCitizenFeaturesRequest.ProtoReflect.Descriptor instead.
+func (*ListCitizenFeaturesRequest) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *ListCitizenFeaturesRequest) GetUserId() uint64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *ListCitizenFeaturesRequest) GetAllowedKarbaris() []string {
+	if x != nil {
+		return x.AllowedKarbaris
+	}
+	return nil
+}
+
+func (x *ListCitizenFeaturesRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+func (x *ListCitizenFeaturesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListCitizenFeaturesRequest) GetPerPage() int32 {
+	if x != nil {
+		return x.PerPage
+	}
+	return 0
+}
+
+type ListCitizenFeaturesResponse struct {
+	state         protoimpl.MessageState             `protogen:"open.v1"`
+	Data          []*CitizenFeatureItem              `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
+	Links         *PaginationLinks                   `protobuf:"bytes,2,opt,name=links,proto3" json:"links,omitempty"`
+	Meta          *FeatureTradeHistoryPaginationMeta `protobuf:"bytes,3,opt,name=meta,proto3" json:"meta,omitempty"`
+	MapMarkers    []*CitizenFeatureMapMarker         `protobuf:"bytes,4,rep,name=map_markers,json=mapMarkers,proto3" json:"map_markers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListCitizenFeaturesResponse) Reset() {
+	*x = ListCitizenFeaturesResponse{}
+	mi := &file_features_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListCitizenFeaturesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListCitizenFeaturesResponse) ProtoMessage() {}
+
+func (x *ListCitizenFeaturesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListCitizenFeaturesResponse.ProtoReflect.Descriptor instead.
+func (*ListCitizenFeaturesResponse) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *ListCitizenFeaturesResponse) GetData() []*CitizenFeatureItem {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ListCitizenFeaturesResponse) GetLinks() *PaginationLinks {
+	if x != nil {
+		return x.Links
+	}
+	return nil
+}
+
+func (x *ListCitizenFeaturesResponse) GetMeta() *FeatureTradeHistoryPaginationMeta {
+	if x != nil {
+		return x.Meta
+	}
+	return nil
+}
+
+func (x *ListCitizenFeaturesResponse) GetMapMarkers() []*CitizenFeatureMapMarker {
+	if x != nil {
+		return x.MapMarkers
+	}
+	return nil
+}
+
+type CitizenFeatureItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	VodId         string                 `protobuf:"bytes,2,opt,name=vod_id,json=vodId,proto3" json:"vod_id,omitempty"`
+	Address       string                 `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	Area          float64                `protobuf:"fixed64,4,opt,name=area,proto3" json:"area,omitempty"`
+	Density       int32                  `protobuf:"varint,5,opt,name=density,proto3" json:"density,omitempty"`
+	Karbari       string                 `protobuf:"bytes,6,opt,name=karbari,proto3" json:"karbari,omitempty"`
+	OwnerCode     string                 `protobuf:"bytes,7,opt,name=owner_code,json=ownerCode,proto3" json:"owner_code,omitempty"`
+	PricePsc      string                 `protobuf:"bytes,8,opt,name=price_psc,json=pricePsc,proto3" json:"price_psc,omitempty"`
+	PriceIrr      string                 `protobuf:"bytes,9,opt,name=price_irr,json=priceIrr,proto3" json:"price_irr,omitempty"`
+	Center        *CitizenFeatureCenter  `protobuf:"bytes,10,opt,name=center,proto3" json:"center,omitempty"`
+	Label         string                 `protobuf:"bytes,11,opt,name=label,proto3" json:"label,omitempty"`
+	Images        []*Image               `protobuf:"bytes,12,rep,name=images,proto3" json:"images,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CitizenFeatureItem) Reset() {
+	*x = CitizenFeatureItem{}
+	mi := &file_features_proto_msgTypes[88]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CitizenFeatureItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CitizenFeatureItem) ProtoMessage() {}
+
+func (x *CitizenFeatureItem) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[88]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CitizenFeatureItem.ProtoReflect.Descriptor instead.
+func (*CitizenFeatureItem) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{88}
+}
+
+func (x *CitizenFeatureItem) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *CitizenFeatureItem) GetVodId() string {
+	if x != nil {
+		return x.VodId
+	}
+	return ""
+}
+
+func (x *CitizenFeatureItem) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *CitizenFeatureItem) GetArea() float64 {
+	if x != nil {
+		return x.Area
+	}
+	return 0
+}
+
+func (x *CitizenFeatureItem) GetDensity() int32 {
+	if x != nil {
+		return x.Density
+	}
+	return 0
+}
+
+func (x *CitizenFeatureItem) GetKarbari() string {
+	if x != nil {
+		return x.Karbari
+	}
+	return ""
+}
+
+func (x *CitizenFeatureItem) GetOwnerCode() string {
+	if x != nil {
+		return x.OwnerCode
+	}
+	return ""
+}
+
+func (x *CitizenFeatureItem) GetPricePsc() string {
+	if x != nil {
+		return x.PricePsc
+	}
+	return ""
+}
+
+func (x *CitizenFeatureItem) GetPriceIrr() string {
+	if x != nil {
+		return x.PriceIrr
+	}
+	return ""
+}
+
+func (x *CitizenFeatureItem) GetCenter() *CitizenFeatureCenter {
+	if x != nil {
+		return x.Center
+	}
+	return nil
+}
+
+func (x *CitizenFeatureItem) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *CitizenFeatureItem) GetImages() []*Image {
+	if x != nil {
+		return x.Images
+	}
+	return nil
+}
+
+type CitizenFeatureCenter struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	X             float64                `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float64                `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CitizenFeatureCenter) Reset() {
+	*x = CitizenFeatureCenter{}
+	mi := &file_features_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CitizenFeatureCenter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CitizenFeatureCenter) ProtoMessage() {}
+
+func (x *CitizenFeatureCenter) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CitizenFeatureCenter.ProtoReflect.Descriptor instead.
+func (*CitizenFeatureCenter) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *CitizenFeatureCenter) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *CitizenFeatureCenter) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+type CitizenFeatureMapMarker struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Center        *CitizenFeatureCenter  `protobuf:"bytes,2,opt,name=center,proto3" json:"center,omitempty"`
+	Karbari       string                 `protobuf:"bytes,3,opt,name=karbari,proto3" json:"karbari,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CitizenFeatureMapMarker) Reset() {
+	*x = CitizenFeatureMapMarker{}
+	mi := &file_features_proto_msgTypes[90]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CitizenFeatureMapMarker) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CitizenFeatureMapMarker) ProtoMessage() {}
+
+func (x *CitizenFeatureMapMarker) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[90]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CitizenFeatureMapMarker.ProtoReflect.Descriptor instead.
+func (*CitizenFeatureMapMarker) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{90}
+}
+
+func (x *CitizenFeatureMapMarker) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *CitizenFeatureMapMarker) GetCenter() *CitizenFeatureCenter {
+	if x != nil {
+		return x.Center
+	}
+	return nil
+}
+
+func (x *CitizenFeatureMapMarker) GetKarbari() string {
+	if x != nil {
+		return x.Karbari
+	}
+	return ""
+}
+
 var File_features_proto protoreflect.FileDescriptor
 
 const file_features_proto_rawDesc = "" +
@@ -5504,7 +6244,65 @@ const file_features_proto_rawDesc = "" +
 	"\x06tejari\x18\x02 \x01(\v2\x19.features.MapFeatureCountR\x06tejari\x127\n" +
 	"\tamoozeshi\x18\x03 \x01(\v2\x19.features.MapFeatureCountR\tamoozeshi\"%\n" +
 	"\x0fMapFeatureCount\x12\x12\n" +
-	"\x04sold\x18\x01 \x01(\x05R\x04sold2\x92\a\n" +
+	"\x04sold\x18\x01 \x01(\x05R\x04sold\"}\n" +
+	"\x1fGetCitizenFeatureSummaryRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x16\n" +
+	"\x06period\x18\x02 \x01(\tR\x06period\x12)\n" +
+	"\x10allowed_karbaris\x18\x03 \x03(\tR\x0fallowedKarbaris\"s\n" +
+	" GetCitizenFeatureSummaryResponse\x127\n" +
+	"\x04data\x18\x01 \x03(\v2#.features.CitizenFeatureSummaryItemR\x04data\x12\x16\n" +
+	"\x06period\x18\x02 \x01(\tR\x06period\"\xb2\x01\n" +
+	"\x19CitizenFeatureSummaryItem\x12\x18\n" +
+	"\akarbari\x18\x01 \x01(\tR\akarbari\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12#\n" +
+	"\rcurrent_count\x18\x03 \x01(\x05R\fcurrentCount\x12!\n" +
+	"\fbought_count\x18\x04 \x01(\x05R\vboughtCount\x12\x1d\n" +
+	"\n" +
+	"sold_count\x18\x05 \x01(\x05R\tsoldCount\"{\n" +
+	"\x1dGetCitizenFeatureChartRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x16\n" +
+	"\x06period\x18\x02 \x01(\tR\x06period\x12)\n" +
+	"\x10allowed_karbaris\x18\x03 \x03(\tR\x0fallowedKarbaris\"W\n" +
+	"\x1eGetCitizenFeatureChartResponse\x125\n" +
+	"\x04data\x18\x01 \x01(\v2!.features.CitizenFeatureChartDataR\x04data\"]\n" +
+	"\x17CitizenFeatureChartData\x12\x16\n" +
+	"\x06labels\x18\x01 \x03(\tR\x06labels\x12\x16\n" +
+	"\x06bought\x18\x02 \x03(\x05R\x06bought\x12\x12\n" +
+	"\x04sold\x18\x03 \x03(\x05R\x04sold\"\xa7\x01\n" +
+	"\x1aListCitizenFeaturesRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12)\n" +
+	"\x10allowed_karbaris\x18\x02 \x03(\tR\x0fallowedKarbaris\x12\x16\n" +
+	"\x06search\x18\x03 \x01(\tR\x06search\x12\x12\n" +
+	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x19\n" +
+	"\bper_page\x18\x05 \x01(\x05R\aperPage\"\x85\x02\n" +
+	"\x1bListCitizenFeaturesResponse\x120\n" +
+	"\x04data\x18\x01 \x03(\v2\x1c.features.CitizenFeatureItemR\x04data\x12/\n" +
+	"\x05links\x18\x02 \x01(\v2\x19.features.PaginationLinksR\x05links\x12?\n" +
+	"\x04meta\x18\x03 \x01(\v2+.features.FeatureTradeHistoryPaginationMetaR\x04meta\x12B\n" +
+	"\vmap_markers\x18\x04 \x03(\v2!.features.CitizenFeatureMapMarkerR\n" +
+	"mapMarkers\"\xed\x02\n" +
+	"\x12CitizenFeatureItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x15\n" +
+	"\x06vod_id\x18\x02 \x01(\tR\x05vodId\x12\x18\n" +
+	"\aaddress\x18\x03 \x01(\tR\aaddress\x12\x12\n" +
+	"\x04area\x18\x04 \x01(\x01R\x04area\x12\x18\n" +
+	"\adensity\x18\x05 \x01(\x05R\adensity\x12\x18\n" +
+	"\akarbari\x18\x06 \x01(\tR\akarbari\x12\x1d\n" +
+	"\n" +
+	"owner_code\x18\a \x01(\tR\townerCode\x12\x1b\n" +
+	"\tprice_psc\x18\b \x01(\tR\bpricePsc\x12\x1b\n" +
+	"\tprice_irr\x18\t \x01(\tR\bpriceIrr\x126\n" +
+	"\x06center\x18\n" +
+	" \x01(\v2\x1e.features.CitizenFeatureCenterR\x06center\x12\x14\n" +
+	"\x05label\x18\v \x01(\tR\x05label\x12'\n" +
+	"\x06images\x18\f \x03(\v2\x0f.features.ImageR\x06images\"2\n" +
+	"\x14CitizenFeatureCenter\x12\f\n" +
+	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\x02 \x01(\x01R\x01y\"{\n" +
+	"\x17CitizenFeatureMapMarker\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x126\n" +
+	"\x06center\x18\x02 \x01(\v2\x1e.features.CitizenFeatureCenterR\x06center\x12\x18\n" +
+	"\akarbari\x18\x03 \x01(\tR\akarbari2\x92\a\n" +
 	"\x0eFeatureService\x12I\n" +
 	"\fListFeatures\x12\x1d.features.ListFeaturesRequest\x1a\x1a.features.FeaturesResponse\x12D\n" +
 	"\n" +
@@ -5547,7 +6345,11 @@ const file_features_proto_rawDesc = "" +
 	"\vMapsService\x12A\n" +
 	"\bListMaps\x12\x19.features.ListMapsRequest\x1a\x1a.features.ListMapsResponse\x12;\n" +
 	"\x06GetMap\x12\x17.features.GetMapRequest\x1a\x18.features.GetMapResponse\x12G\n" +
-	"\fGetMapBorder\x12\x17.features.GetMapRequest\x1a\x1e.features.GetMapBorderResponseB\x1dZ\x1bmetarang/shared/pb/featuresb\x06proto3"
+	"\fGetMapBorder\x12\x17.features.GetMapRequest\x1a\x1e.features.GetMapBorderResponse2\xdc\x02\n" +
+	"\x16CitizenFeaturesService\x12q\n" +
+	"\x18GetCitizenFeatureSummary\x12).features.GetCitizenFeatureSummaryRequest\x1a*.features.GetCitizenFeatureSummaryResponse\x12k\n" +
+	"\x16GetCitizenFeatureChart\x12'.features.GetCitizenFeatureChartRequest\x1a(.features.GetCitizenFeatureChartResponse\x12b\n" +
+	"\x13ListCitizenFeatures\x12$.features.ListCitizenFeaturesRequest\x1a%.features.ListCitizenFeaturesResponseB\x1dZ\x1bmetarang/shared/pb/featuresb\x06proto3"
 
 var (
 	file_features_proto_rawDescOnce sync.Once
@@ -5561,7 +6363,7 @@ func file_features_proto_rawDescGZIP() []byte {
 	return file_features_proto_rawDescData
 }
 
-var file_features_proto_msgTypes = make([]protoimpl.MessageInfo, 80)
+var file_features_proto_msgTypes = make([]protoimpl.MessageInfo, 91)
 var file_features_proto_goTypes = []any{
 	(*ListFeaturesRequest)(nil),                   // 0: features.ListFeaturesRequest
 	(*FeaturesResponse)(nil),                      // 1: features.FeaturesResponse
@@ -5643,7 +6445,18 @@ var file_features_proto_goTypes = []any{
 	(*Map)(nil),                                   // 77: features.Map
 	(*MapFeatures)(nil),                           // 78: features.MapFeatures
 	(*MapFeatureCount)(nil),                       // 79: features.MapFeatureCount
-	(*emptypb.Empty)(nil),                         // 80: google.protobuf.Empty
+	(*GetCitizenFeatureSummaryRequest)(nil),       // 80: features.GetCitizenFeatureSummaryRequest
+	(*GetCitizenFeatureSummaryResponse)(nil),      // 81: features.GetCitizenFeatureSummaryResponse
+	(*CitizenFeatureSummaryItem)(nil),             // 82: features.CitizenFeatureSummaryItem
+	(*GetCitizenFeatureChartRequest)(nil),         // 83: features.GetCitizenFeatureChartRequest
+	(*GetCitizenFeatureChartResponse)(nil),        // 84: features.GetCitizenFeatureChartResponse
+	(*CitizenFeatureChartData)(nil),               // 85: features.CitizenFeatureChartData
+	(*ListCitizenFeaturesRequest)(nil),            // 86: features.ListCitizenFeaturesRequest
+	(*ListCitizenFeaturesResponse)(nil),           // 87: features.ListCitizenFeaturesResponse
+	(*CitizenFeatureItem)(nil),                    // 88: features.CitizenFeatureItem
+	(*CitizenFeatureCenter)(nil),                  // 89: features.CitizenFeatureCenter
+	(*CitizenFeatureMapMarker)(nil),               // 90: features.CitizenFeatureMapMarker
+	(*emptypb.Empty)(nil),                         // 91: google.protobuf.Empty
 }
 var file_features_proto_depIdxs = []int32{
 	21, // 0: features.FeaturesResponse.features:type_name -> features.Feature
@@ -5691,83 +6504,98 @@ var file_features_proto_depIdxs = []int32{
 	79, // 42: features.MapFeatures.maskoni:type_name -> features.MapFeatureCount
 	79, // 43: features.MapFeatures.tejari:type_name -> features.MapFeatureCount
 	79, // 44: features.MapFeatures.amoozeshi:type_name -> features.MapFeatureCount
-	0,  // 45: features.FeatureService.ListFeatures:input_type -> features.ListFeaturesRequest
-	2,  // 46: features.FeatureService.GetFeature:input_type -> features.GetFeatureRequest
-	4,  // 47: features.FeatureService.UpdateFeature:input_type -> features.UpdateFeatureRequest
-	5,  // 48: features.FeatureService.AddFeatureImages:input_type -> features.AddFeatureImagesRequest
-	6,  // 49: features.FeatureService.GetMyFeatures:input_type -> features.GetMyFeaturesRequest
-	7,  // 50: features.FeatureService.ListMyFeatures:input_type -> features.ListMyFeaturesRequest
-	9,  // 51: features.FeatureService.GetMyFeature:input_type -> features.GetMyFeatureRequest
-	10, // 52: features.FeatureService.AddMyFeatureImages:input_type -> features.AddMyFeatureImagesRequest
-	11, // 53: features.FeatureService.RemoveMyFeatureImage:input_type -> features.RemoveMyFeatureImageRequest
-	12, // 54: features.FeatureService.UpdateMyFeature:input_type -> features.UpdateMyFeatureRequest
-	13, // 55: features.FeatureService.GetFeatureTradeHistory:input_type -> features.GetFeatureTradeHistoryRequest
-	27, // 56: features.FeatureMarketplaceService.BuyFeature:input_type -> features.BuyFeatureRequest
-	29, // 57: features.FeatureMarketplaceService.SendBuyRequest:input_type -> features.SendBuyRequestRequest
-	39, // 58: features.FeatureMarketplaceService.AcceptBuyRequest:input_type -> features.AcceptBuyRequestRequest
-	40, // 59: features.FeatureMarketplaceService.CreateSellRequest:input_type -> features.CreateSellRequestRequest
-	41, // 60: features.FeatureMarketplaceService.ListSellRequests:input_type -> features.ListSellRequestsRequest
-	42, // 61: features.FeatureMarketplaceService.DeleteSellRequest:input_type -> features.DeleteSellRequestRequest
-	45, // 62: features.FeatureMarketplaceService.RequestGracePeriod:input_type -> features.RequestGracePeriodRequest
-	33, // 63: features.FeatureMarketplaceService.ListBuyRequests:input_type -> features.ListBuyRequestsRequest
-	34, // 64: features.FeatureMarketplaceService.ListReceivedBuyRequests:input_type -> features.ListReceivedBuyRequestsRequest
-	36, // 65: features.FeatureMarketplaceService.RejectBuyRequest:input_type -> features.RejectBuyRequestRequest
-	37, // 66: features.FeatureMarketplaceService.DeleteBuyRequest:input_type -> features.DeleteBuyRequestRequest
-	38, // 67: features.FeatureMarketplaceService.UpdateGracePeriod:input_type -> features.UpdateGracePeriodRequest
-	47, // 68: features.FeatureProfitService.GetHourlyProfits:input_type -> features.GetHourlyProfitsRequest
-	50, // 69: features.FeatureProfitService.GetSingleProfit:input_type -> features.GetSingleProfitRequest
-	52, // 70: features.FeatureProfitService.GetProfitsByApplication:input_type -> features.GetProfitsByApplicationRequest
-	54, // 71: features.FeatureProfitService.GetHourlyProfitTimePercentage:input_type -> features.GetHourlyProfitTimePercentageRequest
-	56, // 72: features.BuildingService.GetBuildPackage:input_type -> features.GetBuildPackageRequest
-	59, // 73: features.BuildingService.BuildFeature:input_type -> features.BuildFeatureRequest
-	62, // 74: features.BuildingService.GetBuildings:input_type -> features.GetBuildingsRequest
-	65, // 75: features.BuildingService.UpdateBuilding:input_type -> features.UpdateBuildingRequest
-	67, // 76: features.BuildingService.DestroyBuilding:input_type -> features.DestroyBuildingRequest
-	68, // 77: features.BuildingService.ListCompletedBuildings:input_type -> features.ListCompletedBuildingsRequest
-	71, // 78: features.MapsService.ListMaps:input_type -> features.ListMapsRequest
-	72, // 79: features.MapsService.GetMap:input_type -> features.GetMapRequest
-	72, // 80: features.MapsService.GetMapBorder:input_type -> features.GetMapRequest
-	1,  // 81: features.FeatureService.ListFeatures:output_type -> features.FeaturesResponse
-	3,  // 82: features.FeatureService.GetFeature:output_type -> features.FeatureResponse
-	3,  // 83: features.FeatureService.UpdateFeature:output_type -> features.FeatureResponse
-	3,  // 84: features.FeatureService.AddFeatureImages:output_type -> features.FeatureResponse
-	1,  // 85: features.FeatureService.GetMyFeatures:output_type -> features.FeaturesResponse
-	8,  // 86: features.FeatureService.ListMyFeatures:output_type -> features.ListMyFeaturesResponse
-	3,  // 87: features.FeatureService.GetMyFeature:output_type -> features.FeatureResponse
-	3,  // 88: features.FeatureService.AddMyFeatureImages:output_type -> features.FeatureResponse
-	80, // 89: features.FeatureService.RemoveMyFeatureImage:output_type -> google.protobuf.Empty
-	80, // 90: features.FeatureService.UpdateMyFeature:output_type -> google.protobuf.Empty
-	14, // 91: features.FeatureService.GetFeatureTradeHistory:output_type -> features.GetFeatureTradeHistoryResponse
-	28, // 92: features.FeatureMarketplaceService.BuyFeature:output_type -> features.BuyFeatureResponse
-	30, // 93: features.FeatureMarketplaceService.SendBuyRequest:output_type -> features.BuyRequestResponse
-	30, // 94: features.FeatureMarketplaceService.AcceptBuyRequest:output_type -> features.BuyRequestResponse
-	43, // 95: features.FeatureMarketplaceService.CreateSellRequest:output_type -> features.SellRequestResponse
-	44, // 96: features.FeatureMarketplaceService.ListSellRequests:output_type -> features.SellRequestsResponse
-	80, // 97: features.FeatureMarketplaceService.DeleteSellRequest:output_type -> google.protobuf.Empty
-	46, // 98: features.FeatureMarketplaceService.RequestGracePeriod:output_type -> features.GracePeriodResponse
-	35, // 99: features.FeatureMarketplaceService.ListBuyRequests:output_type -> features.BuyRequestsResponse
-	35, // 100: features.FeatureMarketplaceService.ListReceivedBuyRequests:output_type -> features.BuyRequestsResponse
-	80, // 101: features.FeatureMarketplaceService.RejectBuyRequest:output_type -> google.protobuf.Empty
-	80, // 102: features.FeatureMarketplaceService.DeleteBuyRequest:output_type -> google.protobuf.Empty
-	80, // 103: features.FeatureMarketplaceService.UpdateGracePeriod:output_type -> google.protobuf.Empty
-	48, // 104: features.FeatureProfitService.GetHourlyProfits:output_type -> features.HourlyProfitsResponse
-	51, // 105: features.FeatureProfitService.GetSingleProfit:output_type -> features.HourlyProfitResponse
-	53, // 106: features.FeatureProfitService.GetProfitsByApplication:output_type -> features.ProfitsByApplicationResponse
-	55, // 107: features.FeatureProfitService.GetHourlyProfitTimePercentage:output_type -> features.GetHourlyProfitTimePercentageResponse
-	57, // 108: features.BuildingService.GetBuildPackage:output_type -> features.BuildPackageResponse
-	61, // 109: features.BuildingService.BuildFeature:output_type -> features.BuildFeatureResponse
-	63, // 110: features.BuildingService.GetBuildings:output_type -> features.BuildingsResponse
-	66, // 111: features.BuildingService.UpdateBuilding:output_type -> features.BuildingResponse
-	66, // 112: features.BuildingService.DestroyBuilding:output_type -> features.BuildingResponse
-	69, // 113: features.BuildingService.ListCompletedBuildings:output_type -> features.ListCompletedBuildingsResponse
-	73, // 114: features.MapsService.ListMaps:output_type -> features.ListMapsResponse
-	74, // 115: features.MapsService.GetMap:output_type -> features.GetMapResponse
-	75, // 116: features.MapsService.GetMapBorder:output_type -> features.GetMapBorderResponse
-	81, // [81:117] is the sub-list for method output_type
-	45, // [45:81] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	82, // 45: features.GetCitizenFeatureSummaryResponse.data:type_name -> features.CitizenFeatureSummaryItem
+	85, // 46: features.GetCitizenFeatureChartResponse.data:type_name -> features.CitizenFeatureChartData
+	88, // 47: features.ListCitizenFeaturesResponse.data:type_name -> features.CitizenFeatureItem
+	19, // 48: features.ListCitizenFeaturesResponse.links:type_name -> features.PaginationLinks
+	18, // 49: features.ListCitizenFeaturesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	90, // 50: features.ListCitizenFeaturesResponse.map_markers:type_name -> features.CitizenFeatureMapMarker
+	89, // 51: features.CitizenFeatureItem.center:type_name -> features.CitizenFeatureCenter
+	26, // 52: features.CitizenFeatureItem.images:type_name -> features.Image
+	89, // 53: features.CitizenFeatureMapMarker.center:type_name -> features.CitizenFeatureCenter
+	0,  // 54: features.FeatureService.ListFeatures:input_type -> features.ListFeaturesRequest
+	2,  // 55: features.FeatureService.GetFeature:input_type -> features.GetFeatureRequest
+	4,  // 56: features.FeatureService.UpdateFeature:input_type -> features.UpdateFeatureRequest
+	5,  // 57: features.FeatureService.AddFeatureImages:input_type -> features.AddFeatureImagesRequest
+	6,  // 58: features.FeatureService.GetMyFeatures:input_type -> features.GetMyFeaturesRequest
+	7,  // 59: features.FeatureService.ListMyFeatures:input_type -> features.ListMyFeaturesRequest
+	9,  // 60: features.FeatureService.GetMyFeature:input_type -> features.GetMyFeatureRequest
+	10, // 61: features.FeatureService.AddMyFeatureImages:input_type -> features.AddMyFeatureImagesRequest
+	11, // 62: features.FeatureService.RemoveMyFeatureImage:input_type -> features.RemoveMyFeatureImageRequest
+	12, // 63: features.FeatureService.UpdateMyFeature:input_type -> features.UpdateMyFeatureRequest
+	13, // 64: features.FeatureService.GetFeatureTradeHistory:input_type -> features.GetFeatureTradeHistoryRequest
+	27, // 65: features.FeatureMarketplaceService.BuyFeature:input_type -> features.BuyFeatureRequest
+	29, // 66: features.FeatureMarketplaceService.SendBuyRequest:input_type -> features.SendBuyRequestRequest
+	39, // 67: features.FeatureMarketplaceService.AcceptBuyRequest:input_type -> features.AcceptBuyRequestRequest
+	40, // 68: features.FeatureMarketplaceService.CreateSellRequest:input_type -> features.CreateSellRequestRequest
+	41, // 69: features.FeatureMarketplaceService.ListSellRequests:input_type -> features.ListSellRequestsRequest
+	42, // 70: features.FeatureMarketplaceService.DeleteSellRequest:input_type -> features.DeleteSellRequestRequest
+	45, // 71: features.FeatureMarketplaceService.RequestGracePeriod:input_type -> features.RequestGracePeriodRequest
+	33, // 72: features.FeatureMarketplaceService.ListBuyRequests:input_type -> features.ListBuyRequestsRequest
+	34, // 73: features.FeatureMarketplaceService.ListReceivedBuyRequests:input_type -> features.ListReceivedBuyRequestsRequest
+	36, // 74: features.FeatureMarketplaceService.RejectBuyRequest:input_type -> features.RejectBuyRequestRequest
+	37, // 75: features.FeatureMarketplaceService.DeleteBuyRequest:input_type -> features.DeleteBuyRequestRequest
+	38, // 76: features.FeatureMarketplaceService.UpdateGracePeriod:input_type -> features.UpdateGracePeriodRequest
+	47, // 77: features.FeatureProfitService.GetHourlyProfits:input_type -> features.GetHourlyProfitsRequest
+	50, // 78: features.FeatureProfitService.GetSingleProfit:input_type -> features.GetSingleProfitRequest
+	52, // 79: features.FeatureProfitService.GetProfitsByApplication:input_type -> features.GetProfitsByApplicationRequest
+	54, // 80: features.FeatureProfitService.GetHourlyProfitTimePercentage:input_type -> features.GetHourlyProfitTimePercentageRequest
+	56, // 81: features.BuildingService.GetBuildPackage:input_type -> features.GetBuildPackageRequest
+	59, // 82: features.BuildingService.BuildFeature:input_type -> features.BuildFeatureRequest
+	62, // 83: features.BuildingService.GetBuildings:input_type -> features.GetBuildingsRequest
+	65, // 84: features.BuildingService.UpdateBuilding:input_type -> features.UpdateBuildingRequest
+	67, // 85: features.BuildingService.DestroyBuilding:input_type -> features.DestroyBuildingRequest
+	68, // 86: features.BuildingService.ListCompletedBuildings:input_type -> features.ListCompletedBuildingsRequest
+	71, // 87: features.MapsService.ListMaps:input_type -> features.ListMapsRequest
+	72, // 88: features.MapsService.GetMap:input_type -> features.GetMapRequest
+	72, // 89: features.MapsService.GetMapBorder:input_type -> features.GetMapRequest
+	80, // 90: features.CitizenFeaturesService.GetCitizenFeatureSummary:input_type -> features.GetCitizenFeatureSummaryRequest
+	83, // 91: features.CitizenFeaturesService.GetCitizenFeatureChart:input_type -> features.GetCitizenFeatureChartRequest
+	86, // 92: features.CitizenFeaturesService.ListCitizenFeatures:input_type -> features.ListCitizenFeaturesRequest
+	1,  // 93: features.FeatureService.ListFeatures:output_type -> features.FeaturesResponse
+	3,  // 94: features.FeatureService.GetFeature:output_type -> features.FeatureResponse
+	3,  // 95: features.FeatureService.UpdateFeature:output_type -> features.FeatureResponse
+	3,  // 96: features.FeatureService.AddFeatureImages:output_type -> features.FeatureResponse
+	1,  // 97: features.FeatureService.GetMyFeatures:output_type -> features.FeaturesResponse
+	8,  // 98: features.FeatureService.ListMyFeatures:output_type -> features.ListMyFeaturesResponse
+	3,  // 99: features.FeatureService.GetMyFeature:output_type -> features.FeatureResponse
+	3,  // 100: features.FeatureService.AddMyFeatureImages:output_type -> features.FeatureResponse
+	91, // 101: features.FeatureService.RemoveMyFeatureImage:output_type -> google.protobuf.Empty
+	91, // 102: features.FeatureService.UpdateMyFeature:output_type -> google.protobuf.Empty
+	14, // 103: features.FeatureService.GetFeatureTradeHistory:output_type -> features.GetFeatureTradeHistoryResponse
+	28, // 104: features.FeatureMarketplaceService.BuyFeature:output_type -> features.BuyFeatureResponse
+	30, // 105: features.FeatureMarketplaceService.SendBuyRequest:output_type -> features.BuyRequestResponse
+	30, // 106: features.FeatureMarketplaceService.AcceptBuyRequest:output_type -> features.BuyRequestResponse
+	43, // 107: features.FeatureMarketplaceService.CreateSellRequest:output_type -> features.SellRequestResponse
+	44, // 108: features.FeatureMarketplaceService.ListSellRequests:output_type -> features.SellRequestsResponse
+	91, // 109: features.FeatureMarketplaceService.DeleteSellRequest:output_type -> google.protobuf.Empty
+	46, // 110: features.FeatureMarketplaceService.RequestGracePeriod:output_type -> features.GracePeriodResponse
+	35, // 111: features.FeatureMarketplaceService.ListBuyRequests:output_type -> features.BuyRequestsResponse
+	35, // 112: features.FeatureMarketplaceService.ListReceivedBuyRequests:output_type -> features.BuyRequestsResponse
+	91, // 113: features.FeatureMarketplaceService.RejectBuyRequest:output_type -> google.protobuf.Empty
+	91, // 114: features.FeatureMarketplaceService.DeleteBuyRequest:output_type -> google.protobuf.Empty
+	91, // 115: features.FeatureMarketplaceService.UpdateGracePeriod:output_type -> google.protobuf.Empty
+	48, // 116: features.FeatureProfitService.GetHourlyProfits:output_type -> features.HourlyProfitsResponse
+	51, // 117: features.FeatureProfitService.GetSingleProfit:output_type -> features.HourlyProfitResponse
+	53, // 118: features.FeatureProfitService.GetProfitsByApplication:output_type -> features.ProfitsByApplicationResponse
+	55, // 119: features.FeatureProfitService.GetHourlyProfitTimePercentage:output_type -> features.GetHourlyProfitTimePercentageResponse
+	57, // 120: features.BuildingService.GetBuildPackage:output_type -> features.BuildPackageResponse
+	61, // 121: features.BuildingService.BuildFeature:output_type -> features.BuildFeatureResponse
+	63, // 122: features.BuildingService.GetBuildings:output_type -> features.BuildingsResponse
+	66, // 123: features.BuildingService.UpdateBuilding:output_type -> features.BuildingResponse
+	66, // 124: features.BuildingService.DestroyBuilding:output_type -> features.BuildingResponse
+	69, // 125: features.BuildingService.ListCompletedBuildings:output_type -> features.ListCompletedBuildingsResponse
+	73, // 126: features.MapsService.ListMaps:output_type -> features.ListMapsResponse
+	74, // 127: features.MapsService.GetMap:output_type -> features.GetMapResponse
+	75, // 128: features.MapsService.GetMapBorder:output_type -> features.GetMapBorderResponse
+	81, // 129: features.CitizenFeaturesService.GetCitizenFeatureSummary:output_type -> features.GetCitizenFeatureSummaryResponse
+	84, // 130: features.CitizenFeaturesService.GetCitizenFeatureChart:output_type -> features.GetCitizenFeatureChartResponse
+	87, // 131: features.CitizenFeaturesService.ListCitizenFeatures:output_type -> features.ListCitizenFeaturesResponse
+	93, // [93:132] is the sub-list for method output_type
+	54, // [54:93] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_features_proto_init() }
@@ -5785,9 +6613,9 @@ func file_features_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_features_proto_rawDesc), len(file_features_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   80,
+			NumMessages:   91,
 			NumExtensions: 0,
-			NumServices:   5,
+			NumServices:   6,
 		},
 		GoTypes:           file_features_proto_goTypes,
 		DependencyIndexes: file_features_proto_depIdxs,

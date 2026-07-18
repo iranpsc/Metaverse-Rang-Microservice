@@ -421,7 +421,7 @@ func inferQueryParamType(name string) string {
 		return "integer"
 	case "load_buildings", "user_features_location", "recieved", "liked":
 		return "boolean"
-	case "points":
+	case "points", "karbari":
 		return "array"
 	default:
 		return "string"

@@ -17,6 +17,7 @@ const (
 
 type CitizenService interface {
 	GetCitizenProfile(ctx context.Context, code string) (*models.CitizenProfile, error)
+	GetCitizenUserInfo(ctx context.Context, code string) (*models.CitizenUserInfo, error)
 	GetCitizenReferrals(ctx context.Context, code string, search string, page int32) ([]*models.CitizenReferral, *models.PaginationMeta, error)
 	GetCitizenReferralChart(ctx context.Context, code string, rangeType string) (*models.ReferralChartData, error)
 	ScorePercentageToNextLevel(ctx context.Context, userID uint64, score int32) float64
@@ -46,6 +47,15 @@ func NewCitizenService(
 		helperSvc:   helperSvc,
 		appURL:      strings.TrimSuffix(appURL, "/"),
 	}
+}
+
+// GetCitizenUserInfo returns user_id and privacy settings for public feature assets.
+func (s *citizenService) GetCitizenUserInfo(ctx context.Context, code string) (*models.CitizenUserInfo, error) {
+	info, err := s.citizenRepo.GetCitizenUserInfoByCode(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get citizen user info: %w", err)
+	}
+	return info, nil
 }
 
 // GetCitizenProfile retrieves a citizen's public profile (privacy applied in handler).

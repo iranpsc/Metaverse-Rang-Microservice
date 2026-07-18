@@ -26,8 +26,37 @@ func RegisterCitizenHandler(grpcServer *grpc.Server, citizenService service.Citi
 	})
 }
 
+// GetCitizenUserInfo returns user_id + privacy for public citizen feature assets.
+func (h *citizenHandler) GetCitizenUserInfo(ctx context.Context, req *pb.GetCitizenUserInfoRequest) (*pb.GetCitizenUserInfoResponse, error) {
+	if req.Code == "" {
+		locale := "en"
+		t := helpers.GetLocaleTranslations(locale)
+		validationErrors := map[string]string{
+			"code": fmt.Sprintf(t.Required, "code"),
+		}
+		return nil, returnValidationError(validationErrors)
+	}
+
+	info, err := h.citizenService.GetCitizenUserInfo(ctx, req.Code)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get citizen user info: %v", err)
+	}
+	if info == nil {
+		return nil, status.Errorf(codes.NotFound, "citizen not found")
+	}
+
+	privacy := info.Privacy
+	if privacy == nil {
+		privacy = map[string]int32{}
+	}
+
+	return &pb.GetCitizenUserInfoResponse{
+		UserId:  info.UserID,
+		Privacy: privacy,
+	}, nil
+}
+
 // GetCitizenProfile returns the public profile for a citizen identified by code.
-// Response shape matches Laravel App\Http\Resources\PublicProfile\PersonalInfo.
 func (h *citizenHandler) GetCitizenProfile(ctx context.Context, req *pb.GetCitizenProfileRequest) (*pb.CitizenProfileResponse, error) {
 	if req.Code == "" {
 		locale := "en"

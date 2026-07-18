@@ -72,6 +72,7 @@ type MockCitizenService struct {
 	GetCitizenProfileFunc       func(ctx context.Context, req *pb.GetCitizenProfileRequest) (*pb.CitizenProfileResponse, error)
 	GetCitizenReferralsFunc     func(ctx context.Context, req *pb.GetCitizenReferralsRequest) (*pb.CitizenReferralsResponse, error)
 	GetCitizenReferralChartFunc func(ctx context.Context, req *pb.GetCitizenReferralChartRequest) (*pb.CitizenReferralChartResponse, error)
+	GetCitizenUserInfoFunc      func(ctx context.Context, req *pb.GetCitizenUserInfoRequest) (*pb.GetCitizenUserInfoResponse, error)
 }
 
 func (m *MockCitizenService) GetCitizenProfile(ctx context.Context, req *pb.GetCitizenProfileRequest) (*pb.CitizenProfileResponse, error) {
@@ -93,6 +94,13 @@ func (m *MockCitizenService) GetCitizenReferralChart(ctx context.Context, req *p
 		return m.GetCitizenReferralChartFunc(ctx, req)
 	}
 	return &pb.CitizenReferralChartResponse{}, nil
+}
+
+func (m *MockCitizenService) GetCitizenUserInfo(ctx context.Context, req *pb.GetCitizenUserInfoRequest) (*pb.GetCitizenUserInfoResponse, error) {
+	if m.GetCitizenUserInfoFunc != nil {
+		return m.GetCitizenUserInfoFunc(ctx, req)
+	}
+	return &pb.GetCitizenUserInfoResponse{}, nil
 }
 
 // MockUserService implements pb.UserServiceServer for tests.

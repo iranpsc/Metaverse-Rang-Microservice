@@ -592,3 +592,86 @@ message MapFeatureCount {
   int32 sold = 1; // count of features with owner_id != 1 and matching karbari
 }
 
+// CitizenFeaturesService handles public citizen feature assets (no auth; privacy applied by gateway)
+service CitizenFeaturesService {
+  rpc GetCitizenFeatureSummary(GetCitizenFeatureSummaryRequest) returns (GetCitizenFeatureSummaryResponse);
+  rpc GetCitizenFeatureChart(GetCitizenFeatureChartRequest) returns (GetCitizenFeatureChartResponse);
+  rpc ListCitizenFeatures(ListCitizenFeaturesRequest) returns (ListCitizenFeaturesResponse);
+}
+
+message GetCitizenFeatureSummaryRequest {
+  uint64 user_id = 1;
+  string period = 2; // daily | weekly | monthly | yearly
+  repeated string allowed_karbaris = 3; // already privacy-filtered
+}
+
+message GetCitizenFeatureSummaryResponse {
+  repeated CitizenFeatureSummaryItem data = 1;
+  string period = 2;
+}
+
+message CitizenFeatureSummaryItem {
+  string karbari = 1;
+  string label = 2;
+  int32 current_count = 3;
+  int32 bought_count = 4;
+  int32 sold_count = 5;
+}
+
+message GetCitizenFeatureChartRequest {
+  uint64 user_id = 1;
+  string period = 2;
+  repeated string allowed_karbaris = 3;
+}
+
+message GetCitizenFeatureChartResponse {
+  CitizenFeatureChartData data = 1;
+}
+
+message CitizenFeatureChartData {
+  repeated string labels = 1;
+  repeated int32 bought = 2;
+  repeated int32 sold = 3;
+}
+
+message ListCitizenFeaturesRequest {
+  uint64 user_id = 1;
+  repeated string allowed_karbaris = 2;
+  string search = 3; // optional; filters list only
+  int32 page = 4;
+  int32 per_page = 5; // default 15
+}
+
+message ListCitizenFeaturesResponse {
+  repeated CitizenFeatureItem data = 1;
+  PaginationLinks links = 2;
+  FeatureTradeHistoryPaginationMeta meta = 3;
+  repeated CitizenFeatureMapMarker map_markers = 4;
+}
+
+message CitizenFeatureItem {
+  uint64 id = 1;
+  string vod_id = 2;
+  string address = 3;
+  double area = 4;
+  int32 density = 5;
+  string karbari = 6;
+  string owner_code = 7;
+  string price_psc = 8;
+  string price_irr = 9;
+  CitizenFeatureCenter center = 10;
+  string label = 11;
+  repeated Image images = 12;
+}
+
+message CitizenFeatureCenter {
+  double x = 1;
+  double y = 2;
+}
+
+message CitizenFeatureMapMarker {
+  uint64 id = 1;
+  CitizenFeatureCenter center = 2;
+  string karbari = 3;
+}
+

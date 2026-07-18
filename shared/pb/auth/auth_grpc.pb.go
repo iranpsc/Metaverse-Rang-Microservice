@@ -1322,6 +1322,7 @@ const (
 	CitizenService_GetCitizenProfile_FullMethodName       = "/auth.CitizenService/GetCitizenProfile"
 	CitizenService_GetCitizenReferrals_FullMethodName     = "/auth.CitizenService/GetCitizenReferrals"
 	CitizenService_GetCitizenReferralChart_FullMethodName = "/auth.CitizenService/GetCitizenReferralChart"
+	CitizenService_GetCitizenUserInfo_FullMethodName      = "/auth.CitizenService/GetCitizenUserInfo"
 )
 
 // CitizenServiceClient is the client API for CitizenService service.
@@ -1333,6 +1334,8 @@ type CitizenServiceClient interface {
 	GetCitizenProfile(ctx context.Context, in *GetCitizenProfileRequest, opts ...grpc.CallOption) (*CitizenProfileResponse, error)
 	GetCitizenReferrals(ctx context.Context, in *GetCitizenReferralsRequest, opts ...grpc.CallOption) (*CitizenReferralsResponse, error)
 	GetCitizenReferralChart(ctx context.Context, in *GetCitizenReferralChartRequest, opts ...grpc.CallOption) (*CitizenReferralChartResponse, error)
+	// Lightweight identity + privacy for public citizen feature assets
+	GetCitizenUserInfo(ctx context.Context, in *GetCitizenUserInfoRequest, opts ...grpc.CallOption) (*GetCitizenUserInfoResponse, error)
 }
 
 type citizenServiceClient struct {
@@ -1373,6 +1376,16 @@ func (c *citizenServiceClient) GetCitizenReferralChart(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *citizenServiceClient) GetCitizenUserInfo(ctx context.Context, in *GetCitizenUserInfoRequest, opts ...grpc.CallOption) (*GetCitizenUserInfoResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCitizenUserInfoResponse)
+	err := c.cc.Invoke(ctx, CitizenService_GetCitizenUserInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CitizenServiceServer is the server API for CitizenService service.
 // All implementations must embed UnimplementedCitizenServiceServer
 // for forward compatibility.
@@ -1382,6 +1395,8 @@ type CitizenServiceServer interface {
 	GetCitizenProfile(context.Context, *GetCitizenProfileRequest) (*CitizenProfileResponse, error)
 	GetCitizenReferrals(context.Context, *GetCitizenReferralsRequest) (*CitizenReferralsResponse, error)
 	GetCitizenReferralChart(context.Context, *GetCitizenReferralChartRequest) (*CitizenReferralChartResponse, error)
+	// Lightweight identity + privacy for public citizen feature assets
+	GetCitizenUserInfo(context.Context, *GetCitizenUserInfoRequest) (*GetCitizenUserInfoResponse, error)
 	mustEmbedUnimplementedCitizenServiceServer()
 }
 
@@ -1400,6 +1415,9 @@ func (UnimplementedCitizenServiceServer) GetCitizenReferrals(context.Context, *G
 }
 func (UnimplementedCitizenServiceServer) GetCitizenReferralChart(context.Context, *GetCitizenReferralChartRequest) (*CitizenReferralChartResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCitizenReferralChart not implemented")
+}
+func (UnimplementedCitizenServiceServer) GetCitizenUserInfo(context.Context, *GetCitizenUserInfoRequest) (*GetCitizenUserInfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCitizenUserInfo not implemented")
 }
 func (UnimplementedCitizenServiceServer) mustEmbedUnimplementedCitizenServiceServer() {}
 func (UnimplementedCitizenServiceServer) testEmbeddedByValue()                        {}
@@ -1476,6 +1494,24 @@ func _CitizenService_GetCitizenReferralChart_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CitizenService_GetCitizenUserInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCitizenUserInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CitizenServiceServer).GetCitizenUserInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CitizenService_GetCitizenUserInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CitizenServiceServer).GetCitizenUserInfo(ctx, req.(*GetCitizenUserInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CitizenService_ServiceDesc is the grpc.ServiceDesc for CitizenService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1494,6 +1530,10 @@ var CitizenService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCitizenReferralChart",
 			Handler:    _CitizenService_GetCitizenReferralChart_Handler,
+		},
+		{
+			MethodName: "GetCitizenUserInfo",
+			Handler:    _CitizenService_GetCitizenUserInfo_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

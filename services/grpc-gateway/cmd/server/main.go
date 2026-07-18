@@ -216,10 +216,12 @@ func main() {
 	var featuresHandler *handler.FeaturesHandler
 	var profitHandler *handler.ProfitHandler
 	var mapsHandler *handler.MapsHandler
+	var citizenFeaturesHandler *handler.CitizenFeaturesHandler
 	if featuresConn != nil {
 		featuresHandler = handler.NewFeaturesHandler(featuresConn, authConn, cfg.Locale)
 		profitHandler = handler.NewProfitHandler(featuresConn, authConn)
 		mapsHandler = handler.NewMapsHandler(featuresConn)
+		citizenFeaturesHandler = handler.NewCitizenFeaturesHandler(authConn, featuresConn, cfg.Locale)
 	}
 
 	var financialHandler *handler.FinancialHandler
@@ -317,7 +319,22 @@ func main() {
 	mux.Handle("/api/users/", optionalAuthMiddleware(http.HandlerFunc(authHandler.HandleUsersRoutes)))
 
 	// Citizen routes (public, no authentication required)
-	mux.HandleFunc("/api/citizen/", authHandler.HandleCitizenRoutes)
+	mux.HandleFunc("/api/citizen/", func(w http.ResponseWriter, r *http.Request) {
+		parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/citizen/"), "/")
+		if len(parts) >= 2 && parts[1] == "features" {
+			if citizenFeaturesHandler == nil {
+				http.Error(w, `{"error":"features service unavailable"}`, http.StatusServiceUnavailable)
+				return
+			}
+			rest := []string{}
+			if len(parts) > 2 {
+				rest = parts[2:]
+			}
+			citizenFeaturesHandler.Handle(w, r, parts[0], rest)
+			return
+		}
+		authHandler.HandleCitizenRoutes(w, r)
+	})
 
 	// Search routes
 	mux.Handle("/api/search/users", optionalAuthMiddleware(http.HandlerFunc(authHandler.SearchUsers)))
