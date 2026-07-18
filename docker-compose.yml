@@ -16,7 +16,7 @@ x-grpc-tls: &grpc-tls
   GRPC_TLS_CLIENT_KEY_FILE: ${GRPC_TLS_CLIENT_KEY_FILE:-/certs/client.key}
 
 # Host certs from scripts/generate-grpc-certs.sh → container /certs
-x-grpc-certs-mount: &grpc-certs-mount ./scripts/certs/grpc:/certs:ro
+x-grpc-certs-mount: &grpc-certs-mount ./certs/grpc:/certs:ro
 
 services:
   # ============================================================================
