@@ -6,7 +6,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/redis/go-redis/v9 v9.17.2
-	github.com/yaa110/go-persian-calendar v1.2.0
+	github.com/yaa110/go-persian-calendar v1.3.0
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	metarang/shared v0.0.0
