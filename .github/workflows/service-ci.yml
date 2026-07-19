@@ -229,16 +229,12 @@ jobs:
       - name: Verify rollout
         run: kubectl rollout status deployment/${{ inputs.service_name }} -n metarang --timeout=5m
 
-      - name: Run smoke tests
+      - name: Verify pod readiness
         run: |
-          for i in $(seq 1 30); do
-            if kubectl exec -n metarang deployment/${{ inputs.service_name }} -- curl -sf http://localhost:8080/health; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Health check failed after 60 seconds"
-          exit 1
+          kubectl wait --for=condition=ready pod \
+            -l app=${{ inputs.service_name }} \
+            -n metarang \
+            --timeout=120s
 
       - name: Rollback on failure
         if: failure()
