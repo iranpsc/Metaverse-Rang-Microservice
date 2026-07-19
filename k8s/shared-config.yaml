@@ -5,13 +5,13 @@ metadata:
   namespace: metarang
 data:
   # Database configuration
-  mysql-host: "mysql.metarang.svc.cluster.local"
+  mysql-host: "mysql"
   mysql-port: "3306"
   mysql-database: "metarang_db"
   mysql-user: "metarang"
   
   # Redis configuration
-  redis-host: "redis.metarang.svc.cluster.local"
+  redis-host: "redis"
   redis-port: "6379"
   
   # OAuth configuration (update with actual values)

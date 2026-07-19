@@ -23,6 +23,8 @@ spec:
         prometheus.io/path: "/metrics"
         traffic.sidecar.istio.io/excludeInboundPorts: "9090"
     spec:
+      imagePullSecrets:
+        - name: dockerhub-credentials
       containers:
       - name: auth-service
         image: abbasajorloo/auth-service:latest
@@ -36,10 +38,7 @@ spec:
           protocol: TCP
         env:
         - name: DB_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: metarang-config
-              key: db.host
+          value: "mysql"
         - name: DB_PORT
           valueFrom:
             configMapKeyRef:

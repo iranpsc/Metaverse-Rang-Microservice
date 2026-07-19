@@ -5,12 +5,12 @@ metadata:
   namespace: metarang
 data:
   # Database Configuration
-  db.host: "mysql.metarang.svc.cluster.local"
+  db.host: "mysql"
   db.port: "3306"
   db.database: "metarang_db"
   
   # Redis Configuration
-  redis.host: "redis.metarang.svc.cluster.local"
+  redis.host: "redis"
   redis.port: "6379"
   redis.db: "0"
   

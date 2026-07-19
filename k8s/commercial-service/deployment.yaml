@@ -7,7 +7,7 @@ metadata:
     app: commercial-service
     version: v1
 spec:
-  replicas: 3
+  replicas: 1
   progressDeadlineSeconds: 600
   selector:
     matchLabels:
@@ -24,6 +24,8 @@ spec:
         prometheus.io/path: "/metrics"
         traffic.sidecar.istio.io/excludeInboundPorts: "9090"
     spec:
+      imagePullSecrets:
+        - name: dockerhub-credentials
       containers:
       - name: commercial-service
         image: abbasajorloo/commercial-service:latest
@@ -37,10 +39,7 @@ spec:
           protocol: TCP
         env:
         - name: DB_HOST
-          valueFrom:
-            configMapKeyRef:
-              name: metarang-config
-              key: db.host
+          value: "mysql"
         - name: DB_PORT
           valueFrom:
             configMapKeyRef:
@@ -95,17 +94,17 @@ spec:
         livenessProbe:
           exec:
             command: ["/bin/sh", "-c", "nc -z localhost 50052"]
-          initialDelaySeconds: 10
+          initialDelaySeconds: 60
           periodSeconds: 30
           timeoutSeconds: 3
-          failureThreshold: 3
+          failureThreshold: 5
         readinessProbe:
           exec:
             command: ["/bin/sh", "-c", "nc -z localhost 50052"]
-          initialDelaySeconds: 5
+          initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 3
-          failureThreshold: 3
+          failureThreshold: 10
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -139,7 +138,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: commercial-service
-  minReplicas: 3
+  minReplicas: 1
   maxReplicas: 15
   metrics:
   - type: Resource

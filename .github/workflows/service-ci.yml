@@ -223,8 +223,18 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
 
-      - name: Apply Kubernetes manifest
+      - name: Ensure Docker registry pull secret
         run: |
+          kubectl create secret docker-registry dockerhub-credentials \
+            --docker-server=https://index.docker.io/v1/ \
+            --docker-username="${{ secrets.DOCKER_USERNAME }}" \
+            --docker-password="${{ secrets.DOCKER_PASSWORD }}" \
+            -n metarang \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply cluster configuration
+        run: |
+          kubectl apply -f k8s/config/configmap.yaml
           MANIFEST="k8s/${{ inputs.service_name }}/deployment.yaml"
           if [ -f "$MANIFEST" ]; then
             kubectl apply -f "$MANIFEST"
@@ -237,7 +247,8 @@ jobs:
           REASON=$(kubectl get deployment "$DEPLOY" -n "$NS" \
             -o jsonpath='{.status.conditions[?(@.type=="Progressing")].reason}' 2>/dev/null || true)
           if [ "$REASON" = "ProgressDeadlineExceeded" ]; then
-            echo "Deployment $DEPLOY is stuck; restarting rollout before image update..."
+            echo "Deployment $DEPLOY is stuck; clearing failed pods before image update..."
+            kubectl delete pods -l app="$DEPLOY" -n "$NS" --field-selector=status.phase!=Running --ignore-not-found
             kubectl rollout restart "deployment/$DEPLOY" -n "$NS"
             kubectl rollout status "deployment/$DEPLOY" -n "$NS" --timeout=3m || true
           fi
