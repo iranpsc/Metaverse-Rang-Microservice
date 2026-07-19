@@ -47,9 +47,9 @@ COPY --from=builder --chown=appuser:appuser /app/calendar-service .
 
 USER appuser
 
-EXPOSE 50059
+EXPOSE 50058
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD nc -z localhost 50059 || exit 1
+  CMD nc -z localhost 50058 || exit 1
 
 ENTRYPOINT ["/app/calendar-service"]

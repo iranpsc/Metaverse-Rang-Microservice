@@ -264,9 +264,12 @@ jobs:
 
       - name: Verify pod readiness
         run: |
+          # Only watch Running pods; terminating pods can disappear mid-wait and
+          # cause kubectl wait to fail with NotFound during rolling updates.
           kubectl wait --for=condition=ready pod \
             -l app=${{ inputs.service_name }} \
             -n metarang \
+            --field-selector=status.phase=Running \
             --timeout=120s
 
       - name: Rollback on failure
