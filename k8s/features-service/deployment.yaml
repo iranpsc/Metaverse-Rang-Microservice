@@ -8,6 +8,7 @@ metadata:
     version: v1
 spec:
   replicas: 3
+  progressDeadlineSeconds: 600
   selector:
     matchLabels:
       app: features-service
@@ -25,10 +26,10 @@ spec:
     spec:
       containers:
       - name: features-service
-        image: metarang/features-service:latest
+        image: abbasajorloo/features-service:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 50051
+        - containerPort: 50053
           name: grpc
           protocol: TCP
         - containerPort: 9090
@@ -60,8 +61,8 @@ spec:
             configMapKeyRef:
               name: metarang-config
               key: db.database
-        - name: PORT
-          value: "50051"
+        - name: GRPC_PORT
+          value: "50053"
         - name: METRICS_PORT
           value: "9090"
         - name: COMMERCIAL_SERVICE_ADDR
@@ -124,14 +125,14 @@ spec:
             cpu: "500m"
         livenessProbe:
           exec:
-            command: ["/bin/sh", "-c", "nc -z localhost 50051"]
+            command: ["/bin/sh", "-c", "nc -z localhost 50053"]
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 3
         readinessProbe:
           exec:
-            command: ["/bin/sh", "-c", "nc -z localhost 50051"]
+            command: ["/bin/sh", "-c", "nc -z localhost 50053"]
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
@@ -148,8 +149,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - port: 50051
-    targetPort: 50051
+  - port: 50053
+    targetPort: 50053
     protocol: TCP
     name: grpc
   - port: 9090

@@ -214,11 +214,33 @@ jobs:
       name: production
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
       - name: Configure kubectl
         uses: azure/k8s-set-context@ae59a723ba9abe7a9655538854a025448dbab4aa # v4.0.2
         with:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      - name: Apply Kubernetes manifest
+        run: |
+          MANIFEST="k8s/${{ inputs.service_name }}/deployment.yaml"
+          if [ -f "$MANIFEST" ]; then
+            kubectl apply -f "$MANIFEST"
+          fi
+
+      - name: Recover stuck deployment
+        run: |
+          NS=metarang
+          DEPLOY="${{ inputs.service_name }}"
+          REASON=$(kubectl get deployment "$DEPLOY" -n "$NS" \
+            -o jsonpath='{.status.conditions[?(@.type=="Progressing")].reason}' 2>/dev/null || true)
+          if [ "$REASON" = "ProgressDeadlineExceeded" ]; then
+            echo "Deployment $DEPLOY is stuck; restarting rollout before image update..."
+            kubectl rollout restart "deployment/$DEPLOY" -n "$NS"
+            kubectl rollout status "deployment/$DEPLOY" -n "$NS" --timeout=3m || true
+          fi
 
       - name: Update deployment image
         run: |
@@ -239,5 +261,13 @@ jobs:
       - name: Rollback on failure
         if: failure()
         run: |
-          kubectl rollout undo deployment/${{ inputs.service_name }} -n metarang
-          kubectl rollout status deployment/${{ inputs.service_name }} -n metarang
+          NS=metarang
+          DEPLOY="${{ inputs.service_name }}"
+          kubectl describe deployment "$DEPLOY" -n "$NS" || true
+          kubectl get pods -l app="$DEPLOY" -n "$NS" -o wide || true
+          for POD in $(kubectl get pods -l app="$DEPLOY" -n "$NS" -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- logs: $POD ---"
+            kubectl logs "$POD" -n "$NS" --tail=50 || true
+          done
+          kubectl rollout undo deployment/"$DEPLOY" -n "$NS" || true
+          kubectl rollout status deployment/"$DEPLOY" -n "$NS" --timeout=5m || true

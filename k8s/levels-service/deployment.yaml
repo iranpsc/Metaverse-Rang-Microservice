@@ -8,6 +8,7 @@ metadata:
     version: v1
 spec:
   replicas: 2
+  progressDeadlineSeconds: 600
   selector:
     matchLabels:
       app: levels-service
@@ -24,25 +25,47 @@ spec:
     spec:
       containers:
       - name: levels-service
-        image: metarang/levels-service:latest
+        image: abbasajorloo/levels-service:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 50051
+        - containerPort: 50054
           name: grpc
           protocol: TCP
         - containerPort: 9090
           name: metrics
           protocol: TCP
         env:
-        - name: DB_DSN
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: db.host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: db.port
+        - name: DB_USER
           valueFrom:
             secretKeyRef:
-              name: mysql-credentials
-              key: dsn
-        - name: PORT
-          value: "50051"
+              name: metarang-secrets
+              key: db.user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: metarang-secrets
+              key: db.password
+        - name: DB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: db.database
+        - name: GRPC_PORT
+          value: "50054"
         - name: METRICS_PORT
           value: "9090"
+        - name: COMMERCIAL_SERVICE_ADDR
+          value: "commercial-service:50052"
         - name: SENTRY_DSN
           valueFrom:
             secretKeyRef:
@@ -74,14 +97,19 @@ spec:
             cpu: "300m"
         livenessProbe:
           exec:
-            command: ["/bin/grpc_health_probe", "-addr=:50051"]
+            command: ["/bin/sh", "-c", "nc -z localhost 50054"]
           initialDelaySeconds: 10
-          periodSeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
         readinessProbe:
           exec:
-            command: ["/bin/grpc_health_probe", "-addr=:50051"]
+            command: ["/bin/sh", "-c", "nc -z localhost 50054"]
           initialDelaySeconds: 5
-          periodSeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+      restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
@@ -93,8 +121,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - port: 50051
-    targetPort: 50051
+  - port: 50054
+    targetPort: 50054
     protocol: TCP
     name: grpc
   - port: 9090
@@ -129,4 +157,3 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
-
