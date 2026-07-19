@@ -2948,8 +2948,6 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/ValidationError'
                     description: Validation error
-            security:
-                - BearerAuth: []
             summary: Get feature trade history
             tags:
                 - Features

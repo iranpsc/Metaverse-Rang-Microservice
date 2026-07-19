@@ -469,7 +469,7 @@ routes:
     methods: [get]
     tag: Features
     summary: Get feature trade history
-    security: bearer
+    security: none
     params:
       - name: feature
         in: path
