@@ -40,31 +40,27 @@ func (r *BuildingRepository) UpsertBuildingModel(ctx context.Context, modelID ui
 	return err
 }
 
-// FindBuildingModelByModelID finds a building model by its model_id (from 3D API)
-// modelID is a string that can be numeric (converted to uint64) or alphanumeric
+// FindBuildingModelByModelID finds a building model by its 3D API model_id or local PK id.
+// Path params from Laravel clients may be either value: GetBuildings returns PK as "id"
+// and the 3D identifier as "model_id".
 func (r *BuildingRepository) FindBuildingModelByModelID(ctx context.Context, modelID string) (*pb.BuildingModel, error) {
-	// Try to parse as uint64 for database query (database stores as int)
 	var dbModelID uint64
-	var err error
-
-	// First try parsing as numeric
 	if _, parseErr := fmt.Sscanf(modelID, "%d", &dbModelID); parseErr != nil {
-		// If not numeric, we need to handle alphanumeric model_id
-		// For now, return error - this indicates schema mismatch that needs addressing
 		return nil, fmt.Errorf("model_id must be numeric (database constraint): %w", parseErr)
 	}
 
 	query := `
 		SELECT id, model_id, name, sku, images, attributes, file, required_satisfaction
 		FROM building_models
-		WHERE model_id = ?
+		WHERE model_id = ? OR id = ?
+		LIMIT 1
 	`
 
 	var id uint64
 	var name, sku, images, attributes, file string
 	var requiredSatisfaction float64
 
-	err = r.db.QueryRowContext(ctx, query, dbModelID).Scan(
+	err := r.db.QueryRowContext(ctx, query, dbModelID, dbModelID).Scan(
 		&id, &dbModelID, &name, &sku, &images, &attributes, &file, &requiredSatisfaction,
 	)
 	if err == sql.ErrNoRows {
@@ -76,7 +72,7 @@ func (r *BuildingRepository) FindBuildingModelByModelID(ctx context.Context, mod
 
 	return &pb.BuildingModel{
 		Id:                   id,
-		ModelId:              modelID, // Return original string model_id
+		ModelId:              fmt.Sprintf("%d", dbModelID),
 		Name:                 name,
 		Sku:                  sku,
 		Images:               images,
@@ -401,6 +397,36 @@ func (r *BuildingRepository) UpdateBuilding(ctx context.Context, featureID uint6
 
 	// Return the updated building by querying it back
 	return r.FindBuildingByFeatureAndModel(ctx, featureID, buildingModelID)
+}
+
+// UpdateBuildingInformation updates only the information JSON for a building.
+func (r *BuildingRepository) UpdateBuildingInformation(ctx context.Context, featureID uint64, buildingModelID string, information string) error {
+	buildingModel, err := r.FindBuildingModelByModelID(ctx, buildingModelID)
+	if err != nil {
+		return fmt.Errorf("failed to find building model: %w", err)
+	}
+	if buildingModel == nil {
+		return fmt.Errorf("building model not found: %s", buildingModelID)
+	}
+
+	query := `
+		UPDATE buildings
+		SET information = ?, updated_at = NOW()
+		WHERE feature_id = ? AND model_id = ?
+	`
+
+	result, err := r.db.ExecContext(ctx, query, information, featureID, buildingModel.Id)
+	if err != nil {
+		return fmt.Errorf("failed to update building information: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to read update result: %w", err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 // FindBuildingByFeatureAndModel finds a building by feature_id and model_id

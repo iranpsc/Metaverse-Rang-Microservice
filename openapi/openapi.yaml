@@ -2786,7 +2786,7 @@ paths:
             security:
                 - {}
                 - BearerAuth: []
-            summary: GetBuildings
+            summary: List buildings on a feature
             tags:
                 - Features
     /api/features/{feature}/build/buildings/{buildingModel}:
@@ -2801,12 +2801,12 @@ paths:
                     example: 1
                     format: int64
                     type: integer
-                - description: Building model identifier
+                - description: Building model identifier (3D model_id or local building_models.id)
                   in: path
                   name: buildingModel
                   required: true
                   schema:
-                    example: model-slug
+                    example: "1001"
                     type: string
             responses:
                 "200":
@@ -2824,13 +2824,12 @@ paths:
                                 $ref: '#/components/schemas/ValidationError'
                     description: Validation error
             security:
-                - {}
                 - BearerAuth: []
-            summary: DestroyBuilding
+            summary: Update building construction or destroy building
             tags:
                 - Features
-        put:
-            operationId: put_features_feature_build_buildings_buildingModel
+        patch:
+            operationId: patch_features_feature_build_buildings_buildingModel
             parameters:
                 - description: Feature ID
                   in: path
@@ -2840,12 +2839,12 @@ paths:
                     example: 1
                     format: int64
                     type: integer
-                - description: Building model identifier
+                - description: Building model identifier (3D model_id or local building_models.id)
                   in: path
                   name: buildingModel
                   required: true
                   schema:
-                    example: model-slug
+                    example: "1001"
                     type: string
             requestBody:
                 content:
@@ -2871,9 +2870,54 @@ paths:
                                 $ref: '#/components/schemas/ValidationError'
                     description: Validation error
             security:
-                - {}
                 - BearerAuth: []
-            summary: UpdateBuilding
+            summary: Patch building information and return updated information
+            tags:
+                - Features
+        put:
+            operationId: put_features_feature_build_buildings_buildingModel
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Building model identifier (3D model_id or local building_models.id)
+                  in: path
+                  name: buildingModel
+                  required: true
+                  schema:
+                    example: "1001"
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Update building construction or destroy building
             tags:
                 - Features
     /api/features/{feature}/build/package:

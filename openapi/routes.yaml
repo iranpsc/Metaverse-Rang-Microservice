@@ -481,6 +481,52 @@ routes:
         in: query
         type: integer
         description: Page number for pagination
+  - path: /api/features/{feature}/build/buildings
+    methods: [get]
+    tag: Features
+    summary: List buildings on a feature
+    security: optional
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+  - path: /api/features/{feature}/build/buildings/{buildingModel}
+    methods: [put, delete]
+    tag: Features
+    summary: Update building construction or destroy building
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+      - name: buildingModel
+        in: path
+        type: string
+        description: Building model identifier (3D model_id or local building_models.id)
+        example: "1001"
+  - path: /api/features/{feature}/build/buildings/{buildingModel}
+    methods: [patch]
+    tag: Features
+    summary: Patch building information and return updated information
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+      - name: buildingModel
+        in: path
+        type: string
+        description: Building model identifier (3D model_id or local building_models.id)
+        example: "1001"
   - path: /api/my-features
     methods: [get]
     tag: Features

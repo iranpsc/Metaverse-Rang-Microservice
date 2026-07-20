@@ -13,11 +13,12 @@ import (
 )
 
 type mockBuildingPort struct {
-	getBuildPackage func(ctx context.Context, featureID uint64, page int32) ([]*pb.BuildingModel, []string, error)
-	buildFeature    func(ctx context.Context, req *pb.BuildFeatureRequest) (*pb.Feature, error)
-	getBuildings    func(ctx context.Context, featureID uint64) ([]*pb.Building, error)
-	updateBuilding  func(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.Building, error)
-	destroyBuilding func(ctx context.Context, featureID uint64, buildingModelID string) error
+	getBuildPackage           func(ctx context.Context, featureID uint64, page int32) ([]*pb.BuildingModel, []string, error)
+	buildFeature              func(ctx context.Context, req *pb.BuildFeatureRequest) (*pb.Feature, error)
+	getBuildings              func(ctx context.Context, featureID uint64) ([]*pb.Building, error)
+	updateBuilding            func(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.Building, error)
+	updateBuildingInformation func(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.BuildingInformation, error)
+	destroyBuilding           func(ctx context.Context, featureID uint64, buildingModelID string) error
 }
 
 func (m *mockBuildingPort) GetBuildPackage(ctx context.Context, featureID uint64, page int32) ([]*pb.BuildingModel, []string, error) {
@@ -44,6 +45,13 @@ func (m *mockBuildingPort) GetBuildings(ctx context.Context, featureID uint64) (
 func (m *mockBuildingPort) UpdateBuilding(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.Building, error) {
 	if m.updateBuilding != nil {
 		return m.updateBuilding(ctx, req)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockBuildingPort) UpdateBuildingInformation(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.BuildingInformation, error) {
+	if m.updateBuildingInformation != nil {
+		return m.updateBuildingInformation(ctx, req)
 	}
 	return nil, errors.New("not implemented")
 }
@@ -208,6 +216,78 @@ func TestBuildingHandler_DestroyBuilding_Unauthorized(t *testing.T) {
 	_, err := h.DestroyBuilding(ctx, &pb.DestroyBuildingRequest{FeatureId: 10, BuildingModelId: "model-3"})
 	st, _ := status.FromError(err)
 	if st.Code() != codes.PermissionDenied {
+		t.Fatalf("got %v", st.Code())
+	}
+}
+
+func TestBuildingHandler_UpdateBuilding_NotFound(t *testing.T) {
+	ctx := context.Background()
+	m := &mockBuildingPort{}
+	m.updateBuilding = func(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.Building, error) {
+		return nil, errors.New("building model not found")
+	}
+	h := handler.NewBuildingHandler(m, nil)
+	_, err := h.UpdateBuilding(ctx, &pb.UpdateBuildingRequest{
+		FeatureId:       10,
+		BuildingModelId: "999",
+	})
+	st, _ := status.FromError(err)
+	if st.Code() != codes.NotFound {
+		t.Fatalf("got %v", st.Code())
+	}
+}
+
+func TestBuildingHandler_UpdateBuildingInformation(t *testing.T) {
+	ctx := context.Background()
+	m := &mockBuildingPort{}
+	m.updateBuildingInformation = func(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.BuildingInformation, error) {
+		return &pb.BuildingInformation{
+			ActivityLine: req.Information.ActivityLine,
+			Name:         req.Information.Name,
+		}, nil
+	}
+	h := handler.NewBuildingHandler(m, nil)
+	resp, err := h.UpdateBuildingInformation(ctx, &pb.UpdateBuildingInformationRequest{
+		FeatureId:       10,
+		BuildingModelId: "model-2",
+		Information: &pb.BuildingInformation{
+			ActivityLine: "Retail",
+			Name:         "Store",
+		},
+	})
+	if err != nil || resp.Information == nil || resp.Information.Name != "Store" {
+		t.Fatalf("err=%v resp=%+v", err, resp)
+	}
+}
+
+func TestBuildingHandler_UpdateBuildingInformation_NotFound(t *testing.T) {
+	ctx := context.Background()
+	m := &mockBuildingPort{}
+	m.updateBuildingInformation = func(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.BuildingInformation, error) {
+		return nil, errors.New("building not found")
+	}
+	h := handler.NewBuildingHandler(m, nil)
+	_, err := h.UpdateBuildingInformation(ctx, &pb.UpdateBuildingInformationRequest{
+		FeatureId:       10,
+		BuildingModelId: "999",
+		Information:     &pb.BuildingInformation{ActivityLine: "Retail"},
+	})
+	st, _ := status.FromError(err)
+	if st.Code() != codes.NotFound {
+		t.Fatalf("got %v", st.Code())
+	}
+}
+
+func TestBuildingHandler_DestroyBuilding_NotFound(t *testing.T) {
+	ctx := context.Background()
+	m := &mockBuildingPort{}
+	m.destroyBuilding = func(ctx context.Context, featureID uint64, buildingModelID string) error {
+		return errors.New("building not found")
+	}
+	h := handler.NewBuildingHandler(m, nil)
+	_, err := h.DestroyBuilding(ctx, &pb.DestroyBuildingRequest{FeatureId: 10, BuildingModelId: "999"})
+	st, _ := status.FromError(err)
+	if st.Code() != codes.NotFound {
 		t.Fatalf("got %v", st.Code())
 	}
 }

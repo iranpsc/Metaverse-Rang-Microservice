@@ -113,6 +113,9 @@ func (h *BuildingHandler) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 		if strings.Contains(err.Error(), "unauthorized") || strings.Contains(err.Error(), "does not own") {
 			return nil, status.Errorf(codes.PermissionDenied, "%s", err.Error())
 		}
+		if strings.Contains(err.Error(), "not found") {
+			return nil, status.Errorf(codes.NotFound, "%s", err.Error())
+		}
 		if strings.Contains(err.Error(), "insufficient") {
 			return nil, status.Errorf(codes.FailedPrecondition, "%s", err.Error())
 		}
@@ -126,6 +129,38 @@ func (h *BuildingHandler) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 		Success:  true,
 		Message:  "Building updated successfully",
 		Building: building,
+	}, nil
+}
+
+// UpdateBuildingInformation updates only the building information JSON.
+func (h *BuildingHandler) UpdateBuildingInformation(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.UpdateBuildingInformationResponse, error) {
+	locale := GetProjectLocale()
+	if req.FeatureId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
+	}
+	if strings.TrimSpace(req.BuildingModelId) == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "building_model_id is required"))
+	}
+	if req.Information == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "information is required"))
+	}
+
+	information, err := h.service.UpdateBuildingInformation(ctx, req)
+	if err != nil {
+		if strings.Contains(err.Error(), "unauthorized") || strings.Contains(err.Error(), "does not own") {
+			return nil, status.Errorf(codes.PermissionDenied, "%s", err.Error())
+		}
+		if strings.Contains(err.Error(), "not found") {
+			return nil, status.Errorf(codes.NotFound, "%s", err.Error())
+		}
+		if strings.Contains(err.Error(), "invalid") {
+			return nil, status.Errorf(codes.InvalidArgument, "%s", err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, "%s", lang.Tf(locale, "failed to update building information: %v", err))
+	}
+
+	return &pb.UpdateBuildingInformationResponse{
+		Information: information,
 	}, nil
 }
 
@@ -145,6 +180,9 @@ func (h *BuildingHandler) DestroyBuilding(ctx context.Context, req *pb.DestroyBu
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") || strings.Contains(err.Error(), "does not own") {
 			return nil, status.Errorf(codes.PermissionDenied, "%s", err.Error())
+		}
+		if strings.Contains(err.Error(), "not found") {
+			return nil, status.Errorf(codes.NotFound, "%s", err.Error())
 		}
 		return nil, status.Errorf(codes.Internal, "%s", lang.Tf(locale, "failed to destroy building: %v", err))
 	}

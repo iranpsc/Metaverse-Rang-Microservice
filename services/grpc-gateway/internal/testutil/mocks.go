@@ -207,6 +207,9 @@ type MockBuildingService struct {
 	featurespb.UnimplementedBuildingServiceServer
 	ListCompletedBuildingsFunc func(ctx context.Context, req *featurespb.ListCompletedBuildingsRequest) (*featurespb.ListCompletedBuildingsResponse, error)
 	GetBuildingsFunc           func(ctx context.Context, req *featurespb.GetBuildingsRequest) (*featurespb.BuildingsResponse, error)
+	UpdateBuildingFunc              func(ctx context.Context, req *featurespb.UpdateBuildingRequest) (*featurespb.BuildingResponse, error)
+	UpdateBuildingInformationFunc   func(ctx context.Context, req *featurespb.UpdateBuildingInformationRequest) (*featurespb.UpdateBuildingInformationResponse, error)
+	DestroyBuildingFunc             func(ctx context.Context, req *featurespb.DestroyBuildingRequest) (*featurespb.BuildingResponse, error)
 }
 
 func (m *MockBuildingService) ListCompletedBuildings(ctx context.Context, req *featurespb.ListCompletedBuildingsRequest) (*featurespb.ListCompletedBuildingsResponse, error) {
@@ -221,6 +224,27 @@ func (m *MockBuildingService) GetBuildings(ctx context.Context, req *featurespb.
 		return m.GetBuildingsFunc(ctx, req)
 	}
 	return &featurespb.BuildingsResponse{}, nil
+}
+
+func (m *MockBuildingService) UpdateBuilding(ctx context.Context, req *featurespb.UpdateBuildingRequest) (*featurespb.BuildingResponse, error) {
+	if m.UpdateBuildingFunc != nil {
+		return m.UpdateBuildingFunc(ctx, req)
+	}
+	return &featurespb.BuildingResponse{Success: true}, nil
+}
+
+func (m *MockBuildingService) UpdateBuildingInformation(ctx context.Context, req *featurespb.UpdateBuildingInformationRequest) (*featurespb.UpdateBuildingInformationResponse, error) {
+	if m.UpdateBuildingInformationFunc != nil {
+		return m.UpdateBuildingInformationFunc(ctx, req)
+	}
+	return &featurespb.UpdateBuildingInformationResponse{}, nil
+}
+
+func (m *MockBuildingService) DestroyBuilding(ctx context.Context, req *featurespb.DestroyBuildingRequest) (*featurespb.BuildingResponse, error) {
+	if m.DestroyBuildingFunc != nil {
+		return m.DestroyBuildingFunc(ctx, req)
+	}
+	return &featurespb.BuildingResponse{Success: true}, nil
 }
 
 // DialFeaturesConn returns a client connection with features-service mocks registered.

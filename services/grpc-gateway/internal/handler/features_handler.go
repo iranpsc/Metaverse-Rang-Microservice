@@ -574,8 +574,9 @@ func (h *FeaturesHandler) GetBuildings(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateBuilding handles PUT /api/features/{feature}/build/buildings/{buildingModel}
+// (also POST + _method=put for Laravel multipart clients).
 func (h *FeaturesHandler) UpdateBuilding(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
+	if EffectiveHTTPMethod(r) != http.MethodPut {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -645,9 +646,71 @@ func (h *FeaturesHandler) UpdateBuilding(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]interface{}{})
 }
 
+// PatchBuildingInformation handles PATCH /api/features/{feature}/build/buildings/{buildingModel}
+// (also POST + _method=patch for Laravel clients).
+func (h *FeaturesHandler) PatchBuildingInformation(w http.ResponseWriter, r *http.Request) {
+	if EffectiveHTTPMethod(r) != http.MethodPatch {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	_, err := middleware.GetUserFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/")
+	if len(pathParts) < 4 {
+		writeError(w, http.StatusBadRequest, "feature ID and building model ID are required")
+		return
+	}
+	featureID, err := strconv.ParseUint(pathParts[0], 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid feature ID")
+		return
+	}
+	buildingModelID := strings.TrimSpace(pathParts[3])
+	if buildingModelID == "" {
+		writeError(w, http.StatusBadRequest, "invalid building model ID")
+		return
+	}
+
+	var reqBody map[string]interface{}
+	if err := decodeRequestBody(r, &reqBody); err != nil {
+		if err == io.EOF {
+			writeValidationErrorWithLocale(w, "request body is required", h.locale)
+		} else {
+			writeValidationErrorWithLocale(w, "invalid request body", h.locale)
+		}
+		return
+	}
+
+	information := parseBuildingInformation(reqBody)
+	if information == nil {
+		writeValidationErrorWithLocale(w, "information is required", h.locale)
+		return
+	}
+
+	resp, err := h.buildingClient.UpdateBuildingInformation(r.Context(), &featurespb.UpdateBuildingInformationRequest{
+		FeatureId:       featureID,
+		BuildingModelId: buildingModelID,
+		Information:     information,
+	})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"information": buildingInformationToMap(resp.Information),
+	}, true)
+}
+
 // DestroyBuilding handles DELETE /api/features/{feature}/build/buildings/{buildingModel}
+// (also POST + _method=delete for Laravel clients).
 func (h *FeaturesHandler) DestroyBuilding(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
+	if EffectiveHTTPMethod(r) != http.MethodDelete {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -1053,4 +1116,31 @@ func parseBuildingInformation(reqBody map[string]interface{}) *featurespb.Buildi
 		Website:      website,
 		Description:  description,
 	}
+}
+
+func buildingInformationToMap(info *featurespb.BuildingInformation) map[string]interface{} {
+	if info == nil {
+		return map[string]interface{}{}
+	}
+
+	out := make(map[string]interface{})
+	if info.ActivityLine != "" {
+		out["activity_line"] = info.ActivityLine
+	}
+	if info.Name != "" {
+		out["name"] = info.Name
+	}
+	if info.Address != "" {
+		out["address"] = info.Address
+	}
+	if info.PostalCode != "" {
+		out["postal_code"] = info.PostalCode
+	}
+	if info.Website != "" {
+		out["website"] = info.Website
+	}
+	if info.Description != "" {
+		out["description"] = info.Description
+	}
+	return out
 }

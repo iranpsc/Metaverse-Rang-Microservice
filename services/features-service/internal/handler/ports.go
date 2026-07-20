@@ -62,6 +62,7 @@ type BuildingServicePort interface {
 	BuildFeature(ctx context.Context, req *pb.BuildFeatureRequest) (*pb.Feature, error)
 	GetBuildings(ctx context.Context, featureID uint64) ([]*pb.Building, error)
 	UpdateBuilding(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.Building, error)
+	UpdateBuildingInformation(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.BuildingInformation, error)
 	DestroyBuilding(ctx context.Context, featureID uint64, buildingModelID string) error
 }
 

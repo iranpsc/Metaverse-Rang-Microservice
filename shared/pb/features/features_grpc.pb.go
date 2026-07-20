@@ -1255,12 +1255,13 @@ var FeatureProfitService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	BuildingService_GetBuildPackage_FullMethodName        = "/features.BuildingService/GetBuildPackage"
-	BuildingService_BuildFeature_FullMethodName           = "/features.BuildingService/BuildFeature"
-	BuildingService_GetBuildings_FullMethodName           = "/features.BuildingService/GetBuildings"
-	BuildingService_UpdateBuilding_FullMethodName         = "/features.BuildingService/UpdateBuilding"
-	BuildingService_DestroyBuilding_FullMethodName        = "/features.BuildingService/DestroyBuilding"
-	BuildingService_ListCompletedBuildings_FullMethodName = "/features.BuildingService/ListCompletedBuildings"
+	BuildingService_GetBuildPackage_FullMethodName           = "/features.BuildingService/GetBuildPackage"
+	BuildingService_BuildFeature_FullMethodName              = "/features.BuildingService/BuildFeature"
+	BuildingService_GetBuildings_FullMethodName              = "/features.BuildingService/GetBuildings"
+	BuildingService_UpdateBuilding_FullMethodName            = "/features.BuildingService/UpdateBuilding"
+	BuildingService_UpdateBuildingInformation_FullMethodName = "/features.BuildingService/UpdateBuildingInformation"
+	BuildingService_DestroyBuilding_FullMethodName           = "/features.BuildingService/DestroyBuilding"
+	BuildingService_ListCompletedBuildings_FullMethodName    = "/features.BuildingService/ListCompletedBuildings"
 )
 
 // BuildingServiceClient is the client API for BuildingService service.
@@ -1273,6 +1274,7 @@ type BuildingServiceClient interface {
 	BuildFeature(ctx context.Context, in *BuildFeatureRequest, opts ...grpc.CallOption) (*BuildFeatureResponse, error)
 	GetBuildings(ctx context.Context, in *GetBuildingsRequest, opts ...grpc.CallOption) (*BuildingsResponse, error)
 	UpdateBuilding(ctx context.Context, in *UpdateBuildingRequest, opts ...grpc.CallOption) (*BuildingResponse, error)
+	UpdateBuildingInformation(ctx context.Context, in *UpdateBuildingInformationRequest, opts ...grpc.CallOption) (*UpdateBuildingInformationResponse, error)
 	DestroyBuilding(ctx context.Context, in *DestroyBuildingRequest, opts ...grpc.CallOption) (*BuildingResponse, error)
 	// ListCompletedBuildings returns paginated buildings with construction_end_date < now (GET /api/features/buildings/completed).
 	ListCompletedBuildings(ctx context.Context, in *ListCompletedBuildingsRequest, opts ...grpc.CallOption) (*ListCompletedBuildingsResponse, error)
@@ -1326,6 +1328,16 @@ func (c *buildingServiceClient) UpdateBuilding(ctx context.Context, in *UpdateBu
 	return out, nil
 }
 
+func (c *buildingServiceClient) UpdateBuildingInformation(ctx context.Context, in *UpdateBuildingInformationRequest, opts ...grpc.CallOption) (*UpdateBuildingInformationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateBuildingInformationResponse)
+	err := c.cc.Invoke(ctx, BuildingService_UpdateBuildingInformation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *buildingServiceClient) DestroyBuilding(ctx context.Context, in *DestroyBuildingRequest, opts ...grpc.CallOption) (*BuildingResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(BuildingResponse)
@@ -1356,6 +1368,7 @@ type BuildingServiceServer interface {
 	BuildFeature(context.Context, *BuildFeatureRequest) (*BuildFeatureResponse, error)
 	GetBuildings(context.Context, *GetBuildingsRequest) (*BuildingsResponse, error)
 	UpdateBuilding(context.Context, *UpdateBuildingRequest) (*BuildingResponse, error)
+	UpdateBuildingInformation(context.Context, *UpdateBuildingInformationRequest) (*UpdateBuildingInformationResponse, error)
 	DestroyBuilding(context.Context, *DestroyBuildingRequest) (*BuildingResponse, error)
 	// ListCompletedBuildings returns paginated buildings with construction_end_date < now (GET /api/features/buildings/completed).
 	ListCompletedBuildings(context.Context, *ListCompletedBuildingsRequest) (*ListCompletedBuildingsResponse, error)
@@ -1380,6 +1393,9 @@ func (UnimplementedBuildingServiceServer) GetBuildings(context.Context, *GetBuil
 }
 func (UnimplementedBuildingServiceServer) UpdateBuilding(context.Context, *UpdateBuildingRequest) (*BuildingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateBuilding not implemented")
+}
+func (UnimplementedBuildingServiceServer) UpdateBuildingInformation(context.Context, *UpdateBuildingInformationRequest) (*UpdateBuildingInformationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateBuildingInformation not implemented")
 }
 func (UnimplementedBuildingServiceServer) DestroyBuilding(context.Context, *DestroyBuildingRequest) (*BuildingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DestroyBuilding not implemented")
@@ -1480,6 +1496,24 @@ func _BuildingService_UpdateBuilding_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BuildingService_UpdateBuildingInformation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateBuildingInformationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BuildingServiceServer).UpdateBuildingInformation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BuildingService_UpdateBuildingInformation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BuildingServiceServer).UpdateBuildingInformation(ctx, req.(*UpdateBuildingInformationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BuildingService_DestroyBuilding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DestroyBuildingRequest)
 	if err := dec(in); err != nil {
@@ -1538,6 +1572,10 @@ var BuildingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateBuilding",
 			Handler:    _BuildingService_UpdateBuilding_Handler,
+		},
+		{
+			MethodName: "UpdateBuildingInformation",
+			Handler:    _BuildingService_UpdateBuildingInformation_Handler,
 		},
 		{
 			MethodName: "DestroyBuilding",

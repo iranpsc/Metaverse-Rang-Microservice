@@ -368,6 +368,7 @@ service BuildingService {
   rpc BuildFeature(BuildFeatureRequest) returns (BuildFeatureResponse);
   rpc GetBuildings(GetBuildingsRequest) returns (BuildingsResponse);
   rpc UpdateBuilding(UpdateBuildingRequest) returns (BuildingResponse);
+  rpc UpdateBuildingInformation(UpdateBuildingInformationRequest) returns (UpdateBuildingInformationResponse);
   rpc DestroyBuilding(DestroyBuildingRequest) returns (BuildingResponse);
   // ListCompletedBuildings returns paginated buildings with construction_end_date < now (GET /api/features/buildings/completed).
   rpc ListCompletedBuildings(ListCompletedBuildingsRequest) returns (ListCompletedBuildingsResponse);
@@ -502,6 +503,16 @@ message UpdateBuildingRequest {
   string rotation = 4;
   string position = 5;
   BuildingInformation information = 6;
+}
+
+message UpdateBuildingInformationRequest {
+  uint64 feature_id = 1;
+  string building_model_id = 2;
+  BuildingInformation information = 3;
+}
+
+message UpdateBuildingInformationResponse {
+  BuildingInformation information = 1;
 }
 
 message BuildingResponse {

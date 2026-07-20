@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -27,6 +29,7 @@ type buildingRepository interface {
 	CreateBuilding(ctx context.Context, featureID, userID uint64, buildingModelID string, launchedSatisfaction, rotation, position, information string, startDate, endDate time.Time, bubbleDiameter float64) error
 	FindByFeatureID(ctx context.Context, featureID uint64) ([]*pb.Building, error)
 	UpdateBuilding(ctx context.Context, featureID uint64, buildingModelID string, launchedSatisfaction, rotation, position, information string, endDate time.Time, bubbleDiameter float64) (*pb.Building, error)
+	UpdateBuildingInformation(ctx context.Context, featureID uint64, buildingModelID string, information string) error
 	FindBuildingByFeatureAndModel(ctx context.Context, featureID uint64, buildingModelID string) (*pb.Building, error)
 	DeleteBuilding(ctx context.Context, featureID uint64, buildingModelID string) error
 	FirstOrCreateIsicCode(ctx context.Context, activityLine string) (uint64, error)
@@ -736,6 +739,138 @@ func (s *BuildingService) UpdateBuilding(ctx context.Context, req *pb.UpdateBuil
 	}
 
 	return updatedBuilding, nil
+}
+
+// UpdateBuildingInformation updates only the building information JSON.
+func (s *BuildingService) UpdateBuildingInformation(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.BuildingInformation, error) {
+	feature, _, err := s.featureRepo.FindByID(ctx, req.FeatureId)
+	if err != nil {
+		return nil, fmt.Errorf("feature not found: %w", err)
+	}
+
+	user, err := auth.GetUserFromContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("unauthorized: authentication required")
+	}
+	if feature.OwnerID != user.UserID {
+		return nil, fmt.Errorf("unauthorized: user does not own this feature")
+	}
+
+	buildingModelIDStr := strings.TrimSpace(req.BuildingModelId)
+	if buildingModelIDStr == "" {
+		return nil, fmt.Errorf("invalid building_model_id")
+	}
+
+	buildingModel, err := s.buildingRepo.FindBuildingModelByModelID(ctx, buildingModelIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find building model: %w", err)
+	}
+	if buildingModel == nil {
+		return nil, fmt.Errorf("building model not found")
+	}
+
+	existingBuilding, err := s.buildingRepo.FindBuildingByFeatureAndModel(ctx, req.FeatureId, buildingModelIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find existing building: %w", err)
+	}
+	if existingBuilding == nil {
+		return nil, fmt.Errorf("building not found")
+	}
+
+	if req.Information == nil {
+		return nil, fmt.Errorf("invalid information: information is required")
+	}
+
+	mergedInformation, err := mergeBuildingInformation(existingBuilding.Information, req.Information)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.ValidateBuildingInformation(mergedInformation); err != nil {
+		return nil, fmt.Errorf("invalid building information: %w", err)
+	}
+
+	informationJSON, err := marshalBuildingInformation(mergedInformation)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.TrimSpace(mergedInformation.ActivityLine) != "" {
+		if _, err := s.buildingRepo.FirstOrCreateIsicCode(ctx, strings.TrimSpace(mergedInformation.ActivityLine)); err != nil {
+			return nil, fmt.Errorf("failed to create ISIC code: %w", err)
+		}
+	}
+
+	if err := s.buildingRepo.UpdateBuildingInformation(ctx, req.FeatureId, buildingModelIDStr, informationJSON); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("building not found")
+		}
+		return nil, fmt.Errorf("failed to update building information: %w", err)
+	}
+
+	return mergedInformation, nil
+}
+
+func mergeBuildingInformation(existingJSON string, update *pb.BuildingInformation) (*pb.BuildingInformation, error) {
+	merged := &pb.BuildingInformation{}
+	if strings.TrimSpace(existingJSON) != "" {
+		if err := json.Unmarshal([]byte(existingJSON), merged); err != nil {
+			return nil, fmt.Errorf("invalid existing building information: %w", err)
+		}
+	}
+
+	if update.ActivityLine != "" {
+		merged.ActivityLine = strings.TrimSpace(update.ActivityLine)
+	}
+	if update.Name != "" {
+		merged.Name = strings.TrimSpace(update.Name)
+	}
+	if update.Address != "" {
+		merged.Address = strings.TrimSpace(update.Address)
+	}
+	if update.PostalCode != "" {
+		merged.PostalCode = strings.TrimSpace(update.PostalCode)
+	}
+	if update.Website != "" {
+		merged.Website = strings.TrimSpace(update.Website)
+	}
+	if update.Description != "" {
+		merged.Description = strings.TrimSpace(update.Description)
+	}
+
+	if merged.ActivityLine == "" && merged.Name == "" && merged.Address == "" &&
+		merged.PostalCode == "" && merged.Website == "" && merged.Description == "" {
+		return nil, fmt.Errorf("invalid information: at least one field is required")
+	}
+
+	return merged, nil
+}
+
+func marshalBuildingInformation(info *pb.BuildingInformation) (string, error) {
+	infoMap := make(map[string]interface{})
+	if info.ActivityLine != "" {
+		infoMap["activity_line"] = info.ActivityLine
+	}
+	if info.Name != "" {
+		infoMap["name"] = info.Name
+	}
+	if info.Address != "" {
+		infoMap["address"] = info.Address
+	}
+	if info.PostalCode != "" {
+		infoMap["postal_code"] = info.PostalCode
+	}
+	if info.Website != "" {
+		infoMap["website"] = info.Website
+	}
+	if info.Description != "" {
+		infoMap["description"] = info.Description
+	}
+
+	infoBytes, err := json.Marshal(infoMap)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal information: %w", err)
+	}
+	return string(infoBytes), nil
 }
 
 // DestroyBuilding removes a building from a feature and refunds invested satisfaction

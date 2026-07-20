@@ -437,9 +437,11 @@ func (h *FeaturesHandler) HandleFeaturesRoutes(w http.ResponseWriter, r *http.Re
 	if strings.Contains(path, "/build/buildings/") {
 		parts := strings.Split(path, "/")
 		if len(parts) >= 4 && parts[1] == "build" && parts[2] == "buildings" {
-			switch r.Method {
+			switch EffectiveHTTPMethod(r) {
 			case http.MethodPut:
 				h.UpdateBuilding(w, r)
+			case http.MethodPatch:
+				h.PatchBuildingInformation(w, r)
 			case http.MethodDelete:
 				h.DestroyBuilding(w, r)
 			default:
