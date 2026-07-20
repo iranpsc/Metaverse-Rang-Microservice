@@ -242,7 +242,6 @@ func main() {
 		settingsRepo,
 		profilePhotoRepo,
 	)
-	kycService := service.NewKYCService(kycRepo, userRepo)
 	citizenService := service.NewCitizenService(
 		citizenRepo,
 		userRepo,
@@ -277,6 +276,8 @@ func main() {
 		storageClient = storagepb.NewFileStorageServiceClient(storageConn)
 		log.Printf("Successfully connected to storage service at %s", storageServiceAddr)
 	}
+
+	kycService := service.NewKYCService(kycRepo, userRepo, service.NewGRPCKYCStorageClient(storageClient))
 
 	// Initialize user events service
 	userEventsService := service.NewUserEventsService(activityRepo, userRepo)

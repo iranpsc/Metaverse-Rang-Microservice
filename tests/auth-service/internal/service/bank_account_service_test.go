@@ -19,7 +19,69 @@ const (
 	validBankName2 = "Melli"
 )
 
-func seedApprovedKYC(kycRepo *fakeKYCRepository, userID uint64) {
+type fakeKYCRepositoryWithBankAccounts struct {
+	*fakeKYCRepository
+	bankAccounts map[uint64]*models.BankAccount
+}
+
+func newFakeKYCRepositoryWithBankAccounts() *fakeKYCRepositoryWithBankAccounts {
+	return &fakeKYCRepositoryWithBankAccounts{
+		fakeKYCRepository: newFakeKYCRepository(),
+		bankAccounts:      make(map[uint64]*models.BankAccount),
+	}
+}
+
+func (r *fakeKYCRepositoryWithBankAccounts) CreateBankAccount(ctx context.Context, bankAccount *models.BankAccount) error {
+	if bankAccount.ID == 0 {
+		bankAccount.ID = uint64(len(r.bankAccounts) + 1)
+	}
+	r.bankAccounts[bankAccount.ID] = bankAccount
+	return nil
+}
+
+func (r *fakeKYCRepositoryWithBankAccounts) FindBankAccountsByUserID(ctx context.Context, userID uint64) ([]*models.BankAccount, error) {
+	var accounts []*models.BankAccount
+	for _, account := range r.bankAccounts {
+		if account.BankableID == userID {
+			accounts = append(accounts, account)
+		}
+	}
+	return accounts, nil
+}
+
+func (r *fakeKYCRepositoryWithBankAccounts) FindBankAccountByID(ctx context.Context, bankAccountID uint64) (*models.BankAccount, error) {
+	return r.bankAccounts[bankAccountID], nil
+}
+
+func (r *fakeKYCRepositoryWithBankAccounts) UpdateBankAccount(ctx context.Context, bankAccount *models.BankAccount) error {
+	r.bankAccounts[bankAccount.ID] = bankAccount
+	return nil
+}
+
+func (r *fakeKYCRepositoryWithBankAccounts) DeleteBankAccount(ctx context.Context, bankAccountID uint64) error {
+	delete(r.bankAccounts, bankAccountID)
+	return nil
+}
+
+func (r *fakeKYCRepositoryWithBankAccounts) CheckUniqueShaba(ctx context.Context, shabaNum string, excludeID uint64) (bool, error) {
+	for _, account := range r.bankAccounts {
+		if account.ShabaNum == shabaNum && account.ID != excludeID {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (r *fakeKYCRepositoryWithBankAccounts) CheckUniqueCard(ctx context.Context, cardNum string, excludeID uint64) (bool, error) {
+	for _, account := range r.bankAccounts {
+		if account.CardNum == cardNum && account.ID != excludeID {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func seedApprovedKYC(kycRepo *fakeKYCRepositoryWithBankAccounts, userID uint64) {
 	kycRepo.kycs[userID] = &models.KYC{
 		UserID: userID,
 		Status: 1,
@@ -30,9 +92,9 @@ func TestListBankAccounts(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("returns empty list when user has no accounts", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		accounts, err := svc.ListBankAccounts(ctx, 1)
 		if err != nil {
@@ -44,9 +106,9 @@ func TestListBankAccounts(t *testing.T) {
 	})
 
 	t.Run("returns user's bank accounts", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		// Create test accounts
 		account1 := &models.BankAccount{
@@ -97,10 +159,10 @@ func TestCreateBankAccount(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful creation", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		account, err := svc.CreateBankAccount(ctx, 1, validBankName, validShebaNum, validCardNum)
 		if err != nil {
@@ -133,9 +195,9 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("requires approved kyc", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		_, err := svc.CreateBankAccount(ctx, 1, validBankName, validShebaNum, validCardNum)
 		if err == nil {
@@ -147,10 +209,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("rejects pending kyc", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		kycRepo.kycs[1] = &models.KYC{UserID: 1, Status: 0}
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		_, err := svc.CreateBankAccount(ctx, 1, validBankName, validShebaNum, validCardNum)
 		if err == nil {
@@ -162,10 +224,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("validates bank name minimum length", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		_, err := svc.CreateBankAccount(ctx, 1, "A", validShebaNum, validCardNum)
 		if err == nil {
@@ -177,10 +239,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("validates bank name maximum length", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		longName := make([]byte, 256)
 		for i := range longName {
@@ -197,10 +259,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("validates sheba number format", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		_, err := svc.CreateBankAccount(ctx, 1, validBankName, "INVALID_SHEBA", validCardNum)
 		if err == nil {
@@ -212,10 +274,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("validates card number format", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		_, err := svc.CreateBankAccount(ctx, 1, validBankName, validShebaNum, "1234567890123456")
 		if err == nil {
@@ -227,10 +289,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("validates sheba uniqueness", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		// Create existing account with same sheba
 		existingAccount := &models.BankAccount{
@@ -252,10 +314,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("validates card number uniqueness", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		// Create existing account with same card number
 		existingAccount := &models.BankAccount{
@@ -277,10 +339,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("trims whitespace from inputs", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		account, err := svc.CreateBankAccount(ctx, 1, "  "+validBankName+"  ", "  "+validShebaNum+"  ", "  "+validCardNum+"  ")
 		if err != nil {
@@ -298,10 +360,10 @@ func TestCreateBankAccount(t *testing.T) {
 	})
 
 	t.Run("uppercases sheba number", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		seedApprovedKYC(kycRepo, 1)
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		lowercaseSheba := "ir820540102680020817909002"
 		account, err := svc.CreateBankAccount(ctx, 1, validBankName, lowercaseSheba, validCardNum)
@@ -318,9 +380,9 @@ func TestGetBankAccount(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("returns account when found and owned", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		account := &models.BankAccount{
 			ID:           1,
@@ -346,9 +408,9 @@ func TestGetBankAccount(t *testing.T) {
 	})
 
 	t.Run("returns error when account not found", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		_, err := svc.GetBankAccount(ctx, 1, 999)
 		if err == nil {
@@ -360,9 +422,9 @@ func TestGetBankAccount(t *testing.T) {
 	})
 
 	t.Run("returns error when account not owned by user", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		account := &models.BankAccount{
 			ID:           1,
@@ -389,9 +451,9 @@ func TestUpdateBankAccount(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful update of rejected account", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		existingAccount := &models.BankAccount{
 			ID:           1,
@@ -429,9 +491,9 @@ func TestUpdateBankAccount(t *testing.T) {
 	})
 
 	t.Run("returns error when account not found", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		_, err := svc.UpdateBankAccount(ctx, 1, 999, validBankName, validShebaNum, validCardNum)
 		if err == nil {
@@ -443,9 +505,9 @@ func TestUpdateBankAccount(t *testing.T) {
 	})
 
 	t.Run("returns error when account not owned", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		account := &models.BankAccount{
 			ID:           1,
@@ -465,9 +527,9 @@ func TestUpdateBankAccount(t *testing.T) {
 	})
 
 	t.Run("returns error when account is not rejected", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		testCases := []struct {
 			name   string
@@ -499,9 +561,9 @@ func TestUpdateBankAccount(t *testing.T) {
 	})
 
 	t.Run("validates input fields", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		account := &models.BankAccount{
 			ID:           1,
@@ -537,9 +599,9 @@ func TestUpdateBankAccount(t *testing.T) {
 	})
 
 	t.Run("validates uniqueness excluding current account", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		existingAccount := &models.BankAccount{
 			ID:           1,
@@ -570,9 +632,9 @@ func TestUpdateBankAccount(t *testing.T) {
 	})
 
 	t.Run("rejects duplicate sheba from other account", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		existingAccount := &models.BankAccount{
 			ID:           1,
@@ -608,9 +670,9 @@ func TestDeleteBankAccount(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("successful deletion", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		account := &models.BankAccount{
 			ID:           1,
@@ -636,9 +698,9 @@ func TestDeleteBankAccount(t *testing.T) {
 	})
 
 	t.Run("returns error when account not found", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		err := svc.DeleteBankAccount(ctx, 1, 999)
 		if err == nil {
@@ -650,9 +712,9 @@ func TestDeleteBankAccount(t *testing.T) {
 	})
 
 	t.Run("returns error when account not owned", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		account := &models.BankAccount{
 			ID:           1,
@@ -672,9 +734,9 @@ func TestDeleteBankAccount(t *testing.T) {
 	})
 
 	t.Run("allows deletion regardless of status", func(t *testing.T) {
-		kycRepo := newFakeKYCRepository()
+		kycRepo := newFakeKYCRepositoryWithBankAccounts()
 		userRepo := newFakeKYCUserRepository(map[uint64]*models.User{1: {ID: 1}})
-		svc := service.NewKYCService(kycRepo, userRepo)
+		svc := service.NewKYCService(kycRepo, userRepo, nil)
 
 		testCases := []struct {
 			name   string

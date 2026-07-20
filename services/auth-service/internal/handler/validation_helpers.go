@@ -51,6 +51,9 @@ func mapServiceErrorToValidationFields(err error, locale string) (map[string]str
 	case errors.Is(err, service.ErrVideoRequired):
 		validationErrors["video"] = fmt.Sprintf(t.Required, "video")
 		return validationErrors, true
+	case errors.Is(err, service.ErrVideoFileNotFound):
+		validationErrors["video"] = "video file not found"
+		return validationErrors, true
 	case errors.Is(err, service.ErrMelliCardRequired):
 		validationErrors["melli_card"] = fmt.Sprintf(t.Required, "melli_card")
 		return validationErrors, true

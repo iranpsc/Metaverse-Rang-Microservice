@@ -29,6 +29,7 @@ var (
 	ErrVerifyTextIDRequired   = errors.New("verify_text_id is required")
 	ErrVerifyTextIDNotFound   = errors.New("verify_text_id does not exist")
 	ErrVideoRequired          = errors.New("video is required")
+	ErrVideoFileNotFound      = errors.New("video file not found")
 	ErrMelliCardRequired      = errors.New("melli_card is required")
 	ErrBankAccountNotFound    = errors.New("bank account not found")
 	ErrBankAccountNotOwned    = errors.New("bank account does not belong to user")
@@ -43,7 +44,7 @@ var (
 
 type KYCService interface {
 	GetKYC(ctx context.Context, userID uint64) (*models.KYC, error)
-	UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoURL string, verifyTextID uint64, gender string) (*models.KYC, error)
+	UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoPath, videoName string, verifyTextID uint64, gender string) (*models.KYC, error)
 	ListBankAccounts(ctx context.Context, userID uint64) ([]*models.BankAccount, error)
 	CreateBankAccount(ctx context.Context, userID uint64, bankName, shabaNum, cardNum string) (*models.BankAccount, error)
 	GetBankAccount(ctx context.Context, userID uint64, bankAccountID uint64) (*models.BankAccount, error)
@@ -52,14 +53,16 @@ type KYCService interface {
 }
 
 type kycService struct {
-	kycRepo  repository.KYCRepository
-	userRepo repository.UserRepository
+	kycRepo       repository.KYCRepository
+	userRepo      repository.UserRepository
+	storageClient KYCStorageClient
 }
 
-func NewKYCService(kycRepo repository.KYCRepository, userRepo repository.UserRepository) KYCService {
+func NewKYCService(kycRepo repository.KYCRepository, userRepo repository.UserRepository, storageClient KYCStorageClient) KYCService {
 	return &kycService{
-		kycRepo:  kycRepo,
-		userRepo: userRepo,
+		kycRepo:       kycRepo,
+		userRepo:      userRepo,
+		storageClient: storageClient,
 	}
 }
 
@@ -78,12 +81,14 @@ func (s *kycService) GetKYC(ctx context.Context, userID uint64) (*models.KYC, er
 	return kyc, nil
 }
 
-func (s *kycService) UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoURL string, verifyTextID uint64, gender string) (*models.KYC, error) {
+func (s *kycService) UpdateKYC(ctx context.Context, userID uint64, fname, lname, melliCode, birthdate, province, melliCard, videoPath, videoName string, verifyTextID uint64, gender string) (*models.KYC, error) {
 	// Validate required fields
 	if melliCard == "" {
 		return nil, ErrMelliCardRequired
 	}
-	if videoURL == "" {
+	videoPath = strings.TrimSpace(videoPath)
+	videoName = strings.TrimSpace(videoName)
+	if videoPath == "" || videoName == "" {
 		return nil, ErrVideoRequired
 	}
 	if verifyTextID == 0 {
@@ -137,6 +142,11 @@ func (s *kycService) UpdateKYC(ctx context.Context, userID uint64, fname, lname,
 		return nil, ErrMelliCodeNotUnique
 	}
 
+	videoURL, err := s.promoteKYCVideo(ctx, userID, videoPath, videoName)
+	if err != nil {
+		return nil, err
+	}
+
 	if existing != nil {
 		// Update existing KYC - reset status to pending and clear errors
 		existing.Fname = strings.TrimSpace(fname)
@@ -179,6 +189,13 @@ func (s *kycService) UpdateKYC(ctx context.Context, userID uint64, fname, lname,
 	}
 
 	return kyc, nil
+}
+
+func (s *kycService) promoteKYCVideo(ctx context.Context, userID uint64, videoPath, videoName string) (string, error) {
+	if s.storageClient == nil {
+		return "", fmt.Errorf("storage service not available")
+	}
+	return s.storageClient.MoveKYCVideo(ctx, userID, videoPath, videoName)
 }
 
 // validateKYCInput validates all KYC input fields

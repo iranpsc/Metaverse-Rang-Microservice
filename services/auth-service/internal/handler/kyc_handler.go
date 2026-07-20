@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -122,12 +120,7 @@ func (h *kycHandler) UpdateKYC(ctx context.Context, req *pb.UpdateKYCRequest) (*
 		return nil, status.Errorf(codes.InvalidArgument, "%s", service.ErrVideoRequired.Error())
 	}
 
-	videoURL, err := h.promoteKYCVideo(ctx, req.Video.Path, req.Video.Name)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "%s", lang.Tf(locale, "failed to promote kyc video: %v", err))
-	}
 	melliCardURL = h.prependGatewayURL(melliCardURL)
-	videoURL = h.prependGatewayURL(videoURL)
 
 	kyc, err := h.kycService.UpdateKYC(
 		ctx,
@@ -138,7 +131,8 @@ func (h *kycHandler) UpdateKYC(ctx context.Context, req *pb.UpdateKYCRequest) (*
 		req.Birthdate,
 		req.Province,
 		melliCardURL,
-		videoURL,
+		req.Video.Path,
+		req.Video.Name,
 		req.VerifyTextId,
 		req.Gender,
 	)
@@ -162,115 +156,6 @@ func (h *kycHandler) prependGatewayURL(url string) string {
 	}
 	url = strings.TrimPrefix(url, "/")
 	return strings.TrimSuffix(h.apiGatewayURL, "/") + "/" + url
-}
-
-// promoteKYCVideo moves a staged upload into public kyc storage (Laravel KycController@update).
-func (h *kycHandler) promoteKYCVideo(ctx context.Context, videoPath, videoName string) (string, error) {
-	if h.storageClient == nil {
-		return "", fmt.Errorf("storage service not available")
-	}
-
-	fileData, contentType, err := h.readStagedVideo(ctx, videoPath, videoName)
-	if err != nil {
-		return "", err
-	}
-
-	finalName := filepath.Base(videoName)
-	uploadID := fmt.Sprintf("kyc_video_%d", time.Now().UnixNano())
-	chunkReq := &storagepb.ChunkUploadRequest{
-		UploadId:    uploadID,
-		ChunkData:   fileData,
-		ChunkIndex:  0,
-		TotalChunks: 1,
-		Filename:    finalName,
-		ContentType: contentType,
-		TotalSize:   int64(len(fileData)),
-		UploadPath:  "/uploads/kyc",
-	}
-
-	chunkResp, err := h.storageClient.ChunkUpload(ctx, chunkReq)
-	if err != nil {
-		return "", fmt.Errorf("failed to upload kyc video: %w", err)
-	}
-	if !chunkResp.Success || !chunkResp.IsFinished {
-		return "", fmt.Errorf("kyc video upload did not complete: %s", chunkResp.Message)
-	}
-
-	dirPath := chunkResp.FileUrl
-	filename := chunkResp.FilePath
-	if filename == "" {
-		filename = chunkResp.FinalFilename
-	}
-	if dirPath == "" || filename == "" {
-		return "", fmt.Errorf("storage service did not return kyc video path")
-	}
-
-	return strings.TrimSuffix(dirPath, "/") + "/" + filename, nil
-}
-
-func (h *kycHandler) readStagedVideo(ctx context.Context, videoPath, videoName string) ([]byte, string, error) {
-	contentType := contentTypeFromFilename(videoName)
-	for _, sourcePath := range stagedVideoPaths(videoPath, videoName) {
-		stream, err := h.storageClient.GetFile(ctx, &storagepb.GetFileRequest{FilePath: sourcePath})
-		if err != nil {
-			continue
-		}
-		var data []byte
-		for {
-			resp, recvErr := stream.Recv()
-			if recvErr == io.EOF {
-				break
-			}
-			if recvErr != nil {
-				data = nil
-				break
-			}
-			if resp.ContentType != "" {
-				contentType = resp.ContentType
-			}
-			data = append(data, resp.Data...)
-		}
-		if len(data) > 0 {
-			return data, contentType, nil
-		}
-	}
-	return nil, "", fmt.Errorf("staged video not found at path %q name %q", videoPath, videoName)
-}
-
-func contentTypeFromFilename(name string) string {
-	switch strings.ToLower(filepath.Ext(name)) {
-	case ".webm":
-		return "video/webm"
-	case ".mov":
-		return "video/quicktime"
-	default:
-		return "video/mp4"
-	}
-}
-
-// stagedVideoPaths returns candidate storage paths for a staged upload.
-// Supports Laravel (upload/...) and microservice (uploads/...) chunk upload layouts.
-func stagedVideoPaths(videoPath, videoName string) []string {
-	dir := strings.Trim(videoPath, "/")
-	name := strings.TrimPrefix(videoName, "/")
-	seen := make(map[string]struct{})
-	var paths []string
-	add := func(p string) {
-		p = strings.ReplaceAll(p, "\\", "/")
-		if _, ok := seen[p]; ok || p == "" {
-			return
-		}
-		seen[p] = struct{}{}
-		paths = append(paths, p)
-	}
-	add(dir + "/" + name)
-	if strings.HasPrefix(dir, "upload/") && !strings.HasPrefix(dir, "uploads/") {
-		add("uploads/" + strings.TrimPrefix(dir, "upload/") + "/" + name)
-	}
-	if !strings.HasPrefix(dir, "uploads/") {
-		add("uploads/" + dir + "/" + name)
-	}
-	return paths
 }
 
 // convertKYCToProto converts a KYC model to proto response
@@ -330,6 +215,7 @@ func mapKYCServiceError(err error, locale string) error {
 		errors.Is(err, service.ErrVerifyTextIDRequired),
 		errors.Is(err, service.ErrVerifyTextIDNotFound),
 		errors.Is(err, service.ErrVideoRequired),
+		errors.Is(err, service.ErrVideoFileNotFound),
 		errors.Is(err, service.ErrMelliCardRequired),
 		errors.Is(err, service.ErrMelliCodeNotUnique):
 		if fields, ok := mapServiceErrorToValidationFields(err, locale); ok {
