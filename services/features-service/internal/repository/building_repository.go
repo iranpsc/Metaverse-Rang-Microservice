@@ -659,3 +659,193 @@ func (r *BuildingRepository) CountCompleted(ctx context.Context, now time.Time) 
 	}
 	return count, nil
 }
+
+// CountCompletedByKarbari counts completed buildings grouped by karbari for a user-owned feature.
+func (r *BuildingRepository) CountCompletedByKarbari(
+	ctx context.Context,
+	userID uint64,
+	karbaris []string,
+	now time.Time,
+) (map[string]int32, error) {
+	result := make(map[string]int32, len(karbaris))
+	if len(karbaris) == 0 {
+		return result, nil
+	}
+
+	placeholders, args := karbariInClause(karbaris)
+	args = append([]interface{}{now, userID}, args...)
+
+	query := fmt.Sprintf(`
+		SELECT fp.karbari, COUNT(b.id) AS count
+		FROM buildings b
+		INNER JOIN features f ON f.id = b.feature_id
+		INNER JOIN feature_properties fp ON fp.feature_id = b.feature_id
+		WHERE b.construction_end_date < ?
+		  AND f.owner_id = ?
+		  AND fp.karbari IN (%s)
+		GROUP BY fp.karbari
+	`, placeholders)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("count completed buildings by karbari: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var karbari string
+		var count int32
+		if err := rows.Scan(&karbari, &count); err != nil {
+			return nil, fmt.Errorf("scan completed building karbari count: %w", err)
+		}
+		result[karbari] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate completed building karbari counts: %w", err)
+	}
+	return result, nil
+}
+
+// ListCompletedEndDates returns construction_end_date values for chart bucketing.
+func (r *BuildingRepository) ListCompletedEndDates(
+	ctx context.Context,
+	userID uint64,
+	karbaris []string,
+	start, end, now time.Time,
+) ([]time.Time, error) {
+	if len(karbaris) == 0 {
+		return []time.Time{}, nil
+	}
+
+	placeholders, karbariArgs := karbariInClause(karbaris)
+	args := append([]interface{}{now, start, end, userID}, karbariArgs...)
+
+	query := fmt.Sprintf(`
+		SELECT b.construction_end_date
+		FROM buildings b
+		INNER JOIN features f ON f.id = b.feature_id
+		INNER JOIN feature_properties fp ON fp.feature_id = b.feature_id
+		WHERE b.construction_end_date < ?
+		  AND b.construction_end_date BETWEEN ? AND ?
+		  AND f.owner_id = ?
+		  AND fp.karbari IN (%s)
+	`, placeholders)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list completed building end dates: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := make([]time.Time, 0)
+	for rows.Next() {
+		var endDate time.Time
+		if err := rows.Scan(&endDate); err != nil {
+			return nil, fmt.Errorf("scan construction end date: %w", err)
+		}
+		out = append(out, endDate)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate construction end dates: %w", err)
+	}
+	return out, nil
+}
+
+// CountUserCompletedBuildings counts completed buildings on features owned by the user.
+func (r *BuildingRepository) CountUserCompletedBuildings(
+	ctx context.Context,
+	userID uint64,
+	karbaris []string,
+	now time.Time,
+) (int, error) {
+	if len(karbaris) == 0 {
+		return 0, nil
+	}
+
+	placeholders, karbariArgs := karbariInClause(karbaris)
+	args := append([]interface{}{now, userID}, karbariArgs...)
+
+	query := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM buildings b
+		INNER JOIN features f ON f.id = b.feature_id
+		INNER JOIN feature_properties fp ON fp.feature_id = b.feature_id
+		WHERE b.construction_end_date < ?
+		  AND f.owner_id = ?
+		  AND fp.karbari IN (%s)
+	`, placeholders)
+
+	var count int
+	if err := r.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count user completed buildings: %w", err)
+	}
+	return count, nil
+}
+
+// ListUserCompletedBuildings returns paginated completed buildings for a user's features.
+func (r *BuildingRepository) ListUserCompletedBuildings(
+	ctx context.Context,
+	userID uint64,
+	karbaris []string,
+	now time.Time,
+	limit, offset int,
+) ([]models.CitizenBuildingRow, error) {
+	if len(karbaris) == 0 {
+		return []models.CitizenBuildingRow{}, nil
+	}
+
+	placeholders, karbariArgs := karbariInClause(karbaris)
+	args := append([]interface{}{now, userID}, karbariArgs...)
+	args = append(args, limit, offset)
+
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(fp.id, '') AS feature_properties_id,
+			COALESCE(fp.karbari, '') AS karbari,
+			COALESCE(bm.attributes, '[]') AS attributes,
+			b.construction_end_date
+		FROM buildings b
+		INNER JOIN features f ON f.id = b.feature_id
+		INNER JOIN feature_properties fp ON fp.feature_id = b.feature_id
+		INNER JOIN building_models bm ON b.model_id = bm.id
+		WHERE b.construction_end_date < ?
+		  AND f.owner_id = ?
+		  AND fp.karbari IN (%s)
+		ORDER BY b.construction_end_date DESC
+		LIMIT ? OFFSET ?
+	`, placeholders)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list user completed buildings: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := make([]models.CitizenBuildingRow, 0, limit)
+	for rows.Next() {
+		var row models.CitizenBuildingRow
+		if err := rows.Scan(
+			&row.FeaturePropertiesID,
+			&row.Karbari,
+			&row.AttributesJSON,
+			&row.ConstructionEndDate,
+		); err != nil {
+			return nil, fmt.Errorf("scan user completed building: %w", err)
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate user completed buildings: %w", err)
+	}
+	return out, nil
+}
+
+func karbariInClause(karbaris []string) (string, []interface{}) {
+	placeholders := make([]string, len(karbaris))
+	args := make([]interface{}, len(karbaris))
+	for i, karbari := range karbaris {
+		placeholders[i] = "?"
+		args[i] = karbari
+	}
+	return strings.Join(placeholders, ","), args
+}

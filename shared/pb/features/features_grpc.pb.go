@@ -1956,6 +1956,189 @@ var CitizenFeaturesService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	CitizenBuildingsService_GetCitizenBuildingSummary_FullMethodName = "/features.CitizenBuildingsService/GetCitizenBuildingSummary"
+	CitizenBuildingsService_GetCitizenBuildingChart_FullMethodName   = "/features.CitizenBuildingsService/GetCitizenBuildingChart"
+	CitizenBuildingsService_ListCitizenBuildings_FullMethodName      = "/features.CitizenBuildingsService/ListCitizenBuildings"
+)
+
+// CitizenBuildingsServiceClient is the client API for CitizenBuildingsService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// CitizenBuildingsService handles public citizen building assets (no auth; privacy applied by gateway)
+type CitizenBuildingsServiceClient interface {
+	GetCitizenBuildingSummary(ctx context.Context, in *GetCitizenBuildingSummaryRequest, opts ...grpc.CallOption) (*GetCitizenBuildingSummaryResponse, error)
+	GetCitizenBuildingChart(ctx context.Context, in *GetCitizenBuildingChartRequest, opts ...grpc.CallOption) (*GetCitizenBuildingChartResponse, error)
+	ListCitizenBuildings(ctx context.Context, in *ListCitizenBuildingsRequest, opts ...grpc.CallOption) (*ListCitizenBuildingsResponse, error)
+}
+
+type citizenBuildingsServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCitizenBuildingsServiceClient(cc grpc.ClientConnInterface) CitizenBuildingsServiceClient {
+	return &citizenBuildingsServiceClient{cc}
+}
+
+func (c *citizenBuildingsServiceClient) GetCitizenBuildingSummary(ctx context.Context, in *GetCitizenBuildingSummaryRequest, opts ...grpc.CallOption) (*GetCitizenBuildingSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCitizenBuildingSummaryResponse)
+	err := c.cc.Invoke(ctx, CitizenBuildingsService_GetCitizenBuildingSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *citizenBuildingsServiceClient) GetCitizenBuildingChart(ctx context.Context, in *GetCitizenBuildingChartRequest, opts ...grpc.CallOption) (*GetCitizenBuildingChartResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCitizenBuildingChartResponse)
+	err := c.cc.Invoke(ctx, CitizenBuildingsService_GetCitizenBuildingChart_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *citizenBuildingsServiceClient) ListCitizenBuildings(ctx context.Context, in *ListCitizenBuildingsRequest, opts ...grpc.CallOption) (*ListCitizenBuildingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCitizenBuildingsResponse)
+	err := c.cc.Invoke(ctx, CitizenBuildingsService_ListCitizenBuildings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CitizenBuildingsServiceServer is the server API for CitizenBuildingsService service.
+// All implementations must embed UnimplementedCitizenBuildingsServiceServer
+// for forward compatibility.
+//
+// CitizenBuildingsService handles public citizen building assets (no auth; privacy applied by gateway)
+type CitizenBuildingsServiceServer interface {
+	GetCitizenBuildingSummary(context.Context, *GetCitizenBuildingSummaryRequest) (*GetCitizenBuildingSummaryResponse, error)
+	GetCitizenBuildingChart(context.Context, *GetCitizenBuildingChartRequest) (*GetCitizenBuildingChartResponse, error)
+	ListCitizenBuildings(context.Context, *ListCitizenBuildingsRequest) (*ListCitizenBuildingsResponse, error)
+	mustEmbedUnimplementedCitizenBuildingsServiceServer()
+}
+
+// UnimplementedCitizenBuildingsServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCitizenBuildingsServiceServer struct{}
+
+func (UnimplementedCitizenBuildingsServiceServer) GetCitizenBuildingSummary(context.Context, *GetCitizenBuildingSummaryRequest) (*GetCitizenBuildingSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCitizenBuildingSummary not implemented")
+}
+func (UnimplementedCitizenBuildingsServiceServer) GetCitizenBuildingChart(context.Context, *GetCitizenBuildingChartRequest) (*GetCitizenBuildingChartResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCitizenBuildingChart not implemented")
+}
+func (UnimplementedCitizenBuildingsServiceServer) ListCitizenBuildings(context.Context, *ListCitizenBuildingsRequest) (*ListCitizenBuildingsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCitizenBuildings not implemented")
+}
+func (UnimplementedCitizenBuildingsServiceServer) mustEmbedUnimplementedCitizenBuildingsServiceServer() {
+}
+func (UnimplementedCitizenBuildingsServiceServer) testEmbeddedByValue() {}
+
+// UnsafeCitizenBuildingsServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CitizenBuildingsServiceServer will
+// result in compilation errors.
+type UnsafeCitizenBuildingsServiceServer interface {
+	mustEmbedUnimplementedCitizenBuildingsServiceServer()
+}
+
+func RegisterCitizenBuildingsServiceServer(s grpc.ServiceRegistrar, srv CitizenBuildingsServiceServer) {
+	// If the following call pancis, it indicates UnimplementedCitizenBuildingsServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CitizenBuildingsService_ServiceDesc, srv)
+}
+
+func _CitizenBuildingsService_GetCitizenBuildingSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCitizenBuildingSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CitizenBuildingsServiceServer).GetCitizenBuildingSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CitizenBuildingsService_GetCitizenBuildingSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CitizenBuildingsServiceServer).GetCitizenBuildingSummary(ctx, req.(*GetCitizenBuildingSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CitizenBuildingsService_GetCitizenBuildingChart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCitizenBuildingChartRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CitizenBuildingsServiceServer).GetCitizenBuildingChart(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CitizenBuildingsService_GetCitizenBuildingChart_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CitizenBuildingsServiceServer).GetCitizenBuildingChart(ctx, req.(*GetCitizenBuildingChartRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CitizenBuildingsService_ListCitizenBuildings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCitizenBuildingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CitizenBuildingsServiceServer).ListCitizenBuildings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CitizenBuildingsService_ListCitizenBuildings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CitizenBuildingsServiceServer).ListCitizenBuildings(ctx, req.(*ListCitizenBuildingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CitizenBuildingsService_ServiceDesc is the grpc.ServiceDesc for CitizenBuildingsService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CitizenBuildingsService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "features.CitizenBuildingsService",
+	HandlerType: (*CitizenBuildingsServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetCitizenBuildingSummary",
+			Handler:    _CitizenBuildingsService_GetCitizenBuildingSummary_Handler,
+		},
+		{
+			MethodName: "GetCitizenBuildingChart",
+			Handler:    _CitizenBuildingsService_GetCitizenBuildingChart_Handler,
+		},
+		{
+			MethodName: "ListCitizenBuildings",
+			Handler:    _CitizenBuildingsService_ListCitizenBuildings_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "features.proto",
+}
+
+const (
 	IsicCodeService_ListIsicCodes_FullMethodName = "/features.IsicCodeService/ListIsicCodes"
 )
 

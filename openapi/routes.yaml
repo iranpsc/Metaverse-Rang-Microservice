@@ -191,6 +191,65 @@ routes:
         description: Items per page (default 15)
         example: 15
 
+  - path: /api/citizen/{code}/buildings/summary
+    methods: [get]
+    tag: Citizen
+    summary: Per-karbari completed building count summary cards
+    security: none
+    params:
+      - name: code
+        in: path
+        type: string
+        description: Citizen code
+        example: HM-2000000
+      - name: karbari
+        in: query
+        type: array
+        description: Optional filter to specific karbari codes. Privacy settings still apply.
+        example: [m, t]
+  - path: /api/citizen/{code}/buildings/chart
+    methods: [get]
+    tag: Citizen
+    summary: Completed buildings timeline chart for a period
+    security: none
+    params:
+      - name: code
+        in: path
+        type: string
+        description: Citizen code
+        example: HM-2000000
+      - name: period
+        in: query
+        type: string
+        description: Time window (`daily`, `weekly`, `monthly`, or `yearly`). Defaults to `daily`.
+        example: weekly
+      - name: karbari
+        in: query
+        type: array
+        description: Optional filter to specific karbari codes. Privacy settings still apply.
+        example: [m]
+  - path: /api/citizen/{code}/buildings
+    methods: [get]
+    tag: Citizen
+    summary: Paginated list of completed buildings (10 per page)
+    security: none
+    params:
+      - name: code
+        in: path
+        type: string
+        description: Citizen code
+        example: HM-2000000
+      - name: karbari
+        in: query
+        type: array
+        description: Optional filter to specific karbari codes. Privacy settings still apply.
+        example: [m]
+      - name: page
+        in: query
+        type: integer
+        description: Page number
+        example: 1
+
   - path: /api/citizen/{code}/wallet/history/summary
     methods: [get]
     tag: Citizen

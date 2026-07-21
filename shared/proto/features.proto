@@ -689,6 +689,66 @@ message CitizenFeatureMapMarker {
   string karbari = 3;
 }
 
+// CitizenBuildingsService handles public citizen building assets (no auth; privacy applied by gateway)
+service CitizenBuildingsService {
+  rpc GetCitizenBuildingSummary(GetCitizenBuildingSummaryRequest) returns (GetCitizenBuildingSummaryResponse);
+  rpc GetCitizenBuildingChart(GetCitizenBuildingChartRequest) returns (GetCitizenBuildingChartResponse);
+  rpc ListCitizenBuildings(ListCitizenBuildingsRequest) returns (ListCitizenBuildingsResponse);
+}
+
+message GetCitizenBuildingSummaryRequest {
+  uint64 user_id = 1;
+  repeated string allowed_karbaris = 2; // already privacy-filtered
+}
+
+message GetCitizenBuildingSummaryResponse {
+  repeated CitizenBuildingSummaryItem data = 1;
+}
+
+message CitizenBuildingSummaryItem {
+  string karbari = 1;
+  string label = 2;
+  int32 count = 3;
+}
+
+message GetCitizenBuildingChartRequest {
+  uint64 user_id = 1;
+  string period = 2; // daily | weekly | monthly | yearly
+  repeated string allowed_karbaris = 3;
+}
+
+message GetCitizenBuildingChartResponse {
+  CitizenBuildingChartData data = 1;
+  string period = 2;
+}
+
+message CitizenBuildingChartData {
+  repeated string labels = 1;
+  repeated int32 completed = 2;
+}
+
+message ListCitizenBuildingsRequest {
+  uint64 user_id = 1;
+  repeated string allowed_karbaris = 2;
+  int32 page = 3; // default 1, fixed 10 items per page
+}
+
+message ListCitizenBuildingsResponse {
+  repeated CitizenBuildingItem data = 1;
+  PaginationLinks links = 2;
+  FeatureTradeHistoryPaginationMeta meta = 3;
+}
+
+message CitizenBuildingItem {
+  string feature_properties_id = 1;
+  string karbari = 2;
+  optional double area = 3;
+  optional double visitors = 4;
+  optional double empty_units = 5;
+  optional double floors = 6;
+  optional string construction_end_date = 7; // Jalali Y/m/d
+}
+
 // IsicCodeService handles ISIC code listing (GET /api/isic-codes).
 service IsicCodeService {
   // ListIsicCodes returns paginated ISIC codes; optional search filters by name or code.
