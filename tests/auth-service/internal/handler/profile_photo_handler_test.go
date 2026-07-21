@@ -93,7 +93,7 @@ func TestProfilePhotoHandler_ListProfilePhotos(t *testing.T) {
 		apiGatewayURL := "https://api.example.com"
 		h := &handler.ProfilePhotoHandler{
 			ProfilePhotoService: mockService,
-			ApiGatewayURL:       apiGatewayURL,
+			APIGatewayURL:       apiGatewayURL,
 		}
 
 		req := &pb.ListProfilePhotosRequest{UserId: 1}
@@ -161,7 +161,7 @@ func TestProfilePhotoHandler_ListProfilePhotos(t *testing.T) {
 		apiGatewayURL := "https://api.example.com/"
 		h := &handler.ProfilePhotoHandler{
 			ProfilePhotoService: mockService,
-			ApiGatewayURL:       apiGatewayURL,
+			APIGatewayURL:       apiGatewayURL,
 		}
 
 		req := &pb.ListProfilePhotosRequest{UserId: 1}
@@ -191,7 +191,7 @@ func TestProfilePhotoHandler_ListProfilePhotos(t *testing.T) {
 		// Empty gateway URL should return original URL
 		h := &handler.ProfilePhotoHandler{
 			ProfilePhotoService: mockService,
-			ApiGatewayURL:       "",
+			APIGatewayURL:       "",
 		}
 
 		req := &pb.ListProfilePhotosRequest{UserId: 1}
@@ -219,7 +219,7 @@ func TestProfilePhotoHandler_ListProfilePhotos(t *testing.T) {
 
 		h := &handler.ProfilePhotoHandler{
 			ProfilePhotoService: mockService,
-			ApiGatewayURL:       "https://api.example.com",
+			APIGatewayURL:       "https://api.example.com",
 		}
 
 		req := &pb.ListProfilePhotosRequest{UserId: 1}
@@ -294,7 +294,7 @@ func TestProfilePhotoHandler_UploadProfilePhoto(t *testing.T) {
 		h := &handler.ProfilePhotoHandler{
 			ProfilePhotoService: mockService,
 			StorageClient:       &mockStorageClient{},
-			ApiGatewayURL:       apiGatewayURL,
+			APIGatewayURL:       apiGatewayURL,
 		}
 
 		req := &pb.UploadProfilePhotoRequest{
@@ -416,7 +416,7 @@ func TestProfilePhotoHandler_GetProfilePhoto(t *testing.T) {
 		apiGatewayURL := "https://api.example.com"
 		h := &handler.ProfilePhotoHandler{
 			ProfilePhotoService: mockService,
-			ApiGatewayURL:       apiGatewayURL,
+			APIGatewayURL:       apiGatewayURL,
 		}
 
 		req := &pb.GetProfilePhotoRequest{ProfilePhotoId: 1}
@@ -639,7 +639,7 @@ func TestPrependGatewayURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &handler.ProfilePhotoHandler{
-				ApiGatewayURL: tt.gatewayURL,
+				APIGatewayURL: tt.gatewayURL,
 			}
 
 			result := h.PrependGatewayURL(tt.inputURL)

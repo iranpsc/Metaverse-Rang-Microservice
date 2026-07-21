@@ -37,7 +37,7 @@ func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 		MerchantID: "merchant",
 		TerminalID: "terminal",
 		SignData:   "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
-		OrderId:    42,
+		OrderID:    42,
 		Amount:     1000,
 		ReturnURL:  "https://example.com/callback",
 		MultiplexingData: &sadad.MultiplexingData{
@@ -121,7 +121,7 @@ func TestSandboxRequestPaymentOmitsMultiplexingData(t *testing.T) {
 		MerchantID: "46645",
 		TerminalID: "GBHDTY98",
 		SignData:   "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
-		OrderId:    1,
+		OrderID:    1,
 		Amount:     10000,
 		ReturnURL:  "http://localhost/callback",
 	})

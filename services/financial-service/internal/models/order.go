@@ -50,12 +50,6 @@ type Option struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-type Variable struct {
-	ID    uint64  `db:"id"`
-	Key   string  `db:"key"`
-	Value float64 `db:"value"`
-}
-
 type FirstOrder struct {
 	ID        uint64    `db:"id"`
 	UserID    uint64    `db:"user_id"`

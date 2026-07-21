@@ -9,9 +9,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"metarang/financial-service/internal/constants"
 	"metarang/financial-service/internal/service"
 	pb "metarang/shared/pb/financial"
-	"metarang/shared/pkg/helpers"
 )
 
 type StoreHandler struct {
@@ -32,24 +32,21 @@ func RegisterStoreHandler(grpcServer *grpc.Server, storeService service.StoreSer
 
 func (h *StoreHandler) GetStorePackages(ctx context.Context, req *pb.GetStorePackagesRequest) (*pb.GetStorePackagesResponse, error) {
 	locale := GetLocaleFromContext(ctx)
-	validationErrors := make(map[string]string)
-	t := helpers.GetLocaleTranslations(locale)
-
-	if len(req.Codes) < 2 {
-		validationErrors["codes"] = fmt.Sprintf(t.Min, "codes", "2")
-	}
+	validationErrors := mergeValidationErrors(
+		validateMin("codes", int64(len(req.Codes)), constants.MinStoreCodes, locale),
+	)
 
 	for i, code := range req.Codes {
-		if len(code) < 2 {
-			validationErrors[fmt.Sprintf("codes.%d", i)] = fmt.Sprintf(t.Min, fmt.Sprintf("codes.%d", i), "2")
-		}
+		validationErrors = mergeValidationErrors(
+			validationErrors,
+			validateMin(fmt.Sprintf("codes.%d", i), int64(len(code)), constants.MinStoreCodeLength, locale),
+		)
 	}
 
 	if len(validationErrors) > 0 {
 		return nil, returnValidationError(validationErrors)
 	}
 
-	// Call service
 	packages, err := h.storeService.GetStorePackages(ctx, req.Codes)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCodes) || errors.Is(err, service.ErrInvalidCodeLength) {
@@ -58,7 +55,6 @@ func (h *StoreHandler) GetStorePackages(ctx context.Context, req *pb.GetStorePac
 		return nil, status.Errorf(codes.Internal, "failed to get store packages: %v", err)
 	}
 
-	// Convert to proto messages
 	pbPackages := make([]*pb.Package, 0, len(packages))
 	for _, pkg := range packages {
 		pbPackage := &pb.Package{

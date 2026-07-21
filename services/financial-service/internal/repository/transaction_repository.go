@@ -12,8 +12,10 @@ import (
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction *models.Transaction) error
 	Update(ctx context.Context, transaction *models.Transaction) error
+	UpdateWithTx(ctx context.Context, tx *sql.Tx, transaction *models.Transaction) error
 	FindByID(ctx context.Context, id string) (*models.Transaction, error)
 	FindByPayable(ctx context.Context, payableType string, payableID uint64) (*models.Transaction, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type transactionRepository struct {
@@ -41,13 +43,23 @@ func (r *transactionRepository) Create(ctx context.Context, transaction *models.
 }
 
 func (r *transactionRepository) Update(ctx context.Context, transaction *models.Transaction) error {
+	return r.update(ctx, r.db, transaction)
+}
+
+func (r *transactionRepository) UpdateWithTx(ctx context.Context, tx *sql.Tx, transaction *models.Transaction) error {
+	return r.update(ctx, tx, transaction)
+}
+
+func (r *transactionRepository) update(ctx context.Context, exec interface {
+	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
+}, transaction *models.Transaction) error {
 	query := `
 		UPDATE transactions
 		SET status = ?, ref_id = ?, token = ?, updated_at = ?
 		WHERE id = ?
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := exec.ExecContext(ctx, query,
 		transaction.Status,
 		transaction.RefID,
 		transaction.Token,
@@ -59,6 +71,14 @@ func (r *transactionRepository) Update(ctx context.Context, transaction *models.
 		return fmt.Errorf("failed to update transaction: %w", err)
 	}
 
+	return nil
+}
+
+func (r *transactionRepository) Delete(ctx context.Context, id string) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM transactions WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete transaction: %w", err)
+	}
 	return nil
 }
 

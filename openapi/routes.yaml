@@ -453,6 +453,20 @@ routes:
     tag: Features
     summary: List construction-completed buildings (paginated, 10 per page)
     security: none
+  - path: /api/isic-codes
+    methods: [get]
+    tag: Features
+    summary: List ISIC codes (paginated, 10 per page; optional search by name or code)
+    security: optional
+    params:
+      - name: page
+        in: query
+        type: integer
+        description: Page number for pagination
+      - name: search
+        in: query
+        type: string
+        description: Optional filter by ISIC code name or numeric code
   - path: /api/features/{id}
     methods: [get]
     tag: Features

@@ -1954,3 +1954,111 @@ var CitizenFeaturesService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "features.proto",
 }
+
+const (
+	IsicCodeService_ListIsicCodes_FullMethodName = "/features.IsicCodeService/ListIsicCodes"
+)
+
+// IsicCodeServiceClient is the client API for IsicCodeService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// IsicCodeService handles ISIC code listing (GET /api/isic-codes).
+type IsicCodeServiceClient interface {
+	// ListIsicCodes returns paginated ISIC codes; optional search filters by name or code.
+	ListIsicCodes(ctx context.Context, in *ListIsicCodesRequest, opts ...grpc.CallOption) (*ListIsicCodesResponse, error)
+}
+
+type isicCodeServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewIsicCodeServiceClient(cc grpc.ClientConnInterface) IsicCodeServiceClient {
+	return &isicCodeServiceClient{cc}
+}
+
+func (c *isicCodeServiceClient) ListIsicCodes(ctx context.Context, in *ListIsicCodesRequest, opts ...grpc.CallOption) (*ListIsicCodesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListIsicCodesResponse)
+	err := c.cc.Invoke(ctx, IsicCodeService_ListIsicCodes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// IsicCodeServiceServer is the server API for IsicCodeService service.
+// All implementations must embed UnimplementedIsicCodeServiceServer
+// for forward compatibility.
+//
+// IsicCodeService handles ISIC code listing (GET /api/isic-codes).
+type IsicCodeServiceServer interface {
+	// ListIsicCodes returns paginated ISIC codes; optional search filters by name or code.
+	ListIsicCodes(context.Context, *ListIsicCodesRequest) (*ListIsicCodesResponse, error)
+	mustEmbedUnimplementedIsicCodeServiceServer()
+}
+
+// UnimplementedIsicCodeServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedIsicCodeServiceServer struct{}
+
+func (UnimplementedIsicCodeServiceServer) ListIsicCodes(context.Context, *ListIsicCodesRequest) (*ListIsicCodesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListIsicCodes not implemented")
+}
+func (UnimplementedIsicCodeServiceServer) mustEmbedUnimplementedIsicCodeServiceServer() {}
+func (UnimplementedIsicCodeServiceServer) testEmbeddedByValue()                         {}
+
+// UnsafeIsicCodeServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to IsicCodeServiceServer will
+// result in compilation errors.
+type UnsafeIsicCodeServiceServer interface {
+	mustEmbedUnimplementedIsicCodeServiceServer()
+}
+
+func RegisterIsicCodeServiceServer(s grpc.ServiceRegistrar, srv IsicCodeServiceServer) {
+	// If the following call pancis, it indicates UnimplementedIsicCodeServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&IsicCodeService_ServiceDesc, srv)
+}
+
+func _IsicCodeService_ListIsicCodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListIsicCodesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IsicCodeServiceServer).ListIsicCodes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: IsicCodeService_ListIsicCodes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IsicCodeServiceServer).ListIsicCodes(ctx, req.(*ListIsicCodesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// IsicCodeService_ServiceDesc is the grpc.ServiceDesc for IsicCodeService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var IsicCodeService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "features.IsicCodeService",
+	HandlerType: (*IsicCodeServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListIsicCodes",
+			Handler:    _IsicCodeService_ListIsicCodes_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "features.proto",
+}

@@ -22,6 +22,7 @@ type mockBuildingRepository struct {
 	createBuildingFunc                func(ctx context.Context, featureID, userID uint64, buildingModelID string, launchedSatisfaction, rotation, position, information string, startDate, endDate time.Time, bubbleDiameter float64) error
 	findByFeatureIDFunc               func(ctx context.Context, featureID uint64) ([]*pb.Building, error)
 	updateBuildingFunc                func(ctx context.Context, featureID uint64, buildingModelID string, launchedSatisfaction, rotation, position, information string, endDate time.Time, bubbleDiameter float64) (*pb.Building, error)
+	updateBuildingInformationFunc     func(ctx context.Context, featureID uint64, buildingModelID string, information string) error
 	findBuildingByFeatureAndModelFunc func(ctx context.Context, featureID uint64, buildingModelID string) (*pb.Building, error)
 	deleteBuildingFunc                func(ctx context.Context, featureID uint64, buildingModelID string) error
 	firstOrCreateIsicCodeFunc         func(ctx context.Context, activityLine string) (uint64, error)
@@ -67,6 +68,13 @@ func (m *mockBuildingRepository) UpdateBuilding(ctx context.Context, featureID u
 		return m.updateBuildingFunc(ctx, featureID, buildingModelID, launchedSatisfaction, rotation, position, information, endDate, bubbleDiameter)
 	}
 	return nil, errors.New("not implemented")
+}
+
+func (m *mockBuildingRepository) UpdateBuildingInformation(ctx context.Context, featureID uint64, buildingModelID string, information string) error {
+	if m.updateBuildingInformationFunc != nil {
+		return m.updateBuildingInformationFunc(ctx, featureID, buildingModelID, information)
+	}
+	return errors.New("not implemented")
 }
 
 func (m *mockBuildingRepository) FindBuildingByFeatureAndModel(ctx context.Context, featureID uint64, buildingModelID string) (*pb.Building, error) {

@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"metarang/financial-service/internal/constants"
 	"metarang/financial-service/internal/service"
 	pb "metarang/shared/pb/financial"
 )
@@ -35,7 +36,7 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderReque
 	validationErrors := mergeValidationErrors(
 		validateMin("amount", int64(req.Amount), 1, locale),
 		validateRequired("asset", req.Asset, locale),
-		validateOneOf("asset", req.Asset, []string{"psc", "irr", "red", "blue", "yellow"}, locale),
+		validateOneOf("asset", req.Asset, constants.ValidOrderAssets, locale),
 	)
 	if len(validationErrors) > 0 {
 		return nil, returnValidationError(validationErrors)

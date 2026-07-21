@@ -679,6 +679,7 @@ func main() {
 		// Static feature subpaths must be registered before the /api/features/ catch-all
 		// so they are not parsed as {feature} IDs by GetFeature.
 		mux.Handle("GET /api/features/buildings/completed", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.ListCompletedBuildings)))
+		mux.Handle("GET /api/isic-codes", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.ListIsicCodes)))
 		// Public trade history must be registered before the /api/features/ catch-all.
 		mux.Handle("GET /api/features/{feature}/trade-history", http.HandlerFunc(featuresHandler.GetFeatureTradeHistory))
 		mux.Handle("/api/features/", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.HandleFeaturesRoutes)))

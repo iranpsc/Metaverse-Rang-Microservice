@@ -20,6 +20,7 @@ type FeaturesHandler struct {
 	marketplaceClient featurespb.FeatureMarketplaceServiceClient
 	profitClient      featurespb.FeatureProfitServiceClient
 	buildingClient    featurespb.BuildingServiceClient
+	isicCodeClient    featurespb.IsicCodeServiceClient
 	authClient        pb.AuthServiceClient
 	locale            string
 }
@@ -30,6 +31,7 @@ func NewFeaturesHandler(featuresConn, authConn *grpc.ClientConn, locale string) 
 		marketplaceClient: featurespb.NewFeatureMarketplaceServiceClient(featuresConn),
 		profitClient:      featurespb.NewFeatureProfitServiceClient(featuresConn),
 		buildingClient:    featurespb.NewBuildingServiceClient(featuresConn),
+		isicCodeClient:    featurespb.NewIsicCodeServiceClient(featuresConn),
 		authClient:        pb.NewAuthServiceClient(authConn),
 		locale:            locale,
 	}

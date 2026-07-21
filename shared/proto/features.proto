@@ -689,3 +689,27 @@ message CitizenFeatureMapMarker {
   string karbari = 3;
 }
 
+// IsicCodeService handles ISIC code listing (GET /api/isic-codes).
+service IsicCodeService {
+  // ListIsicCodes returns paginated ISIC codes; optional search filters by name or code.
+  rpc ListIsicCodes(ListIsicCodesRequest) returns (ListIsicCodesResponse);
+}
+
+message ListIsicCodesRequest {
+  int32 page = 1; // default 1, 10 items per page
+  string search = 2; // optional; when set, filter by name or code
+}
+
+message ListIsicCodesResponse {
+  repeated IsicCode data = 1;
+  PaginationLinks links = 2;
+  FeatureTradeHistoryPaginationMeta meta = 3;
+}
+
+message IsicCode {
+  uint64 id = 1;
+  string name = 2;
+  optional uint64 code = 3;
+  bool verified = 4;
+}
+

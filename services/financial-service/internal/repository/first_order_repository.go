@@ -12,6 +12,7 @@ import (
 
 type FirstOrderRepository interface {
 	Create(ctx context.Context, firstOrder *models.FirstOrder) error
+	CreateWithTx(ctx context.Context, tx *sql.Tx, firstOrder *models.FirstOrder) error
 	Count(ctx context.Context, userID uint64) (int, error)
 }
 
@@ -24,13 +25,23 @@ func NewFirstOrderRepository(db *sql.DB) FirstOrderRepository {
 }
 
 func (r *firstOrderRepository) Create(ctx context.Context, firstOrder *models.FirstOrder) error {
+	return r.create(ctx, r.db, firstOrder)
+}
+
+func (r *firstOrderRepository) CreateWithTx(ctx context.Context, tx *sql.Tx, firstOrder *models.FirstOrder) error {
+	return r.create(ctx, tx, firstOrder)
+}
+
+func (r *firstOrderRepository) create(ctx context.Context, exec interface {
+	ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
+}, firstOrder *models.FirstOrder) error {
 	query := `
 		INSERT INTO first_orders (user_id, type, amount, date, bonus, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	now := time.Now()
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := exec.ExecContext(ctx, query,
 		firstOrder.UserID,
 		firstOrder.Type,
 		firstOrder.Amount,

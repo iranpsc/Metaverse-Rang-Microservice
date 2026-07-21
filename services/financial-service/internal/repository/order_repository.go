@@ -14,6 +14,8 @@ type OrderRepository interface {
 	FindByID(ctx context.Context, id uint64) (*models.Order, error)
 	FindByIDWithUser(ctx context.Context, id uint64) (*models.Order, *models.User, error)
 	Update(ctx context.Context, order *models.Order) error
+	UpdateWithTx(ctx context.Context, tx *sql.Tx, order *models.Order) error
+	Delete(ctx context.Context, id uint64) error
 }
 
 type orderRepository struct {
@@ -109,6 +111,27 @@ func (r *orderRepository) Update(ctx context.Context, order *models.Order) error
 	_, err := r.db.ExecContext(ctx, query, order.Status, time.Now(), order.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update order: %w", err)
+	}
+	return nil
+}
+
+func (r *orderRepository) UpdateWithTx(ctx context.Context, tx *sql.Tx, order *models.Order) error {
+	query := `
+		UPDATE orders
+		SET status = ?, updated_at = ?
+		WHERE id = ?
+	`
+	_, err := tx.ExecContext(ctx, query, order.Status, time.Now(), order.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update order: %w", err)
+	}
+	return nil
+}
+
+func (r *orderRepository) Delete(ctx context.Context, id uint64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM orders WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete order: %w", err)
 	}
 	return nil
 }

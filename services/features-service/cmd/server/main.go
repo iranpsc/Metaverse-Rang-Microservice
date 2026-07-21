@@ -226,6 +226,9 @@ func main() {
 
 	completedBuildingService := service.NewCompletedBuildingService(buildingRepo)
 
+	isicCodeRepo := repository.NewIsicCodeRepository(database)
+	isicCodeService := service.NewIsicCodeService(isicCodeRepo)
+
 	citizenFeaturesRepo := repository.NewCitizenFeaturesRepository(database)
 	citizenFeaturesService := service.NewCitizenFeaturesService(citizenFeaturesRepo)
 
@@ -235,6 +238,7 @@ func main() {
 	marketplaceHandler := handler.NewMarketplaceHandler(marketplaceService, geometryRepo, featureRepo)
 	profitHandler := handler.NewProfitHandler(profitService)
 	buildingHandler := handler.NewBuildingHandler(buildingService, completedBuildingService)
+	isicCodeHandler := handler.NewIsicCodeHandler(isicCodeService)
 	mapHandler := handler.NewMapHandler(mapService)
 	citizenFeaturesHandler := handler.NewCitizenFeaturesHandler(citizenFeaturesService)
 
@@ -284,6 +288,7 @@ func main() {
 	pb.RegisterFeatureMarketplaceServiceServer(grpcServer, marketplaceHandler)
 	pb.RegisterFeatureProfitServiceServer(grpcServer, profitHandler)
 	pb.RegisterBuildingServiceServer(grpcServer, buildingHandler)
+	pb.RegisterIsicCodeServiceServer(grpcServer, isicCodeHandler)
 	pb.RegisterMapsServiceServer(grpcServer, mapHandler)
 	pb.RegisterCitizenFeaturesServiceServer(grpcServer, citizenFeaturesHandler)
 

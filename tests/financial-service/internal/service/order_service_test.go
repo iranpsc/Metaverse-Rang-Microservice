@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"metarang/financial-service/internal/grpcclients"
 	"metarang/financial-service/internal/models"
 	"metarang/financial-service/internal/sadad"
 	"metarang/financial-service/internal/service"
@@ -59,6 +60,15 @@ func (m *mockOrderRepo) Update(ctx context.Context, order *models.Order) error {
 	return nil
 }
 
+func (m *mockOrderRepo) UpdateWithTx(ctx context.Context, tx *sql.Tx, order *models.Order) error {
+	return m.Update(ctx, order)
+}
+
+func (m *mockOrderRepo) Delete(ctx context.Context, id uint64) error {
+	delete(m.orders, id)
+	return nil
+}
+
 type mockTransactionRepo struct {
 	transactions map[string]*models.Transaction
 }
@@ -76,6 +86,15 @@ func (m *mockTransactionRepo) Update(ctx context.Context, transaction *models.Tr
 		return sql.ErrNoRows
 	}
 	m.transactions[transaction.ID] = transaction
+	return nil
+}
+
+func (m *mockTransactionRepo) UpdateWithTx(ctx context.Context, tx *sql.Tx, transaction *models.Transaction) error {
+	return m.Update(ctx, transaction)
+}
+
+func (m *mockTransactionRepo) Delete(ctx context.Context, id string) error {
+	delete(m.transactions, id)
 	return nil
 }
 
@@ -102,6 +121,10 @@ func (m *mockPaymentRepo) Create(ctx context.Context, payment *models.Payment) e
 	return nil
 }
 
+func (m *mockPaymentRepo) CreateWithTx(ctx context.Context, tx *sql.Tx, payment *models.Payment) error {
+	return nil
+}
+
 type mockVariableRepo struct {
 	rates map[string]float64
 }
@@ -120,6 +143,10 @@ type mockFirstOrderRepo struct {
 func (m *mockFirstOrderRepo) Create(ctx context.Context, firstOrder *models.FirstOrder) error {
 	m.count++
 	return nil
+}
+
+func (m *mockFirstOrderRepo) CreateWithTx(ctx context.Context, tx *sql.Tx, firstOrder *models.FirstOrder) error {
+	return m.Create(ctx, firstOrder)
 }
 
 func (m *mockFirstOrderRepo) Count(ctx context.Context, userID uint64) (int, error) {
@@ -254,6 +281,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 			}
 
 			svc := service.NewOrderService(
+				nil,
 				orderRepo,
 				transactionRepo,
 				paymentRepo,
@@ -262,6 +290,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 				sadadClient,
 				orderPolicy,
 				jalaliConverter,
+				nil,
 				nil,
 				nil,
 				config,
@@ -313,6 +342,10 @@ func (m *mockWalletClient) GetWallet(ctx context.Context, in *commercialpb.GetWa
 	return nil, errors.New("not implemented")
 }
 
+func (m *mockWalletClient) CreateWallet(ctx context.Context, in *commercialpb.CreateWalletRequest, opts ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (m *mockWalletClient) DeductBalance(ctx context.Context, in *commercialpb.DeductBalanceRequest, opts ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error) {
 	return nil, errors.New("not implemented")
 }
@@ -329,6 +362,8 @@ func (m *mockWalletClient) LockBalance(ctx context.Context, in *commercialpb.Loc
 func (m *mockWalletClient) UnlockBalance(ctx context.Context, in *commercialpb.UnlockBalanceRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, errors.New("not implemented")
 }
+
+var _ commercialpb.WalletServiceClient = (*mockWalletClient)(nil)
 
 func TestOrderService_HandleCallback(t *testing.T) {
 	ctx := context.Background()
@@ -369,6 +404,7 @@ func TestOrderService_HandleCallback(t *testing.T) {
 	}
 
 	svc := service.NewOrderService(
+		nil,
 		orderRepo,
 		transactionRepo,
 		&mockPaymentRepo{},
@@ -377,7 +413,8 @@ func TestOrderService_HandleCallback(t *testing.T) {
 		sadadClient,
 		&mockOrderPolicy{canBuy: true, canGetBonus: false},
 		&mockJalaliConverter{},
-		walletClient,
+		&grpcclients.WalletAdapter{Client: walletClient},
+		nil,
 		nil,
 		service.OrderConfig{
 			SadadTransactionKey: "dGVzdC10cmFuc2FjdGlvbi1rZXk=",
@@ -419,8 +456,137 @@ func TestOrderService_HandleCallback(t *testing.T) {
 	}
 }
 
+func TestOrderService_HandleCallback_verifyErrorMarksFailedAndRedirects(t *testing.T) {
+	ctx := context.Background()
+
+	orderRepo := &mockOrderRepo{}
+	order := &models.Order{
+		UserID: 1,
+		Asset:  "psc",
+		Amount: 10,
+		Status: -138,
+	}
+	if err := orderRepo.Create(ctx, order); err != nil {
+		t.Fatalf("failed to seed order: %v", err)
+	}
+
+	transactionRepo := &mockTransactionRepo{}
+	transaction := &models.Transaction{
+		ID:          "TR-verify-fail",
+		UserID:      1,
+		Asset:       "psc",
+		Amount:      10,
+		Action:      "deposit",
+		Status:      1,
+		PayableType: stringPtr("App\\Models\\Order"),
+		PayableID:   &order.ID,
+	}
+	if err := transactionRepo.Create(ctx, transaction); err != nil {
+		t.Fatalf("failed to seed transaction: %v", err)
+	}
+
+	svc := service.NewOrderService(
+		nil,
+		orderRepo,
+		transactionRepo,
+		&mockPaymentRepo{},
+		&mockVariableRepo{rates: map[string]float64{"psc": 1000}},
+		&mockFirstOrderRepo{},
+		&mockSadadClient{verifyError: errors.New("gateway timeout")},
+		&mockOrderPolicy{canBuy: true},
+		&mockJalaliConverter{},
+		nil,
+		nil,
+		nil,
+		service.OrderConfig{
+			SadadTransactionKey: "dGVzdC10cmFuc2FjdGlvbi1rZXk=",
+			SadadCallbackURL:    "http://localhost:8000/api/order/callback",
+			FrontendURL:         "http://localhost:5173",
+		},
+	)
+
+	redirectURL, err := svc.HandleCallback(ctx, order.ID, "123456", "0", nil)
+	if err != nil {
+		t.Fatalf("HandleCallback should redirect after verify failure, got error: %v", err)
+	}
+	if !strings.Contains(redirectURL, "ResCode=-1") {
+		t.Fatalf("expected redirect with ResCode=-1, got %q", redirectURL)
+	}
+
+	updatedOrder, _ := orderRepo.FindByID(ctx, order.ID)
+	if updatedOrder.Status != -1 {
+		t.Fatalf("expected order status -1 after verify error, got %d", updatedOrder.Status)
+	}
+}
+
+func TestOrderService_HandleCallback_verifyDeclinedMarksFailedAndRedirects(t *testing.T) {
+	ctx := context.Background()
+
+	orderRepo := &mockOrderRepo{}
+	order := &models.Order{
+		UserID: 1,
+		Asset:  "psc",
+		Amount: 10,
+		Status: -138,
+	}
+	if err := orderRepo.Create(ctx, order); err != nil {
+		t.Fatalf("failed to seed order: %v", err)
+	}
+
+	transactionRepo := &mockTransactionRepo{}
+	transaction := &models.Transaction{
+		ID:          "TR-verify-decline",
+		UserID:      1,
+		Asset:       "psc",
+		Amount:      10,
+		Action:      "deposit",
+		Status:      1,
+		PayableType: stringPtr("App\\Models\\Order"),
+		PayableID:   &order.ID,
+	}
+	if err := transactionRepo.Create(ctx, transaction); err != nil {
+		t.Fatalf("failed to seed transaction: %v", err)
+	}
+
+	svc := service.NewOrderService(
+		nil,
+		orderRepo,
+		transactionRepo,
+		&mockPaymentRepo{},
+		&mockVariableRepo{rates: map[string]float64{"psc": 1000}},
+		&mockFirstOrderRepo{},
+		&mockSadadClient{
+			verifyResponse: &sadad.VerificationResponse{ResCode: "101"},
+		},
+		&mockOrderPolicy{canBuy: true},
+		&mockJalaliConverter{},
+		nil,
+		nil,
+		nil,
+		service.OrderConfig{
+			SadadTransactionKey: "dGVzdC10cmFuc2FjdGlvbi1rZXk=",
+			SadadCallbackURL:    "http://localhost:8000/api/order/callback",
+			FrontendURL:         "http://localhost:5173",
+		},
+	)
+
+	redirectURL, err := svc.HandleCallback(ctx, order.ID, "123456", "0", nil)
+	if err != nil {
+		t.Fatalf("HandleCallback should redirect after verify decline, got error: %v", err)
+	}
+	if !strings.Contains(redirectURL, "ResCode=101") {
+		t.Fatalf("expected redirect with ResCode=101, got %q", redirectURL)
+	}
+
+	updatedOrder, _ := orderRepo.FindByID(ctx, order.ID)
+	if updatedOrder.Status != 101 {
+		t.Fatalf("expected order status 101 after verify decline, got %d", updatedOrder.Status)
+	}
+}
+
 func TestOrderService_CreateOrder_rejectsFrontendVerifyCallbackURL(t *testing.T) {
 	svc := service.NewOrderService(
+		nil,
 		&mockOrderRepo{},
 		&mockTransactionRepo{},
 		&mockPaymentRepo{},
@@ -431,6 +597,7 @@ func TestOrderService_CreateOrder_rejectsFrontendVerifyCallbackURL(t *testing.T)
 		},
 		&mockOrderPolicy{canBuy: true},
 		&mockJalaliConverter{},
+		nil,
 		nil,
 		nil,
 		service.OrderConfig{
@@ -449,6 +616,47 @@ func TestOrderService_CreateOrder_rejectsFrontendVerifyCallbackURL(t *testing.T)
 	}
 	if !errors.Is(err, service.ErrPaymentFailed) {
 		t.Fatalf("expected ErrPaymentFailed, got %v", err)
+	}
+}
+
+func TestOrderService_CreateOrder_cleansUpPendingRecordsOnSadadFailure(t *testing.T) {
+	orderRepo := &mockOrderRepo{}
+	transactionRepo := &mockTransactionRepo{}
+
+	svc := service.NewOrderService(
+		nil,
+		orderRepo,
+		transactionRepo,
+		&mockPaymentRepo{},
+		&mockVariableRepo{rates: map[string]float64{"psc": 1000}},
+		&mockFirstOrderRepo{},
+		&mockSadadClient{requestError: errors.New("gateway unavailable")},
+		&mockOrderPolicy{canBuy: true},
+		&mockJalaliConverter{},
+		nil,
+		nil,
+		nil,
+		service.OrderConfig{
+			SadadMerchantID:             "test_merchant",
+			SadadTerminalID:             "test_terminal",
+			SadadTransactionKey:         "dGVzdC10cmFuc2FjdGlvbi1rZXk=",
+			SadadPaymentIdentityRial:    "1",
+			SadadPaymentIdentityNonRial: "2",
+			SadadCallbackURL:            "http://localhost/api/order/callback",
+			FrontendURL:                 "http://localhost:5173",
+		},
+	)
+
+	_, err := svc.CreateOrder(context.Background(), 1, 10, "psc")
+	if err == nil {
+		t.Fatal("expected Sadad failure error")
+	}
+
+	if len(orderRepo.orders) != 0 {
+		t.Fatalf("expected pending order cleanup, still have %d orders", len(orderRepo.orders))
+	}
+	if len(transactionRepo.transactions) != 0 {
+		t.Fatalf("expected pending transaction cleanup, still have %d transactions", len(transactionRepo.transactions))
 	}
 }
 

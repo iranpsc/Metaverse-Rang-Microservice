@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"metarang/financial-service/internal/grpcclients"
 	"metarang/financial-service/internal/models"
 	"metarang/financial-service/internal/sadad"
 	"metarang/financial-service/internal/service"
@@ -58,6 +59,7 @@ func TestOrderService_HandleCallback_sendsTransactionSMSAfterSuccessfulPayment(t
 
 	smsClient := &mockSMSServiceClient{}
 	svc := service.NewOrderService(
+		nil,
 		orderRepo,
 		transactionRepo,
 		&mockPaymentRepo{},
@@ -72,7 +74,8 @@ func TestOrderService_HandleCallback_sendsTransactionSMSAfterSuccessfulPayment(t
 		},
 		&mockOrderPolicy{canBuy: true, canGetBonus: false},
 		&mockJalaliConverter{},
-		&mockWalletClient{},
+		&grpcclients.WalletAdapter{Client: &mockWalletClient{}},
+		nil,
 		smsClient,
 		service.OrderConfig{
 			SadadTransactionKey: "dGVzdC10cmFuc2FjdGlvbi1rZXk=",

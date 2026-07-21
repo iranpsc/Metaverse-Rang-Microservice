@@ -4,13 +4,14 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
 
+	"metarang/financial-service/internal/constants"
 	"metarang/financial-service/internal/models"
 	"metarang/financial-service/internal/repository"
-	commercialpb "metarang/shared/pb/commercial"
 	notificationspb "metarang/shared/pb/notifications"
 )
 
@@ -22,25 +23,16 @@ var (
 	ErrUserNotEligible = errors.New("user not eligible to buy from store")
 )
 
-const (
-	orderStatusPending int32 = -138
-	statusSuccess      int32 = 0
-	statusUnknown      int32 = -1
+const transactionIDBytes = 4
 
-	transactionActionDeposit = "deposit"
-	orderPayableType         = "App\\Models\\Order"
-	sadadGateway             = "sadad"
+var validOrderAssets = sliceToSet(constants.ValidOrderAssets)
 
-	firstOrderBonusRate = 0.5
-	transactionIDBytes  = 4
-)
-
-var validOrderAssets = map[string]struct{}{
-	"psc":    {},
-	"irr":    {},
-	"red":    {},
-	"blue":   {},
-	"yellow": {},
+func sliceToSet(values []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		set[value] = struct{}{}
+	}
+	return set
 }
 
 type OrderService interface {
@@ -48,7 +40,7 @@ type OrderService interface {
 	HandleCallback(ctx context.Context, orderID uint64, token string, resCode string, additionalParams map[string]string) (string, error)
 }
 
-// WalletTopUp credits the buyer wallet via commercial-service (optional).
+// WalletTopUp credits the buyer wallet via commercial-service.
 type WalletTopUp interface {
 	AddBalance(ctx context.Context, userID uint64, asset string, amount float64) error
 }
@@ -58,23 +50,20 @@ type ReferralProcessor interface {
 	ProcessReferral(ctx context.Context, buyerUserID, orderID uint64, asset string, amount float64) error
 }
 
-// PurchaseNotifier sends post-payment notifications via notifications-service (optional).
-type PurchaseNotifier interface {
-	NotifyPurchaseSuccess(ctx context.Context, userID, orderID uint64, asset string, amount float64) error
-}
-
 type orderService struct {
-	orderRepo       repository.OrderRepository
-	transactionRepo repository.TransactionRepository
-	paymentRepo     repository.PaymentRepository
-	variableRepo    repository.VariableRepository
-	firstOrderRepo  repository.FirstOrderRepository
-	sadadClient     SadadClient
-	orderPolicy     OrderPolicy
-	jalaliConverter JalaliConverter
-	walletClient    commercialpb.WalletServiceClient
-	smsClient       notificationspb.SMSServiceClient
-	sadadConfig     OrderConfig
+	db                *sql.DB
+	orderRepo         repository.OrderRepository
+	transactionRepo   repository.TransactionRepository
+	paymentRepo       repository.PaymentRepository
+	variableRepo      repository.VariableRepository
+	firstOrderRepo    repository.FirstOrderRepository
+	sadadClient       SadadClient
+	orderPolicy       OrderPolicy
+	jalaliConverter   JalaliConverter
+	walletTopUp       WalletTopUp
+	referralProcessor ReferralProcessor
+	smsClient         notificationspb.SMSServiceClient
+	sadadConfig       OrderConfig
 }
 
 type OrderConfig struct {
@@ -89,6 +78,7 @@ type OrderConfig struct {
 }
 
 func NewOrderService(
+	db *sql.DB,
 	orderRepo repository.OrderRepository,
 	transactionRepo repository.TransactionRepository,
 	paymentRepo repository.PaymentRepository,
@@ -97,22 +87,25 @@ func NewOrderService(
 	sadadClient SadadClient,
 	orderPolicy OrderPolicy,
 	jalaliConverter JalaliConverter,
-	walletClient commercialpb.WalletServiceClient,
+	walletTopUp WalletTopUp,
+	referralProcessor ReferralProcessor,
 	smsClient notificationspb.SMSServiceClient,
 	config OrderConfig,
 ) OrderService {
 	return &orderService{
-		orderRepo:       orderRepo,
-		transactionRepo: transactionRepo,
-		paymentRepo:     paymentRepo,
-		variableRepo:    variableRepo,
-		firstOrderRepo:  firstOrderRepo,
-		sadadClient:     sadadClient,
-		orderPolicy:     orderPolicy,
-		jalaliConverter: jalaliConverter,
-		walletClient:    walletClient,
-		smsClient:       smsClient,
-		sadadConfig:     config,
+		db:                db,
+		orderRepo:         orderRepo,
+		transactionRepo:   transactionRepo,
+		paymentRepo:       paymentRepo,
+		variableRepo:      variableRepo,
+		firstOrderRepo:    firstOrderRepo,
+		sadadClient:       sadadClient,
+		orderPolicy:       orderPolicy,
+		jalaliConverter:   jalaliConverter,
+		walletTopUp:       walletTopUp,
+		referralProcessor: referralProcessor,
+		smsClient:         smsClient,
+		sadadConfig:       config,
 	}
 }
 
@@ -142,11 +135,21 @@ func (s *orderService) CreateOrder(ctx context.Context, userID uint64, amount in
 
 	paymentURL, token, err := s.requestSadadPayment(order.ID, amount, asset, rate)
 	if err != nil {
+		s.cleanupPendingOrder(ctx, order.ID, transaction.ID)
 		return "", err
 	}
 
 	s.storeTransactionToken(ctx, transaction, token)
 	return paymentURL, nil
+}
+
+func (s *orderService) cleanupPendingOrder(ctx context.Context, orderID uint64, transactionID string) {
+	if err := s.transactionRepo.Delete(ctx, transactionID); err != nil {
+		logPaymentWarning("failed to delete pending transaction %s: %v", transactionID, err)
+	}
+	if err := s.orderRepo.Delete(ctx, orderID); err != nil {
+		logPaymentWarning("failed to delete pending order %d: %v", orderID, err)
+	}
 }
 
 func validateCreateOrderInput(amount int32, asset string) error {
@@ -178,7 +181,7 @@ func (s *orderService) createPendingOrder(ctx context.Context, userID uint64, am
 		UserID: userID,
 		Asset:  asset,
 		Amount: float64(amount),
-		Status: orderStatusPending,
+		Status: constants.OrderStatusPending,
 	}
 
 	if err := s.orderRepo.Create(ctx, order); err != nil {
@@ -194,14 +197,15 @@ func (s *orderService) createDepositTransaction(ctx context.Context, order *mode
 		return nil, fmt.Errorf("failed to generate transaction id: %w", err)
 	}
 
+	payableType := constants.OrderPayableType
 	transaction := &models.Transaction{
 		ID:          transactionID,
 		UserID:      userID,
 		Asset:       asset,
 		Amount:      float64(amount),
-		Action:      transactionActionDeposit,
+		Action:      constants.TransactionActionDeposit,
 		Status:      1,
-		PayableType: stringPtr(orderPayableType),
+		PayableType: &payableType,
 		PayableID:   &order.ID,
 	}
 
@@ -218,8 +222,4 @@ func generateTransactionID() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("TR-%s", hex.EncodeToString(b)), nil
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

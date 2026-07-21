@@ -2,17 +2,22 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"metarang/financial-service/internal/config"
+	"metarang/financial-service/internal/constants"
 	"metarang/financial-service/internal/models"
 	"metarang/financial-service/internal/sadad"
-	commercialpb "metarang/shared/pb/commercial"
 	notificationspb "metarang/shared/pb/notifications"
 )
+
+func logPaymentWarning(format string, args ...interface{}) {
+	log.Printf("financial-service: "+format, args...)
+}
 
 func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset string, rate float64) (string, string, error) {
 	multiplexingData, err := s.buildMultiplexingData(asset)
@@ -26,23 +31,6 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 	}
 
 	amountRials := amountInRials(amount, rate)
-
-	params := map[string]interface{}{
-		"MerchantID":       s.sadadConfig.SadadMerchantID,
-		"TerminalID":       s.sadadConfig.SadadTerminalID,
-		"SignData":         "[REDACTED]",
-		"OrderId":          orderID,
-		"Amount":           amountRials,
-		"ReturnURL":        returnURL,
-		"LocalDateTime":    "(auto: current Tehran time)",
-		"MultiplexingData": multiplexingData,
-	}
-	jsonParams, err := json.Marshal(params)
-	if err != nil {
-		fmt.Printf("Warning: failed to marshal Sadad request params: %v\n", err)
-	} else {
-		fmt.Printf("Sadad payment request params: %s\n", string(jsonParams))
-	}
 
 	response, err := s.sadadClient.RequestPayment(sadad.RequestParams{
 		MerchantID:       s.sadadConfig.SadadMerchantID,
@@ -82,7 +70,7 @@ func (s *orderService) storeTransactionToken(ctx context.Context, transaction *m
 
 	transaction.Token = &tokenInt
 	if err := s.transactionRepo.Update(ctx, transaction); err != nil {
-		fmt.Printf("Warning: failed to update transaction with token: %v\n", err)
+		logPaymentWarning("failed to update transaction with token: %v", err)
 	}
 }
 
@@ -120,11 +108,17 @@ func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token
 	}
 
 	if resCode == "0" {
-		if err := s.handleSuccessfulSadadCallback(ctx, order, user, transaction, token, additionalParams); err != nil {
+		verifyResCode, err := s.handleSuccessfulSadadCallback(ctx, order, user, transaction, token, additionalParams)
+		if err != nil {
 			return "", err
 		}
+		if verifyResCode != "" {
+			resCode = verifyResCode
+		}
 	} else {
-		s.markOrderAndTransactionFailed(ctx, order, transaction, resCode)
+		if err := s.markOrderAndTransactionFailed(ctx, order, transaction, resCode); err != nil {
+			return "", err
+		}
 	}
 
 	return s.buildPaymentVerifyRedirectURL(orderID, resCode)
@@ -139,7 +133,7 @@ func (s *orderService) findCallbackOrderAndTransaction(ctx context.Context, orde
 		return nil, nil, nil, ErrOrderNotFound
 	}
 
-	transaction, err := s.transactionRepo.FindByPayable(ctx, orderPayableType, orderID)
+	transaction, err := s.transactionRepo.FindByPayable(ctx, constants.OrderPayableType, orderID)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to find transaction: %w", err)
 	}
@@ -150,34 +144,131 @@ func (s *orderService) findCallbackOrderAndTransaction(ctx context.Context, orde
 	return order, user, transaction, nil
 }
 
-func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order *models.Order, user *models.User, transaction *models.Transaction, token string, additionalParams map[string]string) error {
+func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order *models.Order, user *models.User, transaction *models.Transaction, token string, additionalParams map[string]string) (string, error) {
 	rate, err := s.variableRepo.GetRate(ctx, order.Asset)
 	if err != nil {
-		return fmt.Errorf("failed to get rate: %w", err)
+		return "", fmt.Errorf("failed to get rate: %w", err)
 	}
 
 	verifyResponse, err := s.verifySadadPayment(transaction, token)
 	if err != nil {
-		return nil
+		if markErr := s.markOrderAndTransactionFailed(ctx, order, transaction, "-1"); markErr != nil {
+			return "", fmt.Errorf("failed to verify payment: %w; failed to mark order failed: %v", err, markErr)
+		}
+		return "-1", nil
 	}
 	if !verifyResponse.Success() {
-		s.markOrderFailed(ctx, order, verifyResponse.ResCode)
-		return nil
+		failureCode := verifyResponse.ResCode
+		if failureCode == "" {
+			failureCode = "-1"
+		}
+		if markErr := s.markOrderAndTransactionFailed(ctx, order, transaction, failureCode); markErr != nil {
+			return "", fmt.Errorf("payment verification failed with code %s; failed to mark order failed: %v", failureCode, markErr)
+		}
+		return failureCode, nil
 	}
 
 	refID := parseInt64OrDefault(verifyResponse.RetrivalRefNo, 0)
-	if err := s.markPaymentSucceeded(ctx, order, transaction, refID); err != nil {
-		return err
-	}
-	if err := s.creditWallet(ctx, order); err != nil {
-		return err
+	cardPan := cardPanFromCallback(additionalParams, verifyResponse)
+	if err := s.finalizeSuccessfulPayment(ctx, order, transaction, refID, rate, cardPan); err != nil {
+		return "", err
 	}
 
-	if err := s.createPaymentRecord(ctx, order, refID, rate, cardPanFromCallback(additionalParams, verifyResponse)); err != nil {
-		return err
-	}
-
+	s.processReferral(ctx, order)
 	s.sendPaymentTransactionSMS(ctx, user, order, rate)
+	return "", nil
+}
+
+func (s *orderService) finalizeSuccessfulPayment(ctx context.Context, order *models.Order, transaction *models.Transaction, refID int64, rate float64, cardPan string) error {
+	canGetBonus, err := s.orderPolicy.CanGetBonus(ctx, order.UserID, order.Asset)
+	if err != nil {
+		return fmt.Errorf("failed to check bonus eligibility: %w", err)
+	}
+
+	var bonus float64
+	var firstOrder *models.FirstOrder
+	if canGetBonus {
+		bonus = order.Amount * constants.FirstOrderBonusRate
+		firstOrder = &models.FirstOrder{
+			UserID: order.UserID,
+			Type:   order.Asset,
+			Amount: order.Amount,
+			Date:   s.jalaliConverter.NowJalali(),
+			Bonus:  bonus,
+		}
+	}
+
+	order.Status = constants.StatusSuccess
+	transaction.Status = constants.StatusSuccess
+	transaction.RefID = &refID
+
+	payment := &models.Payment{
+		UserID:  order.UserID,
+		RefID:   refID,
+		CardPan: cardPan,
+		Gateway: constants.SadadGateway,
+		Amount:  order.Amount * rate,
+		Product: order.Asset,
+	}
+
+	if s.db != nil {
+		if err := s.finalizeSuccessfulPaymentTx(ctx, order, transaction, payment, firstOrder); err != nil {
+			return err
+		}
+	} else {
+		if err := s.orderRepo.Update(ctx, order); err != nil {
+			return fmt.Errorf("failed to update order: %w", err)
+		}
+		if err := s.transactionRepo.Update(ctx, transaction); err != nil {
+			return fmt.Errorf("failed to update transaction: %w", err)
+		}
+		if err := s.paymentRepo.Create(ctx, payment); err != nil {
+			return fmt.Errorf("failed to create payment record: %w", err)
+		}
+		if firstOrder != nil {
+			if err := s.firstOrderRepo.Create(ctx, firstOrder); err != nil {
+				return fmt.Errorf("failed to create first order record: %w", err)
+			}
+		}
+	}
+
+	walletAmount := order.Amount
+	if canGetBonus {
+		walletAmount += bonus
+	}
+	if err := s.addWalletBalance(ctx, order.UserID, order.Asset, walletAmount); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *orderService) finalizeSuccessfulPaymentTx(ctx context.Context, order *models.Order, transaction *models.Transaction, payment *models.Payment, firstOrder *models.FirstOrder) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin payment transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := s.orderRepo.UpdateWithTx(ctx, tx, order); err != nil {
+		return err
+	}
+	if err := s.transactionRepo.UpdateWithTx(ctx, tx, transaction); err != nil {
+		return err
+	}
+	if err := s.paymentRepo.CreateWithTx(ctx, tx, payment); err != nil {
+		return err
+	}
+	if firstOrder != nil {
+		if err := s.firstOrderRepo.CreateWithTx(ctx, tx, firstOrder); err != nil {
+			return fmt.Errorf("failed to create first order record: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit payment transaction: %w", err)
+	}
+
 	return nil
 }
 
@@ -193,68 +284,13 @@ func (s *orderService) verifySadadPayment(transaction *models.Transaction, token
 	})
 }
 
-func (s *orderService) markPaymentSucceeded(ctx context.Context, order *models.Order, transaction *models.Transaction, refID int64) error {
-	order.Status = statusSuccess
-	if err := s.orderRepo.Update(ctx, order); err != nil {
-		return fmt.Errorf("failed to update order: %w", err)
+func (s *orderService) processReferral(ctx context.Context, order *models.Order) {
+	if s.referralProcessor == nil {
+		return
 	}
-
-	transaction.Status = statusSuccess
-	transaction.RefID = &refID
-	if err := s.transactionRepo.Update(ctx, transaction); err != nil {
-		return fmt.Errorf("failed to update transaction: %w", err)
+	if err := s.referralProcessor.ProcessReferral(ctx, order.UserID, order.ID, order.Asset, order.Amount); err != nil {
+		logPaymentWarning("failed to process referral for order %d: %v", order.ID, err)
 	}
-
-	return nil
-}
-
-func (s *orderService) creditWallet(ctx context.Context, order *models.Order) error {
-	canGetBonus, err := s.orderPolicy.CanGetBonus(ctx, order.UserID, order.Asset)
-	if err != nil {
-		return fmt.Errorf("failed to check bonus eligibility: %w", err)
-	}
-
-	if !canGetBonus {
-		if err := s.addWalletBalance(ctx, order.UserID, order.Asset, order.Amount); err != nil {
-			return fmt.Errorf("failed to add wallet balance: %w", err)
-		}
-		return nil
-	}
-
-	bonus := order.Amount * firstOrderBonusRate
-	totalAmount := order.Amount + bonus
-	if err := s.addWalletBalance(ctx, order.UserID, order.Asset, totalAmount); err != nil {
-		return fmt.Errorf("failed to add wallet balance with bonus: %w", err)
-	}
-
-	firstOrder := &models.FirstOrder{
-		UserID: order.UserID,
-		Type:   order.Asset,
-		Amount: order.Amount,
-		Date:   s.jalaliConverter.NowJalali(),
-		Bonus:  bonus,
-	}
-	if err := s.firstOrderRepo.Create(ctx, firstOrder); err != nil {
-		return fmt.Errorf("failed to create first order record: %w", err)
-	}
-
-	return nil
-}
-
-func (s *orderService) createPaymentRecord(ctx context.Context, order *models.Order, refID int64, rate float64, cardPan string) error {
-	payment := &models.Payment{
-		UserID:  order.UserID,
-		RefID:   refID,
-		CardPan: cardPan,
-		Gateway: sadadGateway,
-		Amount:  order.Amount * rate,
-		Product: order.Asset,
-	}
-	if err := s.paymentRepo.Create(ctx, payment); err != nil {
-		return fmt.Errorf("failed to create payment record: %w", err)
-	}
-
-	return nil
 }
 
 func cardPanFromCallback(additionalParams map[string]string, verifyResponse *sadad.VerificationResponse) string {
@@ -269,23 +305,24 @@ func cardPanFromCallback(additionalParams map[string]string, verifyResponse *sad
 	return "card-hash"
 }
 
-func (s *orderService) markOrderAndTransactionFailed(ctx context.Context, order *models.Order, transaction *models.Transaction, resCode string) {
+func (s *orderService) markOrderAndTransactionFailed(ctx context.Context, order *models.Order, transaction *models.Transaction, resCode string) error {
 	statusCode := parseStatusCode(resCode)
 
 	order.Status = statusCode
-	_ = s.orderRepo.Update(ctx, order)
+	if err := s.orderRepo.Update(ctx, order); err != nil {
+		return fmt.Errorf("failed to update order status: %w", err)
+	}
 
 	transaction.Status = statusCode
-	_ = s.transactionRepo.Update(ctx, transaction)
-}
+	if err := s.transactionRepo.Update(ctx, transaction); err != nil {
+		return fmt.Errorf("failed to update transaction status: %w", err)
+	}
 
-func (s *orderService) markOrderFailed(ctx context.Context, order *models.Order, resCode string) {
-	order.Status = parseStatusCode(resCode)
-	_ = s.orderRepo.Update(ctx, order)
+	return nil
 }
 
 func parseStatusCode(resCode string) int32 {
-	return int32(parseInt64OrDefault(resCode, int64(statusUnknown)))
+	return int32(parseInt64OrDefault(resCode, int64(constants.StatusUnknown)))
 }
 
 func parseInt64OrDefault(value string, defaultValue int64) int64 {
@@ -301,13 +338,13 @@ func (s *orderService) sadadCallbackReturnURL() (string, error) {
 	if callbackURL == "" {
 		return "", fmt.Errorf("%w: SADAD_CALLBACK_URL is not configured", ErrPaymentFailed)
 	}
-	if strings.Contains(callbackURL, "/payment/verify") {
+
+	normalized, ok := config.NormalizePaymentCallbackURL(callbackURL)
+	if !ok {
 		return "", fmt.Errorf("%w: Sadad ReturnUrl must be the API callback /api/order/callback, not the frontend verify page", ErrPaymentFailed)
 	}
-	if !strings.Contains(callbackURL, "/api/order/callback") {
-		return "", fmt.Errorf("%w: Sadad ReturnUrl must include /api/order/callback", ErrPaymentFailed)
-	}
-	return strings.TrimSuffix(callbackURL, "/"), nil
+
+	return normalized, nil
 }
 
 func (s *orderService) buildPaymentVerifyRedirectURL(orderID uint64, resCode string) (string, error) {
@@ -345,24 +382,12 @@ func (s *orderService) paymentVerifyRedirectURL() (string, error) {
 }
 
 func (s *orderService) addWalletBalance(ctx context.Context, userID uint64, asset string, amount float64) error {
-	if s.walletClient == nil {
+	if s.walletTopUp == nil {
 		return fmt.Errorf("wallet client not configured")
 	}
 
-	resp, err := s.walletClient.AddBalance(ctx, &commercialpb.AddBalanceRequest{
-		UserId: userID,
-		Asset:  asset,
-		Amount: amount,
-	})
-	if err != nil {
-		return fmt.Errorf("wallet AddBalance gRPC failed: %w", err)
-	}
-	if resp != nil && !resp.Success {
-		msg := "unknown error"
-		if resp.Message != "" {
-			msg = resp.Message
-		}
-		return fmt.Errorf("wallet AddBalance rejected: %s", msg)
+	if err := s.walletTopUp.AddBalance(ctx, userID, asset, amount); err != nil {
+		return fmt.Errorf("wallet AddBalance failed: %w", err)
 	}
 
 	return nil
@@ -386,7 +411,7 @@ func (s *orderService) sendPaymentTransactionSMS(ctx context.Context, user *mode
 		},
 	})
 	if err != nil {
-		fmt.Printf("Warning: failed to send payment transaction SMS: %v\n", err)
+		logPaymentWarning("failed to send payment transaction SMS: %v", err)
 	}
 }
 

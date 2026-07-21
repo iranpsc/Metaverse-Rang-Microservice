@@ -14,7 +14,7 @@ import (
 	pb "metarang/shared/pb/commercial"
 )
 
-// ReferralHandler exposes referral commission processing over gRPC (financial-service calls after Parsian verify).
+// ReferralHandler exposes referral commission processing over gRPC (financial-service calls after Sadad verify).
 type ReferralHandler struct {
 	pb.UnimplementedReferralServiceServer
 	referralService service.ReferralService

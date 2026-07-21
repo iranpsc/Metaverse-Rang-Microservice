@@ -5936,6 +5936,186 @@ func (x *CitizenFeatureMapMarker) GetKarbari() string {
 	return ""
 }
 
+type ListIsicCodesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`    // default 1, 10 items per page
+	Search        string                 `protobuf:"bytes,2,opt,name=search,proto3" json:"search,omitempty"` // optional; when set, filter by name or code
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListIsicCodesRequest) Reset() {
+	*x = ListIsicCodesRequest{}
+	mi := &file_features_proto_msgTypes[93]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListIsicCodesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListIsicCodesRequest) ProtoMessage() {}
+
+func (x *ListIsicCodesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[93]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListIsicCodesRequest.ProtoReflect.Descriptor instead.
+func (*ListIsicCodesRequest) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{93}
+}
+
+func (x *ListIsicCodesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListIsicCodesRequest) GetSearch() string {
+	if x != nil {
+		return x.Search
+	}
+	return ""
+}
+
+type ListIsicCodesResponse struct {
+	state         protoimpl.MessageState             `protogen:"open.v1"`
+	Data          []*IsicCode                        `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
+	Links         *PaginationLinks                   `protobuf:"bytes,2,opt,name=links,proto3" json:"links,omitempty"`
+	Meta          *FeatureTradeHistoryPaginationMeta `protobuf:"bytes,3,opt,name=meta,proto3" json:"meta,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListIsicCodesResponse) Reset() {
+	*x = ListIsicCodesResponse{}
+	mi := &file_features_proto_msgTypes[94]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListIsicCodesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListIsicCodesResponse) ProtoMessage() {}
+
+func (x *ListIsicCodesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[94]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListIsicCodesResponse.ProtoReflect.Descriptor instead.
+func (*ListIsicCodesResponse) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{94}
+}
+
+func (x *ListIsicCodesResponse) GetData() []*IsicCode {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+func (x *ListIsicCodesResponse) GetLinks() *PaginationLinks {
+	if x != nil {
+		return x.Links
+	}
+	return nil
+}
+
+func (x *ListIsicCodesResponse) GetMeta() *FeatureTradeHistoryPaginationMeta {
+	if x != nil {
+		return x.Meta
+	}
+	return nil
+}
+
+type IsicCode struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Code          *uint64                `protobuf:"varint,3,opt,name=code,proto3,oneof" json:"code,omitempty"`
+	Verified      bool                   `protobuf:"varint,4,opt,name=verified,proto3" json:"verified,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IsicCode) Reset() {
+	*x = IsicCode{}
+	mi := &file_features_proto_msgTypes[95]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IsicCode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IsicCode) ProtoMessage() {}
+
+func (x *IsicCode) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[95]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IsicCode.ProtoReflect.Descriptor instead.
+func (*IsicCode) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{95}
+}
+
+func (x *IsicCode) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *IsicCode) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *IsicCode) GetCode() uint64 {
+	if x != nil && x.Code != nil {
+		return *x.Code
+	}
+	return 0
+}
+
+func (x *IsicCode) GetVerified() bool {
+	if x != nil {
+		return x.Verified
+	}
+	return false
+}
+
 var File_features_proto protoreflect.FileDescriptor
 
 const file_features_proto_rawDesc = "" +
@@ -6422,7 +6602,20 @@ const file_features_proto_rawDesc = "" +
 	"\x17CitizenFeatureMapMarker\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x126\n" +
 	"\x06center\x18\x02 \x01(\v2\x1e.features.CitizenFeatureCenterR\x06center\x12\x18\n" +
-	"\akarbari\x18\x03 \x01(\tR\akarbari2\x92\a\n" +
+	"\akarbari\x18\x03 \x01(\tR\akarbari\"B\n" +
+	"\x14ListIsicCodesRequest\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x16\n" +
+	"\x06search\x18\x02 \x01(\tR\x06search\"\xb1\x01\n" +
+	"\x15ListIsicCodesResponse\x12&\n" +
+	"\x04data\x18\x01 \x03(\v2\x12.features.IsicCodeR\x04data\x12/\n" +
+	"\x05links\x18\x02 \x01(\v2\x19.features.PaginationLinksR\x05links\x12?\n" +
+	"\x04meta\x18\x03 \x01(\v2+.features.FeatureTradeHistoryPaginationMetaR\x04meta\"l\n" +
+	"\bIsicCode\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
+	"\x04code\x18\x03 \x01(\x04H\x00R\x04code\x88\x01\x01\x12\x1a\n" +
+	"\bverified\x18\x04 \x01(\bR\bverifiedB\a\n" +
+	"\x05_code2\x92\a\n" +
 	"\x0eFeatureService\x12I\n" +
 	"\fListFeatures\x12\x1d.features.ListFeaturesRequest\x1a\x1a.features.FeaturesResponse\x12D\n" +
 	"\n" +
@@ -6470,7 +6663,9 @@ const file_features_proto_rawDesc = "" +
 	"\x16CitizenFeaturesService\x12q\n" +
 	"\x18GetCitizenFeatureSummary\x12).features.GetCitizenFeatureSummaryRequest\x1a*.features.GetCitizenFeatureSummaryResponse\x12k\n" +
 	"\x16GetCitizenFeatureChart\x12'.features.GetCitizenFeatureChartRequest\x1a(.features.GetCitizenFeatureChartResponse\x12b\n" +
-	"\x13ListCitizenFeatures\x12$.features.ListCitizenFeaturesRequest\x1a%.features.ListCitizenFeaturesResponseB\x1dZ\x1bmetarang/shared/pb/featuresb\x06proto3"
+	"\x13ListCitizenFeatures\x12$.features.ListCitizenFeaturesRequest\x1a%.features.ListCitizenFeaturesResponse2c\n" +
+	"\x0fIsicCodeService\x12P\n" +
+	"\rListIsicCodes\x12\x1e.features.ListIsicCodesRequest\x1a\x1f.features.ListIsicCodesResponseB\x1dZ\x1bmetarang/shared/pb/featuresb\x06proto3"
 
 var (
 	file_features_proto_rawDescOnce sync.Once
@@ -6484,7 +6679,7 @@ func file_features_proto_rawDescGZIP() []byte {
 	return file_features_proto_rawDescData
 }
 
-var file_features_proto_msgTypes = make([]protoimpl.MessageInfo, 93)
+var file_features_proto_msgTypes = make([]protoimpl.MessageInfo, 96)
 var file_features_proto_goTypes = []any{
 	(*ListFeaturesRequest)(nil),                   // 0: features.ListFeaturesRequest
 	(*FeaturesResponse)(nil),                      // 1: features.FeaturesResponse
@@ -6579,150 +6774,158 @@ var file_features_proto_goTypes = []any{
 	(*CitizenFeatureItem)(nil),                    // 90: features.CitizenFeatureItem
 	(*CitizenFeatureCenter)(nil),                  // 91: features.CitizenFeatureCenter
 	(*CitizenFeatureMapMarker)(nil),               // 92: features.CitizenFeatureMapMarker
-	(*emptypb.Empty)(nil),                         // 93: google.protobuf.Empty
+	(*ListIsicCodesRequest)(nil),                  // 93: features.ListIsicCodesRequest
+	(*ListIsicCodesResponse)(nil),                 // 94: features.ListIsicCodesResponse
+	(*IsicCode)(nil),                              // 95: features.IsicCode
+	(*emptypb.Empty)(nil),                         // 96: google.protobuf.Empty
 }
 var file_features_proto_depIdxs = []int32{
-	21, // 0: features.FeaturesResponse.features:type_name -> features.Feature
-	21, // 1: features.FeatureResponse.feature:type_name -> features.Feature
-	23, // 2: features.UpdateFeatureRequest.properties:type_name -> features.FeatureProperties
-	21, // 3: features.ListMyFeaturesResponse.data:type_name -> features.Feature
-	19, // 4: features.ListMyFeaturesResponse.links:type_name -> features.PaginationLinks
-	20, // 5: features.ListMyFeaturesResponse.meta:type_name -> features.SimplePaginationMeta
-	15, // 6: features.GetFeatureTradeHistoryResponse.data:type_name -> features.FeatureTradeHistoryItem
-	19, // 7: features.GetFeatureTradeHistoryResponse.links:type_name -> features.PaginationLinks
-	18, // 8: features.GetFeatureTradeHistoryResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	16, // 9: features.FeatureTradeHistoryItem.date_time:type_name -> features.FeatureTradeHistoryDateTime
-	17, // 10: features.FeatureTradeHistoryItem.price:type_name -> features.FeatureTradeHistoryPrice
-	23, // 11: features.Feature.properties:type_name -> features.FeatureProperties
-	24, // 12: features.Feature.geometry:type_name -> features.Geometry
-	26, // 13: features.Feature.images:type_name -> features.Image
-	22, // 14: features.Feature.seller:type_name -> features.Seller
-	64, // 15: features.Feature.building_models:type_name -> features.Building
-	25, // 16: features.Geometry.coordinates:type_name -> features.Coordinate
-	21, // 17: features.BuyFeatureResponse.feature:type_name -> features.Feature
-	31, // 18: features.BuyRequestResponse.buyer:type_name -> features.BuyerInfo
-	32, // 19: features.BuyRequestResponse.seller:type_name -> features.SellerInfo
-	23, // 20: features.BuyRequestResponse.feature_properties:type_name -> features.FeatureProperties
-	25, // 21: features.BuyRequestResponse.feature_coordinates:type_name -> features.Coordinate
-	30, // 22: features.BuyRequestsResponse.buy_requests:type_name -> features.BuyRequestResponse
-	23, // 23: features.SellRequestResponse.feature_properties:type_name -> features.FeatureProperties
-	25, // 24: features.SellRequestResponse.feature_coordinates:type_name -> features.Coordinate
-	43, // 25: features.SellRequestsResponse.sell_requests:type_name -> features.SellRequestResponse
-	49, // 26: features.HourlyProfitsResponse.profits:type_name -> features.HourlyProfit
-	49, // 27: features.HourlyProfitResponse.profit:type_name -> features.HourlyProfit
-	58, // 28: features.BuildPackageResponse.models:type_name -> features.BuildingModel
-	60, // 29: features.BuildFeatureRequest.information:type_name -> features.BuildingInformation
-	21, // 30: features.BuildFeatureResponse.feature:type_name -> features.Feature
-	64, // 31: features.BuildingsResponse.buildings:type_name -> features.Building
-	58, // 32: features.Building.model:type_name -> features.BuildingModel
-	60, // 33: features.UpdateBuildingRequest.information:type_name -> features.BuildingInformation
-	60, // 34: features.UpdateBuildingInformationRequest.information:type_name -> features.BuildingInformation
-	60, // 35: features.UpdateBuildingInformationResponse.information:type_name -> features.BuildingInformation
-	64, // 36: features.BuildingResponse.building:type_name -> features.Building
-	72, // 37: features.ListCompletedBuildingsResponse.data:type_name -> features.CompletedBuilding
-	19, // 38: features.ListCompletedBuildingsResponse.links:type_name -> features.PaginationLinks
-	18, // 39: features.ListCompletedBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	79, // 40: features.ListMapsResponse.maps:type_name -> features.Map
-	79, // 41: features.GetMapResponse.map:type_name -> features.Map
-	78, // 42: features.GetMapBorderResponse.data:type_name -> features.MapBorderData
-	80, // 43: features.Map.features:type_name -> features.MapFeatures
-	81, // 44: features.MapFeatures.maskoni:type_name -> features.MapFeatureCount
-	81, // 45: features.MapFeatures.tejari:type_name -> features.MapFeatureCount
-	81, // 46: features.MapFeatures.amoozeshi:type_name -> features.MapFeatureCount
-	84, // 47: features.GetCitizenFeatureSummaryResponse.data:type_name -> features.CitizenFeatureSummaryItem
-	87, // 48: features.GetCitizenFeatureChartResponse.data:type_name -> features.CitizenFeatureChartData
-	90, // 49: features.ListCitizenFeaturesResponse.data:type_name -> features.CitizenFeatureItem
-	19, // 50: features.ListCitizenFeaturesResponse.links:type_name -> features.PaginationLinks
-	18, // 51: features.ListCitizenFeaturesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	92, // 52: features.ListCitizenFeaturesResponse.map_markers:type_name -> features.CitizenFeatureMapMarker
-	91, // 53: features.CitizenFeatureItem.center:type_name -> features.CitizenFeatureCenter
-	26, // 54: features.CitizenFeatureItem.images:type_name -> features.Image
-	91, // 55: features.CitizenFeatureMapMarker.center:type_name -> features.CitizenFeatureCenter
-	0,  // 56: features.FeatureService.ListFeatures:input_type -> features.ListFeaturesRequest
-	2,  // 57: features.FeatureService.GetFeature:input_type -> features.GetFeatureRequest
-	4,  // 58: features.FeatureService.UpdateFeature:input_type -> features.UpdateFeatureRequest
-	5,  // 59: features.FeatureService.AddFeatureImages:input_type -> features.AddFeatureImagesRequest
-	6,  // 60: features.FeatureService.GetMyFeatures:input_type -> features.GetMyFeaturesRequest
-	7,  // 61: features.FeatureService.ListMyFeatures:input_type -> features.ListMyFeaturesRequest
-	9,  // 62: features.FeatureService.GetMyFeature:input_type -> features.GetMyFeatureRequest
-	10, // 63: features.FeatureService.AddMyFeatureImages:input_type -> features.AddMyFeatureImagesRequest
-	11, // 64: features.FeatureService.RemoveMyFeatureImage:input_type -> features.RemoveMyFeatureImageRequest
-	12, // 65: features.FeatureService.UpdateMyFeature:input_type -> features.UpdateMyFeatureRequest
-	13, // 66: features.FeatureService.GetFeatureTradeHistory:input_type -> features.GetFeatureTradeHistoryRequest
-	27, // 67: features.FeatureMarketplaceService.BuyFeature:input_type -> features.BuyFeatureRequest
-	29, // 68: features.FeatureMarketplaceService.SendBuyRequest:input_type -> features.SendBuyRequestRequest
-	39, // 69: features.FeatureMarketplaceService.AcceptBuyRequest:input_type -> features.AcceptBuyRequestRequest
-	40, // 70: features.FeatureMarketplaceService.CreateSellRequest:input_type -> features.CreateSellRequestRequest
-	41, // 71: features.FeatureMarketplaceService.ListSellRequests:input_type -> features.ListSellRequestsRequest
-	42, // 72: features.FeatureMarketplaceService.DeleteSellRequest:input_type -> features.DeleteSellRequestRequest
-	45, // 73: features.FeatureMarketplaceService.RequestGracePeriod:input_type -> features.RequestGracePeriodRequest
-	33, // 74: features.FeatureMarketplaceService.ListBuyRequests:input_type -> features.ListBuyRequestsRequest
-	34, // 75: features.FeatureMarketplaceService.ListReceivedBuyRequests:input_type -> features.ListReceivedBuyRequestsRequest
-	36, // 76: features.FeatureMarketplaceService.RejectBuyRequest:input_type -> features.RejectBuyRequestRequest
-	37, // 77: features.FeatureMarketplaceService.DeleteBuyRequest:input_type -> features.DeleteBuyRequestRequest
-	38, // 78: features.FeatureMarketplaceService.UpdateGracePeriod:input_type -> features.UpdateGracePeriodRequest
-	47, // 79: features.FeatureProfitService.GetHourlyProfits:input_type -> features.GetHourlyProfitsRequest
-	50, // 80: features.FeatureProfitService.GetSingleProfit:input_type -> features.GetSingleProfitRequest
-	52, // 81: features.FeatureProfitService.GetProfitsByApplication:input_type -> features.GetProfitsByApplicationRequest
-	54, // 82: features.FeatureProfitService.GetHourlyProfitTimePercentage:input_type -> features.GetHourlyProfitTimePercentageRequest
-	56, // 83: features.BuildingService.GetBuildPackage:input_type -> features.GetBuildPackageRequest
-	59, // 84: features.BuildingService.BuildFeature:input_type -> features.BuildFeatureRequest
-	62, // 85: features.BuildingService.GetBuildings:input_type -> features.GetBuildingsRequest
-	65, // 86: features.BuildingService.UpdateBuilding:input_type -> features.UpdateBuildingRequest
-	66, // 87: features.BuildingService.UpdateBuildingInformation:input_type -> features.UpdateBuildingInformationRequest
-	69, // 88: features.BuildingService.DestroyBuilding:input_type -> features.DestroyBuildingRequest
-	70, // 89: features.BuildingService.ListCompletedBuildings:input_type -> features.ListCompletedBuildingsRequest
-	73, // 90: features.MapsService.ListMaps:input_type -> features.ListMapsRequest
-	74, // 91: features.MapsService.GetMap:input_type -> features.GetMapRequest
-	74, // 92: features.MapsService.GetMapBorder:input_type -> features.GetMapRequest
-	82, // 93: features.CitizenFeaturesService.GetCitizenFeatureSummary:input_type -> features.GetCitizenFeatureSummaryRequest
-	85, // 94: features.CitizenFeaturesService.GetCitizenFeatureChart:input_type -> features.GetCitizenFeatureChartRequest
-	88, // 95: features.CitizenFeaturesService.ListCitizenFeatures:input_type -> features.ListCitizenFeaturesRequest
-	1,  // 96: features.FeatureService.ListFeatures:output_type -> features.FeaturesResponse
-	3,  // 97: features.FeatureService.GetFeature:output_type -> features.FeatureResponse
-	3,  // 98: features.FeatureService.UpdateFeature:output_type -> features.FeatureResponse
-	3,  // 99: features.FeatureService.AddFeatureImages:output_type -> features.FeatureResponse
-	1,  // 100: features.FeatureService.GetMyFeatures:output_type -> features.FeaturesResponse
-	8,  // 101: features.FeatureService.ListMyFeatures:output_type -> features.ListMyFeaturesResponse
-	3,  // 102: features.FeatureService.GetMyFeature:output_type -> features.FeatureResponse
-	3,  // 103: features.FeatureService.AddMyFeatureImages:output_type -> features.FeatureResponse
-	93, // 104: features.FeatureService.RemoveMyFeatureImage:output_type -> google.protobuf.Empty
-	93, // 105: features.FeatureService.UpdateMyFeature:output_type -> google.protobuf.Empty
-	14, // 106: features.FeatureService.GetFeatureTradeHistory:output_type -> features.GetFeatureTradeHistoryResponse
-	28, // 107: features.FeatureMarketplaceService.BuyFeature:output_type -> features.BuyFeatureResponse
-	30, // 108: features.FeatureMarketplaceService.SendBuyRequest:output_type -> features.BuyRequestResponse
-	30, // 109: features.FeatureMarketplaceService.AcceptBuyRequest:output_type -> features.BuyRequestResponse
-	43, // 110: features.FeatureMarketplaceService.CreateSellRequest:output_type -> features.SellRequestResponse
-	44, // 111: features.FeatureMarketplaceService.ListSellRequests:output_type -> features.SellRequestsResponse
-	93, // 112: features.FeatureMarketplaceService.DeleteSellRequest:output_type -> google.protobuf.Empty
-	46, // 113: features.FeatureMarketplaceService.RequestGracePeriod:output_type -> features.GracePeriodResponse
-	35, // 114: features.FeatureMarketplaceService.ListBuyRequests:output_type -> features.BuyRequestsResponse
-	35, // 115: features.FeatureMarketplaceService.ListReceivedBuyRequests:output_type -> features.BuyRequestsResponse
-	93, // 116: features.FeatureMarketplaceService.RejectBuyRequest:output_type -> google.protobuf.Empty
-	93, // 117: features.FeatureMarketplaceService.DeleteBuyRequest:output_type -> google.protobuf.Empty
-	93, // 118: features.FeatureMarketplaceService.UpdateGracePeriod:output_type -> google.protobuf.Empty
-	48, // 119: features.FeatureProfitService.GetHourlyProfits:output_type -> features.HourlyProfitsResponse
-	51, // 120: features.FeatureProfitService.GetSingleProfit:output_type -> features.HourlyProfitResponse
-	53, // 121: features.FeatureProfitService.GetProfitsByApplication:output_type -> features.ProfitsByApplicationResponse
-	55, // 122: features.FeatureProfitService.GetHourlyProfitTimePercentage:output_type -> features.GetHourlyProfitTimePercentageResponse
-	57, // 123: features.BuildingService.GetBuildPackage:output_type -> features.BuildPackageResponse
-	61, // 124: features.BuildingService.BuildFeature:output_type -> features.BuildFeatureResponse
-	63, // 125: features.BuildingService.GetBuildings:output_type -> features.BuildingsResponse
-	68, // 126: features.BuildingService.UpdateBuilding:output_type -> features.BuildingResponse
-	67, // 127: features.BuildingService.UpdateBuildingInformation:output_type -> features.UpdateBuildingInformationResponse
-	68, // 128: features.BuildingService.DestroyBuilding:output_type -> features.BuildingResponse
-	71, // 129: features.BuildingService.ListCompletedBuildings:output_type -> features.ListCompletedBuildingsResponse
-	75, // 130: features.MapsService.ListMaps:output_type -> features.ListMapsResponse
-	76, // 131: features.MapsService.GetMap:output_type -> features.GetMapResponse
-	77, // 132: features.MapsService.GetMapBorder:output_type -> features.GetMapBorderResponse
-	83, // 133: features.CitizenFeaturesService.GetCitizenFeatureSummary:output_type -> features.GetCitizenFeatureSummaryResponse
-	86, // 134: features.CitizenFeaturesService.GetCitizenFeatureChart:output_type -> features.GetCitizenFeatureChartResponse
-	89, // 135: features.CitizenFeaturesService.ListCitizenFeatures:output_type -> features.ListCitizenFeaturesResponse
-	96, // [96:136] is the sub-list for method output_type
-	56, // [56:96] is the sub-list for method input_type
-	56, // [56:56] is the sub-list for extension type_name
-	56, // [56:56] is the sub-list for extension extendee
-	0,  // [0:56] is the sub-list for field type_name
+	21,  // 0: features.FeaturesResponse.features:type_name -> features.Feature
+	21,  // 1: features.FeatureResponse.feature:type_name -> features.Feature
+	23,  // 2: features.UpdateFeatureRequest.properties:type_name -> features.FeatureProperties
+	21,  // 3: features.ListMyFeaturesResponse.data:type_name -> features.Feature
+	19,  // 4: features.ListMyFeaturesResponse.links:type_name -> features.PaginationLinks
+	20,  // 5: features.ListMyFeaturesResponse.meta:type_name -> features.SimplePaginationMeta
+	15,  // 6: features.GetFeatureTradeHistoryResponse.data:type_name -> features.FeatureTradeHistoryItem
+	19,  // 7: features.GetFeatureTradeHistoryResponse.links:type_name -> features.PaginationLinks
+	18,  // 8: features.GetFeatureTradeHistoryResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	16,  // 9: features.FeatureTradeHistoryItem.date_time:type_name -> features.FeatureTradeHistoryDateTime
+	17,  // 10: features.FeatureTradeHistoryItem.price:type_name -> features.FeatureTradeHistoryPrice
+	23,  // 11: features.Feature.properties:type_name -> features.FeatureProperties
+	24,  // 12: features.Feature.geometry:type_name -> features.Geometry
+	26,  // 13: features.Feature.images:type_name -> features.Image
+	22,  // 14: features.Feature.seller:type_name -> features.Seller
+	64,  // 15: features.Feature.building_models:type_name -> features.Building
+	25,  // 16: features.Geometry.coordinates:type_name -> features.Coordinate
+	21,  // 17: features.BuyFeatureResponse.feature:type_name -> features.Feature
+	31,  // 18: features.BuyRequestResponse.buyer:type_name -> features.BuyerInfo
+	32,  // 19: features.BuyRequestResponse.seller:type_name -> features.SellerInfo
+	23,  // 20: features.BuyRequestResponse.feature_properties:type_name -> features.FeatureProperties
+	25,  // 21: features.BuyRequestResponse.feature_coordinates:type_name -> features.Coordinate
+	30,  // 22: features.BuyRequestsResponse.buy_requests:type_name -> features.BuyRequestResponse
+	23,  // 23: features.SellRequestResponse.feature_properties:type_name -> features.FeatureProperties
+	25,  // 24: features.SellRequestResponse.feature_coordinates:type_name -> features.Coordinate
+	43,  // 25: features.SellRequestsResponse.sell_requests:type_name -> features.SellRequestResponse
+	49,  // 26: features.HourlyProfitsResponse.profits:type_name -> features.HourlyProfit
+	49,  // 27: features.HourlyProfitResponse.profit:type_name -> features.HourlyProfit
+	58,  // 28: features.BuildPackageResponse.models:type_name -> features.BuildingModel
+	60,  // 29: features.BuildFeatureRequest.information:type_name -> features.BuildingInformation
+	21,  // 30: features.BuildFeatureResponse.feature:type_name -> features.Feature
+	64,  // 31: features.BuildingsResponse.buildings:type_name -> features.Building
+	58,  // 32: features.Building.model:type_name -> features.BuildingModel
+	60,  // 33: features.UpdateBuildingRequest.information:type_name -> features.BuildingInformation
+	60,  // 34: features.UpdateBuildingInformationRequest.information:type_name -> features.BuildingInformation
+	60,  // 35: features.UpdateBuildingInformationResponse.information:type_name -> features.BuildingInformation
+	64,  // 36: features.BuildingResponse.building:type_name -> features.Building
+	72,  // 37: features.ListCompletedBuildingsResponse.data:type_name -> features.CompletedBuilding
+	19,  // 38: features.ListCompletedBuildingsResponse.links:type_name -> features.PaginationLinks
+	18,  // 39: features.ListCompletedBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	79,  // 40: features.ListMapsResponse.maps:type_name -> features.Map
+	79,  // 41: features.GetMapResponse.map:type_name -> features.Map
+	78,  // 42: features.GetMapBorderResponse.data:type_name -> features.MapBorderData
+	80,  // 43: features.Map.features:type_name -> features.MapFeatures
+	81,  // 44: features.MapFeatures.maskoni:type_name -> features.MapFeatureCount
+	81,  // 45: features.MapFeatures.tejari:type_name -> features.MapFeatureCount
+	81,  // 46: features.MapFeatures.amoozeshi:type_name -> features.MapFeatureCount
+	84,  // 47: features.GetCitizenFeatureSummaryResponse.data:type_name -> features.CitizenFeatureSummaryItem
+	87,  // 48: features.GetCitizenFeatureChartResponse.data:type_name -> features.CitizenFeatureChartData
+	90,  // 49: features.ListCitizenFeaturesResponse.data:type_name -> features.CitizenFeatureItem
+	19,  // 50: features.ListCitizenFeaturesResponse.links:type_name -> features.PaginationLinks
+	18,  // 51: features.ListCitizenFeaturesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	92,  // 52: features.ListCitizenFeaturesResponse.map_markers:type_name -> features.CitizenFeatureMapMarker
+	91,  // 53: features.CitizenFeatureItem.center:type_name -> features.CitizenFeatureCenter
+	26,  // 54: features.CitizenFeatureItem.images:type_name -> features.Image
+	91,  // 55: features.CitizenFeatureMapMarker.center:type_name -> features.CitizenFeatureCenter
+	95,  // 56: features.ListIsicCodesResponse.data:type_name -> features.IsicCode
+	19,  // 57: features.ListIsicCodesResponse.links:type_name -> features.PaginationLinks
+	18,  // 58: features.ListIsicCodesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	0,   // 59: features.FeatureService.ListFeatures:input_type -> features.ListFeaturesRequest
+	2,   // 60: features.FeatureService.GetFeature:input_type -> features.GetFeatureRequest
+	4,   // 61: features.FeatureService.UpdateFeature:input_type -> features.UpdateFeatureRequest
+	5,   // 62: features.FeatureService.AddFeatureImages:input_type -> features.AddFeatureImagesRequest
+	6,   // 63: features.FeatureService.GetMyFeatures:input_type -> features.GetMyFeaturesRequest
+	7,   // 64: features.FeatureService.ListMyFeatures:input_type -> features.ListMyFeaturesRequest
+	9,   // 65: features.FeatureService.GetMyFeature:input_type -> features.GetMyFeatureRequest
+	10,  // 66: features.FeatureService.AddMyFeatureImages:input_type -> features.AddMyFeatureImagesRequest
+	11,  // 67: features.FeatureService.RemoveMyFeatureImage:input_type -> features.RemoveMyFeatureImageRequest
+	12,  // 68: features.FeatureService.UpdateMyFeature:input_type -> features.UpdateMyFeatureRequest
+	13,  // 69: features.FeatureService.GetFeatureTradeHistory:input_type -> features.GetFeatureTradeHistoryRequest
+	27,  // 70: features.FeatureMarketplaceService.BuyFeature:input_type -> features.BuyFeatureRequest
+	29,  // 71: features.FeatureMarketplaceService.SendBuyRequest:input_type -> features.SendBuyRequestRequest
+	39,  // 72: features.FeatureMarketplaceService.AcceptBuyRequest:input_type -> features.AcceptBuyRequestRequest
+	40,  // 73: features.FeatureMarketplaceService.CreateSellRequest:input_type -> features.CreateSellRequestRequest
+	41,  // 74: features.FeatureMarketplaceService.ListSellRequests:input_type -> features.ListSellRequestsRequest
+	42,  // 75: features.FeatureMarketplaceService.DeleteSellRequest:input_type -> features.DeleteSellRequestRequest
+	45,  // 76: features.FeatureMarketplaceService.RequestGracePeriod:input_type -> features.RequestGracePeriodRequest
+	33,  // 77: features.FeatureMarketplaceService.ListBuyRequests:input_type -> features.ListBuyRequestsRequest
+	34,  // 78: features.FeatureMarketplaceService.ListReceivedBuyRequests:input_type -> features.ListReceivedBuyRequestsRequest
+	36,  // 79: features.FeatureMarketplaceService.RejectBuyRequest:input_type -> features.RejectBuyRequestRequest
+	37,  // 80: features.FeatureMarketplaceService.DeleteBuyRequest:input_type -> features.DeleteBuyRequestRequest
+	38,  // 81: features.FeatureMarketplaceService.UpdateGracePeriod:input_type -> features.UpdateGracePeriodRequest
+	47,  // 82: features.FeatureProfitService.GetHourlyProfits:input_type -> features.GetHourlyProfitsRequest
+	50,  // 83: features.FeatureProfitService.GetSingleProfit:input_type -> features.GetSingleProfitRequest
+	52,  // 84: features.FeatureProfitService.GetProfitsByApplication:input_type -> features.GetProfitsByApplicationRequest
+	54,  // 85: features.FeatureProfitService.GetHourlyProfitTimePercentage:input_type -> features.GetHourlyProfitTimePercentageRequest
+	56,  // 86: features.BuildingService.GetBuildPackage:input_type -> features.GetBuildPackageRequest
+	59,  // 87: features.BuildingService.BuildFeature:input_type -> features.BuildFeatureRequest
+	62,  // 88: features.BuildingService.GetBuildings:input_type -> features.GetBuildingsRequest
+	65,  // 89: features.BuildingService.UpdateBuilding:input_type -> features.UpdateBuildingRequest
+	66,  // 90: features.BuildingService.UpdateBuildingInformation:input_type -> features.UpdateBuildingInformationRequest
+	69,  // 91: features.BuildingService.DestroyBuilding:input_type -> features.DestroyBuildingRequest
+	70,  // 92: features.BuildingService.ListCompletedBuildings:input_type -> features.ListCompletedBuildingsRequest
+	73,  // 93: features.MapsService.ListMaps:input_type -> features.ListMapsRequest
+	74,  // 94: features.MapsService.GetMap:input_type -> features.GetMapRequest
+	74,  // 95: features.MapsService.GetMapBorder:input_type -> features.GetMapRequest
+	82,  // 96: features.CitizenFeaturesService.GetCitizenFeatureSummary:input_type -> features.GetCitizenFeatureSummaryRequest
+	85,  // 97: features.CitizenFeaturesService.GetCitizenFeatureChart:input_type -> features.GetCitizenFeatureChartRequest
+	88,  // 98: features.CitizenFeaturesService.ListCitizenFeatures:input_type -> features.ListCitizenFeaturesRequest
+	93,  // 99: features.IsicCodeService.ListIsicCodes:input_type -> features.ListIsicCodesRequest
+	1,   // 100: features.FeatureService.ListFeatures:output_type -> features.FeaturesResponse
+	3,   // 101: features.FeatureService.GetFeature:output_type -> features.FeatureResponse
+	3,   // 102: features.FeatureService.UpdateFeature:output_type -> features.FeatureResponse
+	3,   // 103: features.FeatureService.AddFeatureImages:output_type -> features.FeatureResponse
+	1,   // 104: features.FeatureService.GetMyFeatures:output_type -> features.FeaturesResponse
+	8,   // 105: features.FeatureService.ListMyFeatures:output_type -> features.ListMyFeaturesResponse
+	3,   // 106: features.FeatureService.GetMyFeature:output_type -> features.FeatureResponse
+	3,   // 107: features.FeatureService.AddMyFeatureImages:output_type -> features.FeatureResponse
+	96,  // 108: features.FeatureService.RemoveMyFeatureImage:output_type -> google.protobuf.Empty
+	96,  // 109: features.FeatureService.UpdateMyFeature:output_type -> google.protobuf.Empty
+	14,  // 110: features.FeatureService.GetFeatureTradeHistory:output_type -> features.GetFeatureTradeHistoryResponse
+	28,  // 111: features.FeatureMarketplaceService.BuyFeature:output_type -> features.BuyFeatureResponse
+	30,  // 112: features.FeatureMarketplaceService.SendBuyRequest:output_type -> features.BuyRequestResponse
+	30,  // 113: features.FeatureMarketplaceService.AcceptBuyRequest:output_type -> features.BuyRequestResponse
+	43,  // 114: features.FeatureMarketplaceService.CreateSellRequest:output_type -> features.SellRequestResponse
+	44,  // 115: features.FeatureMarketplaceService.ListSellRequests:output_type -> features.SellRequestsResponse
+	96,  // 116: features.FeatureMarketplaceService.DeleteSellRequest:output_type -> google.protobuf.Empty
+	46,  // 117: features.FeatureMarketplaceService.RequestGracePeriod:output_type -> features.GracePeriodResponse
+	35,  // 118: features.FeatureMarketplaceService.ListBuyRequests:output_type -> features.BuyRequestsResponse
+	35,  // 119: features.FeatureMarketplaceService.ListReceivedBuyRequests:output_type -> features.BuyRequestsResponse
+	96,  // 120: features.FeatureMarketplaceService.RejectBuyRequest:output_type -> google.protobuf.Empty
+	96,  // 121: features.FeatureMarketplaceService.DeleteBuyRequest:output_type -> google.protobuf.Empty
+	96,  // 122: features.FeatureMarketplaceService.UpdateGracePeriod:output_type -> google.protobuf.Empty
+	48,  // 123: features.FeatureProfitService.GetHourlyProfits:output_type -> features.HourlyProfitsResponse
+	51,  // 124: features.FeatureProfitService.GetSingleProfit:output_type -> features.HourlyProfitResponse
+	53,  // 125: features.FeatureProfitService.GetProfitsByApplication:output_type -> features.ProfitsByApplicationResponse
+	55,  // 126: features.FeatureProfitService.GetHourlyProfitTimePercentage:output_type -> features.GetHourlyProfitTimePercentageResponse
+	57,  // 127: features.BuildingService.GetBuildPackage:output_type -> features.BuildPackageResponse
+	61,  // 128: features.BuildingService.BuildFeature:output_type -> features.BuildFeatureResponse
+	63,  // 129: features.BuildingService.GetBuildings:output_type -> features.BuildingsResponse
+	68,  // 130: features.BuildingService.UpdateBuilding:output_type -> features.BuildingResponse
+	67,  // 131: features.BuildingService.UpdateBuildingInformation:output_type -> features.UpdateBuildingInformationResponse
+	68,  // 132: features.BuildingService.DestroyBuilding:output_type -> features.BuildingResponse
+	71,  // 133: features.BuildingService.ListCompletedBuildings:output_type -> features.ListCompletedBuildingsResponse
+	75,  // 134: features.MapsService.ListMaps:output_type -> features.ListMapsResponse
+	76,  // 135: features.MapsService.GetMap:output_type -> features.GetMapResponse
+	77,  // 136: features.MapsService.GetMapBorder:output_type -> features.GetMapBorderResponse
+	83,  // 137: features.CitizenFeaturesService.GetCitizenFeatureSummary:output_type -> features.GetCitizenFeatureSummaryResponse
+	86,  // 138: features.CitizenFeaturesService.GetCitizenFeatureChart:output_type -> features.GetCitizenFeatureChartResponse
+	89,  // 139: features.CitizenFeaturesService.ListCitizenFeatures:output_type -> features.ListCitizenFeaturesResponse
+	94,  // 140: features.IsicCodeService.ListIsicCodes:output_type -> features.ListIsicCodesResponse
+	100, // [100:141] is the sub-list for method output_type
+	59,  // [59:100] is the sub-list for method input_type
+	59,  // [59:59] is the sub-list for extension type_name
+	59,  // [59:59] is the sub-list for extension extendee
+	0,   // [0:59] is the sub-list for field type_name
 }
 
 func init() { file_features_proto_init() }
@@ -6734,15 +6937,16 @@ func file_features_proto_init() {
 	file_features_proto_msgTypes[17].OneofWrappers = []any{}
 	file_features_proto_msgTypes[18].OneofWrappers = []any{}
 	file_features_proto_msgTypes[72].OneofWrappers = []any{}
+	file_features_proto_msgTypes[95].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_features_proto_rawDesc), len(file_features_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   93,
+			NumMessages:   96,
 			NumExtensions: 0,
-			NumServices:   6,
+			NumServices:   7,
 		},
 		GoTypes:           file_features_proto_goTypes,
 		DependencyIndexes: file_features_proto_depIdxs,

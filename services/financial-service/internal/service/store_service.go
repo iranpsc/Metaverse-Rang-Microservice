@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"metarang/financial-service/internal/constants"
 	"metarang/financial-service/internal/repository"
 )
 
@@ -45,37 +46,30 @@ func NewStoreService(
 }
 
 func (s *storeService) GetStorePackages(ctx context.Context, codes []string) ([]*PackageResource, error) {
-	// Validation: at least 2 codes required
-	if len(codes) < 2 {
+	if len(codes) < constants.MinStoreCodes {
 		return nil, ErrInvalidCodes
 	}
 
-	// Validate each code
 	for _, code := range codes {
-		if len(code) < 2 {
+		if len(code) < constants.MinStoreCodeLength {
 			return nil, ErrInvalidCodeLength
 		}
 	}
 
-	// Find options by codes
 	options, err := s.optionRepo.FindByCodes(ctx, codes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find options: %w", err)
 	}
 
-	// Convert to PackageResource with rates and images
 	packages := make([]*PackageResource, 0, len(options))
 	for _, option := range options {
-		// Get rate for asset
 		rate, err := s.variableRepo.GetRate(ctx, option.Asset)
 		if err != nil {
-			// If rate not found, set to null (per documentation)
 			rate = 0
 		}
 
-		// Get image URL if exists
 		var imageURL *string
-		url, err := s.imageRepo.FindImageURLByImageable(ctx, "App\\Models\\Option", option.ID)
+		url, err := s.imageRepo.FindImageURLByImageable(ctx, constants.OptionPayableType, option.ID)
 		if err == nil && url != "" {
 			imageURL = &url
 		}

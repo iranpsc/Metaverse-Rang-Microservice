@@ -71,6 +71,11 @@ type CompletedBuildingServicePort interface {
 	Paginate(ctx context.Context, page int) (*models.CompletedBuildingPage, error)
 }
 
+// IsicCodeServicePort is implemented by *service.IsicCodeService.
+type IsicCodeServicePort interface {
+	Paginate(ctx context.Context, page int, search string) (*models.IsicCodePage, error)
+}
+
 // CitizenFeaturesServicePort is implemented by *service.CitizenFeaturesService.
 type CitizenFeaturesServicePort interface {
 	GetSummary(ctx context.Context, userID uint64, period string, allowedKarbaris []string, reference time.Time) (*models.CitizenFeatureSummaryResult, error)

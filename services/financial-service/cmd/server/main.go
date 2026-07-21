@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 
 	"metarang/financial-service/internal/config"
+	"metarang/financial-service/internal/grpcclients"
 	"metarang/financial-service/internal/handler"
 	"metarang/financial-service/internal/repository"
 	"metarang/financial-service/internal/sadad"
@@ -94,8 +95,9 @@ func main() {
 
 	// Commercial-service client for wallet balance updates after payment
 	var walletClient commercialpb.WalletServiceClient
+	var commercialConn *grpc.ClientConn
 	commercialAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052")
-	commercialConn, err := grpcutil.NewClient(commercialAddr)
+	commercialConn, err = grpcutil.NewClient(commercialAddr)
 	if err != nil {
 		log.Printf("Warning: failed to dial commercial service at %s — wallet updates disabled: %v", commercialAddr, err)
 	} else {
@@ -140,13 +142,26 @@ func main() {
 	log.Printf("Frontend URL: %s", frontendURL)
 
 	// Initialize order policy
-	orderPolicy := service.NewOrderPolicy(db, firstOrderRepo)
+	eligibilityRepo := repository.NewEligibilityRepository(db)
+	orderPolicy := service.NewOrderPolicy(eligibilityRepo, firstOrderRepo)
 
 	// Initialize Jalali converter
 	jalaliConverter := service.NewJalaliConverter()
 
+	var walletTopUp service.WalletTopUp
+	var referralProcessor service.ReferralProcessor
+	if walletClient != nil {
+		walletTopUp = &grpcclients.WalletAdapter{Client: walletClient}
+	}
+	if commercialConn != nil {
+		referralProcessor = &grpcclients.ReferralAdapter{
+			Client: commercialpb.NewReferralServiceClient(commercialConn),
+		}
+	}
+
 	// Initialize order service
 	orderService := service.NewOrderService(
+		db,
 		orderRepo,
 		transactionRepo,
 		paymentRepo,
@@ -155,7 +170,8 @@ func main() {
 		sadadClient,
 		orderPolicy,
 		jalaliConverter,
-		walletClient,
+		walletTopUp,
+		referralProcessor,
 		smsClient,
 		service.OrderConfig{
 			SadadMerchantID:             getEnv("SADAD_MERCHANT_ID", ""),
@@ -213,7 +229,7 @@ func main() {
 	handler.RegisterStoreHandler(grpcServer, storeService)
 
 	// Start gRPC server
-	port := getEnv("GRPC_PORT", "50058")
+	port := getEnv("GRPC_PORT", "50062")
 	listener, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("Failed to listen on port %s: %v", port, err)
