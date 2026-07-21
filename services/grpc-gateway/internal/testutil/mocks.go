@@ -205,11 +205,11 @@ func (m *MockFeatureProfitService) GetSingleProfit(ctx context.Context, req *fea
 // MockBuildingService implements featurespb.BuildingServiceServer for tests.
 type MockBuildingService struct {
 	featurespb.UnimplementedBuildingServiceServer
-	ListCompletedBuildingsFunc func(ctx context.Context, req *featurespb.ListCompletedBuildingsRequest) (*featurespb.ListCompletedBuildingsResponse, error)
-	GetBuildingsFunc           func(ctx context.Context, req *featurespb.GetBuildingsRequest) (*featurespb.BuildingsResponse, error)
-	UpdateBuildingFunc              func(ctx context.Context, req *featurespb.UpdateBuildingRequest) (*featurespb.BuildingResponse, error)
-	UpdateBuildingInformationFunc   func(ctx context.Context, req *featurespb.UpdateBuildingInformationRequest) (*featurespb.UpdateBuildingInformationResponse, error)
-	DestroyBuildingFunc             func(ctx context.Context, req *featurespb.DestroyBuildingRequest) (*featurespb.BuildingResponse, error)
+	ListCompletedBuildingsFunc    func(ctx context.Context, req *featurespb.ListCompletedBuildingsRequest) (*featurespb.ListCompletedBuildingsResponse, error)
+	GetBuildingsFunc              func(ctx context.Context, req *featurespb.GetBuildingsRequest) (*featurespb.BuildingsResponse, error)
+	UpdateBuildingFunc            func(ctx context.Context, req *featurespb.UpdateBuildingRequest) (*featurespb.BuildingResponse, error)
+	UpdateBuildingInformationFunc func(ctx context.Context, req *featurespb.UpdateBuildingInformationRequest) (*featurespb.UpdateBuildingInformationResponse, error)
+	DestroyBuildingFunc           func(ctx context.Context, req *featurespb.DestroyBuildingRequest) (*featurespb.BuildingResponse, error)
 }
 
 func (m *MockBuildingService) ListCompletedBuildings(ctx context.Context, req *featurespb.ListCompletedBuildingsRequest) (*featurespb.ListCompletedBuildingsResponse, error) {
