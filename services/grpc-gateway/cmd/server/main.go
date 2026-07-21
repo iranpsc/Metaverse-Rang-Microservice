@@ -18,6 +18,7 @@ import (
 	"metarang/grpc-gateway/internal/handler"
 	"metarang/grpc-gateway/internal/middleware"
 	pb "metarang/shared/pb/auth"
+	featurespb "metarang/shared/pb/features"
 	grpcutil "metarang/shared/pkg/grpc"
 	"metarang/shared/pkg/sentry"
 )
@@ -217,11 +218,16 @@ func main() {
 	var profitHandler *handler.ProfitHandler
 	var mapsHandler *handler.MapsHandler
 	var citizenFeaturesHandler *handler.CitizenFeaturesHandler
+	var citizenBuildingsHandler *handler.CitizenBuildingsHandler
 	if featuresConn != nil {
 		featuresHandler = handler.NewFeaturesHandler(featuresConn, authConn, cfg.Locale)
 		profitHandler = handler.NewProfitHandler(featuresConn, authConn)
 		mapsHandler = handler.NewMapsHandler(featuresConn)
 		citizenFeaturesHandler = handler.NewCitizenFeaturesHandler(authConn, featuresConn, cfg.Locale)
+		citizenBuildingsHandler = handler.NewCitizenBuildingsHandler(
+			citizenFeaturesHandler,
+			featurespb.NewCitizenBuildingsServiceClient(featuresConn),
+		)
 	}
 
 	var financialHandler *handler.FinancialHandler
@@ -335,6 +341,18 @@ func main() {
 				rest = parts[2:]
 			}
 			citizenFeaturesHandler.Handle(w, r, parts[0], rest)
+			return
+		}
+		if len(parts) >= 2 && parts[1] == "buildings" {
+			if citizenBuildingsHandler == nil {
+				http.Error(w, `{"error":"features service unavailable"}`, http.StatusServiceUnavailable)
+				return
+			}
+			rest := []string{}
+			if len(parts) > 2 {
+				rest = parts[2:]
+			}
+			citizenBuildingsHandler.Handle(w, r, parts[0], rest)
 			return
 		}
 		// /api/citizen/{code}/wallet/history/{summary|chart}

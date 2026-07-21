@@ -76,6 +76,13 @@ type IsicCodeServicePort interface {
 	Paginate(ctx context.Context, page int, search string) (*models.IsicCodePage, error)
 }
 
+// CitizenBuildingsServicePort is implemented by *service.CitizenBuildingsService.
+type CitizenBuildingsServicePort interface {
+	GetSummary(ctx context.Context, userID uint64, allowedKarbaris []string) (*models.CitizenBuildingSummaryResult, error)
+	GetChart(ctx context.Context, userID uint64, period string, allowedKarbaris []string) (*models.CitizenBuildingChartData, string, error)
+	GetBuildings(ctx context.Context, userID uint64, allowedKarbaris []string, page int) (*models.CitizenBuildingsPage, error)
+}
+
 // CitizenFeaturesServicePort is implemented by *service.CitizenFeaturesService.
 type CitizenFeaturesServicePort interface {
 	GetSummary(ctx context.Context, userID uint64, period string, allowedKarbaris []string, reference time.Time) (*models.CitizenFeatureSummaryResult, error)
