@@ -1,4 +1,4 @@
-package repository
+package repository_test
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"metarang/dynasty-service/internal/repository"
+
 	"metarang/dynasty-service/internal/models"
 )
 
@@ -16,7 +18,7 @@ func TestPermissionRepository_DefaultAndCreateUpdate(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewPermissionRepository(db)
+	r := repository.NewPermissionRepository(db)
 	ctx := context.Background()
 	now := time.Now()
 
@@ -40,7 +42,7 @@ func TestPermissionRepository_GetByUserID(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewPermissionRepository(db)
+	r := repository.NewPermissionRepository(db)
 	ctx := context.Background()
 	now := time.Now()
 

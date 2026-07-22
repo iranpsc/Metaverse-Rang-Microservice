@@ -41,6 +41,9 @@ func (h *FamilyHandler) GetFamily(ctx context.Context, req *dynastypb.GetFamilyR
 	if err != nil {
 		return nil, mapServiceError(err)
 	}
+	if family == nil {
+		return nil, status.Errorf(codes.NotFound, "family not found")
+	}
 
 	// Get members
 	members, _, err := h.familyService.GetFamilyMembers(ctx, family.ID, 1, 1000)

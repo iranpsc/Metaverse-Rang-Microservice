@@ -1,4 +1,4 @@
-package service
+package service_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+
+	"metarang/dynasty-service/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,7 +23,7 @@ func TestPermissionService_UpdateChildPermission(t *testing.T) {
 	joinRequestRepo := repository.NewJoinRequestRepository(db)
 	familyRepo := repository.NewFamilyRepository(db)
 	dynastyRepo := repository.NewDynastyRepository(db)
-	service := NewPermissionService(permissionRepo, joinRequestRepo, familyRepo, dynastyRepo)
+	service := service.NewPermissionService(permissionRepo, joinRequestRepo, familyRepo, dynastyRepo)
 
 	ctx := context.Background()
 	parentUserID := uint64(1)

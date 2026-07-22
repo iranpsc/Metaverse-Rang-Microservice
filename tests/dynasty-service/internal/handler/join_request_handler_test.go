@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"context"
@@ -9,12 +9,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"metarang/dynasty-service/internal/handler"
+
 	"metarang/dynasty-service/internal/service"
 	dynastypb "metarang/shared/pb/dynasty"
 )
 
 func TestJoinRequestHandler_Methods_NilServices(t *testing.T) {
-	h := NewJoinRequestHandler(nil, nil, nil)
+	h := handler.NewJoinRequestHandler(nil, nil, nil)
 	ctx := context.Background()
 
 	cases := []struct {
@@ -45,7 +47,7 @@ func TestJoinRequestHandler_Methods_NilServices(t *testing.T) {
 }
 
 func TestJoinRequestHandler_ValidationPaths(t *testing.T) {
-	h := NewJoinRequestHandler(nil, &service.PermissionService{}, &service.UserSearchService{})
+	h := handler.NewJoinRequestHandler(nil, &service.PermissionService{}, &service.UserSearchService{})
 	ctx := context.Background()
 
 	_, err := h.GetDefaultPermissions(ctx, &dynastypb.GetDefaultPermissionsRequest{Relationship: "father"})

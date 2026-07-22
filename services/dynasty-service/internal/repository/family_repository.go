@@ -37,19 +37,18 @@ func (r *FamilyRepository) CreateFamily(ctx context.Context, dynastyID uint64) (
 	}, nil
 }
 
-// GetFamilyByID retrieves a family by ID
-func (r *FamilyRepository) GetFamilyByID(ctx context.Context, id uint64) (*models.Family, error) {
-	query := `SELECT id, dynasty_id, created_at, updated_at 
-	          FROM families WHERE id = ?`
-
+func scanFamily(scanner interface {
+	Scan(dest ...any) error
+}) (*models.Family, error) {
 	var family models.Family
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	var createdAt, updatedAt sql.NullTime
+
+	err := scanner.Scan(
 		&family.ID,
 		&family.DynastyID,
-		&family.CreatedAt,
-		&family.UpdatedAt,
+		&createdAt,
+		&updatedAt,
 	)
-
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -57,7 +56,22 @@ func (r *FamilyRepository) GetFamilyByID(ctx context.Context, id uint64) (*model
 		return nil, fmt.Errorf("failed to get family: %w", err)
 	}
 
+	if createdAt.Valid {
+		family.CreatedAt = createdAt.Time
+	}
+	if updatedAt.Valid {
+		family.UpdatedAt = updatedAt.Time
+	}
+
 	return &family, nil
+}
+
+// GetFamilyByID retrieves a family by ID
+func (r *FamilyRepository) GetFamilyByID(ctx context.Context, id uint64) (*models.Family, error) {
+	query := `SELECT id, dynasty_id, created_at, updated_at 
+	          FROM families WHERE id = ?`
+
+	return scanFamily(r.db.QueryRowContext(ctx, query, id))
 }
 
 // GetFamilyByDynastyID retrieves a family by dynasty ID
@@ -65,22 +79,7 @@ func (r *FamilyRepository) GetFamilyByDynastyID(ctx context.Context, dynastyID u
 	query := `SELECT id, dynasty_id, created_at, updated_at 
 	          FROM families WHERE dynasty_id = ?`
 
-	var family models.Family
-	err := r.db.QueryRowContext(ctx, query, dynastyID).Scan(
-		&family.ID,
-		&family.DynastyID,
-		&family.CreatedAt,
-		&family.UpdatedAt,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get family: %w", err)
-	}
-
-	return &family, nil
+	return scanFamily(r.db.QueryRowContext(ctx, query, dynastyID))
 }
 
 // CreateFamilyMember creates a new family member
@@ -130,17 +129,27 @@ func (r *FamilyRepository) GetFamilyMembers(ctx context.Context, familyID uint64
 	var members []*models.FamilyMember
 	for rows.Next() {
 		var member models.FamilyMember
+		var createdAt, updatedAt sql.NullTime
 		if err := rows.Scan(
 			&member.ID,
 			&member.FamilyID,
 			&member.UserID,
 			&member.Relationship,
-			&member.CreatedAt,
-			&member.UpdatedAt,
+			&createdAt,
+			&updatedAt,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan family member: %w", err)
 		}
+		if createdAt.Valid {
+			member.CreatedAt = createdAt.Time
+		}
+		if updatedAt.Valid {
+			member.UpdatedAt = updatedAt.Time
+		}
 		members = append(members, &member)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate family members: %w", err)
 	}
 
 	return members, total, nil
@@ -164,9 +173,19 @@ func (r *FamilyRepository) GetUserBasicInfo(ctx context.Context, userID uint64) 
 	query := `SELECT id, code, name FROM users WHERE id = ?`
 
 	var user models.UserBasic
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(&user.ID, &user.Code, &user.Name)
+	var code, name sql.NullString
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&user.ID, &code, &name)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user info: %w", err)
+	}
+	if code.Valid {
+		user.Code = code.String
+	}
+	if name.Valid {
+		user.Name = name.String
 	}
 
 	// Get profile photo
@@ -192,13 +211,14 @@ func (r *FamilyRepository) FindMemberByUserAndFamily(ctx context.Context, userID
 	          WHERE user_id = ? AND family_id = ?`
 
 	var member models.FamilyMember
+	var createdAt, updatedAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, query, userID, familyID).Scan(
 		&member.ID,
 		&member.FamilyID,
 		&member.UserID,
 		&member.Relationship,
-		&member.CreatedAt,
-		&member.UpdatedAt,
+		&createdAt,
+		&updatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -206,6 +226,12 @@ func (r *FamilyRepository) FindMemberByUserAndFamily(ctx context.Context, userID
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to find family member: %w", err)
+	}
+	if createdAt.Valid {
+		member.CreatedAt = createdAt.Time
+	}
+	if updatedAt.Valid {
+		member.UpdatedAt = updatedAt.Time
 	}
 
 	return &member, nil

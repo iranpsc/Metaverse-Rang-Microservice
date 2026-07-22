@@ -17,32 +17,33 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (resp interface{}, err error) {
-		if !enabled {
-			return handler(ctx, req)
-		}
+		var hub *sentry.Hub
+		if enabled {
+			hub = sentry.GetHubFromContext(ctx)
+			if hub == nil {
+				hub = sentry.CurrentHub().Clone()
+				ctx = sentry.SetHubOnContext(ctx, hub)
+			}
 
-		hub := sentry.GetHubFromContext(ctx)
-		if hub == nil {
-			hub = sentry.CurrentHub().Clone()
-			ctx = sentry.SetHubOnContext(ctx, hub)
-		}
-
-		hub.ConfigureScope(func(scope *sentry.Scope) {
-			scope.SetTag("grpc.method", info.FullMethod)
-			scope.SetContext("grpc", map[string]interface{}{
-				"method": info.FullMethod,
+			hub.ConfigureScope(func(scope *sentry.Scope) {
+				scope.SetTag("grpc.method", info.FullMethod)
+				scope.SetContext("grpc", map[string]interface{}{
+					"method": info.FullMethod,
+				})
 			})
-		})
+		}
 
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				hub.RecoverWithContext(ctx, recovered)
+				if enabled && hub != nil {
+					hub.RecoverWithContext(ctx, recovered)
+				}
 				err = status.Error(codes.Internal, "internal server error")
 			}
 		}()
 
 		resp, err = handler(ctx, req)
-		if err != nil && shouldReportGRPCError(err) {
+		if enabled && hub != nil && err != nil && shouldReportGRPCError(err) {
 			hub.CaptureException(err)
 		}
 

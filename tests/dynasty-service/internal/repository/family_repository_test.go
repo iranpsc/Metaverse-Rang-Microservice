@@ -1,4 +1,4 @@
-package repository
+package repository_test
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"metarang/dynasty-service/internal/repository"
+
 	"metarang/dynasty-service/internal/models"
 )
 
@@ -16,7 +18,7 @@ func TestFamilyRepository_CreateAndCount(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewFamilyRepository(db)
+	r := repository.NewFamilyRepository(db)
 	ctx := context.Background()
 
 	mock.ExpectExec("INSERT INTO families").WithArgs(uint64(1)).WillReturnResult(sqlmock.NewResult(11, 1))
@@ -41,7 +43,7 @@ func TestFamilyRepository_GetByDynastyAndMembers(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewFamilyRepository(db)
+	r := repository.NewFamilyRepository(db)
 	ctx := context.Background()
 	now := time.Now()
 

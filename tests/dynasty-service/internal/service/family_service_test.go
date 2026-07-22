@@ -1,4 +1,4 @@
-package service
+package service_test
 
 import (
 	"context"
@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+
+	"metarang/dynasty-service/internal/service"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,12 +20,18 @@ func TestFamilyService_GetFamily(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	svc := NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
 	ctx := context.Background()
 	now := time.Now()
 
 	mock.ExpectQuery("FROM families WHERE id").WithArgs(uint64(10)).WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}).AddRow(10, 2, now, now))
-	fam, err := svc.GetFamily(ctx, 10, 0)
+	fam, err := svc.GetFamily(ctx, 10, 2)
+	require.NoError(t, err)
+	require.NotNil(t, fam)
+	assert.Equal(t, uint64(2), fam.DynastyID)
+
+	mock.ExpectQuery("FROM families WHERE id").WithArgs(uint64(10)).WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}).AddRow(10, 2, now, now))
+	fam, err = svc.GetFamily(ctx, 10, 0)
 	require.NoError(t, err)
 	require.NotNil(t, fam)
 
@@ -30,6 +39,16 @@ func TestFamilyService_GetFamily(t *testing.T) {
 	fam, err = svc.GetFamily(ctx, 0, 2)
 	require.NoError(t, err)
 	require.NotNil(t, fam)
+
+	mock.ExpectQuery("FROM families WHERE id").WithArgs(uint64(10)).WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}).AddRow(10, 99, now, now))
+	_, err = svc.GetFamily(ctx, 10, 2)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "family not found")
+
+	mock.ExpectQuery("FROM families WHERE id").WithArgs(uint64(99)).WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}))
+	_, err = svc.GetFamily(ctx, 99, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "family not found")
 
 	_, err = svc.GetFamily(ctx, 0, 0)
 	require.Error(t, err)
@@ -43,7 +62,7 @@ func TestFamilyService_GetFamilyMembers(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	svc := NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
 	ctx := context.Background()
 	now := time.Now()
 

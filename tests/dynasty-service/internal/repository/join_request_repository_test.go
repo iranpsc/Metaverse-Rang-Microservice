@@ -1,4 +1,4 @@
-package repository
+package repository_test
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"metarang/dynasty-service/internal/repository"
+
 	"metarang/dynasty-service/internal/models"
 )
 
@@ -16,7 +18,7 @@ func TestJoinRequestRepository_BasicFlow(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewJoinRequestRepository(db)
+	r := repository.NewJoinRequestRepository(db)
 	ctx := context.Background()
 	now := time.Now()
 
@@ -44,7 +46,7 @@ func TestJoinRequestRepository_ListAndAge(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewJoinRequestRepository(db)
+	r := repository.NewJoinRequestRepository(db)
 	ctx := context.Background()
 	now := time.Now()
 

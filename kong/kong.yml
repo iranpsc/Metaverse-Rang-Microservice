@@ -51,6 +51,20 @@ routes:
       - HEAD
       - OPTIONS
 
+  # CORS preflight for /api — no rate-limiting (429 without ACAO looks like a CORS failure).
+  - name: api-preflight
+    service: grpc-gateway
+    paths:
+      - /api
+    strip_path: false
+    preserve_host: false
+    protocols:
+      - http
+      - https
+    methods:
+      - OPTIONS
+    regex_priority: 96
+
   - name: api-routes
     service: grpc-gateway
     paths:
@@ -66,8 +80,15 @@ routes:
       - PUT
       - PATCH
       - DELETE
-      - OPTIONS
     regex_priority: 95
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: redis
+          redis:
+            host: redis
+            port: 6379
 
   # OpenAPI documentation (Swagger UI) — catch-all at /; lower priority than /api and /uploads
   - name: api-docs
@@ -92,22 +113,20 @@ plugins:
       latency_metrics: true
       bandwidth_metrics: true
       upstream_health_metrics: true
-  - name: rate-limiting
-    config:
-      minute: 60
-      policy: redis
-      redis:
-        host: redis
-        port: 6379
   - name: cors
     config:
+      # Exact origins + PCRE for local Vite/dev (localhost and 127.0.0.1, any port).
+      # credentials:true forbids Origin:* — Kong must echo a matching origin.
       origins:
         - https://world.metarang.com
         - https://metarang.com
         - http://localhost:5173
         - http://localhost:5175
+        - 'http://localhost:\d+'
+        - 'http://127\.0\.0\.1:\d+'
       methods:
         - GET
+        - HEAD
         - POST
         - PUT
         - PATCH
@@ -120,8 +139,15 @@ plugins:
         - Content-Type
         - Authorization
         - X-Requested-With
+        - Origin
+        - X-Request-Id
+        - sentry-trace
+        - baggage
+        - traceparent
+        - tracestate
       exposed_headers:
         - X-Auth-Token
       credentials: true
       max_age: 3600
+      # Kong answers OPTIONS; do not proxy preflight to grpc-gateway (avoids ACAO:* clash).
       preflight_continue: false

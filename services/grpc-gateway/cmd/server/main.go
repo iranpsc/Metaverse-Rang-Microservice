@@ -1127,8 +1127,9 @@ func main() {
 	// Note: We don't register a catch-all "/" handler because it would interfere with route matching
 	// Instead, unmatched routes will naturally return 404 from ServeMux
 
-	// Chain middleware: Sentry -> logging -> CORS -> mux
-	handler := sentry.HTTPMiddleware(middleware.LoggingMiddleware(middleware.CORSMiddleware(mux)))
+	// CORS is handled exclusively by Kong (credentials + allowlist). Do not set
+	// Access-Control-Allow-Origin here — ACAO:* conflicts with Kong credentials:true.
+	handler := sentry.HTTPMiddleware(middleware.LoggingMiddleware(mux))
 
 	// Start HTTP server
 	server := &http.Server{

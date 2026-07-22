@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	handlerpkg "metarang/dynasty-service/internal/handler"
+	"metarang/dynasty-service/internal/handler"
 	"metarang/dynasty-service/internal/repository"
 	"metarang/dynasty-service/internal/service"
 	dynastypb "metarang/shared/pb/dynasty"
@@ -33,9 +33,7 @@ func TestDynastyHandler_CreateDynasty(t *testing.T) {
 		familyRepo := repository.NewFamilyRepository(db)
 		prizeRepo := repository.NewPrizeRepository(db)
 		dynastyService := service.NewDynastyService(dynastyRepo, familyRepo, prizeRepo, "localhost:50054")
-		handler := handlerpkg.NewDynastyHandler(dynastyService)
-
-		now := time.Now()
+		handler := handler.NewDynastyHandler(dynastyService)
 
 		// Check existing dynasty - none exists
 		mock.ExpectQuery("SELECT id, user_id, feature_id").
@@ -105,7 +103,7 @@ func TestDynastyHandler_CreateDynasty(t *testing.T) {
 		familyRepo := repository.NewFamilyRepository(db)
 		prizeRepo := repository.NewPrizeRepository(db)
 		dynastyService := service.NewDynastyService(dynastyRepo, familyRepo, prizeRepo, "localhost:50054")
-		handler := handlerpkg.NewDynastyHandler(dynastyService)
+		handler := handler.NewDynastyHandler(dynastyService)
 
 		now := time.Now()
 
@@ -126,13 +124,13 @@ func TestDynastyHandler_CreateDynasty(t *testing.T) {
 
 		st, ok := status.FromError(err)
 		require.True(t, ok)
-		assert.Equal(t, codes.InvalidArgument, st.Code()) // mapServiceError maps "already has" to InvalidArgument
+		assert.Equal(t, codes.AlreadyExists, st.Code())
 
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
 	t.Run("nil service", func(t *testing.T) {
-		handler := &handlerpkg.DynastyHandler{}
+		handler := &handler.DynastyHandler{}
 
 		req := &dynastypb.CreateDynastyRequest{
 			UserId:    userID,
@@ -164,7 +162,7 @@ func TestDynastyHandler_UpdateDynastyFeature(t *testing.T) {
 		familyRepo := repository.NewFamilyRepository(db)
 		prizeRepo := repository.NewPrizeRepository(db)
 		dynastyService := service.NewDynastyService(dynastyRepo, familyRepo, prizeRepo, "localhost:50054")
-		handler := handlerpkg.NewDynastyHandler(dynastyService)
+		handler := handler.NewDynastyHandler(dynastyService)
 
 		now := time.Now()
 
@@ -172,7 +170,7 @@ func TestDynastyHandler_UpdateDynastyFeature(t *testing.T) {
 		mock.ExpectQuery("SELECT id, user_id, feature_id").
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
-				AddRow(dynastyID, userID, 100, now, now))
+				AddRow(dynastyID, userID, 100, now.AddDate(0, 0, -60), now.AddDate(0, 0, -31)))
 
 		// UpdateDynastyFeature: Update feature
 		mock.ExpectExec("UPDATE dynasties SET feature_id").
@@ -238,7 +236,7 @@ func TestDynastyHandler_UpdateDynastyFeature(t *testing.T) {
 		familyRepo := repository.NewFamilyRepository(db)
 		prizeRepo := repository.NewPrizeRepository(db)
 		dynastyService := service.NewDynastyService(dynastyRepo, familyRepo, prizeRepo, "localhost:50054")
-		handler := handlerpkg.NewDynastyHandler(dynastyService)
+		handler := handler.NewDynastyHandler(dynastyService)
 
 		now := time.Now()
 		otherUserID := uint64(2)
@@ -275,7 +273,7 @@ func TestDynastyHandler_UpdateDynastyFeature(t *testing.T) {
 		familyRepo := repository.NewFamilyRepository(db)
 		prizeRepo := repository.NewPrizeRepository(db)
 		dynastyService := service.NewDynastyService(dynastyRepo, familyRepo, prizeRepo, "localhost:50054")
-		handler := handlerpkg.NewDynastyHandler(dynastyService)
+		handler := handler.NewDynastyHandler(dynastyService)
 
 		// Dynasty doesn't exist
 		mock.ExpectQuery("SELECT id, user_id, feature_id").
@@ -300,7 +298,7 @@ func TestDynastyHandler_UpdateDynastyFeature(t *testing.T) {
 	})
 
 	t.Run("nil service", func(t *testing.T) {
-		handler := &handlerpkg.DynastyHandler{}
+		handler := &handler.DynastyHandler{}
 
 		req := &dynastypb.UpdateDynastyFeatureRequest{
 			DynastyId: dynastyID,

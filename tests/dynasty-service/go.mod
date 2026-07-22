@@ -1,4 +1,4 @@
-module metarang/dynasty-service-test
+module metarang/dynasty-service/tests
 
 go 1.25.12
 

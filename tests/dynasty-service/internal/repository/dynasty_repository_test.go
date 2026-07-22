@@ -1,4 +1,4 @@
-package repository
+package repository_test
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"metarang/dynasty-service/internal/repository"
+
 	"metarang/dynasty-service/internal/models"
 )
 
@@ -16,7 +18,7 @@ func TestDynastyRepository_CRUDAndMessages(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewDynastyRepository(db)
+	r := repository.NewDynastyRepository(db)
 	ctx := context.Background()
 	now := time.Now()
 
@@ -45,7 +47,7 @@ func TestDynastyRepository_PenaltyMethods(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewDynastyRepository(db)
+	r := repository.NewDynastyRepository(db)
 	ctx := context.Background()
 
 	mock.ExpectQuery("SELECT fp.karbari, fp.stability").WithArgs(uint64(100)).WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow("m", 25000.0))

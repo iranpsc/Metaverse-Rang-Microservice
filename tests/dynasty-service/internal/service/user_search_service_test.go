@@ -1,4 +1,4 @@
-package service
+package service_test
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+
+	"metarang/dynasty-service/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +17,7 @@ func TestUserSearchService_SearchUsers(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	svc := NewUserSearchService(db)
+	svc := service.NewUserSearchService(db)
 	ctx := context.Background()
 	now := time.Now()
 	_ = now
@@ -38,7 +40,7 @@ func TestUserSearchService_SearchUsers_QueryError(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	svc := NewUserSearchService(db)
+	svc := service.NewUserSearchService(db)
 	ctx := context.Background()
 
 	mock.ExpectQuery("FROM users u").WithArgs("%bad%", "%bad%", "%bad%", 10).WillReturnError(assert.AnError)

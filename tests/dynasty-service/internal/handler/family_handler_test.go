@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"context"
@@ -9,12 +9,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"metarang/dynasty-service/internal/handler"
+
 	"metarang/dynasty-service/internal/service"
 	dynastypb "metarang/shared/pb/dynasty"
 )
 
 func TestFamilyHandler_NilServiceErrors(t *testing.T) {
-	h := NewFamilyHandler(nil, nil)
+	h := handler.NewFamilyHandler(nil, nil)
 	ctx := context.Background()
 
 	_, err := h.GetFamily(ctx, &dynastypb.GetFamilyRequest{})
@@ -29,7 +31,7 @@ func TestFamilyHandler_NilServiceErrors(t *testing.T) {
 }
 
 func TestFamilyHandler_SetChildPermissions_Validation(t *testing.T) {
-	h := NewFamilyHandler(nil, &service.PermissionService{})
+	h := handler.NewFamilyHandler(nil, &service.PermissionService{})
 	ctx := context.Background()
 
 	_, err := h.SetChildPermissions(ctx, &dynastypb.SetChildPermissionsRequest{Permissions: nil})

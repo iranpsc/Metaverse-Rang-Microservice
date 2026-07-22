@@ -1,4 +1,4 @@
-package repository
+package repository_test
 
 import (
 	"context"
@@ -8,13 +8,15 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"metarang/dynasty-service/internal/repository"
 )
 
 func TestPrizeRepository_GetAwardDelete(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewPrizeRepository(db)
+	r := repository.NewPrizeRepository(db)
 	ctx := context.Background()
 	now := time.Now()
 
@@ -36,7 +38,7 @@ func TestPrizeRepository_GetUserReceivedPrizes(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
-	r := NewPrizeRepository(db)
+	r := repository.NewPrizeRepository(db)
 	ctx := context.Background()
 	now := time.Now()
 
