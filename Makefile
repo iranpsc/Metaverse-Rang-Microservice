@@ -442,7 +442,7 @@ endif
 
 dev-up: init-storage-uploads
 	@echo "🚀 Starting development environment with Docker Compose Watch..."
-	@echo "ℹ️  File changes will automatically trigger rebuilds (Go) or restarts (Node.js)"
+	@echo "ℹ️  File changes will automatically trigger rebuilds (Go services)"
 	@echo ""
 	$(DOCKER_COMPOSE) up --watch
 	@echo "✅ Development services started with watch mode!"

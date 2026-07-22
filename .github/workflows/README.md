@@ -8,7 +8,6 @@
 | Service CI (Reusable) | `service-ci.yml` | Called by `services-ci.yml` | Lint → Test → Build/Scan → Deploy for a single service |
 | Integration Tests | `integration-tests.yml` | Push/PR to `main`/`develop`, daily at 02:00 UTC, manual | Full cross-service integration suite, wallet concurrency, and golden JSON tests |
 | Shared Packages CI | `shared-packages.yml` | Push/PR touching `shared/**`, manual | Lint, test, and vulnerability-check shared Go packages |
-| WebSocket Gateway CI/CD | `websocket-gateway.yml` | Push/PR touching `websocket-gateway/**`, manual | Build, scan, and push the Node.js WebSocket gateway image |
 | Load Tests | `load-tests.yml` | Weekly on Sundays at 03:00 UTC, manual | k6 load tests against the staging environment |
 
 ## How service CI works

@@ -38,7 +38,6 @@ This project adheres to a Code of Conduct. By participating, you are expected to
 | Go | 1.21+ | `go version` |
 | Protocol Buffers | latest | `protoc --version` |
 | Docker & Docker Compose | latest | `docker --version` |
-| Node.js | 18+ | `node --version` |
 | Make | latest | `make --version` |
 
 ### Setup Development Environment
