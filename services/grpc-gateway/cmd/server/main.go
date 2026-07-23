@@ -18,7 +18,6 @@ import (
 	"metarang/grpc-gateway/internal/handler"
 	"metarang/grpc-gateway/internal/middleware"
 	pb "metarang/shared/pb/auth"
-	featurespb "metarang/shared/pb/features"
 	grpcutil "metarang/shared/pkg/grpc"
 	"metarang/shared/pkg/sentry"
 )
@@ -62,7 +61,7 @@ func main() {
 	log.Printf("✅ Created auth service client for %s (connection will be established on first RPC call)", cfg.AuthServiceAddr)
 
 	// Create connections to other services (with fallback if not configured)
-	var dynastyConn, featuresConn, financialConn, commercialConn, socialConn, levelsConn, trainingConn, supportConn, notificationConn *grpc.ClientConn
+	var dynastyConn, financialConn, commercialConn, socialConn, levelsConn, trainingConn, supportConn, notificationConn *grpc.ClientConn
 
 	if cfg.DynastyServiceAddr != "" {
 		dynastyConn, err = grpcutil.NewClient(
@@ -73,18 +72,6 @@ func main() {
 		} else {
 			defer func() { _ = dynastyConn.Close() }()
 			log.Printf("✅ Connected to dynasty service at %s", cfg.DynastyServiceAddr)
-		}
-	}
-
-	if cfg.FeaturesServiceAddr != "" {
-		featuresConn, err = grpcutil.NewClient(
-			cfg.FeaturesServiceAddr,
-		)
-		if err != nil {
-			log.Printf("⚠️  Failed to connect to features service: %v", err)
-		} else {
-			defer func() { _ = featuresConn.Close() }()
-			log.Printf("✅ Connected to features service at %s", cfg.FeaturesServiceAddr)
 		}
 	}
 
@@ -197,22 +184,6 @@ func main() {
 		dynastyHandler = handler.NewDynastyHandler(dynastyConn, authConn)
 	}
 
-	var featuresHandler *handler.FeaturesHandler
-	var profitHandler *handler.ProfitHandler
-	var mapsHandler *handler.MapsHandler
-	var citizenFeaturesHandler *handler.CitizenFeaturesHandler
-	var citizenBuildingsHandler *handler.CitizenBuildingsHandler
-	if featuresConn != nil {
-		featuresHandler = handler.NewFeaturesHandler(featuresConn, authConn, cfg.Locale)
-		profitHandler = handler.NewProfitHandler(featuresConn, authConn)
-		mapsHandler = handler.NewMapsHandler(featuresConn)
-		citizenFeaturesHandler = handler.NewCitizenFeaturesHandler(authConn, featuresConn, cfg.Locale)
-		citizenBuildingsHandler = handler.NewCitizenBuildingsHandler(
-			citizenFeaturesHandler,
-			featurespb.NewCitizenBuildingsServiceClient(featuresConn),
-		)
-	}
-
 	var financialHandler *handler.FinancialHandler
 	if financialConn != nil {
 		financialHandler = handler.NewFinancialHandler(financialConn, authConn, cfg.Locale)
@@ -314,30 +285,6 @@ func main() {
 	// Citizen routes (public, no authentication required)
 	mux.HandleFunc("/api/citizen/", func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/citizen/"), "/")
-		if len(parts) >= 2 && parts[1] == "features" {
-			if citizenFeaturesHandler == nil {
-				http.Error(w, `{"error":"features service unavailable"}`, http.StatusServiceUnavailable)
-				return
-			}
-			rest := []string{}
-			if len(parts) > 2 {
-				rest = parts[2:]
-			}
-			citizenFeaturesHandler.Handle(w, r, parts[0], rest)
-			return
-		}
-		if len(parts) >= 2 && parts[1] == "buildings" {
-			if citizenBuildingsHandler == nil {
-				http.Error(w, `{"error":"features service unavailable"}`, http.StatusServiceUnavailable)
-				return
-			}
-			rest := []string{}
-			if len(parts) > 2 {
-				rest = parts[2:]
-			}
-			citizenBuildingsHandler.Handle(w, r, parts[0], rest)
-			return
-		}
 		// /api/citizen/{code}/wallet/history/{summary|chart}
 		if len(parts) >= 4 && parts[1] == "wallet" && parts[2] == "history" {
 			if citizenWalletHandler == nil {
@@ -661,59 +608,6 @@ func main() {
 				dynastyHandler.UpdateChildPermissions(w, r)
 			} else {
 				http.NotFound(w, r)
-			}
-		})))
-	}
-
-	// Features routes
-	if featuresHandler != nil {
-		mux.Handle("/api/features", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.ListFeatures)))
-		// Static feature subpaths must be registered before the /api/features/ catch-all
-		// so they are not parsed as {feature} IDs by GetFeature.
-		mux.Handle("GET /api/features/buildings/completed", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.ListCompletedBuildings)))
-		mux.Handle("GET /api/isic-codes", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.ListIsicCodes)))
-		// Public trade history must be registered before the /api/features/ catch-all.
-		mux.Handle("GET /api/features/{feature}/trade-history", http.HandlerFunc(featuresHandler.GetFeatureTradeHistory))
-		mux.Handle("/api/features/", optionalAuthMiddleware(http.HandlerFunc(featuresHandler.HandleFeaturesRoutes)))
-
-		mux.Handle("/api/my-features", authMiddleware(http.HandlerFunc(featuresHandler.ListMyFeatures)))
-		mux.Handle("/api/my-features/", authMiddleware(http.HandlerFunc(featuresHandler.HandleMyFeaturesRoutes)))
-
-		mux.Handle("/api/buy-requests", authMiddleware(http.HandlerFunc(featuresHandler.HandleBuyRequestsRoutes)))
-		mux.Handle("/api/buy-requests/", authMiddleware(http.HandlerFunc(featuresHandler.HandleBuyRequestsRoutes)))
-
-		mux.Handle("/api/sell-requests", authMiddleware(http.HandlerFunc(featuresHandler.HandleSellRequestsRoutes)))
-		mux.Handle("/api/sell-requests/", authMiddleware(http.HandlerFunc(featuresHandler.HandleSellRequestsRoutes)))
-	}
-
-	if profitHandler != nil {
-		mux.Handle("/api/hourly-profits", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch r.Method {
-			case http.MethodGet:
-				profitHandler.GetHourlyProfits(w, r)
-			case http.MethodPost:
-				profitHandler.GetProfitsByApplication(w, r)
-			default:
-				http.NotFound(w, r)
-			}
-		})))
-		mux.Handle("/api/hourly-profits/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodPost {
-				profitHandler.GetSingleProfit(w, r)
-			} else {
-				http.NotFound(w, r)
-			}
-		})))
-	}
-
-	if mapsHandler != nil {
-		mux.Handle("/api/maps", optionalAuthMiddleware(http.HandlerFunc(mapsHandler.ListMaps)))
-		mux.Handle("/api/maps/", optionalAuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path := r.URL.Path
-			if strings.HasSuffix(path, "/border") {
-				mapsHandler.GetMapBorder(w, r)
-			} else {
-				mapsHandler.GetMap(w, r)
 			}
 		})))
 	}

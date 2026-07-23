@@ -38,7 +38,7 @@ RUN go build -trimpath -ldflags="-s -w" -o /app/features-service ./cmd/server &&
 
 FROM docker.arvancloud.ir/alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata netcat-openbsd && \
+RUN apk add --no-cache ca-certificates tzdata wget && \
     addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser
 
@@ -48,9 +48,9 @@ COPY --from=builder --chown=appuser:appuser /app/features-service /app/calculate
 
 USER appuser
 
-EXPOSE 50053
+EXPOSE 50053 8062
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD nc -z localhost 50053 || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8062/health || exit 1
 
 ENTRYPOINT ["/app/features-service"]

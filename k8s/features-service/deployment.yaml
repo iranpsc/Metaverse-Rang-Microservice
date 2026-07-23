@@ -34,6 +34,9 @@ spec:
         - containerPort: 50053
           name: grpc
           protocol: TCP
+        - containerPort: 8062
+          name: http
+          protocol: TCP
         - containerPort: 9090
           name: metrics
           protocol: TCP
@@ -62,14 +65,22 @@ spec:
               key: db.database
         - name: GRPC_PORT
           value: "50053"
+        - name: HTTP_PORT
+          value: "8062"
+        - name: AUTH_SERVICE_ADDR
+          value: "auth-service:50051"
+        - name: APP_URL
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: app.url
+              optional: true
         - name: METRICS_PORT
           value: "9090"
         - name: COMMERCIAL_SERVICE_ADDR
           value: "commercial-service:50052"
         - name: NOTIFICATIONS_SERVICE_ADDR
           value: "notifications-service:50058"
-        - name: AUTH_SERVICE_ADDR
-          value: "auth-service:50051"
         - name: REDIS_ADDR
           value: "redis:6379"
         - name: REDIS_PASSWORD
@@ -120,16 +131,18 @@ spec:
             memory: "512Mi"
             cpu: "500m"
         livenessProbe:
-          exec:
-            command: ["/bin/sh", "-c", "nc -z localhost 50053"]
-          initialDelaySeconds: 60
+          httpGet:
+            path: /health
+            port: 8062
+          initialDelaySeconds: 30
           periodSeconds: 30
-          timeoutSeconds: 5
+          timeoutSeconds: 3
           failureThreshold: 5
         readinessProbe:
-          exec:
-            command: ["/bin/sh", "-c", "nc -z localhost 50053"]
-          initialDelaySeconds: 30
+          httpGet:
+            path: /health
+            port: 8062
+          initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 3
           failureThreshold: 10
@@ -149,6 +162,10 @@ spec:
     targetPort: 50053
     protocol: TCP
     name: grpc
+  - port: 8062
+    targetPort: 8062
+    protocol: TCP
+    name: http
   - port: 9090
     targetPort: 9090
     protocol: TCP

@@ -7,7 +7,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	pb "metarang/shared/pb/auth"
-	featurespb "metarang/shared/pb/features"
 	socialpb "metarang/shared/pb/social"
 )
 
@@ -142,100 +141,6 @@ func (m *MockKYCService) GetBankAccount(ctx context.Context, req *pb.GetBankAcco
 		return m.GetBankAccountFunc(ctx, req)
 	}
 	return &pb.BankAccountResponse{}, nil
-}
-
-// MockFeatureService implements featurespb.FeatureServiceServer for tests.
-type MockFeatureService struct {
-	featurespb.UnimplementedFeatureServiceServer
-	ListFeaturesFunc func(ctx context.Context, req *featurespb.ListFeaturesRequest) (*featurespb.FeaturesResponse, error)
-}
-
-func (m *MockFeatureService) ListFeatures(ctx context.Context, req *featurespb.ListFeaturesRequest) (*featurespb.FeaturesResponse, error) {
-	if m.ListFeaturesFunc != nil {
-		return m.ListFeaturesFunc(ctx, req)
-	}
-	return &featurespb.FeaturesResponse{}, nil
-}
-
-// MockFeatureProfitService implements featurespb.FeatureProfitServiceServer for tests.
-type MockFeatureProfitService struct {
-	featurespb.UnimplementedFeatureProfitServiceServer
-	GetSingleProfitFunc func(ctx context.Context, req *featurespb.GetSingleProfitRequest) (*featurespb.HourlyProfitResponse, error)
-}
-
-func (m *MockFeatureProfitService) GetSingleProfit(ctx context.Context, req *featurespb.GetSingleProfitRequest) (*featurespb.HourlyProfitResponse, error) {
-	if m.GetSingleProfitFunc != nil {
-		return m.GetSingleProfitFunc(ctx, req)
-	}
-	return &featurespb.HourlyProfitResponse{}, nil
-}
-
-// MockBuildingService implements featurespb.BuildingServiceServer for tests.
-type MockBuildingService struct {
-	featurespb.UnimplementedBuildingServiceServer
-	ListCompletedBuildingsFunc    func(ctx context.Context, req *featurespb.ListCompletedBuildingsRequest) (*featurespb.ListCompletedBuildingsResponse, error)
-	GetBuildingsFunc              func(ctx context.Context, req *featurespb.GetBuildingsRequest) (*featurespb.BuildingsResponse, error)
-	UpdateBuildingFunc            func(ctx context.Context, req *featurespb.UpdateBuildingRequest) (*featurespb.BuildingResponse, error)
-	UpdateBuildingInformationFunc func(ctx context.Context, req *featurespb.UpdateBuildingInformationRequest) (*featurespb.UpdateBuildingInformationResponse, error)
-	DestroyBuildingFunc           func(ctx context.Context, req *featurespb.DestroyBuildingRequest) (*featurespb.BuildingResponse, error)
-}
-
-func (m *MockBuildingService) ListCompletedBuildings(ctx context.Context, req *featurespb.ListCompletedBuildingsRequest) (*featurespb.ListCompletedBuildingsResponse, error) {
-	if m.ListCompletedBuildingsFunc != nil {
-		return m.ListCompletedBuildingsFunc(ctx, req)
-	}
-	return &featurespb.ListCompletedBuildingsResponse{}, nil
-}
-
-func (m *MockBuildingService) GetBuildings(ctx context.Context, req *featurespb.GetBuildingsRequest) (*featurespb.BuildingsResponse, error) {
-	if m.GetBuildingsFunc != nil {
-		return m.GetBuildingsFunc(ctx, req)
-	}
-	return &featurespb.BuildingsResponse{}, nil
-}
-
-func (m *MockBuildingService) UpdateBuilding(ctx context.Context, req *featurespb.UpdateBuildingRequest) (*featurespb.BuildingResponse, error) {
-	if m.UpdateBuildingFunc != nil {
-		return m.UpdateBuildingFunc(ctx, req)
-	}
-	return &featurespb.BuildingResponse{Success: true}, nil
-}
-
-func (m *MockBuildingService) UpdateBuildingInformation(ctx context.Context, req *featurespb.UpdateBuildingInformationRequest) (*featurespb.UpdateBuildingInformationResponse, error) {
-	if m.UpdateBuildingInformationFunc != nil {
-		return m.UpdateBuildingInformationFunc(ctx, req)
-	}
-	return &featurespb.UpdateBuildingInformationResponse{}, nil
-}
-
-func (m *MockBuildingService) DestroyBuilding(ctx context.Context, req *featurespb.DestroyBuildingRequest) (*featurespb.BuildingResponse, error) {
-	if m.DestroyBuildingFunc != nil {
-		return m.DestroyBuildingFunc(ctx, req)
-	}
-	return &featurespb.BuildingResponse{Success: true}, nil
-}
-
-// DialFeaturesConn returns a client connection with features-service mocks registered.
-func DialFeaturesConn(feature *MockFeatureService, profit *MockFeatureProfitService) (*grpc.ClientConn, func()) {
-	return DialFeaturesConnWithBuilding(feature, profit, nil)
-}
-
-// DialFeaturesConnWithBuilding returns a client connection with feature, profit, and building mocks.
-func DialFeaturesConnWithBuilding(feature *MockFeatureService, profit *MockFeatureProfitService, building *MockBuildingService) (*grpc.ClientConn, func()) {
-	if feature == nil {
-		feature = &MockFeatureService{}
-	}
-	if profit == nil {
-		profit = &MockFeatureProfitService{}
-	}
-	if building == nil {
-		building = &MockBuildingService{}
-	}
-	return DialBufConn(func(s *grpc.Server) {
-		featurespb.RegisterFeatureServiceServer(s, feature)
-		featurespb.RegisterFeatureProfitServiceServer(s, profit)
-		featurespb.RegisterBuildingServiceServer(s, building)
-	})
 }
 
 // MockFollowService implements socialpb.FollowServiceServer for tests.

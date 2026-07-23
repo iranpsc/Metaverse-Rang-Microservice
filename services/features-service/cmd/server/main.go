@@ -15,9 +15,11 @@ import (
 	"metarang/features-service/internal/events"
 	"metarang/features-service/internal/handler"
 	"metarang/features-service/internal/metrics"
+	"metarang/features-service/internal/middleware"
 	"metarang/features-service/internal/repository"
 	"metarang/features-service/internal/service"
 	"metarang/features-service/pkg/threed_client"
+	authpb "metarang/shared/pb/auth"
 	pb "metarang/shared/pb/features"
 	"metarang/shared/pkg/auth"
 	"metarang/shared/pkg/db"
@@ -51,6 +53,7 @@ func main() {
 		getEnv("DB_DATABASE", "metarang_db"),
 	)
 	port := getEnv("GRPC_PORT", "50053")
+	httpPort := getEnv("HTTP_PORT", "8062")
 	metricsPort := getEnv("METRICS_PORT", "9090")
 	threeDMetaURL := getEnv("THREE_D_META_URL", "http://3d-meta-api")
 
@@ -258,8 +261,12 @@ func main() {
 
 	// Create token validator using auth service
 	var tokenValidator auth.TokenValidator
+	var authClient authpb.AuthServiceClient
+	var citizenClient authpb.CitizenServiceClient
 	if authConn != nil {
 		tokenValidator = auth.NewAuthServiceTokenValidator(authConn)
+		authClient = authpb.NewAuthServiceClient(authConn)
+		citizenClient = authpb.NewCitizenServiceClient(authConn)
 	}
 
 	// Create gRPC server with interceptors
@@ -316,6 +323,23 @@ func main() {
 	}
 
 	log.Info("Features Service started", "port", port, "metrics_port", metricsPort)
+
+	httpHandlers := handler.HTTPServerHandlers{
+		Features: handler.NewHTTPFeaturesHandler(featureHandler, marketplaceHandler, buildingHandler, authClient),
+		Profit:   handler.NewHTTPProfitHandler(profitHandler),
+		Maps:     handler.NewHTTPMapsHandler(mapHandler),
+		Isic:     handler.NewHTTPIsicCodesHandler(isicCodeHandler),
+	}
+	httpHandlers.CitizenFeatures = handler.NewHTTPCitizenFeaturesHandler(citizenFeaturesHandler, citizenClient)
+	httpHandlers.CitizenBuildings = handler.NewHTTPCitizenBuildingsHandler(citizenBuildingsHandler, httpHandlers.CitizenFeatures)
+	authMiddleware := middleware.AuthMiddleware(authClient)
+	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(authClient)
+	go func() {
+		log.Info("Features HTTP server started", "port", httpPort)
+		if err := handler.StartHTTPServer(httpHandlers, httpPort, authMiddleware, optionalAuthMiddleware); err != nil {
+			log.Fatal("Failed to serve HTTP", "error", err)
+		}
+	}()
 
 	go func() {
 		sigChan := make(chan os.Signal, 1)

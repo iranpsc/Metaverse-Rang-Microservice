@@ -36,8 +36,6 @@ spec:
           value: "auth-service:50051"
         - name: DYNASTY_SERVICE_ADDR
           value: "dynasty-service:50055"
-        - name: FEATURES_SERVICE_ADDR
-          value: "features-service:50053"
         - name: FINANCIAL_SERVICE_ADDR
           value: "financial-service:50062"
         - name: COMMERCIAL_SERVICE_ADDR
