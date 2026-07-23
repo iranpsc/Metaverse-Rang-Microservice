@@ -205,7 +205,11 @@ func (s *ProfitService) TransferProfitOnSale(ctx context.Context, featureID, sel
 	}
 
 	// Transfer profit record to new owner
-	if err := s.profitRepo.TransferProfitToNewOwner(ctx, featureID, sellerID, buyerID, withdrawProfitDays); err != nil {
+	asset := ""
+	if oldProfit != nil {
+		asset = oldProfit.Asset
+	}
+	if err := s.profitRepo.TransferProfitToNewOwner(ctx, featureID, sellerID, buyerID, asset, withdrawProfitDays); err != nil {
 		return fmt.Errorf("failed to transfer profit record: %w", err)
 	}
 

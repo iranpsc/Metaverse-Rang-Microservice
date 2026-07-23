@@ -210,15 +210,21 @@ func (s *MarketplaceService) handleLimitedFeature(ctx context.Context, feature *
 		s.metrics.RecordTrade("limited", 0, 0)
 	}
 
-	// Create hourly profit
+	// Assign hourly profit to buyer (reuses existing feature row if any)
 	withdrawProfitDays, err := s.getUserVariableWithdrawProfit(ctx, buyerID)
 	if err != nil {
 		withdrawProfitDays = 10
 	}
 
-	_, err = s.hourlyProfitRepo.Create(ctx, buyerID, feature.ID, color, withdrawProfitDays)
-	if err != nil {
-		s.log.Error("Failed to create hourly profit", "error", err)
+	oldProfit, _ := s.hourlyProfitRepo.GetByFeatureAndUser(ctx, feature.ID, feature.OwnerID)
+	if oldProfit != nil && oldProfit.Amount > 0 && s.commercialClient != nil {
+		if err := s.commercialClient.AddBalance(ctx, feature.OwnerID, oldProfit.Asset, oldProfit.Amount); err != nil {
+			s.log.Error("Failed to transfer profit to seller", "error", err)
+		}
+	}
+
+	if err := s.hourlyProfitRepo.TransferProfitToNewOwner(ctx, feature.ID, feature.OwnerID, buyerID, color, withdrawProfitDays); err != nil {
+		s.log.Error("Failed to transfer hourly profit", "error", err)
 	}
 
 	// Track limited feature purchase
@@ -312,15 +318,21 @@ func (s *MarketplaceService) buyFromRGB(ctx context.Context, feature *models.Fea
 		return err
 	}
 
-	// Create hourly profit
+	// Assign hourly profit to buyer (reuses existing feature row if any)
 	withdrawProfitDays, _ := s.getUserVariableWithdrawProfit(ctx, buyerID)
 	if withdrawProfitDays == 0 {
 		withdrawProfitDays = 10
 	}
 
-	_, err = s.hourlyProfitRepo.Create(ctx, buyerID, feature.ID, color, withdrawProfitDays)
-	if err != nil {
-		s.log.Error("Failed to create hourly profit", "error", err)
+	oldProfit, _ := s.hourlyProfitRepo.GetByFeatureAndUser(ctx, feature.ID, feature.OwnerID)
+	if oldProfit != nil && oldProfit.Amount > 0 && s.commercialClient != nil {
+		if err := s.commercialClient.AddBalance(ctx, feature.OwnerID, oldProfit.Asset, oldProfit.Amount); err != nil {
+			s.log.Error("Failed to transfer profit to seller", "error", err)
+		}
+	}
+
+	if err := s.hourlyProfitRepo.TransferProfitToNewOwner(ctx, feature.ID, feature.OwnerID, buyerID, color, withdrawProfitDays); err != nil {
+		s.log.Error("Failed to transfer hourly profit", "error", err)
 	}
 
 	// Record metrics
@@ -460,8 +472,7 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 	}
 
 	// Transfer profit to new owner
-	_ = constants.GetColor(properties.Karbari) // Color for potential future use
-	if err := s.hourlyProfitRepo.TransferProfitToNewOwner(ctx, feature.ID, feature.OwnerID, buyerID, withdrawProfitDays); err != nil {
+	if err := s.hourlyProfitRepo.TransferProfitToNewOwner(ctx, feature.ID, feature.OwnerID, buyerID, constants.GetColor(properties.Karbari), withdrawProfitDays); err != nil {
 		s.log.Error("Failed to transfer hourly profit", "error", err)
 	}
 
@@ -831,7 +842,7 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 		withdrawProfitDays = 10
 	}
 
-	if err := s.hourlyProfitRepo.TransferProfitToNewOwnerWithTx(ctx, tx, feature.ID, sellerID, buyRequest.BuyerID, withdrawProfitDays); err != nil {
+	if err := s.hourlyProfitRepo.TransferProfitToNewOwnerWithTx(ctx, tx, feature.ID, sellerID, buyRequest.BuyerID, constants.GetColor(properties.Karbari), withdrawProfitDays); err != nil {
 		return nil, fmt.Errorf("failed to transfer hourly profit: %w", err)
 	}
 

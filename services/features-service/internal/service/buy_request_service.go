@@ -222,7 +222,7 @@ func (s *BuyRequestService) AcceptBuyRequest(ctx context.Context, requestID, sel
 		_ = s.commercialClient.AddBalance(ctx, sellerID, oldProfit.Asset, oldProfit.Amount)
 	}
 
-	_ = s.hourlyProfitRepo.TransferProfitToNewOwner(ctx, feature.ID, sellerID, buyRequest.BuyerID, withdrawProfitDays)
+	_ = s.hourlyProfitRepo.TransferProfitToNewOwner(ctx, feature.ID, sellerID, buyRequest.BuyerID, constants.GetColor(properties.Karbari), withdrawProfitDays)
 
 	// Update request and delete locked asset
 	_ = s.buyRequestRepo.UpdateStatus(ctx, requestID, 1)

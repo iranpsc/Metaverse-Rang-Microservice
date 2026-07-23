@@ -18,12 +18,35 @@ func NewHourlyProfitRepository(db *sql.DB) *HourlyProfitRepository {
 	return &HourlyProfitRepository{db: db}
 }
 
-// Create creates an hourly profit record for a feature purchase
-// Implements Laravel's BuyFeatureController logic
+// Create ensures a single hourly profit record for the feature owned by userID.
+// If any rows already exist for feature_id, the latest is reassigned (amount reset)
+// and extras are deleted — never inserts a second row for the same feature.
 func (r *HourlyProfitRepository) Create(ctx context.Context, userID, featureID uint64, asset string, withdrawProfitDays int) (uint64, error) {
-	// Convert days to seconds
 	deadlineSeconds := withdrawProfitDays * 86400
 	deadline := time.Now().Add(time.Duration(deadlineSeconds) * time.Second)
+
+	var existingID uint64
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id FROM feature_hourly_profits WHERE feature_id = ? ORDER BY id DESC LIMIT 1`,
+		featureID,
+	).Scan(&existingID)
+	if err == nil {
+		if _, err := r.db.ExecContext(ctx,
+			`DELETE FROM feature_hourly_profits WHERE feature_id = ? AND id != ?`,
+			featureID, existingID,
+		); err != nil {
+			return 0, err
+		}
+		_, err = r.db.ExecContext(ctx, `
+			UPDATE feature_hourly_profits
+			SET user_id = ?, asset = ?, amount = 0, dead_line = ?, is_active = 1, updated_at = NOW()
+			WHERE id = ?
+		`, userID, asset, deadline, existingID)
+		return existingID, err
+	}
+	if err != sql.ErrNoRows {
+		return 0, err
+	}
 
 	query := `
 		INSERT INTO feature_hourly_profits (user_id, feature_id, asset, amount, dead_line, is_active, created_at, updated_at)
@@ -38,6 +61,17 @@ func (r *HourlyProfitRepository) Create(ctx context.Context, userID, featureID u
 	id, err := result.LastInsertId()
 	return uint64(id), err
 }
+
+// oneFeaturePropertyJoin picks a single feature_properties row per feature.
+// feature_properties.feature_id is not unique; a plain JOIN duplicates hourly profits.
+const oneFeaturePropertyJoin = `
+		LEFT JOIN feature_properties fp ON fp.id = (
+			SELECT fp2.id
+			FROM feature_properties fp2
+			WHERE fp2.feature_id = fhp.feature_id
+			ORDER BY fp2.id ASC
+			LIMIT 1
+		)`
 
 // FindByID retrieves a single profit record
 // Joins with feature_properties to get karbari and properties.id
@@ -59,8 +93,7 @@ func (r *HourlyProfitRepository) FindByID(ctx context.Context, id uint64) (*mode
 			fp.id as properties_id,
 			fp.karbari
 		FROM feature_hourly_profits fhp
-		INNER JOIN features f ON fhp.feature_id = f.id
-		LEFT JOIN feature_properties fp ON fhp.feature_id = fp.feature_id
+		INNER JOIN features f ON fhp.feature_id = f.id` + oneFeaturePropertyJoin + `
 		WHERE fhp.id = ?
 	`
 
@@ -75,7 +108,10 @@ func (r *HourlyProfitRepository) FindByID(ctx context.Context, id uint64) (*mode
 }
 
 // FindByUserID retrieves all profits for a user with pagination
-// Joins with feature_properties to get karbari and properties.id
+// Joins with feature_properties to get karbari and properties.id.
+// Guarantees one row per feature: the properties join is limited to a single
+// property row, and only the latest profit record per feature is returned
+// (orphaned duplicates can exist after ownership cycles).
 func (r *HourlyProfitRepository) FindByUserID(ctx context.Context, userID uint64, page, pageSize int32) ([]*models.FeatureHourlyProfit, bool, error) {
 	offset := (page - 1) * pageSize
 	limit := pageSize + 1
@@ -95,9 +131,14 @@ func (r *HourlyProfitRepository) FindByUserID(ctx context.Context, userID uint64
 			fp.id as properties_id,
 			fp.karbari
 		FROM feature_hourly_profits fhp
-		INNER JOIN features f ON fhp.feature_id = f.id
-		LEFT JOIN feature_properties fp ON fhp.feature_id = fp.feature_id
+		INNER JOIN features f ON fhp.feature_id = f.id` + oneFeaturePropertyJoin + `
 		WHERE fhp.user_id = ?
+		  AND fhp.id = (
+			SELECT MAX(fhp2.id)
+			FROM feature_hourly_profits fhp2
+			WHERE fhp2.user_id = fhp.user_id
+			  AND fhp2.feature_id = fhp.feature_id
+		  )
 		ORDER BY fhp.created_at DESC
 		LIMIT ? OFFSET ?
 	`
@@ -135,8 +176,20 @@ func (r *HourlyProfitRepository) GetTotalsByKarbari(ctx context.Context, userID 
 	query := `
 		SELECT fp.karbari, SUM(fhp.amount) as total
 		FROM feature_hourly_profits fhp
-		INNER JOIN feature_properties fp ON fhp.feature_id = fp.feature_id
+		INNER JOIN feature_properties fp ON fp.id = (
+			SELECT fp2.id
+			FROM feature_properties fp2
+			WHERE fp2.feature_id = fhp.feature_id
+			ORDER BY fp2.id ASC
+			LIMIT 1
+		)
 		WHERE fhp.user_id = ?
+		  AND fhp.id = (
+			SELECT MAX(fhp2.id)
+			FROM feature_hourly_profits fhp2
+			WHERE fhp2.user_id = fhp.user_id
+			  AND fhp2.feature_id = fhp.feature_id
+		  )
 		GROUP BY fp.karbari
 	`
 
@@ -246,63 +299,86 @@ func (r *HourlyProfitRepository) CalculateAndUpdateProfits(ctx context.Context) 
 	return updated, nil
 }
 
-// TransferProfitToNewOwner transfers profit to seller and resets for buyer
-// Implements Laravel's BuyFeatureController logic
-func (r *HourlyProfitRepository) TransferProfitToNewOwner(ctx context.Context, featureID, oldOwnerID, newOwnerID uint64, withdrawProfitDays int) error {
-	// Get existing profit for old owner
-	var profitID uint64
-	var amount float64
-	var asset string
+type profitExecer interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
 
-	query := "SELECT id, amount, asset FROM feature_hourly_profits WHERE feature_id = ? AND user_id = ?"
-	err := r.db.QueryRowContext(ctx, query, featureID, oldOwnerID).Scan(&profitID, &amount, &asset)
-	if err != nil {
-		// No existing profit found, just create new one
-		_, err := r.Create(ctx, newOwnerID, featureID, asset, withdrawProfitDays)
-		return err
-	}
-
-	// Update to new owner and reset
-	deadlineSeconds := withdrawProfitDays * 86400
-	newDeadline := time.Now().Add(time.Duration(deadlineSeconds) * time.Second)
-
-	updateQuery := `
-		UPDATE feature_hourly_profits
-		SET user_id = ?, amount = 0, dead_line = ?, is_active = 1, updated_at = NOW()
-		WHERE id = ?
-	`
-
-	_, err = r.db.ExecContext(ctx, updateQuery, newOwnerID, newDeadline, profitID)
-	return err
+// TransferProfitToNewOwner reassigns the feature's hourly profit to the buyer.
+// asset is used when creating a new row (or refreshing an orphaned one).
+// Guarantees a single profit row per feature_id.
+func (r *HourlyProfitRepository) TransferProfitToNewOwner(ctx context.Context, featureID, oldOwnerID, newOwnerID uint64, asset string, withdrawProfitDays int) error {
+	return r.transferProfitToNewOwner(ctx, r.db, featureID, oldOwnerID, newOwnerID, asset, withdrawProfitDays)
 }
 
 // TransferProfitToNewOwnerWithTx transfers profit within a transaction
-func (r *HourlyProfitRepository) TransferProfitToNewOwnerWithTx(ctx context.Context, tx *sql.Tx, featureID, oldOwnerID, newOwnerID uint64, withdrawProfitDays int) error {
-	// Get existing profit for old owner
-	var profitID uint64
-	var amount float64
-	var asset string
+func (r *HourlyProfitRepository) TransferProfitToNewOwnerWithTx(ctx context.Context, tx *sql.Tx, featureID, oldOwnerID, newOwnerID uint64, asset string, withdrawProfitDays int) error {
+	return r.transferProfitToNewOwner(ctx, tx, featureID, oldOwnerID, newOwnerID, asset, withdrawProfitDays)
+}
 
-	query := "SELECT id, amount, asset FROM feature_hourly_profits WHERE feature_id = ? AND user_id = ?"
-	err := tx.QueryRowContext(ctx, query, featureID, oldOwnerID).Scan(&profitID, &amount, &asset)
-	if err != nil {
-		// No existing profit found, just create new one (outside tx for now)
-		// This is a limitation - Create doesn't support transactions yet
-		_, err := r.Create(ctx, newOwnerID, featureID, asset, withdrawProfitDays)
-		return err
-	}
-
-	// Update to new owner and reset
+func (r *HourlyProfitRepository) transferProfitToNewOwner(
+	ctx context.Context,
+	ex profitExecer,
+	featureID, oldOwnerID, newOwnerID uint64,
+	asset string,
+	withdrawProfitDays int,
+) error {
 	deadlineSeconds := withdrawProfitDays * 86400
 	newDeadline := time.Now().Add(time.Duration(deadlineSeconds) * time.Second)
 
-	updateQuery := `
-		UPDATE feature_hourly_profits
-		SET user_id = ?, amount = 0, dead_line = ?, is_active = 1, updated_at = NOW()
-		WHERE id = ?
-	`
+	var profitID uint64
+	var existingAsset string
 
-	_, err = tx.ExecContext(ctx, updateQuery, newOwnerID, newDeadline, profitID)
+	// Prefer seller's row; otherwise take any existing row for this feature
+	err := ex.QueryRowContext(ctx,
+		`SELECT id, asset FROM feature_hourly_profits WHERE feature_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1`,
+		featureID, oldOwnerID,
+	).Scan(&profitID, &existingAsset)
+	if err == sql.ErrNoRows {
+		err = ex.QueryRowContext(ctx,
+			`SELECT id, asset FROM feature_hourly_profits WHERE feature_id = ? ORDER BY id DESC LIMIT 1`,
+			featureID,
+		).Scan(&profitID, &existingAsset)
+	} else if err != nil {
+		return err
+	}
+
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	if asset == "" {
+		asset = existingAsset
+	}
+
+	if err == sql.ErrNoRows {
+		result, err := ex.ExecContext(ctx, `
+			INSERT INTO feature_hourly_profits (user_id, feature_id, asset, amount, dead_line, is_active, created_at, updated_at)
+			VALUES (?, ?, ?, 0, ?, 1, NOW(), NOW())
+		`, newOwnerID, featureID, asset, newDeadline)
+		if err != nil {
+			return err
+		}
+		id, err := result.LastInsertId()
+		if err != nil {
+			return err
+		}
+		profitID = uint64(id)
+	} else {
+		if _, err := ex.ExecContext(ctx, `
+			UPDATE feature_hourly_profits
+			SET user_id = ?, asset = ?, amount = 0, dead_line = ?, is_active = 1, updated_at = NOW()
+			WHERE id = ?
+		`, newOwnerID, asset, newDeadline, profitID); err != nil {
+			return err
+		}
+	}
+
+	// Drop orphaned duplicates so each feature has at most one profit row
+	_, err = ex.ExecContext(ctx,
+		`DELETE FROM feature_hourly_profits WHERE feature_id = ? AND id != ?`,
+		featureID, profitID,
+	)
 	return err
 }
 
@@ -334,9 +410,14 @@ func (r *HourlyProfitRepository) GetAllByUserAndKarbari(ctx context.Context, use
 	query := `
 		SELECT fhp.id, fhp.user_id, fhp.feature_id, fhp.asset, fhp.amount, fhp.dead_line, fhp.is_active, fhp.created_at, fhp.updated_at
 		FROM feature_hourly_profits fhp
-		INNER JOIN features f ON fhp.feature_id = f.id
-		LEFT JOIN feature_properties fp ON fhp.feature_id = fp.feature_id
+		INNER JOIN features f ON fhp.feature_id = f.id` + oneFeaturePropertyJoin + `
 		WHERE fhp.user_id = ? AND fp.karbari = ?
+		  AND fhp.id = (
+			SELECT MAX(fhp2.id)
+			FROM feature_hourly_profits fhp2
+			WHERE fhp2.user_id = fhp.user_id
+			  AND fhp2.feature_id = fhp.feature_id
+		  )
 		ORDER BY fhp.id
 	`
 
