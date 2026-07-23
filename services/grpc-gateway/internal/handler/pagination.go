@@ -1,21 +1,11 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 )
-
-func writeFieldValidationError(w http.ResponseWriter, message string, errors map[string][]string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusUnprocessableEntity)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": message,
-		"errors":  errors,
-	})
-}
 
 func buildSimplePaginationLinks(r *http.Request, currentPage int32, hasMore bool) map[string]interface{} {
 	baseURL := requestBaseURL(r)
