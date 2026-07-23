@@ -1,39 +1,11 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 )
-
-// parsePointsFromQuery extracts bbox corner points from query parameters.
-// Supports Laravel-style points[0]=x,y&points[1]=..., points[]=..., repeated points, and JSON array in points.
-func parsePointsFromQuery(query url.Values) ([]string, bool) {
-	if indexed := parseIndexedQueryArray(query, "points"); len(indexed) >= 4 {
-		return indexed, true
-	}
-
-	if pts, ok := query["points[]"]; ok && len(pts) >= 4 {
-		return pts, true
-	}
-
-	if pts, ok := query["points"]; ok && len(pts) >= 4 {
-		return pts, true
-	}
-
-	if pointsParam := query.Get("points"); pointsParam != "" {
-		if strings.HasPrefix(pointsParam, "[") {
-			var points []string
-			if err := json.Unmarshal([]byte(pointsParam), &points); err == nil && len(points) >= 4 {
-				return points, true
-			}
-		}
-	}
-
-	return nil, false
-}
 
 // parseIndexedQueryArray collects values for keys like name[0], name[1], ...
 func parseIndexedQueryArray(query url.Values, name string) []string {
