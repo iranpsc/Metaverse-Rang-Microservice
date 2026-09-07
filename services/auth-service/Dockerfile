@@ -1,5 +1,5 @@
 # Multi-stage build for Auth Service
-FROM docker.arvancloud.ir/golang:1.25-alpine AS builder
+FROM docker.arvancloud.ir/golang:1.27-alpine AS builder
 
 ENV CGO_ENABLED=0
 
