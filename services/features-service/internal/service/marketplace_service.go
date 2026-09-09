@@ -712,7 +712,7 @@ func (s *MarketplaceService) SendBuyRequest(ctx context.Context, req *pb.SendBuy
 
 	s.sendBuyRequestNotification(ctx, client.BuyRequestNotifyInput{
 		UserID: buyerID, Role: "buyer", BuyRequestID: requestID,
-		FeatureID: featureID, PropertiesID: properties.ID, PricePSC: pricePSC, PriceIRR: priceIRR,
+		FeatureID: featureID, PropertiesID: properties.ID, PricePSC: buyerChargePSC, PriceIRR: buyerChargeIRR,
 	})
 	s.sendBuyRequestNotification(ctx, client.BuyRequestNotifyInput{
 		UserID: sellerID, Role: "seller", BuyRequestID: requestID,

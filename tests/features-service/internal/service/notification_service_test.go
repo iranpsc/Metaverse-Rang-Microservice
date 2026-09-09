@@ -189,8 +189,14 @@ func TestMarketplaceService_SendBuyRequest_NotifiesBuyerAndSeller(t *testing.T) 
 	assert.Equal(t, "BuyRequestNotification", notif.Calls[0].Type)
 	assert.Equal(t, uint64(2), notif.Calls[0].UserID)
 	assert.Equal(t, "buyer", notif.Calls[0].Data["type"])
+	assert.Equal(t, "525", notif.Calls[0].Data["price_psc"])
+	assert.Equal(t, "525", notif.Calls[0].Data["price_irr"])
+	assert.Contains(t, notif.Calls[0].Message, "525")
+	assert.Equal(t, "buy-land-request", notif.Calls[0].SMSTemplate)
 	assert.Equal(t, uint64(3), notif.Calls[1].UserID)
 	assert.Equal(t, "seller", notif.Calls[1].Data["type"])
+	assert.Equal(t, "500", notif.Calls[1].Data["price_psc"])
+	assert.Equal(t, "500", notif.Calls[1].Data["price_irr"])
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -342,6 +348,7 @@ func TestMarketplaceService_CreateSellRequest_SendsSellNotification(t *testing.T
 	assert.Equal(t, "SellRequestNotification", notif.Calls[0].Type)
 	assert.Equal(t, uint64(3), notif.Calls[0].UserID)
 	assert.Equal(t, "p1", notif.Calls[0].Data["properties_id"])
+	assert.Equal(t, "sell-land-request", notif.Calls[0].SMSTemplate)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
