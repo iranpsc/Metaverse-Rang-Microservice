@@ -72,7 +72,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(stdout, "Created: %s\n", created)
+		_, _ = fmt.Fprintf(stdout, "Created: %s\n", created)
 		return nil
 	case "up", "migrate", "rollback", "down", "reset", "refresh", "baseline", "install", "status":
 	default:
@@ -117,7 +117,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		if err := m.Store.Ensure(ctx); err != nil {
 			return err
 		}
-		fmt.Fprintln(stdout, "Migration table ready.")
+		_, _ = fmt.Fprintln(stdout, "Migration table ready.")
 		return nil
 	case "status":
 		rows, err := m.Status(ctx, files)
@@ -195,8 +195,8 @@ func defaultPath() string {
 
 func printStatus(w io.Writer, rows []migrate.StatusRow) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "Ran?\tBatch\tMigration")
-	fmt.Fprintln(tw, "----\t-----\t---------")
+	_, _ = fmt.Fprintln(tw, "Ran?\tBatch\tMigration")
+	_, _ = fmt.Fprintln(tw, "----\t-----\t---------")
 	for _, row := range rows {
 		ran := "Yes"
 		batch := strconv.Itoa(row.Batch)
@@ -204,7 +204,7 @@ func printStatus(w io.Writer, rows []migrate.StatusRow) {
 			ran = "No"
 			batch = ""
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", ran, batch, row.Name)
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\n", ran, batch, row.Name)
 	}
 	_ = tw.Flush()
 }
@@ -231,5 +231,5 @@ Database env: DB_HOST DB_PORT DB_USER DB_PASSWORD DB_DATABASE
 `
 
 func printUsage(w io.Writer) {
-	fmt.Fprint(w, usageText)
+	_, _ = fmt.Fprint(w, usageText)
 }

@@ -15,7 +15,6 @@ func (s *MarketplaceService) notifyContext(ctx context.Context) (context.Context
 }
 
 func (s *MarketplaceService) tradeNotifyTarget(ctx context.Context, userID uint64) (name string, sendSMS, sendEmail bool) {
-	sendEmail = true
 	if s.db == nil {
 		return "", false, true
 	}
