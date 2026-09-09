@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	pb "metarang/shared/pb/notifications"
+	"metarang/shared/pkg/helpers"
 
 	"metarang/notifications-service/internal/errs"
 	"metarang/notifications-service/internal/models"
@@ -38,13 +39,26 @@ func (h *EmailHandler) SendEmail(ctx context.Context, req *pb.SendEmailRequest) 
 		return nil, status.Error(codes.InvalidArgument, "either body or html_body is required")
 	}
 
+	to, err := helpers.ParseEmailAddress(req.To)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid to address")
+	}
+	cc, err := helpers.ParseEmailAddresses(req.Cc)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid cc address")
+	}
+	bcc, err := helpers.ParseEmailAddresses(req.Bcc)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid bcc address")
+	}
+
 	payload := models.EmailPayload{
-		To:       req.To,
+		To:       to,
 		Subject:  req.Subject,
 		Body:     req.Body,
 		HTMLBody: req.HtmlBody,
-		CC:       req.Cc,
-		BCC:      req.Bcc,
+		CC:       cc,
+		BCC:      bcc,
 	}
 
 	messageID, err := h.service.SendEmail(ctx, payload)
@@ -61,6 +75,9 @@ func (h *EmailHandler) SendEmail(ctx context.Context, req *pb.SendEmailRequest) 
 func handleEmailError(err error) error {
 	if errors.Is(err, errs.ErrNotImplemented) {
 		return status.Error(codes.Unimplemented, err.Error())
+	}
+	if errors.Is(err, helpers.ErrInvalidEmailAddress) {
+		return status.Error(codes.InvalidArgument, "invalid email address")
 	}
 	return status.Errorf(codes.Internal, "email service error: %v", err)
 }

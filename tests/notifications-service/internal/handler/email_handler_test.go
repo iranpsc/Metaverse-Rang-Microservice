@@ -45,6 +45,8 @@ func TestEmailHandler_SendEmail(t *testing.T) {
 		{"missing to", &pb.SendEmailRequest{Subject: "s", Body: "b"}},
 		{"missing subject", &pb.SendEmailRequest{To: "a@b.com", Body: "b"}},
 		{"missing body and html_body", &pb.SendEmailRequest{To: "a@b.com", Subject: "s"}},
+		{"invalid to injection", &pb.SendEmailRequest{To: "a@b.com\r\nBcc: evil@x.com", Subject: "s", Body: "b"}},
+		{"invalid cc injection", &pb.SendEmailRequest{To: "a@b.com", Subject: "s", Body: "b", Cc: []string{"cc@x.com\nBcc: evil@x.com"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := client.SendEmail(ctx, tc.req)

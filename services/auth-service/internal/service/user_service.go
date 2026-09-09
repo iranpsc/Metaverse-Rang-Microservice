@@ -3,12 +3,16 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 
 	"metarang/auth-service/internal/models"
 	"metarang/auth-service/internal/repository"
 	"metarang/shared/pkg/helpers"
 )
+
+var ErrInvalidEmail = errors.New("invalid email address")
 
 type UserService interface {
 	GetUser(ctx context.Context, userID uint64) (*models.User, error)
@@ -120,6 +124,13 @@ func (s *userService) UpdateProfile(ctx context.Context, userID uint64, name, em
 	}
 	if user == nil {
 		return nil, fmt.Errorf("user not found")
+	}
+
+	email = strings.TrimSpace(email)
+	if email != "" {
+		if _, err := helpers.ParseEmailAddress(email); err != nil {
+			return nil, ErrInvalidEmail
+		}
 	}
 
 	user.Name = name
