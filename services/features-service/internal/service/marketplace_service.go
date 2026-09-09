@@ -506,8 +506,8 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 			FeatureID:     feature.ID,
 			PropertiesID:  properties.ID,
 			IsRGBPurchase: false,
-			PSCAmount:     pricePSC,
-			IRRAmount:     priceIRR,
+			PSCAmount:     buyerChargePSC,
+			IRRAmount:     buyerChargeIRR,
 			BuyerName:     buyerName,
 			SellerName:    sellerName,
 		})
@@ -515,8 +515,8 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 			FeatureID:    feature.ID,
 			PropertiesID: properties.ID,
 			TradeID:      tradeID,
-			PSCAmount:    pricePSC,
-			IRRAmount:    priceIRR,
+			PSCAmount:    sellerPayPSC,
+			IRRAmount:    sellerPayIRR,
 			BuyerName:    buyerName,
 			SellerName:   sellerName,
 		})
@@ -899,12 +899,16 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 		}
 		buyerName := s.getUserName(ctx, buyRequest.BuyerID)
 		sellerName, _, _ := s.tradeNotifyTarget(ctx, sellerID)
+		buyerChargePSC := constants.CalculateBuyerCharge(pscAmount)
+		buyerChargeIRR := constants.CalculateBuyerCharge(irrAmount)
+		sellerPayPSC := constants.CalculateSellerPayment(pscAmount)
+		sellerPayIRR := constants.CalculateSellerPayment(irrAmount)
 		s.sendBuyFeatureNotification(ctx, buyRequest.BuyerID, client.BuyFeatureNotifyInput{
 			FeatureID:     buyRequest.FeatureID,
 			PropertiesID:  properties.ID,
 			IsRGBPurchase: false,
-			PSCAmount:     pscAmount,
-			IRRAmount:     irrAmount,
+			PSCAmount:     buyerChargePSC,
+			IRRAmount:     buyerChargeIRR,
 			BuyerName:     buyerName,
 			SellerName:    sellerName,
 		})
@@ -912,8 +916,8 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 			FeatureID:    buyRequest.FeatureID,
 			PropertiesID: properties.ID,
 			TradeID:      tradeID,
-			PSCAmount:    pscAmount,
-			IRRAmount:    irrAmount,
+			PSCAmount:    sellerPayPSC,
+			IRRAmount:    sellerPayIRR,
 			BuyerName:    buyerName,
 			SellerName:   sellerName,
 		})

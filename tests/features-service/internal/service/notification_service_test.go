@@ -130,11 +130,15 @@ func TestMarketplaceService_BuyFeature_UserToUser_NotifiesBuyerAndSeller(t *test
 	assert.Equal(t, "BuyFeatureNotification", notif.Calls[0].Type)
 	assert.Equal(t, uint64(2), notif.Calls[0].UserID)
 	assert.Equal(t, "user", notif.Calls[0].Data["purchase_type"])
+	assert.Equal(t, "105", notif.Calls[0].Data["psc_amount"])
+	assert.Equal(t, "105", notif.Calls[0].Data["irr_amount"])
 	assert.Equal(t, "sellFeature", notif.Calls[1].Type)
 	assert.Equal(t, uint64(5), notif.Calls[1].UserID)
 	assert.Equal(t, "transactions", notif.Calls[1].Data["related-to"])
 	assert.Equal(t, "sell-land-metarang", notif.Calls[1].SMSTemplate)
 	assert.Contains(t, notif.Calls[1].Message, "واریز شد")
+	assert.Contains(t, notif.Calls[1].Message, "95 psc")
+	assert.Contains(t, notif.Calls[1].Message, "95")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -289,9 +293,13 @@ func TestMarketplaceService_AcceptBuyRequest_NotifiesBuyerAndSeller(t *testing.T
 	assert.Equal(t, "BuyFeatureNotification", notif.Calls[0].Type)
 	assert.Equal(t, uint64(2), notif.Calls[0].UserID)
 	assert.Equal(t, "user", notif.Calls[0].Data["purchase_type"])
+	assert.Equal(t, "105", notif.Calls[0].Data["psc_amount"])
+	assert.Equal(t, "105", notif.Calls[0].Data["irr_amount"])
 	assert.Equal(t, "sellFeature", notif.Calls[1].Type)
 	assert.Equal(t, uint64(3), notif.Calls[1].UserID)
 	assert.Equal(t, "7", notif.Calls[1].Data["trade_id"])
+	assert.Contains(t, notif.Calls[1].Message, "95 psc")
+	assert.Contains(t, notif.Calls[1].Message, "95")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
