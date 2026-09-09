@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"mime"
@@ -12,6 +13,7 @@ import (
 
 	"metarang/notifications-service/internal/errs"
 	"metarang/notifications-service/internal/models"
+	"metarang/shared/pkg/helpers"
 )
 
 type noopEmailChannel struct{}
@@ -71,6 +73,20 @@ func (c *smtpEmailChannel) SendEmail(ctx context.Context, payload models.EmailPa
 		from = fromAddr.String()
 	}
 
+	to, err := helpers.ParseEmailAddress(payload.To)
+	if err != nil {
+		return "", fmt.Errorf("invalid email recipient: %w", err)
+	}
+
+	ccRecipients, err := parseEmailRecipientList(payload.CC)
+	if err != nil {
+		return "", fmt.Errorf("invalid cc recipient: %w", err)
+	}
+	bccRecipients, err := parseEmailRecipientList(payload.BCC)
+	if err != nil {
+		return "", fmt.Errorf("invalid bcc recipient: %w", err)
+	}
+
 	contentType := "text/plain; charset=UTF-8"
 	body := payload.Body
 	if payload.HTMLBody != "" {
@@ -80,11 +96,9 @@ func (c *smtpEmailChannel) SendEmail(ctx context.Context, payload models.EmailPa
 
 	msg := strings.Builder{}
 	msg.WriteString("From: " + from + "\r\n")
-	msg.WriteString("To: " + payload.To + "\r\n")
-	for _, cc := range payload.CC {
-		if cc != "" {
-			msg.WriteString("Cc: " + cc + "\r\n")
-		}
+	msg.WriteString("To: " + formatEmailHeaderAddress(to) + "\r\n")
+	for _, cc := range ccRecipients {
+		msg.WriteString("Cc: " + formatEmailHeaderAddress(cc) + "\r\n")
 	}
 	msg.WriteString("Subject: " + mime.QEncoding.Encode("UTF-8", payload.Subject) + "\r\n")
 	msg.WriteString("MIME-Version: 1.0\r\n")
@@ -92,9 +106,9 @@ func (c *smtpEmailChannel) SendEmail(ctx context.Context, payload models.EmailPa
 	msg.WriteString("\r\n")
 	msg.WriteString(body)
 
-	recipients := []string{payload.To}
-	recipients = append(recipients, payload.CC...)
-	recipients = append(recipients, payload.BCC...)
+	recipients := []string{to}
+	recipients = append(recipients, ccRecipients...)
+	recipients = append(recipients, bccRecipients...)
 
 	addr := net.JoinHostPort(c.cfg.Host, c.cfg.Port)
 	var auth smtp.Auth
@@ -106,4 +120,30 @@ func (c *smtpEmailChannel) SendEmail(ctx context.Context, payload models.EmailPa
 		return "", fmt.Errorf("smtp send failed: %w", err)
 	}
 	return addr, nil
+}
+
+func formatEmailHeaderAddress(address string) string {
+	return (&mail.Address{Address: address}).String()
+}
+
+func parseEmailRecipientList(addresses []string) ([]string, error) {
+	if len(addresses) == 0 {
+		return nil, nil
+	}
+	parsed := make([]string, 0, len(addresses))
+	for _, raw := range addresses {
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		addr, err := helpers.ParseEmailAddress(raw)
+		if err != nil {
+			return nil, err
+		}
+		parsed = append(parsed, addr)
+	}
+	return parsed, nil
+}
+
+func IsInvalidEmailAddress(err error) bool {
+	return errors.Is(err, helpers.ErrInvalidEmailAddress)
 }

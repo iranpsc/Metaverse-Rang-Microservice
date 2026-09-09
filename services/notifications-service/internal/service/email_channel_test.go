@@ -88,6 +88,27 @@ func TestSMTPEmailChannel_Validation(t *testing.T) {
 	}
 }
 
+func TestSMTPEmailChannel_RejectsHeaderInjection(t *testing.T) {
+	ch := &smtpEmailChannel{
+		cfg: EmailChannelConfig{FromEmail: "from@example.com", Host: "h", Port: "25"},
+		send: func(string, smtp.Auth, string, []string, []byte) error {
+			t.Fatal("send should not be called for invalid recipients")
+			return nil
+		},
+	}
+
+	cases := []models.EmailPayload{
+		{To: "user@example.com\nCc: attacker@evil.com", Subject: "s", Body: "b"},
+		{To: "user@example.com", Subject: "s", Body: "b", CC: []string{"cc@example.com\r\nBcc: attacker@evil.com"}},
+		{To: "user@example.com", Subject: "s", Body: "b", BCC: []string{"bcc@example.com\nTo: attacker@evil.com"}},
+	}
+	for _, payload := range cases {
+		if _, err := ch.SendEmail(context.Background(), payload); err == nil {
+			t.Fatalf("expected rejection for payload to=%q cc=%v bcc=%v", payload.To, payload.CC, payload.BCC)
+		}
+	}
+}
+
 func TestNewEmailChannelFromConfig_DefaultPort(t *testing.T) {
 	ch := NewEmailChannelFromConfig(EmailChannelConfig{Host: "smtp.example.com", FromEmail: "from@example.com"})
 	smtpCh, ok := ch.(*smtpEmailChannel)
