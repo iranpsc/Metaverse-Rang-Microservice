@@ -41,10 +41,22 @@ fi
 if [ "${#PROFILES[@]}" -eq 1 ]; then
   cp "${PROFILES[0]}" "$OUTPUT"
 else
-  if ! command -v gocovmerge >/dev/null 2>&1; then
-    go install github.com/wadey/gocovmerge@latest
+  GOCOVMERGE="$(command -v gocovmerge 2>/dev/null || true)"
+  if [ -z "$GOCOVMERGE" ]; then
+    # gocovmerge has no go.mod; @latest pulls golang.org/x/tools v0.50+ which
+    # requires Go 1.26 while CI uses the version from each service go.mod (1.25.x).
+    GOCOVMERGE_DIR="$(mktemp -d)"
+    GOCOVMERGE="$(go env GOPATH)/bin/gocovmerge"
+    (
+      cd "$GOCOVMERGE_DIR"
+      # Isolate from repo go.work; otherwise go build cannot resolve gocovmerge.
+      GOWORK=off go mod init gocovmerge-install
+      GOWORK=off go get github.com/wadey/gocovmerge@v0.0.0-20160331181800-b5bfa59ec0ad golang.org/x/tools@v0.29.0
+      GOWORK=off go build -mod=readonly -o "$GOCOVMERGE" github.com/wadey/gocovmerge
+    )
+    rm -rf "$GOCOVMERGE_DIR"
   fi
-  gocovmerge "${PROFILES[@]}" > "$OUTPUT"
+  "$GOCOVMERGE" "${PROFILES[@]}" > "$OUTPUT"
 fi
 
 TOTAL_LINE="$(go tool cover -func="$OUTPUT" | tail -1)"
