@@ -107,7 +107,7 @@ func TestNotificationClient_SendSellRequestNotification(t *testing.T) {
 	assert.Equal(t, "SellRequestNotification", stub.Calls[0].Type)
 	assert.Equal(t, "p1", stub.Calls[0].Data["properties_id"])
 	assert.Equal(t, "sell-requests", stub.Calls[0].Data["related-to"])
-	assert.Equal(t, "sell-land-metarang", stub.Calls[0].SMSTemplate)
+	assert.Equal(t, "sell-land-request", stub.Calls[0].SMSTemplate)
 	assert.Equal(t, "p1", stub.Calls[0].SMSTokens["token"])
 	assert.True(t, stub.Calls[0].SendSMS)
 	assert.True(t, stub.Calls[0].SendEmail)

@@ -19,7 +19,7 @@ const (
 	smsTemplateBuyFeature  = "buy-land-metarang"
 	smsTemplateSellFeature = "sell-land-metarang"
 	smsTemplateBuyRequest  = "buy-land-request"
-	smsTemplateSellRequest = "sell-land-metarang"
+	smsTemplateSellRequest = "sell-land-request"
 
 	senderName     = "متارنگ"
 	senderImageRel = "uploads/img/logo.png"
