@@ -128,6 +128,7 @@ func buildFamilyMembersHTTPResponse(resp *dynastypb.FamilyResponse) []map[string
 		if member.UserInfo != nil {
 			item["id"] = member.UserInfo.Id
 			item["code"] = member.UserInfo.Code
+			item["level"] = member.UserInfo.Level
 			if member.UserInfo.ProfilePhoto != "" {
 				item["profile_photo"] = member.UserInfo.ProfilePhoto
 			}
@@ -175,6 +176,7 @@ func buildSentJoinRequestHTTP(req *dynastypb.JoinRequestResponse) map[string]int
 		"id":           req.Id,
 		"status":       req.Status,
 		"relationship": relationshipTitle(req.Relationship),
+		"message":      req.Message,
 		"date":         date,
 		"time":         timeValue,
 	}
@@ -200,6 +202,7 @@ func buildReceivedJoinRequestHTTP(req *dynastypb.JoinRequestResponse) map[string
 		"id":           req.Id,
 		"status":       req.Status,
 		"relationship": relationshipTitle(req.Relationship),
+		"message":      req.Message,
 		"date":         date,
 		"time":         timeValue,
 	}

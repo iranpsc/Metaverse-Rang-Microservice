@@ -31,6 +31,8 @@ type SendNotificationRequest struct {
 	Data          map[string]string      `protobuf:"bytes,5,rep,name=data,proto3" json:"data,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	SendSms       bool                   `protobuf:"varint,6,opt,name=send_sms,json=sendSms,proto3" json:"send_sms,omitempty"`
 	SendEmail     bool                   `protobuf:"varint,7,opt,name=send_email,json=sendEmail,proto3" json:"send_email,omitempty"`
+	SmsTemplate   string                 `protobuf:"bytes,8,opt,name=sms_template,json=smsTemplate,proto3" json:"sms_template,omitempty"`                                                                     // Kavenegar verifyLookup template name
+	SmsTokens     map[string]string      `protobuf:"bytes,9,rep,name=sms_tokens,json=smsTokens,proto3" json:"sms_tokens,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // token, token2, token3, token10, token20, ...
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -112,6 +114,20 @@ func (x *SendNotificationRequest) GetSendEmail() bool {
 		return x.SendEmail
 	}
 	return false
+}
+
+func (x *SendNotificationRequest) GetSmsTemplate() string {
+	if x != nil {
+		return x.SmsTemplate
+	}
+	return ""
+}
+
+func (x *SendNotificationRequest) GetSmsTokens() map[string]string {
+	if x != nil {
+		return x.SmsTokens
+	}
+	return nil
 }
 
 type NotificationResponse struct {
@@ -846,7 +862,7 @@ var File_notifications_proto protoreflect.FileDescriptor
 
 const file_notifications_proto_rawDesc = "" +
 	"\n" +
-	"\x13notifications.proto\x12\rnotifications\x1a\fcommon.proto\"\xaf\x02\n" +
+	"\x13notifications.proto\x12\rnotifications\x1a\fcommon.proto\"\xe6\x03\n" +
 	"\x17SendNotificationRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x14\n" +
@@ -855,8 +871,14 @@ const file_notifications_proto_rawDesc = "" +
 	"\x04data\x18\x05 \x03(\v20.notifications.SendNotificationRequest.DataEntryR\x04data\x12\x19\n" +
 	"\bsend_sms\x18\x06 \x01(\bR\asendSms\x12\x1d\n" +
 	"\n" +
-	"send_email\x18\a \x01(\bR\tsendEmail\x1a7\n" +
+	"send_email\x18\a \x01(\bR\tsendEmail\x12!\n" +
+	"\fsms_template\x18\b \x01(\tR\vsmsTemplate\x12T\n" +
+	"\n" +
+	"sms_tokens\x18\t \x03(\v25.notifications.SendNotificationRequest.SmsTokensEntryR\tsmsTokens\x1a7\n" +
 	"\tDataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a<\n" +
+	"\x0eSmsTokensEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\":\n" +
 	"\x14NotificationResponse\x12\x0e\n" +
@@ -948,7 +970,7 @@ func file_notifications_proto_rawDescGZIP() []byte {
 	return file_notifications_proto_rawDescData
 }
 
-var file_notifications_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_notifications_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_notifications_proto_goTypes = []any{
 	(*SendNotificationRequest)(nil),  // 0: notifications.SendNotificationRequest
 	(*NotificationResponse)(nil),     // 1: notifications.NotificationResponse
@@ -964,40 +986,42 @@ var file_notifications_proto_goTypes = []any{
 	(*SendEmailRequest)(nil),         // 11: notifications.SendEmailRequest
 	(*EmailResponse)(nil),            // 12: notifications.EmailResponse
 	nil,                              // 13: notifications.SendNotificationRequest.DataEntry
-	nil,                              // 14: notifications.Notification.DataEntry
-	nil,                              // 15: notifications.SendSMSRequest.TokensEntry
-	(*common.PaginationRequest)(nil), // 16: common.PaginationRequest
-	(*common.PaginationMeta)(nil),    // 17: common.PaginationMeta
-	(*common.Empty)(nil),             // 18: common.Empty
+	nil,                              // 14: notifications.SendNotificationRequest.SmsTokensEntry
+	nil,                              // 15: notifications.Notification.DataEntry
+	nil,                              // 16: notifications.SendSMSRequest.TokensEntry
+	(*common.PaginationRequest)(nil), // 17: common.PaginationRequest
+	(*common.PaginationMeta)(nil),    // 18: common.PaginationMeta
+	(*common.Empty)(nil),             // 19: common.Empty
 }
 var file_notifications_proto_depIdxs = []int32{
 	13, // 0: notifications.SendNotificationRequest.data:type_name -> notifications.SendNotificationRequest.DataEntry
-	16, // 1: notifications.GetNotificationsRequest.pagination:type_name -> common.PaginationRequest
-	5,  // 2: notifications.NotificationsResponse.notifications:type_name -> notifications.Notification
-	17, // 3: notifications.NotificationsResponse.pagination:type_name -> common.PaginationMeta
-	14, // 4: notifications.Notification.data:type_name -> notifications.Notification.DataEntry
-	15, // 5: notifications.SendSMSRequest.tokens:type_name -> notifications.SendSMSRequest.TokensEntry
-	0,  // 6: notifications.NotificationService.SendNotification:input_type -> notifications.SendNotificationRequest
-	2,  // 7: notifications.NotificationService.GetNotifications:input_type -> notifications.GetNotificationsRequest
-	3,  // 8: notifications.NotificationService.GetNotification:input_type -> notifications.GetNotificationRequest
-	6,  // 9: notifications.NotificationService.MarkAsRead:input_type -> notifications.MarkAsReadRequest
-	7,  // 10: notifications.NotificationService.MarkAllAsRead:input_type -> notifications.MarkAllAsReadRequest
-	8,  // 11: notifications.SMSService.SendSMS:input_type -> notifications.SendSMSRequest
-	10, // 12: notifications.SMSService.SendOTP:input_type -> notifications.SendOTPRequest
-	11, // 13: notifications.EmailService.SendEmail:input_type -> notifications.SendEmailRequest
-	1,  // 14: notifications.NotificationService.SendNotification:output_type -> notifications.NotificationResponse
-	4,  // 15: notifications.NotificationService.GetNotifications:output_type -> notifications.NotificationsResponse
-	5,  // 16: notifications.NotificationService.GetNotification:output_type -> notifications.Notification
-	18, // 17: notifications.NotificationService.MarkAsRead:output_type -> common.Empty
-	18, // 18: notifications.NotificationService.MarkAllAsRead:output_type -> common.Empty
-	9,  // 19: notifications.SMSService.SendSMS:output_type -> notifications.SMSResponse
-	9,  // 20: notifications.SMSService.SendOTP:output_type -> notifications.SMSResponse
-	12, // 21: notifications.EmailService.SendEmail:output_type -> notifications.EmailResponse
-	14, // [14:22] is the sub-list for method output_type
-	6,  // [6:14] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	14, // 1: notifications.SendNotificationRequest.sms_tokens:type_name -> notifications.SendNotificationRequest.SmsTokensEntry
+	17, // 2: notifications.GetNotificationsRequest.pagination:type_name -> common.PaginationRequest
+	5,  // 3: notifications.NotificationsResponse.notifications:type_name -> notifications.Notification
+	18, // 4: notifications.NotificationsResponse.pagination:type_name -> common.PaginationMeta
+	15, // 5: notifications.Notification.data:type_name -> notifications.Notification.DataEntry
+	16, // 6: notifications.SendSMSRequest.tokens:type_name -> notifications.SendSMSRequest.TokensEntry
+	0,  // 7: notifications.NotificationService.SendNotification:input_type -> notifications.SendNotificationRequest
+	2,  // 8: notifications.NotificationService.GetNotifications:input_type -> notifications.GetNotificationsRequest
+	3,  // 9: notifications.NotificationService.GetNotification:input_type -> notifications.GetNotificationRequest
+	6,  // 10: notifications.NotificationService.MarkAsRead:input_type -> notifications.MarkAsReadRequest
+	7,  // 11: notifications.NotificationService.MarkAllAsRead:input_type -> notifications.MarkAllAsReadRequest
+	8,  // 12: notifications.SMSService.SendSMS:input_type -> notifications.SendSMSRequest
+	10, // 13: notifications.SMSService.SendOTP:input_type -> notifications.SendOTPRequest
+	11, // 14: notifications.EmailService.SendEmail:input_type -> notifications.SendEmailRequest
+	1,  // 15: notifications.NotificationService.SendNotification:output_type -> notifications.NotificationResponse
+	4,  // 16: notifications.NotificationService.GetNotifications:output_type -> notifications.NotificationsResponse
+	5,  // 17: notifications.NotificationService.GetNotification:output_type -> notifications.Notification
+	19, // 18: notifications.NotificationService.MarkAsRead:output_type -> common.Empty
+	19, // 19: notifications.NotificationService.MarkAllAsRead:output_type -> common.Empty
+	9,  // 20: notifications.SMSService.SendSMS:output_type -> notifications.SMSResponse
+	9,  // 21: notifications.SMSService.SendOTP:output_type -> notifications.SMSResponse
+	12, // 22: notifications.EmailService.SendEmail:output_type -> notifications.EmailResponse
+	15, // [15:23] is the sub-list for method output_type
+	7,  // [7:15] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_notifications_proto_init() }
@@ -1011,7 +1035,7 @@ func file_notifications_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_notifications_proto_rawDesc), len(file_notifications_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

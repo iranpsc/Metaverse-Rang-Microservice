@@ -100,10 +100,11 @@ type DynastyMessage struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// UserBasic holds basic user info for join requests.
+// UserBasic holds basic user info for join requests and family members.
 type UserBasic struct {
 	ID           uint64
 	Code         string
 	Name         string
 	ProfilePhoto *string
+	Level        string
 }

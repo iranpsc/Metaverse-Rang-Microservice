@@ -48,6 +48,7 @@ func TestFormatSentAndReceivedRequest(t *testing.T) {
 	sent := formatter.FormatSentRequest(req, user, prize)
 	require.NotNil(t, sent)
 	assert.Equal(t, uint64(1), sent.ID)
+	assert.Equal(t, "hello", sent.Message)
 	require.NotNil(t, sent.Prize)
 	assert.Equal(t, 10, sent.Prize.PSC)
 

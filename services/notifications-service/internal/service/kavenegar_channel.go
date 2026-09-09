@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"metarang/notifications-service/internal/models"
 
@@ -31,9 +32,9 @@ func NewKavenegarSMSChannel(apiKey, sender string) SMSChannel {
 	}
 }
 
-func (c *kavenegarSMSChannel) verifyLookup(receptor, template, token string) (kavenegar.Message, error) {
+func (c *kavenegarSMSChannel) verifyLookup(receptor, template, token string, params *kavenegar.VerifyLookupParam) (kavenegar.Message, error) {
 	// Pass nil for params so the SDK does not add empty Token2/Token3/Type fields.
-	return c.api.Verify.Lookup(receptor, template, token, nil)
+	return c.api.Verify.Lookup(receptor, template, token, params)
 }
 
 func (c *kavenegarSMSChannel) SendSMS(ctx context.Context, payload models.SMSPayload) (string, error) {
@@ -43,7 +44,7 @@ func (c *kavenegarSMSChannel) SendSMS(ctx context.Context, payload models.SMSPay
 
 	if payload.Template != "" {
 		token := extractTemplateToken(payload.Tokens)
-		res, err := c.verifyLookup(payload.Phone, payload.Template, token)
+		res, err := c.verifyLookup(payload.Phone, payload.Template, token, buildVerifyLookupParam(payload.Tokens))
 		if err != nil {
 			return "", mapKavenegarError(err)
 		}
@@ -74,7 +75,7 @@ func (c *kavenegarSMSChannel) SendOTP(ctx context.Context, payload models.OTPPay
 		return "", fmt.Errorf("OTP code is required")
 	}
 
-	res, err := c.verifyLookup(payload.Phone, kavenegarOTPTemplate, payload.Code)
+	res, err := c.verifyLookup(payload.Phone, kavenegarOTPTemplate, payload.Code, nil)
 	if err != nil {
 		return "", mapKavenegarError(err)
 	}
@@ -93,6 +94,38 @@ func extractTemplateToken(tokens map[string]string) string {
 		return val
 	}
 	return ""
+}
+
+// buildVerifyLookupParam maps Laravel verifyLookup tokens onto the Kavenegar SDK param.
+// Empty extra tokens return nil so the SDK does not send blank Token2/Token3/Type fields.
+func buildVerifyLookupParam(tokens map[string]string) *kavenegar.VerifyLookupParam {
+	if tokens == nil {
+		return nil
+	}
+	params := &kavenegar.VerifyLookupParam{}
+	has := false
+	if v := strings.TrimSpace(tokens["token2"]); v != "" {
+		params.Token2 = v
+		has = true
+	}
+	if v := strings.TrimSpace(tokens["token3"]); v != "" {
+		params.Token3 = v
+		has = true
+	}
+	extra := map[string]string{}
+	for _, key := range []string{"token10", "token20"} {
+		if v := strings.TrimSpace(tokens[key]); v != "" {
+			extra[key] = v
+			has = true
+		}
+	}
+	if len(extra) > 0 {
+		params.Tokens = extra
+	}
+	if !has {
+		return nil
+	}
+	return params
 }
 
 func mapKavenegarError(err error) error {

@@ -14,6 +14,7 @@ import (
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/repository"
 	"metarang/dynasty-service/internal/service"
+	"metarang/dynasty-service/internal/validation"
 )
 
 func newJoinRequestService(t *testing.T, notif service.NotificationPort, prizeRepo *repository.PrizeRepository) (sqlmock.Sqlmock, *sql.DB, *service.JoinRequestService) {
@@ -29,10 +30,56 @@ func newJoinRequestService(t *testing.T, notif service.NotificationPort, prizeRe
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		prizeRepo,
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"",
 	)
 	return mock, db, svc
+}
+
+func expectSendJoinRequestRules(mock sqlmock.Sqlmock, fromUser, toUser uint64, relationship string) {
+	expectSendJoinRequestRulesWithSender(mock, fromUser, toUser, relationship, false, true)
+}
+
+func expectSendJoinRequestRulesWithSender(mock sqlmock.Sqlmock, fromUser, toUser uint64, relationship string, senderUnder18, hasDM bool) {
+	mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+		WithArgs(fromUser).
+		WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(senderUnder18))
+	if senderUnder18 {
+		mock.ExpectQuery("SELECT verified AND DM").
+			WithArgs(fromUser).
+			WillReturnRows(sqlmock.NewRows([]string{"has_permission"}).AddRow(hasDM))
+	}
+	if senderUnder18 && !hasDM {
+		return
+	}
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(fromUser).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(fromUser, toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(fromUser, toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	now := time.Now()
+	mock.ExpectQuery("SELECT id, user_id, feature_id").
+		WithArgs(fromUser).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
+			AddRow(uint64(1), fromUser, uint64(100), now, now))
+	mock.ExpectQuery("SELECT id, dynasty_id").
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}).
+			AddRow(uint64(1), uint64(1), now, now))
+	switch relationship {
+	case "father", "mother", "husband", "wife", "offspring":
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members`).
+			WithArgs(uint64(1), relationship).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	}
 }
 
 func joinRequestRow(id, fromUser, toUser uint64, relationship string, now time.Time) *sqlmock.Rows {
@@ -44,8 +91,146 @@ func TestJoinRequestService_SendJoinRequest_ValidationAndErrors(t *testing.T) {
 	ctx := context.Background()
 	perms := &models.ChildPermission{BFR: true}
 
+	t.Run("InvalidRelationship", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		_, err := svc.SendJoinRequest(ctx, 1, 2, "cousin", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "نوع رابطه نامعتبر است")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("CannotAddSelf", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
+		_, err := svc.SendJoinRequest(ctx, 1, 1, "brother", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "خودتان")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("SenderHasNoDynasty", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		_, err := svc.SendJoinRequest(ctx, 1, 2, "brother", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "سلسله")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("DuplicatePendingRequest", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1), uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		_, err := svc.SendJoinRequest(ctx, 1, 2, "brother", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "ارسال")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("PreviouslyRejectedRequest", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1), uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1), uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		_, err := svc.SendJoinRequest(ctx, 1, 2, "brother", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "رد")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("ReceiverAlreadyInFamily", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1), uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1), uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		_, err := svc.SendJoinRequest(ctx, 1, 2, "brother", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "اضافه")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("Under18SenderWithoutDM", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		expectSendJoinRequestRulesWithSender(mock, 1, 2, "brother", true, false)
+		_, err := svc.SendJoinRequest(ctx, 1, 2, "brother", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "مجاز به مدیریت")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("RelationshipLimitExceeded", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1), uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(1), uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT EXISTS").
+			WithArgs(uint64(2)).
+			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		now := time.Now()
+		mock.ExpectQuery("SELECT id, user_id, feature_id").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
+				AddRow(uint64(1), uint64(1), uint64(100), now, now))
+		mock.ExpectQuery("SELECT id, dynasty_id").
+			WithArgs(uint64(1)).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}).
+				AddRow(uint64(1), uint64(1), now, now))
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members`).
+			WithArgs(uint64(1), "father").
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+		_, err := svc.SendJoinRequest(ctx, 1, 2, "father", nil, nil)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "پدر")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
 	t.Run("OffspringOver18Rejected", func(t *testing.T) {
 		mock, _, svc := newJoinRequestService(t, nil, nil)
+		expectSendJoinRequestRules(mock, 1, 2, "offspring")
 		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
 			WithArgs(uint64(2)).
 			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
@@ -58,7 +243,7 @@ func TestJoinRequestService_SendJoinRequest_ValidationAndErrors(t *testing.T) {
 	t.Run("CheckAgeError", func(t *testing.T) {
 		mock, _, svc := newJoinRequestService(t, nil, nil)
 		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
-			WithArgs(uint64(2)).
+			WithArgs(uint64(1)).
 			WillReturnError(errors.New("age query failed"))
 		_, err := svc.SendJoinRequest(ctx, 1, 2, "offspring", nil, perms)
 		assert.Error(t, err)
@@ -68,8 +253,9 @@ func TestJoinRequestService_SendJoinRequest_ValidationAndErrors(t *testing.T) {
 
 	t.Run("DynastyMessageError", func(t *testing.T) {
 		mock, _, svc := newJoinRequestService(t, nil, nil)
+		expectSendJoinRequestRules(mock, 1, 2, "brother")
 		mock.ExpectQuery("SELECT message FROM dynasty_messages").
-			WithArgs("receiver_message").
+			WithArgs("reciever_message").
 			WillReturnError(errors.New("msg failed"))
 		_, err := svc.SendJoinRequest(ctx, 1, 2, "brother", nil, nil)
 		assert.Error(t, err)
@@ -79,9 +265,12 @@ func TestJoinRequestService_SendJoinRequest_ValidationAndErrors(t *testing.T) {
 
 	t.Run("CreateJoinRequestError", func(t *testing.T) {
 		mock, _, svc := newJoinRequestService(t, nil, nil)
+		expectSendJoinRequestRules(mock, 1, 2, "brother")
 		mock.ExpectQuery("SELECT message FROM dynasty_messages").
-			WithArgs("receiver_message").
+			WithArgs("reciever_message").
 			WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("tmpl"))
+		expectUserBasicInfo(mock, 1, "S1", "Sender")
+		expectUserBasicInfo(mock, 2, "R2", "Receiver")
 		mock.ExpectExec("INSERT INTO join_requests").
 			WillReturnError(errors.New("insert failed"))
 		_, err := svc.SendJoinRequest(ctx, 1, 2, "brother", nil, nil)
@@ -92,12 +281,15 @@ func TestJoinRequestService_SendJoinRequest_ValidationAndErrors(t *testing.T) {
 
 	t.Run("CreateChildPermissionError", func(t *testing.T) {
 		mock, _, svc := newJoinRequestService(t, nil, nil)
+		expectSendJoinRequestRules(mock, 1, 2, "offspring")
 		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
 			WithArgs(uint64(2)).
 			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(true))
 		mock.ExpectQuery("SELECT message FROM dynasty_messages").
-			WithArgs("receiver_message").
+			WithArgs("reciever_message").
 			WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("tmpl"))
+		expectUserBasicInfo(mock, 1, "S1", "Sender")
+		expectUserBasicInfo(mock, 2, "R2", "Receiver")
 		mock.ExpectExec("INSERT INTO join_requests").
 			WillReturnResult(sqlmock.NewResult(1, 1))
 		mock.ExpectExec("INSERT INTO children_permissions").
@@ -418,6 +610,7 @@ func TestJoinRequestService_AcceptJoinRequest_ErrorAndFatherPath(t *testing.T) {
 			repository.NewDynastyRepository(db),
 			repository.NewFamilyRepository(db),
 			nil,
+			validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 			notif,
 			"",
 		)
@@ -463,6 +656,7 @@ func TestJoinRequestService_AcceptJoinRequest_ErrorAndFatherPath(t *testing.T) {
 			repository.NewDynastyRepository(db),
 			repository.NewFamilyRepository(db),
 			nil,
+			validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 			notif,
 			"",
 		)
@@ -640,7 +834,7 @@ func TestJoinRequestService_GetPrizeAndDefaultPermissions(t *testing.T) {
 	now := time.Now()
 
 	t.Run("NilPrizeRepo", func(t *testing.T) {
-		svc := service.NewJoinRequestService(nil, nil, nil, nil, nil, "")
+		svc := service.NewJoinRequestService(nil, nil, nil, nil, nil, nil, "")
 		prize, err := svc.GetPrizeByRelationship(ctx, "brother")
 		require.NoError(t, err)
 		assert.Nil(t, prize)
@@ -675,25 +869,10 @@ func TestJoinRequestService_GetPrizeAndDefaultPermissions(t *testing.T) {
 }
 
 func TestJoinRequestService_SendJoinRequest_UnknownRelationshipTitle(t *testing.T) {
-	notif := &recordingNotificationPort{}
-	mock, _, svc := newJoinRequestService(t, notif, nil)
-
-	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("receiver_message").
-		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("rel=[relationship]"))
-	mock.ExpectExec("INSERT INTO join_requests").
-		WithArgs(uint64(1), uint64(2), 0, "cousin", sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-	expectUserBasicInfo(mock, 1, "S1", "Sender")
-	expectUserBasicInfo(mock, 2, "R2", "Receiver")
-	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("requester_confirmation_message").
-		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("rel=[relationship]"))
+	mock, _, svc := newJoinRequestService(t, nil, nil)
 
 	_, err := svc.SendJoinRequest(context.Background(), 1, 2, "cousin", nil, nil)
-	require.NoError(t, err)
-	calls := notif.snapshot()
-	require.Len(t, calls, 2)
-	assert.Contains(t, calls[0].Message, "cousin")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "نوع رابطه نامعتبر است")
 	require.NoError(t, mock.ExpectationsWereMet())
 }

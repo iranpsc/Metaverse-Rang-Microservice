@@ -126,6 +126,27 @@ func TestProfitService_GetHourlyProfitTimePercentage_Nil(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestProfitService_GetHourlyProfitTimePercentage_FromLastWithdraw(t *testing.T) {
+	svc, mock := newProfitSQLMock(t)
+	now := time.Now()
+	deadline := now.Add(5 * 24 * time.Hour)
+	updatedAt := now.Add(-30 * time.Minute)
+
+	mock.ExpectQuery("ORDER BY dead_line ASC").
+		WithArgs(uint64(2)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "user_id", "feature_id", "asset", "amount", "dead_line", "is_active", "created_at", "updated_at",
+		}).AddRow(11, 2, 5, "yellow", 1.0, deadline, true, now.Add(-10*24*time.Hour), updatedAt))
+	mock.ExpectQuery("SELECT withdraw_profit FROM user_variables").
+		WithArgs(uint64(2)).
+		WillReturnRows(sqlmock.NewRows([]string{"withdraw_profit"}).AddRow(10))
+
+	pct, err := svc.GetHourlyProfitTimePercentage(context.Background(), 2)
+	require.NoError(t, err)
+	assert.InDelta(t, 50.0, pct, 0.1)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestProfitService_RunHourlyProfitCalculation_Zero(t *testing.T) {
 	svc, mock := newProfitSQLMock(t)
 	mock.ExpectQuery("SELECT fhp.id, fhp.feature_id").

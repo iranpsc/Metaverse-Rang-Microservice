@@ -136,6 +136,20 @@ func TestLoadSMSChannelConfigAndLog(t *testing.T) {
 	logSMSConfig(cfg)
 }
 
+func TestLoadEmailChannelConfig(t *testing.T) {
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_PORT", "465")
+	t.Setenv("SMTP_USERNAME", "mailer")
+	t.Setenv("SMTP_PASSWORD", "secret")
+	t.Setenv("SMTP_FROM_NAME", "Meta")
+	t.Setenv("SMTP_FROM_EMAIL", "noreply@example.com")
+
+	cfg := loadEmailChannelConfig()
+	if cfg.Host != "smtp.example.com" || cfg.Port != "465" || cfg.Username != "mailer" || cfg.FromEmail != "noreply@example.com" {
+		t.Fatalf("cfg=%+v", cfg)
+	}
+}
+
 func TestConfigureDBPool(t *testing.T) {
 	db, err := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/notifications_test")
 	if err != nil {

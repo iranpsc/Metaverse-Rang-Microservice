@@ -87,6 +87,7 @@ type SentRequestResource struct {
 	ID           uint64     `json:"id"`
 	ToUser       UserBasic  `json:"to_user"`
 	Relationship string     `json:"relationship"`
+	Message      string     `json:"message"`
 	Status       int16      `json:"status"`
 	Prize        *PrizeInfo `json:"prize"`
 	CreatedAt    string     `json:"created_at"`
@@ -150,10 +151,16 @@ func FormatSentRequest(
 		}
 	}
 
+	message := ""
+	if req.Message != nil {
+		message = *req.Message
+	}
+
 	return &SentRequestResource{
 		ID:           req.ID,
 		ToUser:       toUser,
 		Relationship: req.Relationship,
+		Message:      message,
 		Status:       req.Status,
 		Prize:        prizeInfo,
 		CreatedAt:    helpers.FormatJalaliDateTime(req.CreatedAt),

@@ -124,7 +124,7 @@ func (f *fakeFamilyAPI) GetFamily(ctx context.Context, req *dynastypb.GetFamilyR
 		return f.GetFamilyFunc(ctx, req)
 	}
 	return &dynastypb.FamilyResponse{Members: []*dynastypb.FamilyMember{
-		{UserId: 1, Relationship: "owner", UserInfo: &commonpb.UserBasic{Id: 1, Code: "O1", ProfilePhoto: "p.jpg"}},
+		{UserId: 1, Relationship: "owner", UserInfo: &commonpb.UserBasic{Id: 1, Code: "O1", ProfilePhoto: "p.jpg", Level: "Gold"}},
 	}}, nil
 }
 func (f *fakeFamilyAPI) SetChildPermissions(ctx context.Context, req *dynastypb.SetChildPermissionsRequest) (*commonpb.Empty, error) {
@@ -369,6 +369,7 @@ func TestHTTPDynastyHandler_UpdateAndFamily(t *testing.T) {
 	h.GetFamily(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/10/family/3", nil)))
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"relationship"`)
+	assert.Contains(t, rr.Body.String(), `"level":"Gold"`)
 
 	rr = httptest.NewRecorder()
 	h.GetFamily(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/x/family/3", nil)))
@@ -381,6 +382,7 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 			assert.Equal(t, int32(2), req.Pagination.Page)
 			return &dynastypb.JoinRequestsResponse{Requests: []*dynastypb.JoinRequestResponse{{
 				Id: 1, Status: 0, Relationship: "brother", CreatedAt: "1403/01/01 10:00",
+				Message:      "please join",
 				ToUserInfo:   &commonpb.UserBasic{Id: 2, Code: "C2", Name: "Bob", ProfilePhoto: "x"},
 				RequestPrize: &dynastypb.DynastyPrize{Id: 9, Psc: 1, Member: "brother", Satisfaction: "s"},
 			}}}, nil
@@ -388,6 +390,7 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 		GetReceivedRequestsFunc: func(context.Context, *dynastypb.GetReceivedRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
 			return &dynastypb.JoinRequestsResponse{Requests: []*dynastypb.JoinRequestResponse{{
 				Id: 2, Status: 0, Relationship: "sister", CreatedAt: "1403/01/02",
+				Message:    "hello there",
 				ToUserInfo: &commonpb.UserBasic{Id: 3, Code: "C3", Name: "Ann"},
 			}}}, nil
 		},
@@ -401,11 +404,13 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), `"to_user"`)
 	assert.Contains(t, rr.Body.String(), `"prize"`)
 	assert.Contains(t, rr.Body.String(), "برادر")
+	assert.Contains(t, rr.Body.String(), `"message":"please join"`)
 
 	rr = httptest.NewRecorder()
 	h.GetReceivedRequests(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/recieved?page=1", nil)))
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"from_user"`)
+	assert.Contains(t, rr.Body.String(), `"message":"hello there"`)
 
 	body := `{"user":5,"relationship":"offspring","message":"hi","permissions":{"BFR":true,"SF":false,"W":true,"JU":false,"DM":false,"PIUP":false,"PITC":false,"PIC":false,"ESOO":false,"COTB":false}}`
 	rr = httptest.NewRecorder()

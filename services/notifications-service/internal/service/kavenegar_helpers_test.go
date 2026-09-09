@@ -23,6 +23,37 @@ func TestExtractTemplateToken(t *testing.T) {
 	}
 }
 
+func TestBuildVerifyLookupParam(t *testing.T) {
+	if got := buildVerifyLookupParam(nil); got != nil {
+		t.Fatalf("nil tokens: %+v", got)
+	}
+	if got := buildVerifyLookupParam(map[string]string{"token": "id-only"}); got != nil {
+		t.Fatalf("token-only should stay nil params: %+v", got)
+	}
+
+	got := buildVerifyLookupParam(map[string]string{
+		"token":   "p1",
+		"token2":  "1,000",
+		"token3":  "2,000",
+		"token10": "seller",
+		"token20": "buyer",
+	})
+	if got == nil {
+		t.Fatal("expected params")
+	}
+	if got.Token2 != "1,000" || got.Token3 != "2,000" {
+		t.Fatalf("token2/3: %+v", got)
+	}
+	if got.Tokens["token10"] != "seller" || got.Tokens["token20"] != "buyer" {
+		t.Fatalf("extra tokens: %+v", got.Tokens)
+	}
+
+	partial := buildVerifyLookupParam(map[string]string{"token20": "buyer"})
+	if partial == nil || partial.Tokens["token20"] != "buyer" || partial.Token2 != "" {
+		t.Fatalf("partial: %+v", partial)
+	}
+}
+
 func TestKavenegarAPIErrorHint(t *testing.T) {
 	if hint := kavenegarAPIErrorHint(403); hint == "" || !strings.Contains(hint, "invalid API key") {
 		t.Fatalf("403 hint=%q", hint)

@@ -4,14 +4,16 @@ import (
 	"context"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"metarang/dynasty-service/internal/handler"
-
+	"metarang/dynasty-service/internal/repository"
 	"metarang/dynasty-service/internal/service"
+	"metarang/dynasty-service/internal/validation"
 	dynastypb "metarang/shared/pb/dynasty"
 )
 
@@ -61,4 +63,44 @@ func TestJoinRequestHandler_ValidationPaths(t *testing.T) {
 	st, ok = status.FromError(err)
 	require.True(t, ok)
 	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+func TestJoinRequestHandler_SendJoinRequest_AppliesFamilyRules(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	joinSvc := service.NewJoinRequestService(
+		repository.NewJoinRequestRepository(db),
+		repository.NewDynastyRepository(db),
+		repository.NewFamilyRepository(db),
+		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
+		nil,
+		"",
+	)
+	h := handler.NewJoinRequestHandler(joinSvc, nil, nil)
+	ctx := context.Background()
+
+	_, err = h.SendJoinRequest(ctx, &dynastypb.SendJoinRequestRequest{
+		FromUserId: 1, ToUserId: 2, Relationship: "cousin",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "نوع رابطه نامعتبر است")
+
+	mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
+	_, err = h.SendJoinRequest(ctx, &dynastypb.SendJoinRequestRequest{
+		FromUserId: 1, ToUserId: 1, Relationship: "brother",
+	})
+	require.Error(t, err)
+	st, ok = status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+	assert.Contains(t, st.Message(), "خودتان")
+	require.NoError(t, mock.ExpectationsWereMet())
 }

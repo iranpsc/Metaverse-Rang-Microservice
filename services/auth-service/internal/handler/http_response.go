@@ -116,6 +116,8 @@ func writeGRPCErrorWithLocale(w http.ResponseWriter, err error, locale string) {
 	case codes.Unavailable:
 		// Service unavailable - likely connection issue
 		writeError(w, http.StatusServiceUnavailable, "service temporarily unavailable: "+st.Message())
+	case codes.ResourceExhausted:
+		writeError(w, http.StatusTooManyRequests, st.Message())
 	default:
 		writeError(w, http.StatusInternalServerError, st.Message())
 	}

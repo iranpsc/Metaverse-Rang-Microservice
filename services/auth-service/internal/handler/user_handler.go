@@ -14,6 +14,7 @@ import (
 	"metarang/auth-service/internal/service"
 	pb "metarang/shared/pb/auth"
 	sharedauth "metarang/shared/pkg/auth"
+	"metarang/shared/pkg/helpers"
 )
 
 type userHandler struct {
@@ -80,6 +81,11 @@ func (h *userHandler) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRe
 
 	user, err := h.userService.UpdateProfile(ctx, userID, req.Name, req.Email, req.Phone)
 	if err != nil {
+		if errors.Is(err, service.ErrInvalidEmailFormat) {
+			return nil, status.Error(codes.InvalidArgument, helpers.EncodeValidationError(map[string]string{
+				"email": "invalid email format",
+			}))
+		}
 		return nil, status.Errorf(codes.Internal, "failed to update profile: %v", err)
 	}
 

@@ -20,6 +20,7 @@ import (
 	"metarang/dynasty-service/internal/middleware"
 	"metarang/dynasty-service/internal/repository"
 	"metarang/dynasty-service/internal/service"
+	"metarang/dynasty-service/internal/validation"
 
 	authpb "metarang/shared/pb/auth"
 	dynastypb "metarang/shared/pb/dynasty"
@@ -89,6 +90,7 @@ func main() {
 	permissionRepo := repository.NewPermissionRepository(db)
 	variableRepo := repository.NewVariableRepository(db)
 	userVariableRepo := repository.NewUserVariableRepository(db)
+	validationRepo := repository.NewValidationRepository(db)
 
 	// Notification service client (for sending notifications)
 	notificationServiceAddr := getEnv("NOTIFICATION_SERVICE_ADDR", "localhost:50058")
@@ -133,7 +135,7 @@ func main() {
 	var levelsPort service.LevelsPort
 	levelsAddr := getEnv("LEVELS_SERVICE_ADDR", "levels-service:50054")
 	if lc, err := client.NewLevelsClient(levelsAddr); err != nil {
-		log.Printf("Warning: levels service unavailable (%v); search levels enrichment disabled", err)
+		log.Printf("Warning: levels service unavailable (%v); search and family-member levels enrichment disabled", err)
 	} else {
 		levelsPort = lc
 		defer func() {
@@ -145,8 +147,8 @@ func main() {
 
 	// Initialize services
 	dynastyService := service.NewDynastyService(dynastyRepo, familyRepo, prizeRepo, notificationServiceAddr)
-	joinRequestService := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, notificationPort, notificationServiceAddr)
-	familyService := service.NewFamilyService(familyRepo, dynastyRepo)
+	joinRequestService := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, validation.NewFamilyValidator(validationRepo), notificationPort, notificationServiceAddr)
+	familyService := service.NewFamilyService(familyRepo, dynastyRepo, levelsPort)
 	prizeService := service.NewPrizeService(db, prizeRepo, variableRepo, userVariableRepo, walletPort)
 	permissionService := service.NewPermissionService(permissionRepo, joinRequestRepo, familyRepo, dynastyRepo)
 	userSearchService := service.NewUserSearchService(db, kycPort, levelsPort)

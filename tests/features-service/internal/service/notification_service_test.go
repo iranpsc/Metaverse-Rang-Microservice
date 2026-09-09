@@ -34,6 +34,7 @@ func TestMarketplaceService_BuyFeature_Limited_SendsRGBPurchaseNotification(t *t
 	mock.ExpectExec("INSERT INTO limited_feature_purchases").
 		WithArgs(uint64(2), uint64(3), uint64(1)).
 		WillReturnResult(sqlmock.NewResult(1, 1))
+	expectTradeChannels(mock, 2, "buyer")
 	expectReloadFeatureAndGeometry(mock, 2, constants.MaskoniSoldAndNotPriced)
 
 	_, err := svc.BuyFeature(context.Background(), 1, 2)
@@ -56,6 +57,7 @@ func TestMarketplaceService_BuyFeature_RGB_SendsRGBPurchaseNotification(t *testi
 	expectOwnerCode(mock, 5, constants.RGBUserCode)
 	expectBuyerKYCSimple(mock, 2)
 	expectBuySuccessDBTail(mock, 2, 5, "yellow", 0, 0)
+	expectTradeChannels(mock, 2, "buyer")
 	expectReloadFeatureAndGeometry(mock, 2, constants.MaskoniSoldAndNotPriced)
 
 	_, err := svc.BuyFeature(context.Background(), 1, 2)
@@ -63,6 +65,7 @@ func TestMarketplaceService_BuyFeature_RGB_SendsRGBPurchaseNotification(t *testi
 	require.Len(t, notif.Calls, 1)
 	assert.Equal(t, "BuyFeatureNotification", notif.Calls[0].Type)
 	assert.Equal(t, "rgb", notif.Calls[0].Data["purchase_type"])
+	assert.Equal(t, "buy-land-metarang", notif.Calls[0].SMSTemplate)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -116,6 +119,9 @@ func TestMarketplaceService_BuyFeature_UserToUser_NotifiesBuyerAndSeller(t *test
 	mock.ExpectExec("SET status = 1, updated_at = NOW\\(\\) WHERE feature_id").
 		WithArgs(uint64(1)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectTradeChannels(mock, 5, "seller")
+	expectTradeChannels(mock, 2, "buyer")
+	expectTradeChannels(mock, 5, "seller")
 	expectReloadFeatureAndGeometry(mock, 2, constants.MaskoniSoldAndNotPriced)
 
 	_, err := svc.BuyFeature(context.Background(), 1, 2)
@@ -124,9 +130,15 @@ func TestMarketplaceService_BuyFeature_UserToUser_NotifiesBuyerAndSeller(t *test
 	assert.Equal(t, "BuyFeatureNotification", notif.Calls[0].Type)
 	assert.Equal(t, uint64(2), notif.Calls[0].UserID)
 	assert.Equal(t, "user", notif.Calls[0].Data["purchase_type"])
+	assert.Equal(t, "105", notif.Calls[0].Data["psc_amount"])
+	assert.Equal(t, "105", notif.Calls[0].Data["irr_amount"])
 	assert.Equal(t, "sellFeature", notif.Calls[1].Type)
 	assert.Equal(t, uint64(5), notif.Calls[1].UserID)
 	assert.Equal(t, "transactions", notif.Calls[1].Data["related-to"])
+	assert.Equal(t, "sell-land-metarang", notif.Calls[1].SMSTemplate)
+	assert.Contains(t, notif.Calls[1].Message, "واریز شد")
+	assert.Contains(t, notif.Calls[1].Message, "95 psc")
+	assert.Contains(t, notif.Calls[1].Message, "95")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -141,6 +153,7 @@ func TestMarketplaceService_BuyFeature_NotificationFailureDoesNotFailPurchase(t 
 	expectOwnerCode(mock, 5, constants.RGBUserCode)
 	expectBuyerKYCSimple(mock, 2)
 	expectBuySuccessDBTail(mock, 2, 5, "yellow", 0, 0)
+	expectTradeChannels(mock, 2, "buyer")
 	expectReloadFeatureAndGeometry(mock, 2, constants.MaskoniSoldAndNotPriced)
 
 	feat, err := svc.BuyFeature(context.Background(), 1, 2)
@@ -165,6 +178,8 @@ func TestMarketplaceService_SendBuyRequest_NotifiesBuyerAndSeller(t *testing.T) 
 	mock.ExpectQuery("FROM buy_feature_requests").
 		WithArgs(uint64(9)).
 		WillReturnRows(buyRequestFindRows(3, 2, 0))
+	expectTradeChannels(mock, 2, "buyer")
+	expectTradeChannels(mock, 3, "seller")
 
 	_, err := svc.SendBuyRequest(context.Background(), &pb.SendBuyRequestRequest{
 		BuyerId: 2, FeatureId: 1, PricePsc: "500", PriceIrr: "500",
@@ -174,8 +189,14 @@ func TestMarketplaceService_SendBuyRequest_NotifiesBuyerAndSeller(t *testing.T) 
 	assert.Equal(t, "BuyRequestNotification", notif.Calls[0].Type)
 	assert.Equal(t, uint64(2), notif.Calls[0].UserID)
 	assert.Equal(t, "buyer", notif.Calls[0].Data["type"])
+	assert.Equal(t, "525", notif.Calls[0].Data["price_psc"])
+	assert.Equal(t, "525", notif.Calls[0].Data["price_irr"])
+	assert.Contains(t, notif.Calls[0].Message, "525")
+	assert.Equal(t, "buy-land-request", notif.Calls[0].SMSTemplate)
 	assert.Equal(t, uint64(3), notif.Calls[1].UserID)
 	assert.Equal(t, "seller", notif.Calls[1].Data["type"])
+	assert.Equal(t, "500", notif.Calls[1].Data["price_psc"])
+	assert.Equal(t, "500", notif.Calls[1].Data["price_irr"])
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -265,6 +286,12 @@ func TestMarketplaceService_AcceptBuyRequest_NotifiesBuyerAndSeller(t *testing.T
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "feature_id", "buyer_id", "seller_id", "irr_amount", "psc_amount", "date", "created_at", "updated_at",
 		}).AddRow(7, 1, 2, 3, 100.0, 100.0, now, now, now))
+	mock.ExpectQuery("SELECT name FROM users WHERE id").
+		WithArgs(uint64(2)).
+		WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("buyer"))
+	expectTradeChannels(mock, 3, "seller")
+	expectTradeChannels(mock, 2, "buyer")
+	expectTradeChannels(mock, 3, "seller")
 
 	_, err := svc.AcceptBuyRequest(context.Background(), 9, 3)
 	require.NoError(t, err)
@@ -272,9 +299,13 @@ func TestMarketplaceService_AcceptBuyRequest_NotifiesBuyerAndSeller(t *testing.T
 	assert.Equal(t, "BuyFeatureNotification", notif.Calls[0].Type)
 	assert.Equal(t, uint64(2), notif.Calls[0].UserID)
 	assert.Equal(t, "user", notif.Calls[0].Data["purchase_type"])
+	assert.Equal(t, "105", notif.Calls[0].Data["psc_amount"])
+	assert.Equal(t, "105", notif.Calls[0].Data["irr_amount"])
 	assert.Equal(t, "sellFeature", notif.Calls[1].Type)
 	assert.Equal(t, uint64(3), notif.Calls[1].UserID)
 	assert.Equal(t, "7", notif.Calls[1].Data["trade_id"])
+	assert.Contains(t, notif.Calls[1].Message, "95 psc")
+	assert.Contains(t, notif.Calls[1].Message, "95")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -301,6 +332,7 @@ func TestMarketplaceService_CreateSellRequest_SendsSellNotification(t *testing.T
 		WillReturnResult(sqlmock.NewResult(8, 1))
 	mock.ExpectExec("UPDATE feature_properties SET").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectTradeChannels(mock, 3, "seller")
 	mock.ExpectQuery("FROM sell_feature_requests").
 		WithArgs(uint64(8)).
 		WillReturnRows(sqlmock.NewRows([]string{
@@ -316,6 +348,7 @@ func TestMarketplaceService_CreateSellRequest_SendsSellNotification(t *testing.T
 	assert.Equal(t, "SellRequestNotification", notif.Calls[0].Type)
 	assert.Equal(t, uint64(3), notif.Calls[0].UserID)
 	assert.Equal(t, "p1", notif.Calls[0].Data["properties_id"])
+	assert.Equal(t, "sell-land-request", notif.Calls[0].SMSTemplate)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -353,6 +386,9 @@ func TestProfitService_GetSingleProfit_SendsDepositNotification(t *testing.T) {
 	require.Len(t, notif.Calls, 1)
 	assert.Equal(t, "FeatureHourlyProfitDeposit", notif.Calls[0].Type)
 	assert.Equal(t, "p1", notif.Calls[0].Data["id"])
+	assert.Contains(t, notif.Calls[0].Message, "رنگ زرد")
+	assert.False(t, notif.Calls[0].SendSMS)
+	assert.False(t, notif.Calls[0].SendEmail)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -395,5 +431,7 @@ func TestProfitService_GetProfitsByApplication_SendsBatchNotification(t *testing
 	assert.Equal(t, "yellow", notif.Calls[0].Data["asset"])
 	assert.Equal(t, "مسکونی", notif.Calls[0].Data["karbari"])
 	assert.Empty(t, notif.Calls[0].Data["id"])
+	assert.Contains(t, notif.Calls[0].Message, "ملک های مسکونی")
+	assert.False(t, notif.Calls[0].SendSMS)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
