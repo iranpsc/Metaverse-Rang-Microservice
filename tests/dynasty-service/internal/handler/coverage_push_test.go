@@ -14,6 +14,7 @@ import (
 	"metarang/dynasty-service/internal/policy"
 	"metarang/dynasty-service/internal/repository"
 	"metarang/dynasty-service/internal/service"
+	"metarang/dynasty-service/internal/validation"
 	commonpb "metarang/shared/pb/common"
 	dynastypb "metarang/shared/pb/dynasty"
 )
@@ -147,6 +148,7 @@ func TestJoinRequestHandler_AcceptAndSearchAndDefaults(t *testing.T) {
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		nil,
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		nil,
 		"",
 	)

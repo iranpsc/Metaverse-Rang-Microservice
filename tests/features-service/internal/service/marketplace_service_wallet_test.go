@@ -151,6 +151,14 @@ func expectReloadFeatureAndGeometry(mock sqlmock.Sqlmock, ownerID uint64, rgb st
 			AddRow(3, "Polygon", now, now))
 }
 
+func expectTradeChannels(mock sqlmock.Sqlmock, userID uint64, name string) {
+	t := time.Now()
+	mock.ExpectQuery("trade_notification_channels").
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"name", "phone", "phone_verified_at", "notifications"}).
+			AddRow(name, "09120000000", t, `{"trades_sms":true,"trades_email":true}`))
+}
+
 func TestMarketplaceService_BuyFeature_Limited_NoLimitation(t *testing.T) {
 	stub := testutil.NewCommercialStub()
 	svc, mock := newMarketplaceWithWallet(t, stub)

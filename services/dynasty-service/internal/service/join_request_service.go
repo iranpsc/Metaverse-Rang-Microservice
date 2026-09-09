@@ -8,6 +8,8 @@ import (
 
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/repository"
+	"metarang/dynasty-service/internal/validation"
+	"metarang/shared/pkg/helpers"
 )
 
 type NotificationPort interface {
@@ -19,6 +21,7 @@ type JoinRequestService struct {
 	dynastyRepo             *repository.DynastyRepository
 	familyRepo              *repository.FamilyRepository
 	prizeRepo               *repository.PrizeRepository
+	familyValidator         *validation.FamilyValidator
 	notificationClient      NotificationPort
 	notificationServiceAddr string
 }
@@ -28,6 +31,7 @@ func NewJoinRequestService(
 	dynastyRepo *repository.DynastyRepository,
 	familyRepo *repository.FamilyRepository,
 	prizeRepo *repository.PrizeRepository,
+	familyValidator *validation.FamilyValidator,
 	notificationClient NotificationPort,
 	notificationServiceAddr string,
 ) *JoinRequestService {
@@ -36,6 +40,7 @@ func NewJoinRequestService(
 		dynastyRepo:             dynastyRepo,
 		familyRepo:              familyRepo,
 		prizeRepo:               prizeRepo,
+		familyValidator:         familyValidator,
 		notificationClient:      notificationClient,
 		notificationServiceAddr: notificationServiceAddr,
 	}
@@ -43,7 +48,11 @@ func NewJoinRequestService(
 
 // SendJoinRequest creates and sends a join request
 func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, toUserID uint64, relationship string, message *string, permissions *models.ChildPermission) (*models.JoinRequest, error) {
-	// Validate relationship is offering (not spring) and user age for permissions
+	if err := s.validateSendJoinRequest(ctx, fromUserID, toUserID, relationship); err != nil {
+		return nil, err
+	}
+
+	// Offspring permissions may only be set for users under 18.
 	if relationship == "offspring" && permissions != nil {
 		isUnder18, err := s.joinRequestRepo.CheckUserAge(ctx, toUserID)
 		if err != nil {
@@ -54,19 +63,26 @@ func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, to
 		}
 	}
 
-	// Get dynasty message for receiver
-	messageTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "receiver_message")
+	messageTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "reciever_message")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dynasty message: %w", err)
 	}
 
-	// Create join request
+	senderInfo, senderErr := s.joinRequestRepo.GetUserBasicInfo(ctx, fromUserID)
+	receiverInfo, receiverErr := s.joinRequestRepo.GetUserBasicInfo(ctx, toUserID)
+
+	now := time.Now()
+	if filled := s.fillDynastyTemplate(messageTemplate, senderInfo, receiverInfo, relationship, now); filled != "" {
+		message = &filled
+	}
+
 	joinRequest := &models.JoinRequest{
 		FromUser:     fromUserID,
 		ToUser:       toUserID,
 		Status:       0, // 0=pending (per API spec)
 		Relationship: relationship,
 		Message:      message,
+		CreatedAt:    now,
 	}
 
 	if err := s.joinRequestRepo.CreateJoinRequest(ctx, joinRequest); err != nil {
@@ -81,10 +97,51 @@ func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, to
 		}
 	}
 
-	// Send notifications (best effort, non-blocking for main flow)
-	s.notifyJoinRequestCreated(ctx, fromUserID, toUserID, relationship, messageTemplate)
+	if senderErr == nil && receiverErr == nil {
+		s.notifyJoinRequestCreated(ctx, senderInfo, receiverInfo, relationship, messageTemplate)
+	}
 
 	return joinRequest, nil
+}
+
+func (s *JoinRequestService) validateSendJoinRequest(ctx context.Context, fromUserID, toUserID uint64, relationship string) error {
+	if s.familyValidator == nil {
+		return fmt.Errorf("family validator not initialized")
+	}
+
+	if err := s.familyValidator.ValidateRelationship(relationship); err != nil {
+		return err
+	}
+
+	senderUnder18, err := s.joinRequestRepo.CheckUserAge(ctx, fromUserID)
+	if err != nil {
+		return fmt.Errorf("failed to check user age: %w", err)
+	}
+
+	if err := s.familyValidator.ValidateAddFamilyMember(ctx, fromUserID, toUserID, relationship, senderUnder18); err != nil {
+		return err
+	}
+
+	dynasty, err := s.dynastyRepo.GetDynastyByUserID(ctx, fromUserID)
+	if err != nil {
+		return fmt.Errorf("failed to get dynasty: %w", err)
+	}
+	if dynasty == nil {
+		return &validation.ValidationError{
+			Message: "شما هیچ سلسله ای تاسیس نکرده اید.",
+			Code:    403,
+		}
+	}
+
+	family, err := s.familyRepo.GetFamilyByDynastyID(ctx, dynasty.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get family: %w", err)
+	}
+	if family == nil {
+		return fmt.Errorf("family not found")
+	}
+
+	return s.familyValidator.ValidateRelationshipLimits(ctx, family.ID, relationship)
 }
 
 // GetSentRequests retrieves sent join requests for a user
@@ -284,6 +341,12 @@ func (s *JoinRequestService) fillDynastyTemplate(template string, sender, receiv
 	if template == "" {
 		return ""
 	}
+	if sender == nil {
+		sender = &models.UserBasic{}
+	}
+	if receiver == nil {
+		receiver = &models.UserBasic{}
+	}
 	relationshipTitle := s.getRelationshipTitle(relationship)
 	result := template
 	result = strings.ReplaceAll(result, "[sender-code]", sender.Code)
@@ -291,7 +354,7 @@ func (s *JoinRequestService) fillDynastyTemplate(template string, sender, receiv
 	result = strings.ReplaceAll(result, "[sender-name]", sender.Name)
 	result = strings.ReplaceAll(result, "[reciever-name]", receiver.Name)
 	result = strings.ReplaceAll(result, "[relationship]", relationshipTitle)
-	result = strings.ReplaceAll(result, "[created_at]", when.Format("2006/01/02"))
+	result = strings.ReplaceAll(result, "[created_at]", helpers.FormatJalaliDate(when))
 	return result
 }
 
@@ -312,16 +375,8 @@ func (s *JoinRequestService) getRelationshipTitle(relationship string) string {
 	return relationship
 }
 
-func (s *JoinRequestService) notifyJoinRequestCreated(ctx context.Context, senderID, receiverID uint64, relationship, receiverTemplate string) {
-	if s.notificationClient == nil {
-		return
-	}
-	senderInfo, err := s.joinRequestRepo.GetUserBasicInfo(ctx, senderID)
-	if err != nil || senderInfo == nil {
-		return
-	}
-	receiverInfo, err := s.joinRequestRepo.GetUserBasicInfo(ctx, receiverID)
-	if err != nil || receiverInfo == nil {
+func (s *JoinRequestService) notifyJoinRequestCreated(ctx context.Context, senderInfo, receiverInfo *models.UserBasic, relationship, receiverTemplate string) {
+	if s.notificationClient == nil || senderInfo == nil || receiverInfo == nil {
 		return
 	}
 	requesterTemplate, _ := s.dynastyRepo.GetDynastyMessage(ctx, "requester_confirmation_message")
@@ -329,10 +384,10 @@ func (s *JoinRequestService) notifyJoinRequestCreated(ctx context.Context, sende
 	senderMsg := s.fillDynastyTemplate(requesterTemplate, senderInfo, receiverInfo, relationship, now)
 	receiverMsg := s.fillDynastyTemplate(receiverTemplate, senderInfo, receiverInfo, relationship, now)
 	if senderMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, senderID, "dynasty_join_request", "Dynasty", senderMsg, map[string]string{"relationship": relationship}, false, false)
+		_ = s.notificationClient.SendNotification(ctx, senderInfo.ID, "dynasty_join_request", "Dynasty", senderMsg, map[string]string{"relationship": relationship}, true, true)
 	}
 	if receiverMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, receiverID, "dynasty_join_request", "Dynasty", receiverMsg, map[string]string{"relationship": relationship}, false, false)
+		_ = s.notificationClient.SendNotification(ctx, receiverInfo.ID, "dynasty_join_request", "Dynasty", receiverMsg, map[string]string{"relationship": relationship}, true, true)
 	}
 }
 

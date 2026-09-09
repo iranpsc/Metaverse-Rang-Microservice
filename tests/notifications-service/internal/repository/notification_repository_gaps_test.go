@@ -33,6 +33,9 @@ func TestRepository_NilDB(t *testing.T) {
 
 	_, err = repo.GetNotificationByID(ctx, "n1", 1)
 	assert.Error(t, err)
+
+	_, err = repo.GetUserContact(ctx, 1)
+	assert.Error(t, err)
 }
 
 func TestCreateNotification_GeneratesUUIDWhenEmpty(t *testing.T) {

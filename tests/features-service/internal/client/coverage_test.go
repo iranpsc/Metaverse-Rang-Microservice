@@ -141,7 +141,7 @@ func TestNotificationClient_HourlyProfitColorVariants(t *testing.T) {
 	require.NoError(t, c.SendFeatureHourlyProfitDeposit(context.Background(), 2, "blue", 1, "a", ""))
 	require.NoError(t, c.SendFeatureHourlyProfitDeposit(context.Background(), 2, "green", 1, "x", ""))
 	require.Len(t, stub.Calls, 3)
-	assert.Contains(t, stub.Calls[0].Message, "قرمز")
+	assert.Contains(t, stub.Calls[0].Message, "رنگ قرمز")
 	assert.Contains(t, stub.Calls[1].Data["karbari"], "آموزشی")
 	assert.Equal(t, "green", stub.Calls[2].Data["asset"])
 }

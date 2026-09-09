@@ -402,3 +402,74 @@ func TestGetNotificationByID(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUserContact(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns phone and email", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+		repo := repository.NewNotificationRepository(db)
+
+		mock.ExpectQuery(`SELECT phone, email FROM users WHERE id = \? LIMIT 1`).
+			WithArgs(uint64(42)).
+			WillReturnRows(sqlmock.NewRows([]string{"phone", "email"}).AddRow("09120000000", "user@example.com"))
+
+		contact, err := repo.GetUserContact(ctx, 42)
+		require.NoError(t, err)
+		require.NotNil(t, contact)
+		assert.Equal(t, "09120000000", contact.Phone)
+		assert.Equal(t, "user@example.com", contact.Email)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("null phone is empty string", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+		repo := repository.NewNotificationRepository(db)
+
+		mock.ExpectQuery(`SELECT phone, email FROM users WHERE id = \? LIMIT 1`).
+			WithArgs(uint64(7)).
+			WillReturnRows(sqlmock.NewRows([]string{"phone", "email"}).AddRow(nil, "a@b.com"))
+
+		contact, err := repo.GetUserContact(ctx, 7)
+		require.NoError(t, err)
+		require.NotNil(t, contact)
+		assert.Equal(t, "", contact.Phone)
+		assert.Equal(t, "a@b.com", contact.Email)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("missing user returns nil", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+		repo := repository.NewNotificationRepository(db)
+
+		mock.ExpectQuery(`SELECT phone, email FROM users WHERE id = \? LIMIT 1`).
+			WithArgs(uint64(9)).
+			WillReturnError(sql.ErrNoRows)
+
+		contact, err := repo.GetUserContact(ctx, 9)
+		require.NoError(t, err)
+		assert.Nil(t, contact)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+		repo := repository.NewNotificationRepository(db)
+
+		mock.ExpectQuery(`SELECT phone, email FROM users WHERE id = \? LIMIT 1`).
+			WithArgs(uint64(1)).
+			WillReturnError(sql.ErrConnDone)
+
+		_, err = repo.GetUserContact(ctx, 1)
+		assert.Error(t, err)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+}

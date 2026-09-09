@@ -13,6 +13,7 @@ import (
 
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/repository"
+	"metarang/dynasty-service/internal/validation"
 )
 
 func TestJoinRequestService_SendJoinRequest(t *testing.T) {
@@ -24,7 +25,7 @@ func TestJoinRequestService_SendJoinRequest(t *testing.T) {
 	dynastyRepo := repository.NewDynastyRepository(db)
 	familyRepo := repository.NewFamilyRepository(db)
 	prizeRepo := repository.NewPrizeRepository(db)
-	service := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, nil, "localhost:50054")
+	service := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, validation.NewFamilyValidator(repository.NewValidationRepository(db)), nil, "localhost:50054")
 
 	ctx := context.Background()
 	fromUserID := uint64(1)
@@ -32,17 +33,18 @@ func TestJoinRequestService_SendJoinRequest(t *testing.T) {
 	relationship := "offspring"
 
 	t.Run("Success", func(t *testing.T) {
-		// Check user age (under 18)
+		expectSendJoinRequestRules(mock, fromUserID, toUserID, relationship)
 		mock.ExpectQuery("SELECT TIMESTAMPDIFF").
 			WithArgs(toUserID).
 			WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(true))
 
-		// Get dynasty message
+		template := "[sender-name] ([sender-code]) requested [relationship] with [reciever-name]"
 		mock.ExpectQuery("SELECT message FROM dynasty_messages").
-			WithArgs("receiver_message").
-			WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("Test message"))
+			WithArgs("reciever_message").
+			WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow(template))
+		expectUserBasicInfo(mock, fromUserID, "S1", "Sender")
+		expectUserBasicInfo(mock, toUserID, "R2", "Receiver")
 
-		// Create join request (status 0 = pending)
 		mock.ExpectExec("INSERT INTO join_requests").
 			WithArgs(fromUserID, toUserID, 0, relationship, sqlmock.AnyArg()).
 			WillReturnResult(sqlmock.NewResult(1, 1))
@@ -64,6 +66,8 @@ func TestJoinRequestService_SendJoinRequest(t *testing.T) {
 		assert.Equal(t, fromUserID, req.FromUser)
 		assert.Equal(t, toUserID, req.ToUser)
 		assert.Equal(t, relationship, req.Relationship)
+		require.NotNil(t, req.Message)
+		assert.Equal(t, "Sender (S1) requested فرزند with Receiver", *req.Message)
 	})
 
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -78,7 +82,7 @@ func TestJoinRequestService_AcceptJoinRequest(t *testing.T) {
 	dynastyRepo := repository.NewDynastyRepository(db)
 	familyRepo := repository.NewFamilyRepository(db)
 	prizeRepo := repository.NewPrizeRepository(db)
-	service := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, nil, "localhost:50054")
+	service := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, validation.NewFamilyValidator(repository.NewValidationRepository(db)), nil, "localhost:50054")
 
 	ctx := context.Background()
 	requestID := uint64(1)
@@ -149,7 +153,7 @@ func TestJoinRequestService_RejectJoinRequest(t *testing.T) {
 	dynastyRepo := repository.NewDynastyRepository(db)
 	familyRepo := repository.NewFamilyRepository(db)
 	prizeRepo := repository.NewPrizeRepository(db)
-	service := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, nil, "localhost:50054")
+	service := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, validation.NewFamilyValidator(repository.NewValidationRepository(db)), nil, "localhost:50054")
 
 	ctx := context.Background()
 	requestID := uint64(1)
@@ -184,7 +188,7 @@ func TestJoinRequestService_DeleteJoinRequest(t *testing.T) {
 	dynastyRepo := repository.NewDynastyRepository(db)
 	familyRepo := repository.NewFamilyRepository(db)
 	prizeRepo := repository.NewPrizeRepository(db)
-	service := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, nil, "localhost:50054")
+	service := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, validation.NewFamilyValidator(repository.NewValidationRepository(db)), nil, "localhost:50054")
 
 	ctx := context.Background()
 	requestID := uint64(1)

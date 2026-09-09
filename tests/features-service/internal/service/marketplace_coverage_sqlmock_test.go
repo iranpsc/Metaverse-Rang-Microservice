@@ -190,6 +190,7 @@ func TestMarketplaceService_CreateSellRequest_PercentageSuccess(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(8, 1))
 	mock.ExpectExec("UPDATE feature_properties SET").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectTradeChannels(mock, 3, "seller")
 	now := time.Now()
 	mock.ExpectQuery("FROM sell_feature_requests").
 		WithArgs(uint64(8)).

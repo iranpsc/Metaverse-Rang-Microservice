@@ -280,6 +280,28 @@ func (r *NotificationRepository) GetNotificationByID(ctx context.Context, notifi
 	return &notif, nil
 }
 
+// GetUserContact looks up phone and email for SMS/email delivery.
+func (r *NotificationRepository) GetUserContact(ctx context.Context, userID uint64) (*models.UserContact, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("database connection is nil")
+	}
+
+	query := `SELECT phone, email FROM users WHERE id = ? LIMIT 1`
+	var phone, email sql.NullString
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&phone, &email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user contact: %w", err)
+	}
+
+	return &models.UserContact{
+		Phone: phone.String,
+		Email: email.String,
+	}, nil
+}
+
 // hashStringToUint64 converts a string to a uint64 hash
 // This is a simple hash function for compatibility with NotificationResult.ID
 func hashStringToUint64(s string) uint64 {

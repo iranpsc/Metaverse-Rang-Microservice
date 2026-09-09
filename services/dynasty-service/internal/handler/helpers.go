@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/service"
+	"metarang/dynasty-service/internal/validation"
 	commonpb "metarang/shared/pb/common"
 	dynastypb "metarang/shared/pb/dynasty"
 	"metarang/shared/pkg/helpers"
@@ -158,6 +160,7 @@ func buildJoinRequestResponse(req *models.JoinRequest, userInfo *models.UserBasi
 		ToUser:       req.ToUser,
 		Status:       int32(req.Status),
 		Relationship: req.Relationship,
+		Message:      stringOrEmpty(req.Message),
 		CreatedAt:    formatJalaliDateTime(req.CreatedAt),
 	}
 
@@ -197,6 +200,7 @@ func buildUserBasic(user *models.UserBasic) *commonpb.UserBasic {
 		Code:         user.Code,
 		Name:         user.Name,
 		ProfilePhoto: stringOrEmpty(user.ProfilePhoto),
+		Level:        user.Level,
 	}
 }
 
@@ -227,6 +231,14 @@ func getString(v interface{}) string {
 func mapServiceError(err error) error {
 	if err == nil {
 		return nil
+	}
+
+	var ve *validation.ValidationError
+	if errors.As(err, &ve) {
+		if ve.Code == 400 {
+			return status.Errorf(codes.InvalidArgument, "%s", ve.Message)
+		}
+		return status.Errorf(codes.PermissionDenied, "%s", ve.Message)
 	}
 
 	errStr := err.Error()

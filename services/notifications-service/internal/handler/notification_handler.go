@@ -48,13 +48,15 @@ func (h *NotificationHandler) SendNotification(ctx context.Context, req *pb.Send
 	}
 
 	input := service.SendNotificationInput{
-		UserID:    req.UserId,
-		Type:      req.Type,
-		Title:     req.Title,
-		Message:   req.Message,
-		Data:      req.Data,
-		SendSMS:   req.SendSms,
-		SendEmail: req.SendEmail,
+		UserID:      req.UserId,
+		Type:        req.Type,
+		Title:       req.Title,
+		Message:     req.Message,
+		Data:        req.Data,
+		SendSMS:     req.SendSms,
+		SendEmail:   req.SendEmail,
+		SMSTemplate: req.GetSmsTemplate(),
+		SMSTokens:   req.GetSmsTokens(),
 	}
 
 	result, err := h.service.SendNotification(ctx, input)

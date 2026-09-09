@@ -253,11 +253,18 @@ func (s *ProfitService) GetHourlyProfitTimePercentage(ctx context.Context, userI
 		return 0, nil
 	}
 
-	now := time.Now()
-	totalSeconds := math.Abs(profit.Deadline.Sub(profit.UpdatedAt).Seconds())
-	secondsPassed := math.Abs(profit.Deadline.Sub(now).Seconds())
+	withdrawProfitDays, err := s.getUserVariableWithdrawProfit(ctx, userID)
+	if err != nil || withdrawProfitDays <= 0 {
+		withdrawProfitDays = 10
+	}
 
-	if totalSeconds == 0 || secondsPassed >= totalSeconds {
+	now := time.Now()
+	// Last withdraw starts the window: dead_line is set to now + withdraw_profit days.
+	lastWithdraw := profit.Deadline.Add(-time.Duration(withdrawProfitDays) * 24 * time.Hour)
+	totalSeconds := profit.Deadline.Sub(lastWithdraw).Seconds()
+	secondsPassed := now.Sub(lastWithdraw).Seconds()
+
+	if totalSeconds <= 0 || secondsPassed < 0 || secondsPassed >= totalSeconds {
 		return 0, nil
 	}
 

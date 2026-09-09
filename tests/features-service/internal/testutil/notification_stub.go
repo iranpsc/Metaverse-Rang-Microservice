@@ -12,11 +12,15 @@ import (
 
 // NotificationCall records a SendNotification RPC.
 type NotificationCall struct {
-	UserID  uint64
-	Type    string
-	Title   string
-	Message string
-	Data    map[string]string
+	UserID      uint64
+	Type        string
+	Title       string
+	Message     string
+	Data        map[string]string
+	SendSMS     bool
+	SendEmail   bool
+	SMSTemplate string
+	SMSTokens   map[string]string
 }
 
 // NotificationStub is a configurable NotificationServiceClient for tests.
@@ -40,12 +44,20 @@ func (s *NotificationStub) SendNotification(_ context.Context, in *pb.SendNotifi
 	for k, v := range in.GetData() {
 		data[k] = v
 	}
+	tokens := map[string]string{}
+	for k, v := range in.GetSmsTokens() {
+		tokens[k] = v
+	}
 	s.Calls = append(s.Calls, NotificationCall{
-		UserID:  in.GetUserId(),
-		Type:    in.GetType(),
-		Title:   in.GetTitle(),
-		Message: in.GetMessage(),
-		Data:    data,
+		UserID:      in.GetUserId(),
+		Type:        in.GetType(),
+		Title:       in.GetTitle(),
+		Message:     in.GetMessage(),
+		Data:        data,
+		SendSMS:     in.GetSendSms(),
+		SendEmail:   in.GetSendEmail(),
+		SMSTemplate: in.GetSmsTemplate(),
+		SMSTokens:   tokens,
 	})
 	if s.Err != nil {
 		return nil, s.Err

@@ -90,6 +90,17 @@ func logSMSConfig(cfg service.SMSChannelConfig) {
 		cfg.Provider, cfg.Sender, service.SMSAPIKeySource(), service.MaskAPIKey(cfg.APIKey))
 }
 
+func loadEmailChannelConfig() service.EmailChannelConfig {
+	return service.EmailChannelConfig{
+		Host:      getEnv("SMTP_HOST", ""),
+		Port:      getEnv("SMTP_PORT", "587"),
+		Username:  getEnv("SMTP_USERNAME", ""),
+		Password:  getEnv("SMTP_PASSWORD", ""),
+		FromName:  getEnv("SMTP_FROM_NAME", "metarang Notifications"),
+		FromEmail: getEnv("SMTP_FROM_EMAIL", ""),
+	}
+}
+
 func grpcListenAddr(port string) string {
 	if port == "" {
 		port = "50058"

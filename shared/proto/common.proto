@@ -34,6 +34,7 @@ message UserBasic {
   string name = 3;
   string email = 4;
   string profile_photo = 5;
+  string level = 6; // latest achieved level name from levels-service
 }
 
 // Wallet information

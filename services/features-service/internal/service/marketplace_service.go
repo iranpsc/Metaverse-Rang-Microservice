@@ -232,13 +232,14 @@ func (s *MarketplaceService) handleLimitedFeature(ctx context.Context, feature *
 		s.log.Error("Failed to track limited purchase", "error", err)
 	}
 
-	// Send notification to buyer
-	if s.notificationClient != nil {
-		colorPersian := constants.GetColorPersian(properties.Karbari)
-		if err := s.notificationClient.SendBuyFeatureNotification(ctx, buyerID, feature.ID, true, colorPersian, properties.Stability, 0, 0); err != nil {
-			s.log.Warn("Failed to send buy feature notification", "error", err)
-		}
-	}
+	s.sendBuyFeatureNotification(ctx, buyerID, client.BuyFeatureNotifyInput{
+		FeatureID:     feature.ID,
+		PropertiesID:  properties.ID,
+		IsRGBPurchase: true,
+		Color:         constants.GetColorPersian(properties.Karbari),
+		Stability:     properties.Stability,
+		BuyerName:     buyerName,
+	})
 
 	// Broadcast feature status change
 	if s.eventBroadcaster != nil {
@@ -340,13 +341,14 @@ func (s *MarketplaceService) buyFromRGB(ctx context.Context, feature *models.Fea
 		s.metrics.RecordTrade("rgb", 0, 0)
 	}
 
-	// Send notification to buyer
-	if s.notificationClient != nil {
-		colorPersian := constants.GetColorPersian(properties.Karbari)
-		if err := s.notificationClient.SendBuyFeatureNotification(ctx, buyerID, feature.ID, true, colorPersian, properties.Stability, 0, 0); err != nil {
-			s.log.Warn("Failed to send buy feature notification", "error", err)
-		}
-	}
+	s.sendBuyFeatureNotification(ctx, buyerID, client.BuyFeatureNotifyInput{
+		FeatureID:     feature.ID,
+		PropertiesID:  properties.ID,
+		IsRGBPurchase: true,
+		Color:         constants.GetColorPersian(properties.Karbari),
+		Stability:     properties.Stability,
+		BuyerName:     buyerName,
+	})
 
 	// Broadcast feature status change
 	if s.eventBroadcaster != nil {
@@ -498,23 +500,26 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 		s.metrics.RecordTrade("user", buyerChargePSC, buyerChargeIRR)
 	}
 
-	// Send notifications to buyer and seller
 	if s.notificationClient != nil {
-		// Notify buyer - user-to-user purchase (PSC + IRR)
-		if err := s.notificationClient.SendBuyFeatureNotification(ctx, buyerID, feature.ID, false, "", 0, buyerChargePSC, buyerChargeIRR); err != nil {
-			s.log.Warn("Failed to send buy feature notification to buyer", "error", err)
-		}
-
-		// Notify seller - they received payment
-		if err := s.notificationClient.SendNotification(ctx, feature.OwnerID, "sellFeature", "فروش ملک",
-			fmt.Sprintf("ملک %d با موفقیت فروخته شد.", feature.ID),
-			map[string]string{
-				"feature_id": fmt.Sprintf("%d", feature.ID),
-				"trade_id":   fmt.Sprintf("%d", tradeID),
-				"related-to": "transactions",
-			}); err != nil {
-			s.log.Warn("Failed to send sell feature notification to seller", "error", err)
-		}
+		sellerName, _, _ := s.tradeNotifyTarget(ctx, feature.OwnerID)
+		s.sendBuyFeatureNotification(ctx, buyerID, client.BuyFeatureNotifyInput{
+			FeatureID:     feature.ID,
+			PropertiesID:  properties.ID,
+			IsRGBPurchase: false,
+			PSCAmount:     pricePSC,
+			IRRAmount:     priceIRR,
+			BuyerName:     buyerName,
+			SellerName:    sellerName,
+		})
+		s.sendSellFeatureNotification(ctx, feature.OwnerID, client.SellFeatureNotifyInput{
+			FeatureID:    feature.ID,
+			PropertiesID: properties.ID,
+			TradeID:      tradeID,
+			PSCAmount:    pricePSC,
+			IRRAmount:    priceIRR,
+			BuyerName:    buyerName,
+			SellerName:   sellerName,
+		})
 	}
 
 	// Broadcast feature status change
@@ -705,17 +710,14 @@ func (s *MarketplaceService) SendBuyRequest(ctx context.Context, req *pb.SendBuy
 		s.updateLockedAssetsMetrics(ctx)
 	}
 
-	// Send notifications to buyer and seller
-	if s.notificationClient != nil {
-		// Notify buyer
-		if err := s.notificationClient.SendBuyRequestNotification(ctx, buyerID, "buyer", requestID, featureID, pricePSC, priceIRR); err != nil {
-			s.log.Warn("Failed to send buy request notification to buyer", "error", err)
-		}
-		// Notify seller
-		if err := s.notificationClient.SendBuyRequestNotification(ctx, sellerID, "seller", requestID, featureID, pricePSC, priceIRR); err != nil {
-			s.log.Warn("Failed to send buy request notification to seller", "error", err)
-		}
-	}
+	s.sendBuyRequestNotification(ctx, client.BuyRequestNotifyInput{
+		UserID: buyerID, Role: "buyer", BuyRequestID: requestID,
+		FeatureID: featureID, PropertiesID: properties.ID, PricePSC: pricePSC, PriceIRR: priceIRR,
+	})
+	s.sendBuyRequestNotification(ctx, client.BuyRequestNotifyInput{
+		UserID: sellerID, Role: "seller", BuyRequestID: requestID,
+		FeatureID: featureID, PropertiesID: properties.ID, PricePSC: pricePSC, PriceIRR: priceIRR,
+	})
 
 	return buyRequest, nil
 }
@@ -889,30 +891,32 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 		s.updateLockedAssetsMetrics(ctx)
 	}
 
-	// Send notifications to buyer and seller
 	if s.notificationClient != nil {
-		// Get trade ID for notification
 		latestTrade, _ := s.tradeRepo.GetLatestForFeature(ctx, buyRequest.FeatureID)
 		var tradeID uint64
 		if latestTrade != nil {
 			tradeID = latestTrade.ID
 		}
-
-		// Notify buyer - user-to-user purchase (PSC + IRR)
-		if err := s.notificationClient.SendBuyFeatureNotification(ctx, buyRequest.BuyerID, buyRequest.FeatureID, false, "", 0, pscAmount, irrAmount); err != nil {
-			s.log.Warn("Failed to send buy feature notification to buyer", "error", err)
-		}
-
-		// Notify seller - they received payment
-		if err := s.notificationClient.SendNotification(ctx, sellerID, "sellFeature", "فروش ملک",
-			fmt.Sprintf("ملک %d با موفقیت فروخته شد.", buyRequest.FeatureID),
-			map[string]string{
-				"feature_id": fmt.Sprintf("%d", buyRequest.FeatureID),
-				"trade_id":   fmt.Sprintf("%d", tradeID),
-				"related-to": "transactions",
-			}); err != nil {
-			s.log.Warn("Failed to send sell feature notification to seller", "error", err)
-		}
+		buyerName := s.getUserName(ctx, buyRequest.BuyerID)
+		sellerName, _, _ := s.tradeNotifyTarget(ctx, sellerID)
+		s.sendBuyFeatureNotification(ctx, buyRequest.BuyerID, client.BuyFeatureNotifyInput{
+			FeatureID:     buyRequest.FeatureID,
+			PropertiesID:  properties.ID,
+			IsRGBPurchase: false,
+			PSCAmount:     pscAmount,
+			IRRAmount:     irrAmount,
+			BuyerName:     buyerName,
+			SellerName:    sellerName,
+		})
+		s.sendSellFeatureNotification(ctx, sellerID, client.SellFeatureNotifyInput{
+			FeatureID:    buyRequest.FeatureID,
+			PropertiesID: properties.ID,
+			TradeID:      tradeID,
+			PSCAmount:    pscAmount,
+			IRRAmount:    irrAmount,
+			BuyerName:    buyerName,
+			SellerName:   sellerName,
+		})
 	}
 
 	// Broadcast feature status change
@@ -1067,12 +1071,7 @@ func (s *MarketplaceService) CreateSellRequest(ctx context.Context, req *pb.Crea
 		}
 	}
 
-	// Send notification to seller
-	if s.notificationClient != nil {
-		if err := s.notificationClient.SendSellRequestNotification(ctx, sellerID, featureID, properties.ID); err != nil {
-			s.log.Warn("Failed to send sell request notification", "error", err)
-		}
-	}
+	s.sendSellRequestNotification(ctx, sellerID, featureID, properties.ID)
 
 	// Get created sell request
 	sellRequest, err := s.sellRequestRepo.FindByID(ctx, sellRequestID)

@@ -13,9 +13,20 @@ import (
 	"metarang/dynasty-service/internal/handler"
 	"metarang/dynasty-service/internal/repository"
 	"metarang/dynasty-service/internal/service"
+	"metarang/dynasty-service/internal/validation"
 	commonpb "metarang/shared/pb/common"
 	dynastypb "metarang/shared/pb/dynasty"
+	levelspb "metarang/shared/pb/levels"
 )
+
+type stubFamilyLevelsPort struct {
+	resp *levelspb.UserLevelResponse
+	err  error
+}
+
+func (s *stubFamilyLevelsPort) GetUserLevel(context.Context, uint64) (*levelspb.UserLevelResponse, error) {
+	return s.resp, s.err
+}
 
 func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 	db, mock, err := sqlmock.New()
@@ -27,6 +38,7 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		nil,
 		"",
 	)
@@ -35,9 +47,44 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 	now := time.Now()
 	fromUser, toUser := uint64(1), uint64(2)
 
+	mock.ExpectQuery("SELECT TIMESTAMPDIFF").
+		WithArgs(fromUser).
+		WillReturnRows(sqlmock.NewRows([]string{"is_under_18"}).AddRow(false))
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(fromUser).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(fromUser, toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(fromUser, toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT EXISTS").
+		WithArgs(toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT id, user_id, feature_id").
+		WithArgs(fromUser).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
+			AddRow(uint64(1), fromUser, uint64(100), now, now))
+	mock.ExpectQuery("SELECT id, dynasty_id").
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}).
+			AddRow(uint64(1), uint64(1), now, now))
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("receiver_message").
-		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("tmpl"))
+		WithArgs("reciever_message").
+		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("[sender-name] invited [reciever-name] as [relationship]"))
+	mock.ExpectQuery("SELECT u.id, u.code, u.name").
+		WithArgs(fromUser).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(fromUser, "C1", "Alice"))
+	mock.ExpectQuery("SELECT url FROM images").
+		WithArgs(fromUser).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT u.id, u.code, u.name").
+		WithArgs(toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(toUser, "C2", "Bob"))
+	mock.ExpectQuery("SELECT url FROM images").
+		WithArgs(toUser).
+		WillReturnError(sql.ErrNoRows)
 	mock.ExpectExec("INSERT INTO join_requests").
 		WithArgs(fromUser, toUser, 0, "brother", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(11, 1))
@@ -55,11 +102,11 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 		}).AddRow(1, "brother", 0.5, 0.1, 0.2, 0.3, 10, now, now))
 
 	resp, err := h.SendJoinRequest(ctx, &dynastypb.SendJoinRequestRequest{
-		FromUserId: fromUser, ToUserId: toUser, Relationship: "brother", Message: "hi",
+		FromUserId: fromUser, ToUserId: toUser, Relationship: "brother",
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.Equal(t, "hi", resp.Message)
+	assert.Equal(t, "Alice invited Bob as برادر", resp.Message)
 	assert.NotNil(t, resp.ToUserInfo)
 	assert.NotNil(t, resp.RequestPrize)
 
@@ -84,11 +131,12 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 		}).AddRow(1, "brother", 0.5, 0.1, 0.2, 0.3, 10, now, now))
 
 	list, err := h.GetSentRequests(ctx, &dynastypb.GetSentRequestsRequest{
-		UserId: fromUser,
+		UserId:     fromUser,
 		Pagination: &commonpb.PaginationRequest{Page: 1, PerPage: 10},
 	})
 	require.NoError(t, err)
 	require.Len(t, list.Requests, 1)
+	assert.Equal(t, "hi", list.Requests[0].Message)
 
 	mock.ExpectQuery("SELECT COUNT").
 		WithArgs(toUser).
@@ -96,7 +144,7 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 	mock.ExpectQuery("SELECT id, from_user, to_user").
 		WithArgs(toUser, int32(10), int32(0)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "from_user", "to_user", "status", "relationship", "message", "created_at", "updated_at"}).
-			AddRow(11, fromUser, toUser, 0, "sister", nil, now, now))
+			AddRow(11, fromUser, toUser, 0, "sister", "welcome", now, now))
 	mock.ExpectQuery("SELECT u.id, u.code, u.name").
 		WithArgs(fromUser).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(fromUser, "C1", "Alice"))
@@ -105,11 +153,12 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	recv, err := h.GetReceivedRequests(ctx, &dynastypb.GetReceivedRequestsRequest{
-		UserId: toUser,
+		UserId:     toUser,
 		Pagination: &commonpb.PaginationRequest{Page: 0, PerPage: 0}, // exercise defaults
 	})
 	require.NoError(t, err)
 	require.Len(t, recv.Requests, 1)
+	assert.Equal(t, "welcome", recv.Requests[0].Message)
 
 	mock.ExpectQuery("SELECT id, from_user, to_user").
 		WithArgs(uint64(11)).
@@ -157,7 +206,12 @@ func TestFamilyHandler_GetFamilyAndMembersHappyPath(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	familySvc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
+	levels := &stubFamilyLevelsPort{
+		resp: &levelspb.UserLevelResponse{
+			LatestLevel: &levelspb.Level{Id: 3, Name: "Gold", Slug: "3"},
+		},
+	}
+	familySvc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), levels)
 	h := handler.NewFamilyHandler(familySvc, nil)
 	ctx := context.Background()
 	now := time.Now()
@@ -184,7 +238,8 @@ func TestFamilyHandler_GetFamilyAndMembersHappyPath(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Len(t, resp.Members, 1)
-	assert.NotNil(t, resp.Members[0].UserInfo)
+	require.NotNil(t, resp.Members[0].UserInfo)
+	assert.Equal(t, "Gold", resp.Members[0].UserInfo.Level)
 
 	mock.ExpectQuery("SELECT COUNT").
 		WithArgs(uint64(1)).
@@ -201,11 +256,16 @@ func TestFamilyHandler_GetFamilyAndMembersHappyPath(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	members, err := h.GetFamilyMembers(ctx, &dynastypb.GetFamilyMembersRequest{
-		FamilyId: 1,
+		FamilyId:   1,
 		Pagination: &commonpb.PaginationRequest{Page: 1, PerPage: 10},
 	})
 	require.NoError(t, err)
 	require.Len(t, members.Members, 1)
+	require.NotNil(t, members.Members[0].UserInfo)
+	assert.Equal(t, uint64(5), members.Members[0].UserInfo.Id)
+	assert.Equal(t, "O", members.Members[0].UserInfo.Code)
+	assert.Equal(t, "Owner", members.Members[0].UserInfo.Name)
+	assert.Equal(t, "Gold", members.Members[0].UserInfo.Level)
 
 	require.NoError(t, mock.ExpectationsWereMet())
 }

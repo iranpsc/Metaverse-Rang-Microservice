@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/service"
 	commonpb "metarang/shared/pb/common"
 	dynastypb "metarang/shared/pb/dynasty"
@@ -51,16 +52,9 @@ func (h *FamilyHandler) GetFamily(ctx context.Context, req *dynastypb.GetFamilyR
 		return nil, mapServiceError(err)
 	}
 
-	var protoMembers []*dynastypb.FamilyMember
+	protoMembers := make([]*dynastypb.FamilyMember, 0, len(members))
 	for _, m := range members {
-		userInfo, _ := h.familyService.GetUserBasicInfo(ctx, m.UserID)
-		protoMembers = append(protoMembers, &dynastypb.FamilyMember{
-			Id:           m.ID,
-			UserId:       m.UserID,
-			Relationship: m.Relationship,
-			UserInfo:     buildUserBasic(userInfo),
-			CreatedAt:    formatJalaliDate(m.CreatedAt),
-		})
+		protoMembers = append(protoMembers, h.toProtoFamilyMember(ctx, m))
 	}
 
 	return &dynastypb.FamilyResponse{
@@ -94,16 +88,9 @@ func (h *FamilyHandler) GetFamilyMembers(ctx context.Context, req *dynastypb.Get
 		return nil, mapServiceError(err)
 	}
 
-	var protoMembers []*dynastypb.FamilyMember
+	protoMembers := make([]*dynastypb.FamilyMember, 0, len(members))
 	for _, m := range members {
-		userInfo, _ := h.familyService.GetUserBasicInfo(ctx, m.UserID)
-		protoMembers = append(protoMembers, &dynastypb.FamilyMember{
-			Id:           m.ID,
-			UserId:       m.UserID,
-			Relationship: m.Relationship,
-			UserInfo:     buildUserBasic(userInfo),
-			CreatedAt:    formatJalaliDate(m.CreatedAt),
-		})
+		protoMembers = append(protoMembers, h.toProtoFamilyMember(ctx, m))
 	}
 
 	return &dynastypb.FamilyMembersResponse{
@@ -195,4 +182,15 @@ func (h *FamilyHandler) SetChildPermissions(ctx context.Context, req *dynastypb.
 	}
 
 	return &commonpb.Empty{}, nil
+}
+
+func (h *FamilyHandler) toProtoFamilyMember(ctx context.Context, m *models.FamilyMember) *dynastypb.FamilyMember {
+	userInfo, _ := h.familyService.GetUserBasicInfo(ctx, m.UserID)
+	return &dynastypb.FamilyMember{
+		Id:           m.ID,
+		UserId:       m.UserID,
+		Relationship: m.Relationship,
+		UserInfo:     buildUserBasic(userInfo),
+		CreatedAt:    formatJalaliDate(m.CreatedAt),
+	}
 }

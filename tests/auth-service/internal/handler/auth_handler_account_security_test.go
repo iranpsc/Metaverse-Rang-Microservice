@@ -181,6 +181,35 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 			t.Errorf("Expected NotFound error code, got %v", st.Code())
 		}
 	})
+
+	t.Run("verification request rate limited", func(t *testing.T) {
+		mockAuthService := &mockAuthService{}
+		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+			return service.ErrVerificationRequestRateLimited
+		}
+
+		tokenRepo := &mockTokenRepository{}
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+
+		req := &pb.RequestAccountSecurityRequest{
+			UserId:      1,
+			TimeMinutes: 15,
+			Phone:       "09123456789",
+		}
+
+		_, err := h.RequestAccountSecurity(ctx, req)
+		if err == nil {
+			t.Fatal("Expected error")
+		}
+
+		st, ok := status.FromError(err)
+		if !ok {
+			t.Fatal("Expected gRPC status error")
+		}
+		if st.Code() != codes.ResourceExhausted {
+			t.Errorf("Expected ResourceExhausted error code, got %v", st.Code())
+		}
+	})
 }
 
 func TestAuthHandler_VerifyAccountSecurity(t *testing.T) {

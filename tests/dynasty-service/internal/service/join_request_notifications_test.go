@@ -15,6 +15,7 @@ import (
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/repository"
 	"metarang/dynasty-service/internal/service"
+	"metarang/dynasty-service/internal/validation"
 )
 
 // recordingNotificationPort captures NotificationPort.SendNotification calls.
@@ -86,13 +87,17 @@ func TestJoinRequestService_SendJoinRequest_NilNotificationClient_SucceedsWithou
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		nil,
 		"",
 	)
 
+	expectSendJoinRequestRules(mock, 1, 2, "brother")
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("receiver_message").
+		WithArgs("reciever_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("tmpl"))
+	expectUserBasicInfo(mock, 1, "S1", "Sender")
+	expectUserBasicInfo(mock, 2, "R2", "Receiver")
 	mock.ExpectExec("INSERT INTO join_requests").
 		WithArgs(uint64(1), uint64(2), 0, "brother", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -103,7 +108,7 @@ func TestJoinRequestService_SendJoinRequest_NilNotificationClient_SucceedsWithou
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSMSFalseSendEmailFalse(t *testing.T) {
+func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSMSAndEmail(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
@@ -114,6 +119,7 @@ func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSM
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"localhost:50054",
 	)
@@ -123,15 +129,15 @@ func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSM
 	receiverTemplate := "Hi [sender-name] ([sender-code]) wants [relationship] with [reciever-name]"
 	senderTemplate := "You asked [reciever-name] ([reciever-code]) for [relationship]"
 
+	expectSendJoinRequestRules(mock, fromUserID, toUserID, relationship)
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("receiver_message").
+		WithArgs("reciever_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow(receiverTemplate))
+	expectUserBasicInfo(mock, fromUserID, "S10", "Sender")
+	expectUserBasicInfo(mock, toUserID, "R20", "Receiver")
 	mock.ExpectExec("INSERT INTO join_requests").
 		WithArgs(fromUserID, toUserID, 0, relationship, sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(5, 1))
-
-	expectUserBasicInfo(mock, fromUserID, "S10", "Sender")
-	expectUserBasicInfo(mock, toUserID, "R20", "Receiver")
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
 		WithArgs("requester_confirmation_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow(senderTemplate))
@@ -139,6 +145,8 @@ func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSM
 	req, err := svc.SendJoinRequest(context.Background(), fromUserID, toUserID, relationship, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req)
+	require.NotNil(t, req.Message)
+	assert.Equal(t, "Hi Sender (S10) wants برادر with Receiver", *req.Message)
 
 	calls := notif.snapshot()
 	require.Len(t, calls, 2)
@@ -149,15 +157,15 @@ func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSM
 	assert.Contains(t, calls[0].Message, "Receiver")
 	assert.Contains(t, calls[0].Message, "برادر")
 	assert.Equal(t, map[string]string{"relationship": relationship}, calls[0].Data)
-	assert.False(t, calls[0].SendSMS, "service currently passes sendSMS=false")
-	assert.False(t, calls[0].SendEmail, "service currently passes sendEmail=false")
+	assert.True(t, calls[0].SendSMS, "SendJoinRequest must request SMS delivery")
+	assert.True(t, calls[0].SendEmail, "SendJoinRequest must request email delivery")
 
 	assert.Equal(t, toUserID, calls[1].UserID)
 	assert.Equal(t, "dynasty_join_request", calls[1].NotificationType)
 	assert.Contains(t, calls[1].Message, "Sender")
 	assert.Equal(t, map[string]string{"relationship": relationship}, calls[1].Data)
-	assert.False(t, calls[1].SendSMS)
-	assert.False(t, calls[1].SendEmail)
+	assert.True(t, calls[1].SendSMS)
+	assert.True(t, calls[1].SendEmail)
 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -173,18 +181,20 @@ func TestJoinRequestService_SendJoinRequest_EmptyTemplates_SkipSendNotification(
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"",
 	)
 
+	expectSendJoinRequestRules(mock, 1, 2, "sister")
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("receiver_message").
+		WithArgs("reciever_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow(""))
+	expectUserBasicInfo(mock, 1, "A", "Alice")
+	expectUserBasicInfo(mock, 2, "B", "Bob")
 	mock.ExpectExec("INSERT INTO join_requests").
 		WithArgs(uint64(1), uint64(2), 0, "sister", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	expectUserBasicInfo(mock, 1, "A", "Alice")
-	expectUserBasicInfo(mock, 2, "B", "Bob")
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
 		WithArgs("requester_confirmation_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow(""))
@@ -206,20 +216,22 @@ func TestJoinRequestService_SendJoinRequest_ReceiverInfoFailure_SkipsNotificatio
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"",
 	)
 
+	expectSendJoinRequestRules(mock, 1, 2, "wife")
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("receiver_message").
+		WithArgs("reciever_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("tmpl"))
-	mock.ExpectExec("INSERT INTO join_requests").
-		WithArgs(uint64(1), uint64(2), 0, "wife", sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(1, 1))
 	expectUserBasicInfo(mock, 1, "A", "Alice")
 	mock.ExpectQuery("SELECT u.id, u.code, u.name").
 		WithArgs(uint64(2)).
 		WillReturnError(sql.ErrNoRows)
+	mock.ExpectExec("INSERT INTO join_requests").
+		WithArgs(uint64(1), uint64(2), 0, "wife", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	_, err = svc.SendJoinRequest(context.Background(), 1, 2, "wife", nil, nil)
 	require.NoError(t, err)
@@ -238,19 +250,22 @@ func TestJoinRequestService_SendJoinRequest_UserInfoFetchFailure_SkipsNotificati
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"",
 	)
 
+	expectSendJoinRequestRules(mock, 1, 2, "wife")
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("receiver_message").
+		WithArgs("reciever_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("tmpl"))
-	mock.ExpectExec("INSERT INTO join_requests").
-		WithArgs(uint64(1), uint64(2), 0, "wife", sqlmock.AnyArg()).
-		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("SELECT u.id, u.code, u.name").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrNoRows)
+	expectUserBasicInfo(mock, 2, "B", "Bob")
+	mock.ExpectExec("INSERT INTO join_requests").
+		WithArgs(uint64(1), uint64(2), 0, "wife", sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	_, err = svc.SendJoinRequest(context.Background(), 1, 2, "wife", nil, nil)
 	require.NoError(t, err)
@@ -269,18 +284,20 @@ func TestJoinRequestService_SendJoinRequest_SendNotificationFailure_DoesNotFailM
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"",
 	)
 
+	expectSendJoinRequestRules(mock, 1, 2, "husband")
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
-		WithArgs("receiver_message").
+		WithArgs("reciever_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("recv [sender-name]"))
+	expectUserBasicInfo(mock, 1, "S", "Sender")
+	expectUserBasicInfo(mock, 2, "R", "Receiver")
 	mock.ExpectExec("INSERT INTO join_requests").
 		WithArgs(uint64(1), uint64(2), 0, "husband", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
-	expectUserBasicInfo(mock, 1, "S", "Sender")
-	expectUserBasicInfo(mock, 2, "R", "Receiver")
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
 		WithArgs("requester_confirmation_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("sent [reciever-name]"))
@@ -303,6 +320,7 @@ func TestJoinRequestService_AcceptJoinRequest_NotifiesWithAcceptType_SendSMSFals
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		nil, // skip prize path
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"",
 	)
@@ -370,6 +388,7 @@ func TestJoinRequestService_RejectJoinRequest_UsesDefaultTemplatesWhenDBEmpty_Se
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"",
 	)
@@ -424,6 +443,7 @@ func TestJoinRequestService_RejectJoinRequest_SendNotificationFailure_DoesNotFai
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		notif,
 		"",
 	)
@@ -461,6 +481,7 @@ func TestJoinRequestService_FormatRelationshipMessage_AndGetUserBasicInfo(t *tes
 		repository.NewDynastyRepository(db),
 		repository.NewFamilyRepository(db),
 		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
 		nil,
 		"",
 	)
@@ -478,8 +499,8 @@ func TestJoinRequestService_FormatRelationshipMessage_AndGetUserBasicInfo(t *tes
 }
 
 func TestJoinRequestService_NotificationPort_ContractAcceptsSMSEmailFlags(t *testing.T) {
-	// Documents that NotificationPort (and thus NotificationClient) accepts SMS/email flags
-	// even though JoinRequestService currently hardcodes false,false.
+	// Documents that NotificationPort (and thus NotificationClient) accepts SMS/email flags.
+	// SendJoinRequest passes true,true; accept/reject currently pass false,false.
 	port := &recordingNotificationPort{}
 	var _ service.NotificationPort = port
 

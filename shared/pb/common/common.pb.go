@@ -241,6 +241,7 @@ type UserBasic struct {
 	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	Email         string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
 	ProfilePhoto  string                 `protobuf:"bytes,5,opt,name=profile_photo,json=profilePhoto,proto3" json:"profile_photo,omitempty"`
+	Level         string                 `protobuf:"bytes,6,opt,name=level,proto3" json:"level,omitempty"` // latest achieved level name from levels-service
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -306,6 +307,13 @@ func (x *UserBasic) GetEmail() string {
 func (x *UserBasic) GetProfilePhoto() string {
 	if x != nil {
 		return x.ProfilePhoto
+	}
+	return ""
+}
+
+func (x *UserBasic) GetLevel() string {
+	if x != nil {
+		return x.Level
 	}
 	return ""
 }
@@ -525,13 +533,14 @@ const file_common_proto_rawDesc = "" +
 	"\tlast_page\x18\x04 \x01(\x05R\blastPage\";\n" +
 	"\tTimestamp\x12\x18\n" +
 	"\aseconds\x18\x01 \x01(\x03R\aseconds\x12\x14\n" +
-	"\x05nanos\x18\x02 \x01(\x05R\x05nanos\"~\n" +
+	"\x05nanos\x18\x02 \x01(\x05R\x05nanos\"\x94\x01\n" +
 	"\tUserBasic\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x14\n" +
 	"\x05email\x18\x04 \x01(\tR\x05email\x12#\n" +
-	"\rprofile_photo\x18\x05 \x01(\tR\fprofilePhoto\"\xa6\x01\n" +
+	"\rprofile_photo\x18\x05 \x01(\tR\fprofilePhoto\x12\x14\n" +
+	"\x05level\x18\x06 \x01(\tR\x05level\"\xa6\x01\n" +
 	"\x06Wallet\x12\x10\n" +
 	"\x03psc\x18\x01 \x01(\tR\x03psc\x12\x10\n" +
 	"\x03irr\x18\x02 \x01(\tR\x03irr\x12\x10\n" +

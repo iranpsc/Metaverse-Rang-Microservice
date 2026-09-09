@@ -143,7 +143,8 @@ func (h *ProfitHandler) GetProfitsByApplication(ctx context.Context, req *pb.Get
 	}, nil
 }
 
-// GetHourlyProfitTimePercentage returns elapsed time percentage for the user's oldest hourly profit.
+// GetHourlyProfitTimePercentage returns elapsed time percentage from last withdraw to dead_line
+// for the user's oldest still-open withdrawn hourly profit.
 func (h *ProfitHandler) GetHourlyProfitTimePercentage(ctx context.Context, req *pb.GetHourlyProfitTimePercentageRequest) (*pb.GetHourlyProfitTimePercentageResponse, error) {
 	locale := GetProjectLocale()
 	validationErrors := ValidateRequired("user_id", req.UserId, locale)
