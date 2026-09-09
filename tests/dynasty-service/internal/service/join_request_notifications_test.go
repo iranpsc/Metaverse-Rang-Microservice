@@ -77,6 +77,22 @@ func expectUserBasicInfo(mock sqlmock.Sqlmock, userID uint64, code, name string)
 		WillReturnError(sql.ErrNoRows)
 }
 
+func expectJoinNotificationChannels(mock sqlmock.Sqlmock, userID uint64, phone, email string, phoneVerified, emailVerified bool) {
+	now := time.Now()
+	phoneVerifiedAt := sql.NullTime{}
+	if phoneVerified {
+		phoneVerifiedAt = sql.NullTime{Time: now, Valid: true}
+	}
+	emailVerifiedAt := sql.NullTime{}
+	if emailVerified {
+		emailVerifiedAt = sql.NullTime{Time: now, Valid: true}
+	}
+	mock.ExpectQuery("join_notification_channels").
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"phone", "phone_verified_at", "email", "email_verified_at"}).
+			AddRow(phone, phoneVerifiedAt, email, emailVerifiedAt))
+}
+
 func TestJoinRequestService_SendJoinRequest_NilNotificationClient_SucceedsWithoutPanic(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -141,6 +157,8 @@ func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSM
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
 		WithArgs("requester_confirmation_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow(senderTemplate))
+	expectJoinNotificationChannels(mock, fromUserID, "09120000001", "sender@example.com", true, true)
+	expectJoinNotificationChannels(mock, toUserID, "09120000002", "receiver@example.com", true, true)
 
 	req, err := svc.SendJoinRequest(context.Background(), fromUserID, toUserID, relationship, nil, nil)
 	require.NoError(t, err)
@@ -167,6 +185,52 @@ func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSM
 	assert.True(t, calls[1].SendSMS)
 	assert.True(t, calls[1].SendEmail)
 
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestJoinRequestService_SendJoinRequest_SkipsSMSEmailWhenContactsUnverified(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	notif := &recordingNotificationPort{}
+	svc := service.NewJoinRequestService(
+		repository.NewJoinRequestRepository(db),
+		repository.NewDynastyRepository(db),
+		repository.NewFamilyRepository(db),
+		repository.NewPrizeRepository(db),
+		validation.NewFamilyValidator(repository.NewValidationRepository(db)),
+		notif,
+		"",
+	)
+
+	fromUserID, toUserID := uint64(10), uint64(20)
+	relationship := "brother"
+
+	expectSendJoinRequestRules(mock, fromUserID, toUserID, relationship)
+	mock.ExpectQuery("SELECT message FROM dynasty_messages").
+		WithArgs("reciever_message").
+		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("recv [sender-name]"))
+	expectUserBasicInfo(mock, fromUserID, "S10", "Sender")
+	expectUserBasicInfo(mock, toUserID, "R20", "Receiver")
+	mock.ExpectExec("INSERT INTO join_requests").
+		WithArgs(fromUserID, toUserID, 0, relationship, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(5, 1))
+	mock.ExpectQuery("SELECT message FROM dynasty_messages").
+		WithArgs("requester_confirmation_message").
+		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("sent [reciever-name]"))
+	expectJoinNotificationChannels(mock, fromUserID, "09120000001", "sender@example.com", false, false)
+	expectJoinNotificationChannels(mock, toUserID, "09120000002", "receiver@example.com", false, false)
+
+	_, err = svc.SendJoinRequest(context.Background(), fromUserID, toUserID, relationship, nil, nil)
+	require.NoError(t, err)
+
+	calls := notif.snapshot()
+	require.Len(t, calls, 2)
+	assert.False(t, calls[0].SendSMS)
+	assert.False(t, calls[0].SendEmail)
+	assert.False(t, calls[1].SendSMS)
+	assert.False(t, calls[1].SendEmail)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -301,6 +365,8 @@ func TestJoinRequestService_SendJoinRequest_SendNotificationFailure_DoesNotFailM
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
 		WithArgs("requester_confirmation_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("sent [reciever-name]"))
+	expectJoinNotificationChannels(mock, uint64(1), "09120000001", "sender@example.com", true, true)
+	expectJoinNotificationChannels(mock, uint64(2), "09120000002", "receiver@example.com", true, true)
 
 	req, err := svc.SendJoinRequest(context.Background(), 1, 2, "husband", nil, nil)
 	require.NoError(t, err, "SendNotification errors must be best-effort")
@@ -500,7 +566,7 @@ func TestJoinRequestService_FormatRelationshipMessage_AndGetUserBasicInfo(t *tes
 
 func TestJoinRequestService_NotificationPort_ContractAcceptsSMSEmailFlags(t *testing.T) {
 	// Documents that NotificationPort (and thus NotificationClient) accepts SMS/email flags.
-	// SendJoinRequest passes true,true; accept/reject currently pass false,false.
+	// SendJoinRequest passes verified-channel flags; accept/reject currently pass false,false.
 	port := &recordingNotificationPort{}
 	var _ service.NotificationPort = port
 

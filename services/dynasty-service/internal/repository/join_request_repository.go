@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"metarang/dynasty-service/internal/models"
 )
@@ -207,6 +208,27 @@ func (r *JoinRequestRepository) GetUserBasicInfo(ctx context.Context, userID uin
 	}
 
 	return &user, nil
+}
+
+// GetUserNotificationChannels reports whether SMS/email delivery is allowed based on verified contact info.
+func (r *JoinRequestRepository) GetUserNotificationChannels(ctx context.Context, userID uint64) (sendSMS, sendEmail bool) {
+	query := `
+		SELECT u.phone, u.phone_verified_at, u.email, u.email_verified_at
+		FROM users u
+		WHERE u.id = ? -- join_notification_channels
+		LIMIT 1
+	`
+
+	var phone, email sql.NullString
+	var phoneVerifiedAt, emailVerifiedAt sql.NullTime
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&phone, &phoneVerifiedAt, &email, &emailVerifiedAt)
+	if err != nil {
+		return false, false
+	}
+
+	hasVerifiedPhone := strings.TrimSpace(phone.String) != "" && phoneVerifiedAt.Valid
+	hasVerifiedEmail := strings.TrimSpace(email.String) != "" && emailVerifiedAt.Valid
+	return hasVerifiedPhone, hasVerifiedEmail
 }
 
 // CreateChildPermission creates child permissions

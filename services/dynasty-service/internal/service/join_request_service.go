@@ -383,12 +383,21 @@ func (s *JoinRequestService) notifyJoinRequestCreated(ctx context.Context, sende
 	now := time.Now()
 	senderMsg := s.fillDynastyTemplate(requesterTemplate, senderInfo, receiverInfo, relationship, now)
 	receiverMsg := s.fillDynastyTemplate(receiverTemplate, senderInfo, receiverInfo, relationship, now)
+	senderSMS, senderEmail := s.joinRequestNotifyChannels(ctx, senderInfo.ID)
+	receiverSMS, receiverEmail := s.joinRequestNotifyChannels(ctx, receiverInfo.ID)
 	if senderMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, senderInfo.ID, "dynasty_join_request", "Dynasty", senderMsg, map[string]string{"relationship": relationship}, true, true)
+		_ = s.notificationClient.SendNotification(ctx, senderInfo.ID, "dynasty_join_request", "Dynasty", senderMsg, map[string]string{"relationship": relationship}, senderSMS, senderEmail)
 	}
 	if receiverMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, receiverInfo.ID, "dynasty_join_request", "Dynasty", receiverMsg, map[string]string{"relationship": relationship}, true, true)
+		_ = s.notificationClient.SendNotification(ctx, receiverInfo.ID, "dynasty_join_request", "Dynasty", receiverMsg, map[string]string{"relationship": relationship}, receiverSMS, receiverEmail)
 	}
+}
+
+func (s *JoinRequestService) joinRequestNotifyChannels(ctx context.Context, userID uint64) (sendSMS, sendEmail bool) {
+	if s.joinRequestRepo == nil {
+		return false, false
+	}
+	return s.joinRequestRepo.GetUserNotificationChannels(ctx, userID)
 }
 
 func (s *JoinRequestService) notifyJoinRequestAccepted(ctx context.Context, requesterID, receiverID uint64, relationship string) {
