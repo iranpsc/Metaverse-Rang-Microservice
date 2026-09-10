@@ -161,7 +161,8 @@ routes:
       - HEAD
       - OPTIONS
 
-  # Public file upload — storage-service only
+  # Public file upload — storage-service only.
+  # Exempt from rate-limiting: chunked uploads send one request per chunk.
   - name: storage-upload
     service: storage-uploads
     paths:
@@ -175,16 +176,6 @@ routes:
     methods:
       - POST
       - OPTIONS
-    plugins:
-      - name: rate-limiting
-        config:
-          minute: 30
-          policy: redis
-          redis:
-            host: redis
-            port: 6379
-            ssl: false
-            ssl_verify: false
 
   # Calendar API
   - name: calendar-api
