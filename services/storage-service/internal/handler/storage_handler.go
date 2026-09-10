@@ -131,8 +131,9 @@ func (h *StorageHandler) ChunkUpload(ctx context.Context, req *storagepb.ChunkUp
 		return nil, status.Errorf(codes.InvalidArgument, "chunk_data is empty")
 	}
 
-	// Handle chunk upload
-	isFinished, progress, fileURL, filePath, finalFilename, err := h.service.HandleChunkUpload(
+	// HandleChunkUpload returns (isFinished, progress, publicDir, storedName, mimeType, err).
+	// Callers treat FileUrl as the public directory and FilePath as the stored filename.
+	isFinished, progress, publicDir, storedName, _, err := h.service.HandleChunkUpload(
 		req.UploadId,
 		req.Filename,
 		req.ContentType,
@@ -155,9 +156,9 @@ func (h *StorageHandler) ChunkUpload(ctx context.Context, req *storagepb.ChunkUp
 
 	if isFinished {
 		response.Message = "File uploaded successfully"
-		response.FileUrl = fileURL
-		response.FilePath = filePath
-		response.FinalFilename = finalFilename
+		response.FileUrl = publicDir
+		response.FilePath = storedName
+		response.FinalFilename = storedName
 	} else {
 		response.Message = fmt.Sprintf("Chunk %d/%d uploaded", req.ChunkIndex+1, req.TotalChunks)
 	}

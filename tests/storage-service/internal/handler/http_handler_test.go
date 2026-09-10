@@ -230,9 +230,10 @@ func TestHTTPHandler_HandleChunkUpload(t *testing.T) {
 			t.Fatal("Name should be a string")
 		}
 
-		// Construct expected file path for default layout uploads under storageBase.
-		// Path is like "uploads/image-jpeg/2024-01-15/".
-		expectedPath := filepath.Join(storageBase, filepath.FromSlash(strings.TrimSuffix(path, "/")+"/"+name))
+		// Construct expected file path for default layout under storageBase.
+		// Public path is "uploads/{mime}/{date}/"; files live at {storageBase}/{mime}/{date}/{name}.
+		rel := strings.TrimPrefix(strings.TrimSuffix(path, "/")+"/"+name, "uploads/")
+		expectedPath := filepath.Join(storageBase, filepath.FromSlash(rel))
 
 		// Check if file exists
 		if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
@@ -471,7 +472,8 @@ func TestChunkUpload_CompleteFlow(t *testing.T) {
 	if finalPath == "" || finalName == "" {
 		t.Fatal("missing path/name in completed response")
 	}
-	savedFile := filepath.Join(storageBase, filepath.FromSlash(strings.TrimSuffix(finalPath, "/")+"/"+finalName))
+	rel := strings.TrimPrefix(strings.TrimSuffix(finalPath, "/")+"/"+finalName, "uploads/")
+	savedFile := filepath.Join(storageBase, filepath.FromSlash(rel))
 	savedContent, err := os.ReadFile(savedFile)
 	if err != nil {
 		t.Fatalf("Failed to read saved file %s: %v", savedFile, err)
@@ -534,6 +536,79 @@ func TestHTTPHandler_ServeUploads_EdgeCases(t *testing.T) {
 			t.Fatalf("expected 200, got %d", w.Code)
 		}
 	})
+
+	t.Run("legacy doubled uploads prefix", func(t *testing.T) {
+		legacyDir := filepath.Join(uploadRoot, "uploads", "text-plain", "2026-09-10")
+		if err := os.MkdirAll(legacyDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(legacyDir, "legacy.txt"), []byte("old-layout"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/uploads/text-plain/2026-09-10/legacy.txt", nil)
+		w := httptest.NewRecorder()
+		h.ServeUploads(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", w.Code, w.Body.String())
+		}
+		if !bytes.Equal(w.Body.Bytes(), []byte("old-layout")) {
+			t.Fatalf("unexpected body: %q", w.Body.Bytes())
+		}
+	})
+}
+
+func TestHTTPHandler_DefaultChunkUploadIsPubliclyServable(t *testing.T) {
+	tempDir := t.TempDir()
+	chunkManager, err := service.NewChunkManager(filepath.Join(tempDir, "chunks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	storageBase := filepath.Join(tempDir, "storage", "app")
+	ftpClient := ftp.NewMockFTPClient(filepath.Join(tempDir, "ftp"), "http://example.com")
+	storageService := service.NewStorageService(ftpClient, chunkManager, storageBase)
+	h := handler.NewHTTPHandler(storageService, storageBase)
+
+	content := []byte("servable-chunk-bytes")
+	contentType, body, err := createMultipartFormData("note.txt", content, map[string]string{
+		"filename":     "note.txt",
+		"content_type": "text/plain",
+		"upload_id":    "serve-default",
+		"chunk_index":  "0",
+		"total_chunks": "1",
+		"total_size":   fmt.Sprintf("%d", len(content)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/upload", body)
+	req.Header.Set("Content-Type", contentType)
+	w := httptest.NewRecorder()
+	h.HandleChunkUpload(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("upload: %d %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	path, _ := response["path"].(string)
+	name, _ := response["name"].(string)
+	if path == "" || name == "" {
+		t.Fatalf("missing path/name: %v", response)
+	}
+
+	public := "/" + strings.TrimPrefix(path, "/") + name
+	getReq := httptest.NewRequest(http.MethodGet, public, nil)
+	getW := httptest.NewRecorder()
+	h.ServeUploads(getW, getReq)
+	if getW.Code != http.StatusOK {
+		t.Fatalf("GET %s: %d body=%s", public, getW.Code, getW.Body.String())
+	}
+	if !bytes.Equal(getW.Body.Bytes(), content) {
+		t.Fatalf("served content mismatch: %q", getW.Body.Bytes())
+	}
 }
 
 func TestHTTPHandler_RegisterHTTPRoutes(t *testing.T) {

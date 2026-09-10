@@ -97,9 +97,18 @@ func TestHandleChunkUpload_DefaultUploadLayout(t *testing.T) {
 		t.Fatal("expected generated filename")
 	}
 
-	localFile := filepath.Join(uploadBase, "uploads", "image-jpeg", strings.TrimSuffix(strings.TrimPrefix(publicDir, "uploads/image-jpeg/"), "/"), filename)
+	dateFolder := strings.TrimSuffix(strings.TrimPrefix(publicDir, "uploads/image-jpeg/"), "/")
+	localFile := filepath.Join(uploadBase, "image-jpeg", dateFolder, filename)
 	if _, err := os.Stat(localFile); err != nil {
 		t.Fatalf("expected file at %s: %v", localFile, err)
+	}
+
+	got, contentType, err := svc.GetFile(strings.TrimSuffix(publicDir, "/") + "/" + filename)
+	if err != nil {
+		t.Fatalf("GetFile public path: %v", err)
+	}
+	if contentType != "image/jpeg" || string(got) != "fake-jpeg-data" {
+		t.Fatalf("GetFile: type=%q data=%q", contentType, got)
 	}
 }
 

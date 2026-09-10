@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -208,6 +209,12 @@ func (h *HTTPHandler) ServeUploads(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filePath := filepath.Join(root, filepath.FromSlash(rel))
+	if info, err := os.Stat(filePath); err != nil || info.IsDir() {
+		legacy := filepath.Join(root, "uploads", filepath.FromSlash(rel))
+		if info, err := os.Stat(legacy); err == nil && !info.IsDir() {
+			filePath = legacy
+		}
+	}
 	http.ServeFile(w, r, filePath)
 }
 

@@ -134,7 +134,7 @@ func (cm *ChunkManager) IsComplete(session *ChunkSession) bool {
 }
 
 // AssembleFile assembles all chunks into a single file
-// Returns: assembledData, relativePath (like "uploads/{mime}/{YYYY-MM-DD}/{filename}"), finalFilename, error
+// Returns: assembledData, relativePath (like "{mime}/{YYYY-MM-DD}/{filename}"), finalFilename, error
 func (cm *ChunkManager) AssembleFile(session *ChunkSession) ([]byte, string, string, error) {
 	session.mu.RLock()
 	defer session.mu.RUnlock()
@@ -172,8 +172,8 @@ func (cm *ChunkManager) AssembleFile(session *ChunkSession) ([]byte, string, str
 	if session.UploadPath != "" {
 		relativePath = filepath.Join(session.UploadPath, uniqueFilename)
 	} else {
-		// Format: uploads/{mime}/{YYYY-MM-DD}/{filename}
-		relativePath = filepath.Join("uploads", mimeDir, dateFolder, uniqueFilename)
+		// Disk layout under uploadBaseDir (already the uploads root): {mime}/{YYYY-MM-DD}/{filename}
+		relativePath = filepath.Join(mimeDir, dateFolder, uniqueFilename)
 	}
 
 	return assembledData, relativePath, uniqueFilename, nil

@@ -211,7 +211,7 @@
 <body>
     <div class="container">
         <h1>📤 Storage Service Upload Test</h1>
-        <p class="subtitle">Test the /api/upload endpoint with chunk support</p>
+        <p class="subtitle">Test the /api/upload endpoint with chunk support. Serve this page over http://localhost (not file://) so Kong CORS allows the request.</p>
         
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
@@ -314,14 +314,25 @@
         
         async function uploadFile() {
             if (!selectedFile) return;
+            if (!selectedFile.size) {
+                showStatus('File is empty.', 'error');
+                return;
+            }
             
             uploadBtn.disabled = true;
             progressContainer.style.display = 'block';
             result.style.display = 'none';
+            result.replaceChildren();
             
-            const chunkSize = parseInt(chunkSizeInput.value);
+            const chunkSize = parseInt(chunkSizeInput.value, 10);
+            if (!Number.isFinite(chunkSize) || chunkSize < 1) {
+                showStatus('Chunk size must be a positive number.', 'error');
+                uploadBtn.disabled = false;
+                progressContainer.style.display = 'none';
+                return;
+            }
             const totalChunks = Math.ceil(selectedFile.size / chunkSize);
-            const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const uploadId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
             const apiUrl = apiUrlInput.value;
             
             showStatus(`Uploading in ${totalChunks} chunk(s)...`, 'info');
@@ -333,52 +344,102 @@
                     const chunk = selectedFile.slice(start, end);
                     
                     const formData = new FormData();
-                    formData.append('file', chunk);
+                    formData.append('file', chunk, selectedFile.name);
                     formData.append('upload_id', uploadId);
-                    formData.append('chunk_index', chunkIndex);
-                    formData.append('total_chunks', totalChunks);
+                    formData.append('chunk_index', String(chunkIndex));
+                    formData.append('total_chunks', String(totalChunks));
                     formData.append('filename', selectedFile.name);
                     formData.append('content_type', selectedFile.type || 'application/octet-stream');
-                    formData.append('total_size', selectedFile.size);
+                    formData.append('total_size', String(selectedFile.size));
                     
                     const response = await fetch(apiUrl, {
                         method: 'POST',
                         body: formData
                     });
                     
+                    const data = await parseJsonResponse(response);
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
                     }
                     
-                    const data = await response.json();
+                    // In-progress: { done }. Completed: { path, name, mime_type }.
+                    const finished = Boolean(data.is_finished) || typeof data.name === 'string';
+                    const progress = typeof data.done === 'number'
+                        ? Math.round(data.done)
+                        : (finished ? 100 : Math.round(((chunkIndex + 1) / totalChunks) * 100));
+                    const message = data.message
+                        || (finished ? 'File uploaded successfully' : `Chunk ${chunkIndex + 1}/${totalChunks} uploaded`);
                     
-                    // Update progress
-                    const progress = Math.round(data.done);
                     progressFill.style.width = `${progress}%`;
                     progressFill.textContent = `${progress}%`;
-                    showStatus(`${data.message} (${progress}%)`, 'info');
+                    showStatus(`${message} (${progress}%)`, finished ? 'success' : 'info');
                     
-                    if (data.is_finished) {
-                        showStatus('✅ Upload complete!', 'success');
-                        result.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-                        result.style.display = 'block';
-                        
-                        // Reset after 3 seconds
+                    if (finished) {
+                        showFinishedResult(data, apiUrl);
                         setTimeout(() => {
                             uploadBtn.disabled = false;
                             progressContainer.style.display = 'none';
                             progressFill.style.width = '0%';
                             progressFill.textContent = '0%';
                         }, 3000);
-                        
                         return;
                     }
                 }
+                throw new Error('Upload ended before the server returned a completed file.');
             } catch (error) {
                 showStatus(`❌ Upload failed: ${error.message}`, 'error');
                 uploadBtn.disabled = false;
                 progressContainer.style.display = 'none';
                 console.error('Upload error:', error);
+            }
+        }
+        
+        async function parseJsonResponse(response) {
+            const text = await response.text();
+            if (!text) {
+                return {};
+            }
+            try {
+                return JSON.parse(text);
+            } catch (err) {
+                throw new Error(text.slice(0, 200) || `HTTP ${response.status}`);
+            }
+        }
+        
+        function showFinishedResult(data, apiUrl) {
+            showStatus('✅ Upload complete!', 'success');
+            result.replaceChildren();
+            const pre = document.createElement('pre');
+            pre.textContent = JSON.stringify(data, null, 2);
+            result.appendChild(pre);
+            
+            const publicUrl = publicFileUrl(apiUrl, data.path, data.name);
+            if (publicUrl) {
+                const linkPara = document.createElement('p');
+                linkPara.style.marginTop = '10px';
+                const label = document.createElement('strong');
+                label.textContent = 'Public URL: ';
+                const link = document.createElement('a');
+                link.href = publicUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = publicUrl;
+                linkPara.append(label, link);
+                result.appendChild(linkPara);
+            }
+            result.style.display = 'block';
+        }
+        
+        function publicFileUrl(apiUrl, path, name) {
+            if (!path || !name) {
+                return '';
+            }
+            try {
+                const origin = new URL(apiUrl, window.location.href).origin;
+                const dir = String(path).replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/?$/, '/');
+                return `${origin}/${dir}${name}`;
+            } catch (err) {
+                return '';
             }
         }
         

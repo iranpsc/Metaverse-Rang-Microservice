@@ -106,7 +106,9 @@ func localUploadPathCandidates(uploadBaseDir, filePath string) []string {
 	if strings.HasPrefix(filePath, "upload/") && !strings.HasPrefix(filePath, "uploads/") {
 		add(filepath.Join("uploads", strings.TrimPrefix(filePath, "upload/")))
 	}
-	if !strings.HasPrefix(filePath, "uploads/") {
+	if strings.HasPrefix(filePath, "uploads/") {
+		add(strings.TrimPrefix(filePath, "uploads/"))
+	} else {
 		add(filepath.Join("uploads", filePath))
 	}
 	return out
