@@ -381,21 +381,20 @@ func (h *HTTPTrainingHandler) AddInteraction(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req struct {
-		Liked bool `json:"liked"`
-	}
-	likedStr := r.URL.Query().Get("liked")
-	if likedStr != "" {
-		req.Liked = likedStr == "1" || likedStr == "true"
-	} else if err := decodeRequestBody(r, &req); err != nil && !isEOF(err) {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+	liked, err := parseLikedFromRequest(r)
+	if err != nil {
+		if err == io.EOF {
+			writeError(w, http.StatusBadRequest, "liked query parameter or request body is required")
+		} else {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+		}
 		return
 	}
 
-	_, err := h.video.AddInteraction(r.Context(), &trainingpb.AddInteractionRequest{
+	_, err = h.video.AddInteraction(r.Context(), &trainingpb.AddInteractionRequest{
 		VideoId:   videoID,
 		UserId:    userID,
-		Liked:     req.Liked,
+		Liked:     liked,
 		IpAddress: getIPAddress(r),
 	})
 	if err != nil {

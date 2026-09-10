@@ -22,6 +22,11 @@ x-grpc-certs-depends: &grpc-certs-depends
   grpc-certs-init:
     condition: service_completed_successfully
 
+# DB-backed services wait for the one-shot migrate job before accepting traffic.
+x-migrate-depends: &migrate-depends
+  migrate:
+    condition: service_completed_successfully
+
 # Shared MySQL credentials (Dokploy env / local .env). Go services keep DB_HOST=mysql
 # on metarang-network; the admin panel reaches this instance as metarang-mysql on metarang-shared.
 x-db-environment: &db-environment
@@ -96,6 +101,44 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # One-shot SQL migrator (scripts/migrations). Runs before DB-backed services start.
+  # Re-apply pending files after pulling new migrations:
+  #   docker compose up -d --force-recreate --no-deps migrate
+  # or: docker compose run --rm migrate
+  migrate:
+    build:
+      context: .
+      dockerfile: ./scripts/docker/migrate/Dockerfile
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${MYSQL_DATABASE:-metarang_db}
+      # DDL needs elevated privileges; defaults match Make migrate (root).
+      DB_USER: ${MIGRATE_DB_USER:-root}
+      DB_PASSWORD: ${MIGRATE_DB_PASSWORD:-${MYSQL_ROOT_PASSWORD:-root_password}}
+      APP_ENV: ${APP_ENV:-local}
+      MIGRATE_FORCE: ${MIGRATE_FORCE:-0}
+      SKIP_MIGRATE: ${SKIP_MIGRATE:-0}
+      MIGRATIONS_PATH: /migrations
+      MYSQL_WAIT_SECONDS: ${MYSQL_WAIT_SECONDS:-90}
+    volumes:
+      # Host mount so new SQL files apply without rebuilding the image locally.
+      - ./scripts/migrations:/migrations:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - metarang-network
+    develop:
+      watch:
+        - action: rebuild
+          path: ./shared/cmd/migrate
+        - action: rebuild
+          path: ./shared/pkg/migrate
+        - action: rebuild
+          path: ./scripts/docker/migrate
+
   # ============================================================================
   # Core Microservices
   # ============================================================================
@@ -120,7 +163,7 @@ services:
       COMMERCIAL_SERVICE_ADDR: commercial-service:50052
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
       redis:
@@ -164,7 +207,7 @@ services:
       AUTH_SERVICE_ADDR: auth-service:50051
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
     healthcheck:
@@ -208,7 +251,7 @@ services:
       STORAGE_SERVICE_ADDR: storage-service:50060
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
       redis:
@@ -253,7 +296,7 @@ services:
       APP_URL: ${APP_URL:-http://localhost:8000}
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
     volumes:
@@ -303,7 +346,7 @@ services:
       retries: 3
       start_period: 15s
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
       auth-service:
@@ -345,7 +388,7 @@ services:
       APP_URL: ${APP_URL:-http://localhost:8000}
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
       auth-service:
@@ -389,7 +432,7 @@ services:
       STORAGE_SERVICE_ADDR: storage-service:8059
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
       notifications-service:
@@ -437,7 +480,7 @@ services:
       LEVELS_SERVICE_ADDR: levels-service:50054
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
       auth-service:
@@ -483,7 +526,7 @@ services:
       AUTH_SERVICE_ADDR: auth-service:50051
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
       auth-service:
@@ -529,7 +572,7 @@ services:
       REDIS_DB: 0
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
       redis:
@@ -573,7 +616,7 @@ services:
       NOTIFICATIONS_SERVICE_ADDR: notifications-service:50058
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
     volumes:
@@ -616,7 +659,7 @@ services:
       TEMP_DIR: /tmp/storage-chunks
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
-      <<: *grpc-certs-depends
+      <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
     networks:

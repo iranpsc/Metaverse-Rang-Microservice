@@ -492,7 +492,7 @@ func TestHTTPContract_SearchSuccessAndGRPCMapping(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("search code=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), `"user_interaction":true`) {
+	if !strings.Contains(rr.Body.String(), `"user_interaction":{"liked":true}`) {
 		t.Fatalf("expected interaction in body %s", rr.Body.String())
 	}
 

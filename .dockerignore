@@ -44,6 +44,8 @@ tests/
 scripts/
 !scripts/docker/
 !scripts/docker/**
+!scripts/migrations/
+!scripts/migrations/**
 
 # Compose and local tooling
 docker-compose*.yml

@@ -77,6 +77,9 @@ func TestHTTPContract_ErrorMappingAndEmptyBodies(t *testing.T) {
 	if doJSON(mux, http.MethodPost, "/api/tutorials/abc/interactions?liked=1", "").Code != http.StatusBadRequest {
 		t.Fatal("invalid video id")
 	}
+	if doJSON(mux, http.MethodPost, "/api/tutorials/9/interactions", "").Code != http.StatusBadRequest {
+		t.Fatal("interaction missing liked")
+	}
 	if doJSON(mux, http.MethodPost, "/api/tutorials/9/interactions", `{`).Code != http.StatusBadRequest {
 		t.Fatal("interaction bad json")
 	}

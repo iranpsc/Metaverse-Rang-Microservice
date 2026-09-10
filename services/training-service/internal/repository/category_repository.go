@@ -270,25 +270,40 @@ func (r *CategoryRepository) GetCategoryStats(ctx context.Context, categoryID ui
 		return nil, fmt.Errorf("failed to get views count: %w", err)
 	}
 
-	// Get likes count
+	// Count latest interaction per (user, video) so duplicate rows do not inflate totals.
 	likeQuery := `
-		SELECT COUNT(*) 
-		FROM interactions i
-		INNER JOIN videos vid ON vid.id = i.likeable_id
-		INNER JOIN video_sub_categories vsc ON vsc.id = vid.video_sub_category_id
-		WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 1 AND vsc.video_category_id = ?
+		SELECT COUNT(*) FROM (
+			SELECT i.user_id
+			FROM interactions i
+			INNER JOIN (
+				SELECT user_id, likeable_id, MAX(id) AS max_id
+				FROM interactions
+				WHERE likeable_type = 'App\\Models\\Video'
+				GROUP BY user_id, likeable_id
+			) latest ON latest.max_id = i.id
+			INNER JOIN videos vid ON vid.id = i.likeable_id
+			INNER JOIN video_sub_categories vsc ON vsc.id = vid.video_sub_category_id
+			WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 1 AND vsc.video_category_id = ?
+		) t
 	`
 	if err := r.db.QueryRowContext(ctx, likeQuery, categoryID).Scan(&stats.LikesCount); err != nil {
 		return nil, fmt.Errorf("failed to get likes count: %w", err)
 	}
 
-	// Get dislikes count
 	dislikeQuery := `
-		SELECT COUNT(*) 
-		FROM interactions i
-		INNER JOIN videos vid ON vid.id = i.likeable_id
-		INNER JOIN video_sub_categories vsc ON vsc.id = vid.video_sub_category_id
-		WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 0 AND vsc.video_category_id = ?
+		SELECT COUNT(*) FROM (
+			SELECT i.user_id
+			FROM interactions i
+			INNER JOIN (
+				SELECT user_id, likeable_id, MAX(id) AS max_id
+				FROM interactions
+				WHERE likeable_type = 'App\\Models\\Video'
+				GROUP BY user_id, likeable_id
+			) latest ON latest.max_id = i.id
+			INNER JOIN videos vid ON vid.id = i.likeable_id
+			INNER JOIN video_sub_categories vsc ON vsc.id = vid.video_sub_category_id
+			WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 0 AND vsc.video_category_id = ?
+		) t
 	`
 	if err := r.db.QueryRowContext(ctx, dislikeQuery, categoryID).Scan(&stats.DislikesCount); err != nil {
 		return nil, fmt.Errorf("failed to get dislikes count: %w", err)
@@ -318,23 +333,38 @@ func (r *CategoryRepository) GetSubCategoryStats(ctx context.Context, subCategor
 		return nil, fmt.Errorf("failed to get views count: %w", err)
 	}
 
-	// Get likes count
+	// Count latest interaction per (user, video) so duplicate rows do not inflate totals.
 	likeQuery := `
-		SELECT COUNT(*) 
-		FROM interactions i
-		INNER JOIN videos vid ON vid.id = i.likeable_id
-		WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 1 AND vid.video_sub_category_id = ?
+		SELECT COUNT(*) FROM (
+			SELECT i.user_id
+			FROM interactions i
+			INNER JOIN (
+				SELECT user_id, likeable_id, MAX(id) AS max_id
+				FROM interactions
+				WHERE likeable_type = 'App\\Models\\Video'
+				GROUP BY user_id, likeable_id
+			) latest ON latest.max_id = i.id
+			INNER JOIN videos vid ON vid.id = i.likeable_id
+			WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 1 AND vid.video_sub_category_id = ?
+		) t
 	`
 	if err := r.db.QueryRowContext(ctx, likeQuery, subCategoryID).Scan(&stats.LikesCount); err != nil {
 		return nil, fmt.Errorf("failed to get likes count: %w", err)
 	}
 
-	// Get dislikes count
 	dislikeQuery := `
-		SELECT COUNT(*) 
-		FROM interactions i
-		INNER JOIN videos vid ON vid.id = i.likeable_id
-		WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 0 AND vid.video_sub_category_id = ?
+		SELECT COUNT(*) FROM (
+			SELECT i.user_id
+			FROM interactions i
+			INNER JOIN (
+				SELECT user_id, likeable_id, MAX(id) AS max_id
+				FROM interactions
+				WHERE likeable_type = 'App\\Models\\Video'
+				GROUP BY user_id, likeable_id
+			) latest ON latest.max_id = i.id
+			INNER JOIN videos vid ON vid.id = i.likeable_id
+			WHERE i.likeable_type = 'App\\Models\\Video' AND i.liked = 0 AND vid.video_sub_category_id = ?
+		) t
 	`
 	if err := r.db.QueryRowContext(ctx, dislikeQuery, subCategoryID).Scan(&stats.DislikesCount); err != nil {
 		return nil, fmt.Errorf("failed to get dislikes count: %w", err)

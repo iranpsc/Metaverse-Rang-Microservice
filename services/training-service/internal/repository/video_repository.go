@@ -220,14 +220,38 @@ func (r *VideoRepository) GetVideoStats(ctx context.Context, videoID uint64) (*m
 		return nil, fmt.Errorf("failed to get views count: %w", err)
 	}
 
-	// Get likes count
-	likeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\Models\\Video' AND likeable_id = ? AND liked = 1"
+	// Count only the latest interaction per user (by MAX(id)) so duplicates
+	// before the unique-key migration do not inflate likes/dislikes.
+	likeQuery := `
+		SELECT COUNT(*) FROM (
+			SELECT i.user_id
+			FROM interactions i
+			INNER JOIN (
+				SELECT user_id, MAX(id) AS max_id
+				FROM interactions
+				WHERE likeable_type = 'App\\Models\\Video' AND likeable_id = ?
+				GROUP BY user_id
+			) latest ON latest.max_id = i.id
+			WHERE i.liked = 1
+		) t
+	`
 	if err := r.db.QueryRowContext(ctx, likeQuery, videoID).Scan(&stats.LikesCount); err != nil {
 		return nil, fmt.Errorf("failed to get likes count: %w", err)
 	}
 
-	// Get dislikes count
-	dislikeQuery := "SELECT COUNT(*) FROM interactions WHERE likeable_type = 'App\\Models\\Video' AND likeable_id = ? AND liked = 0"
+	dislikeQuery := `
+		SELECT COUNT(*) FROM (
+			SELECT i.user_id
+			FROM interactions i
+			INNER JOIN (
+				SELECT user_id, MAX(id) AS max_id
+				FROM interactions
+				WHERE likeable_type = 'App\\Models\\Video' AND likeable_id = ?
+				GROUP BY user_id
+			) latest ON latest.max_id = i.id
+			WHERE i.liked = 0
+		) t
+	`
 	if err := r.db.QueryRowContext(ctx, dislikeQuery, videoID).Scan(&stats.DislikesCount); err != nil {
 		return nil, fmt.Errorf("failed to get dislikes count: %w", err)
 	}
@@ -247,6 +271,7 @@ func (r *VideoRepository) GetUserInteraction(ctx context.Context, videoID, userI
 		SELECT liked
 		FROM interactions
 		WHERE likeable_type = 'App\\Models\\Video' AND likeable_id = ? AND user_id = ?
+		ORDER BY id DESC
 		LIMIT 1
 	`
 	var liked bool
@@ -270,10 +295,11 @@ func (r *VideoRepository) IncrementView(ctx context.Context, videoID uint64, ipA
 	return nil
 }
 
-// AddInteraction adds or updates a user's interaction on a video
+// AddInteraction upserts a user's like/dislike on a video.
+// Relies on UNIQUE KEY (user_id, likeable_type, likeable_id) so ON DUPLICATE KEY UPDATE fires.
 func (r *VideoRepository) AddInteraction(ctx context.Context, videoID, userID uint64, liked bool, ipAddress string) error {
 	query := `
-		INSERT INTO interactions (likeable_type, likeable_id, user_id, liked, ip_address, created_at, updated_at) 
+		INSERT INTO interactions (likeable_type, likeable_id, user_id, liked, ip_address, created_at, updated_at)
 		VALUES ('App\\Models\\Video', ?, ?, ?, ?, NOW(), NOW())
 		ON DUPLICATE KEY UPDATE liked = ?, ip_address = ?, updated_at = NOW()
 	`

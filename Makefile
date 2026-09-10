@@ -1,4 +1,4 @@
-.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test test-unit test-services test-database test-all up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads openapi docs docs-up kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install ensure-networks
+.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test test-unit test-services test-database test-all up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads openapi docs docs-up kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install ensure-networks wait-mysql
 
 # Proto generation
 PROTO_DIR=shared/proto
@@ -62,10 +62,11 @@ help:
 	@echo ""
 	@echo "Docker Compose:"
 	@echo "  ensure-networks  - Create dokploy-network and metarang-shared if missing"
-	@echo "  dev              - Start complete development environment"
-	@echo "  up               - Start all services"
+	@echo "  wait-mysql       - Block until Compose MySQL is healthy"
+	@echo "  dev              - Start complete development environment (runs migrations)"
+	@echo "  up               - Start all services (Compose migrate job, then apps)"
 	@echo "  down             - Stop all services"
-	@echo "  restart          - Restart all services"
+	@echo "  restart          - Run migrate job, then restart all services"
 	@echo "  ps               - Show service status"
 	@echo "  logs             - Follow all service logs"
 	@echo "  build            - Build all services"
@@ -85,13 +86,15 @@ help:
 	@echo "Database:"
 	@echo "  import-schema         - Import database schema only (schema.sql), then baseline migrations"
 	@echo "  import-database       - Import database with data (metarang_db.sql)"
-	@echo "  migrate               - Run pending SQL migrations (Laravel-style)"
+	@echo "  migrate               - Run pending SQL migrations (Compose migrate service)"
 	@echo "  migrate-rollback      - Roll back the last migration batch (STEP=N optional)"
 	@echo "  migrate-status        - Show ran / pending migrations"
 	@echo "  migrate-reset         - Roll back all migrations"
 	@echo "  migrate-refresh       - Reset, then migrate"
 	@echo "  migrate-baseline      - Mark pending files as ran without executing SQL"
 	@echo "  migrate-make          - Create a migration stub (NAME=add_foo_to_bar)"
+	@echo "  AUTO_MIGRATE=0        - Skip migrate on up/dev/dev-up/restart (sets SKIP_MIGRATE=1)"
+	@echo "  USE_HOST_MIGRATE=1    - Use go run ./shared/cmd/migrate instead of Compose"
 	@echo ""
 	@echo "Service-specific (set SERVICE=service-name):"
 	@echo "  build-service    - Build specific service"
@@ -323,7 +326,19 @@ endif
 # Docker Compose Management
 # =============================================================================
 
-.PHONY: up down restart logs ps build clean import-schema import-database dev-up dev-down dev-build dev-logs dev-restart dev-ps kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install
+.PHONY: up down restart logs ps build clean import-schema import-database dev-up dev-down dev-build dev-logs dev-restart dev-ps kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install wait-mysql
+
+# When 1 (default), make up/dev/dev-up/restart recreate the Compose migrate job.
+AUTO_MIGRATE ?= 1
+# When 1, run migrations via go run on the host instead of the Compose migrate service.
+USE_HOST_MIGRATE ?= 0
+
+# SKIP_MIGRATE is passed into the Compose migrate container (entrypoint no-op).
+ifeq ($(AUTO_MIGRATE),1)
+COMPOSE_SKIP_MIGRATE := 0
+else
+COMPOSE_SKIP_MIGRATE := 1
+endif
 
 kong-validate:
 	@echo "🔍 Validating Kong declarative config..."
@@ -346,6 +361,12 @@ endif
 
 up: init-storage-uploads ensure-networks
 	@echo "🚀 Starting all microservices..."
+	@echo "Starting MySQL, Redis, and migrate job..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "$$env:SKIP_MIGRATE='$(COMPOSE_SKIP_MIGRATE)'; $(DOCKER_COMPOSE) up -d --force-recreate migrate"
+else
+	SKIP_MIGRATE=$(COMPOSE_SKIP_MIGRATE) $(DOCKER_COMPOSE) up -d --force-recreate migrate
+endif
 	$(DOCKER_COMPOSE) up -d
 	@echo "✅ All services started!"
 	@echo ""
@@ -366,6 +387,11 @@ down:
 
 restart:
 	@echo "🔄 Restarting all microservices..."
+ifeq ($(AUTO_MIGRATE),1)
+	@$(MAKE) migrate
+else
+	@echo "⏭️  Skipping migrations (AUTO_MIGRATE=$(AUTO_MIGRATE))"
+endif
 	$(DOCKER_COMPOSE) restart
 	@echo "✅ All services restarted"
 
@@ -426,11 +452,52 @@ DB_DATABASE ?= metarang_db
 MIGRATIONS_PATH ?= scripts/migrations
 STEP ?=
 PRETEND ?=
+MYSQL_WAIT_SECONDS ?= 90
 
+# Host go-run migrator (USE_HOST_MIGRATE=1).
 ifeq ($(OS),Windows_NT)
-run_migrate = powershell -NoProfile -Command "$$ErrorActionPreference='Stop'; $$env:DB_HOST='$(DB_HOST)'; $$env:DB_PORT='$(DB_PORT)'; $$env:DB_USER='$(DB_USER)'; $$env:DB_PASSWORD='$(DB_PASSWORD)'; $$env:DB_DATABASE='$(DB_DATABASE)'; go run ./shared/cmd/migrate $(1) -path=$(MIGRATIONS_PATH) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)"
+run_host_migrate = powershell -NoProfile -Command "$$ErrorActionPreference='Stop'; $$env:DB_HOST='$(DB_HOST)'; $$env:DB_PORT='$(DB_PORT)'; $$env:DB_USER='$(DB_USER)'; $$env:DB_PASSWORD='$(DB_PASSWORD)'; $$env:DB_DATABASE='$(DB_DATABASE)'; go run ./shared/cmd/migrate $(1) -path=$(MIGRATIONS_PATH) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)"
 else
-run_migrate = DB_HOST=$(DB_HOST) DB_PORT=$(DB_PORT) DB_USER=$(DB_USER) DB_PASSWORD=$(DB_PASSWORD) DB_DATABASE=$(DB_DATABASE) go run ./shared/cmd/migrate $(1) -path=$(MIGRATIONS_PATH) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)
+run_host_migrate = DB_HOST=$(DB_HOST) DB_PORT=$(DB_PORT) DB_USER=$(DB_USER) DB_PASSWORD=$(DB_PASSWORD) DB_DATABASE=$(DB_DATABASE) go run ./shared/cmd/migrate $(1) -path=$(MIGRATIONS_PATH) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)
+endif
+
+# Compose one-shot migrator (default). Ensures MySQL is up, then run --rm migrate.
+define run_compose_migrate
+	$(DOCKER_COMPOSE) up -d mysql
+	$(DOCKER_COMPOSE) run --rm migrate $(1) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)
+endef
+
+ifeq ($(USE_HOST_MIGRATE),1)
+run_migrate = $(run_host_migrate)
+else
+run_migrate = $(run_compose_migrate)
+endif
+
+# Block until the Compose MySQL service accepts connections (required before migrate).
+wait-mysql:
+	@echo "⏳ Waiting for MySQL to be ready..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$deadline = (Get-Date).AddSeconds($(MYSQL_WAIT_SECONDS)); \
+		while ($$true) { \
+			cmd /c 'docker compose exec -T mysql mysqladmin ping -h localhost -uroot -p$(MYSQL_ROOT_PASSWORD) --silent >nul 2>&1'; \
+			if ($$LASTEXITCODE -eq 0) { Write-Host '✅ MySQL is ready'; exit 0 }; \
+			if ((Get-Date) -gt $$deadline) { Write-Error 'MySQL did not become ready within $(MYSQL_WAIT_SECONDS)s'; exit 1 }; \
+			Start-Sleep -Seconds 2 \
+		}"
+else
+	@deadline=$$(( $$(date +%s) + $(MYSQL_WAIT_SECONDS) )); \
+	while true; do \
+		if $(DOCKER_COMPOSE) exec -T mysql mysqladmin ping -h localhost -uroot -p$(MYSQL_ROOT_PASSWORD) --silent 2>/dev/null; then \
+			echo "✅ MySQL is ready"; \
+			exit 0; \
+		fi; \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then \
+			echo "❌ MySQL did not become ready within $(MYSQL_WAIT_SECONDS)s"; \
+			exit 1; \
+		fi; \
+		sleep 2; \
+	done
 endif
 
 import-schema:
@@ -523,14 +590,11 @@ dev: ensure-networks
 	@echo "ℹ️  Each service uses its own config.env (copy from config.env.sample)"
 	@echo "Starting MySQL and Redis..."
 	$(DOCKER_COMPOSE) up -d mysql redis
-	@echo "Waiting for database to be ready..."
-ifeq ($(OS),Windows_NT)
-	@powershell -NoProfile -Command "Start-Sleep -Seconds 10"
+	@$(MAKE) wait-mysql
 	@echo "Checking if schema needs to be imported..."
+ifeq ($(OS),Windows_NT)
 	@powershell -NoProfile -Command "$$ErrorActionPreference='Continue'; $$tableCount = (docker compose exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) $(MYSQL_DATABASE) -e \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$(MYSQL_DATABASE)';\" 2>$$null | Select-Object -Last 1).Trim(); if ($$tableCount -eq '0') { Write-Host 'Importing schema...'; make import-schema } else { Write-Host (\"✅ Database already initialized ({0} tables)\" -f $$tableCount) }"
 else
-	@sleep 10
-	@echo "Checking if schema needs to be imported..."
 	@TABLE_COUNT=$$($(DOCKER_COMPOSE) exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) $(MYSQL_DATABASE) -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$(MYSQL_DATABASE)';" 2>/dev/null | tail -1); \
 	if [ "$$TABLE_COUNT" = "0" ]; then \
 		echo "Importing schema..."; \
@@ -539,8 +603,12 @@ else
 		echo "✅ Database already initialized ($$TABLE_COUNT tables)"; \
 	fi
 endif
-	@echo ""
-	@echo "Starting all services..."
+	@echo "Starting migrate job and all services..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "$$env:SKIP_MIGRATE='$(COMPOSE_SKIP_MIGRATE)'; $(DOCKER_COMPOSE) up -d --force-recreate migrate"
+else
+	SKIP_MIGRATE=$(COMPOSE_SKIP_MIGRATE) $(DOCKER_COMPOSE) up -d --force-recreate migrate
+endif
 	$(DOCKER_COMPOSE) up -d
 	@echo ""
 	@echo "✅ Development environment ready!"
@@ -567,15 +635,6 @@ logs-service:
 	fi
 	$(DOCKER_COMPOSE) logs -f $(SERVICE)
 
-# Ensure storage-service upload bind mount exists before Docker creates a root-owned dir
-.PHONY: init-storage-uploads
-init-storage-uploads:
-ifeq ($(OS),Windows_NT)
-	@powershell -NoProfile -Command "if (-not (Test-Path -LiteralPath '$(UPLOADS_SRC)')) { New-Item -ItemType Directory -Force -Path '$(UPLOADS_SRC)' | Out-Null }"
-else
-	@mkdir -p $(UPLOADS_SRC)
-endif
-
 # =============================================================================
 # Development with Hot Reloading
 # =============================================================================
@@ -584,6 +643,12 @@ dev-up: init-storage-uploads ensure-networks
 	@echo "🚀 Starting development environment with Docker Compose Watch..."
 	@echo "ℹ️  File changes will automatically trigger rebuilds (Go services)"
 	@echo ""
+	@echo "Starting MySQL, Redis, and migrate job..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "$$env:SKIP_MIGRATE='$(COMPOSE_SKIP_MIGRATE)'; $(DOCKER_COMPOSE) up -d --force-recreate migrate"
+else
+	SKIP_MIGRATE=$(COMPOSE_SKIP_MIGRATE) $(DOCKER_COMPOSE) up -d --force-recreate migrate
+endif
 	$(DOCKER_COMPOSE) up --watch
 	@echo "✅ Development services started with watch mode!"
 
@@ -603,6 +668,11 @@ dev-logs:
 
 dev-restart:
 	@echo "🔄 Restarting development services..."
+ifeq ($(AUTO_MIGRATE),1)
+	@$(MAKE) migrate
+else
+	@echo "⏭️  Skipping migrations (AUTO_MIGRATE=$(AUTO_MIGRATE))"
+endif
 	$(DOCKER_COMPOSE) restart
 	@echo "✅ Development services restarted"
 
