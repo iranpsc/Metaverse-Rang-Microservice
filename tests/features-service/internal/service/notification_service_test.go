@@ -172,8 +172,8 @@ func TestMarketplaceService_SendBuyRequest_NotifiesBuyerAndSeller(t *testing.T) 
 	mock.ExpectExec("INSERT INTO buy_feature_requests").
 		WithArgs(uint64(2), uint64(3), uint64(1), "", 500.0, 500.0).
 		WillReturnResult(sqlmock.NewResult(9, 1))
-	mock.ExpectExec("INSERT INTO locked_wallets").
-		WithArgs(uint64(9), uint64(1), 525.0, 525.0).
+	mock.ExpectExec("INSERT INTO locked_assets").
+		WithArgs(uint64(2), uint64(9), uint64(1), 525.0, 525.0).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("FROM buy_feature_requests").
 		WithArgs(uint64(9)).
@@ -268,7 +268,7 @@ func TestMarketplaceService_AcceptBuyRequest_NotifiesBuyerAndSeller(t *testing.T
 	mock.ExpectExec("SET deleted_at = NOW\\(\\) WHERE id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("WHERE feature_id = \\? AND deleted_at IS NULL").

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -682,7 +683,7 @@ func (s *MarketplaceService) SendBuyRequest(ctx context.Context, req *pb.SendBuy
 		}
 
 		// Create locked asset record
-		if _, err := s.lockedAssetRepo.Create(ctx, requestID, featureID, buyerChargePSC, buyerChargeIRR); err != nil {
+		if _, err := s.lockedAssetRepo.Create(ctx, buyerID, requestID, featureID, buyerChargePSC, buyerChargeIRR); err != nil {
 			s.log.Error("Failed to create locked asset", "error", err)
 		}
 
@@ -756,9 +757,8 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 		return nil, err
 	}
 
-	// Get locked assets (not used in this function but kept for consistency)
-	_, err = s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID)
-	if err != nil {
+	// Locked assets are optional for accept (funds already deducted at send time)
+	if _, err = s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("locked assets not found: %w", err)
 	}
 
@@ -1203,18 +1203,17 @@ func (s *MarketplaceService) RejectBuyRequest(ctx context.Context, requestID, se
 		return fmt.Errorf("unauthorized: not the seller")
 	}
 
-	// Get locked assets
-	lockedAsset, err := s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID)
+	refundPSC, refundIRR, err := s.resolveBuyRequestRefund(ctx, requestID, buyRequest)
 	if err != nil {
-		return fmt.Errorf("locked assets not found: %w", err)
+		return err
 	}
 
 	if s.commercialClient != nil {
 		// Refund buyer
-		if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", lockedAsset.PSC); err != nil {
+		if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", refundPSC); err != nil {
 			return fmt.Errorf("failed to refund PSC: %w", err)
 		}
-		if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", lockedAsset.IRR); err != nil {
+		if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", refundIRR); err != nil {
 			return fmt.Errorf("failed to refund IRR: %w", err)
 		}
 	}
@@ -1253,18 +1252,17 @@ func (s *MarketplaceService) DeleteBuyRequest(ctx context.Context, requestID, bu
 		return fmt.Errorf("unauthorized: not the buyer")
 	}
 
-	// Get locked assets
-	lockedAsset, err := s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID)
+	refundPSC, refundIRR, err := s.resolveBuyRequestRefund(ctx, requestID, buyRequest)
 	if err != nil {
-		return fmt.Errorf("locked assets not found: %w", err)
+		return err
 	}
 
 	if s.commercialClient != nil {
 		// Refund buyer
-		if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", lockedAsset.PSC); err != nil {
+		if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", refundPSC); err != nil {
 			return fmt.Errorf("failed to refund PSC: %w", err)
 		}
-		if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", lockedAsset.IRR); err != nil {
+		if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", refundIRR); err != nil {
 			return fmt.Errorf("failed to refund IRR: %w", err)
 		}
 	}
@@ -1353,6 +1351,24 @@ func (s *MarketplaceService) refundBuyRequest(ctx context.Context, requestID uin
 
 func (s *MarketplaceService) getVariableRate(ctx context.Context, asset string) float64 {
 	return s.variableRepo.GetRateWithCache(ctx, asset)
+}
+
+// resolveBuyRequestRefund returns locked amounts, or buyer charge from the buy request
+// when the locked_assets row is missing (e.g. historical inserts against a wrong table name).
+func (s *MarketplaceService) resolveBuyRequestRefund(ctx context.Context, requestID uint64, buyRequest *models.BuyFeatureRequest) (float64, float64, error) {
+	lockedAsset, err := s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID)
+	if err == nil {
+		return lockedAsset.PSC, lockedAsset.IRR, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, fmt.Errorf("locked assets not found: %w", err)
+	}
+
+	s.log.Warn("locked assets missing; refunding from buy request prices",
+		"request_id", requestID,
+		"buyer_id", buyRequest.BuyerID,
+	)
+	return constants.CalculateBuyerCharge(buyRequest.PricePSC), constants.CalculateBuyerCharge(buyRequest.PriceIRR), nil
 }
 
 // updateLockedAssetsMetrics updates the locked assets gauge by querying all pending buy requests

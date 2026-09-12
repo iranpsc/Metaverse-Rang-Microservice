@@ -11,6 +11,7 @@ import (
 
 func TestReportService_CreateGetList(t *testing.T) {
 	var lastID uint64 = 5
+	var wiredImages []string
 	repo := &testutil.MockReportRepo{
 		CreateFunc: func(ctx context.Context, report *models.Report) (*models.Report, error) {
 			r := *report
@@ -18,6 +19,10 @@ func TestReportService_CreateGetList(t *testing.T) {
 			return &r, nil
 		},
 		CreateImageFunc: func(ctx context.Context, reportID uint64, url string) error {
+			if reportID != lastID {
+				t.Fatalf("CreateImage reportID=%d want %d", reportID, lastID)
+			}
+			wiredImages = append(wiredImages, url)
 			return nil
 		},
 		GetByIDFunc: func(ctx context.Context, reportID uint64) (*models.ReportWithImages, error) {
@@ -30,7 +35,7 @@ func TestReportService_CreateGetList(t *testing.T) {
 					Content: "c",
 					URL:     "https://ex.com",
 				},
-				Images: nil,
+				Images: []models.Image{{URL: "reports/stored-hash.png"}},
 			}, nil
 		},
 		GetByUserIDFunc: func(ctx context.Context, userID uint64, page, perPage int32) ([]*models.Report, int, error) {
@@ -38,9 +43,13 @@ func TestReportService_CreateGetList(t *testing.T) {
 		},
 	}
 	svc := service.NewReportService(repo)
-	full, err := svc.CreateReport(context.Background(), 9, "displayError", "t", "c", "https://ex.com", []string{"a.png"})
+	// Service only wires paths produced by storage-service upload in the HTTP layer.
+	full, err := svc.CreateReport(context.Background(), 9, "displayError", "t", "c", "https://ex.com", []string{"reports/stored-hash.png"})
 	if err != nil || full.Report.URL != "https://ex.com" {
 		t.Fatalf("err=%v full=%+v", err, full)
+	}
+	if len(wiredImages) != 1 || wiredImages[0] != "reports/stored-hash.png" {
+		t.Fatalf("wiredImages=%v (service must only persist storage paths)", wiredImages)
 	}
 	list, total, err := svc.GetReports(context.Background(), 9, 1, 10)
 	if err != nil || total != 1 || len(list) != 1 {

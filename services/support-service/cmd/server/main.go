@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 
 	authpb "metarang/shared/pb/auth"
+	storagepb "metarang/shared/pb/storage"
 	grpcutil "metarang/shared/pkg/grpc"
 	"metarang/shared/pkg/metrics"
 	"metarang/shared/pkg/sentry"
@@ -128,11 +129,22 @@ func main() {
 		}
 	}()
 
+	var fileStorage service.FileStorage
+	storageAddr := getEnv("STORAGE_SERVICE_ADDR", "storage-service:50060")
+	storageConn, err := grpcutil.NewClient(storageAddr)
+	if err != nil {
+		log.Printf("Warning: failed to connect to storage service at %s: %v", storageAddr, err)
+	} else {
+		defer func() { _ = storageConn.Close() }()
+		fileStorage = service.NewGRPCFileStorage(storagepb.NewFileStorageServiceClient(storageConn))
+		log.Printf("Created storage service client for %s", storageAddr)
+	}
+
 	httpHandler := handler.NewHTTPSupportHandler(
 		ticketHandler,
 		reportHandler,
 		noteHandler,
-		getEnv("STORAGE_SERVICE_ADDR", "storage-service:8059"),
+		fileStorage,
 		getEnv("APP_URL", "http://localhost:8000"),
 	)
 	httpPort := getEnv("HTTP_PORT", "8070")

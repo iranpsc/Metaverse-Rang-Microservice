@@ -42,21 +42,22 @@ type noteAPI interface {
 
 // HTTPSupportHandler serves Kong-facing REST routes for support-service.
 type HTTPSupportHandler struct {
-	tickets            ticketAPI
-	reports            reportAPI
-	notes              noteAPI
-	storageServiceAddr string
-	appURL             string
+	tickets ticketAPI
+	reports reportAPI
+	notes   noteAPI
+	storage fileStorageUploader
+	appURL  string
 }
 
 // NewHTTPSupportHandler wraps gRPC support handlers for local HTTP use.
-func NewHTTPSupportHandler(tickets ticketAPI, reports reportAPI, notes noteAPI, storageServiceAddr, appURL string) *HTTPSupportHandler {
+// storage must be a storage-service client; attachment bytes are never stored locally.
+func NewHTTPSupportHandler(tickets ticketAPI, reports reportAPI, notes noteAPI, storage fileStorageUploader, appURL string) *HTTPSupportHandler {
 	return &HTTPSupportHandler{
-		tickets:            tickets,
-		reports:            reports,
-		notes:              notes,
-		storageServiceAddr: storageServiceAddr,
-		appURL:             appURL,
+		tickets: tickets,
+		reports: reports,
+		notes:   notes,
+		storage: storage,
+		appURL:  appURL,
 	}
 }
 
@@ -251,7 +252,7 @@ func (h *HTTPSupportHandler) CreateTicket(w http.ResponseWriter, r *http.Request
 	attachment := ""
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		attachment, err = uploadTicketAttachment(r, h.storageServiceAddr, h.appURL)
+		attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -364,7 +365,7 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		if _, hdr, fileErr := r.FormFile("attachment"); fileErr == nil && hdr != nil {
-			attachment, err = uploadTicketAttachment(r, h.storageServiceAddr, h.appURL)
+			attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
 			if err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
@@ -436,7 +437,7 @@ func (h *HTTPSupportHandler) AddTicketResponse(w http.ResponseWriter, r *http.Re
 			return
 		}
 		responseText = r.FormValue("response")
-		attachment, err = uploadTicketAttachment(r, h.storageServiceAddr, h.appURL)
+		attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -633,7 +634,7 @@ func (h *HTTPSupportHandler) CreateReport(w http.ResponseWriter, r *http.Request
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		imagePaths, err = uploadReportAttachments(r, h.storageServiceAddr, h.appURL)
+		imagePaths, err = uploadReportAttachments(r, h.storage, h.appURL)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -777,7 +778,7 @@ func (h *HTTPSupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) 
 	attachment := ""
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		url, _, attachErr := resolveNoteAttachmentURL(r, h.storageServiceAddr, h.appURL)
+		url, _, attachErr := resolveNoteAttachmentURL(r, h.storage, h.appURL)
 		if attachErr != nil {
 			writeError(w, http.StatusBadRequest, attachErr.Error())
 			return
@@ -883,7 +884,7 @@ func (h *HTTPSupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) 
 	updateAttachment := false
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		url, clear, attachErr := resolveNoteAttachmentURL(r, h.storageServiceAddr, h.appURL)
+		url, clear, attachErr := resolveNoteAttachmentURL(r, h.storage, h.appURL)
 		if attachErr != nil {
 			writeError(w, http.StatusBadRequest, attachErr.Error())
 			return

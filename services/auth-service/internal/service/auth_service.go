@@ -36,6 +36,9 @@ type AuthService interface {
 	ValidateToken(ctx context.Context, token string) (*models.User, error)
 	RequestAccountSecurity(ctx context.Context, userID uint64, minutes int32, phone string) error
 	VerifyAccountSecurity(ctx context.Context, userID uint64, code, ip, userAgent string) error
+	// CheckAccountSecurity reports whether mutating requests may proceed.
+	// Returns true when no security record exists or the unlock window is still valid.
+	CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error)
 }
 
 type authService struct {
@@ -674,6 +677,34 @@ func (s *authService) VerifyAccountSecurity(ctx context.Context, userID uint64, 
 	}
 
 	return nil
+}
+
+func (s *authService) CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error) {
+	security, err := s.accountSecurityRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to load account security: %w", err)
+	}
+	// No record means account security has never been enabled for this user.
+	if security == nil {
+		return true, nil
+	}
+	if !security.Unlocked {
+		return false, nil
+	}
+	now := time.Now().Unix()
+	if security.Until.Valid && security.Until.Int64 < now {
+		security.Unlocked = false
+		if err := s.accountSecurityRepo.Update(ctx, security); err != nil {
+			return false, fmt.Errorf("failed to expire account security: %w", err)
+		}
+		return false, nil
+	}
+
+	security.LastActivity = sql.NullInt64{Int64: now, Valid: true}
+	if err := s.accountSecurityRepo.Update(ctx, security); err != nil {
+		return false, fmt.Errorf("failed to update account security activity: %w", err)
+	}
+	return true, nil
 }
 
 func (s *authService) enforceAccountSecurityVerificationRateLimit(ctx context.Context, userID uint64) error {

@@ -157,7 +157,7 @@ func TestMarketplaceService_RejectWithMetrics(t *testing.T) {
 	mock.ExpectExec("DELETE FROM transactions").
 		WithArgs("App\\Models\\BuyFeatureRequest", uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("DELETE FROM buy_feature_requests").

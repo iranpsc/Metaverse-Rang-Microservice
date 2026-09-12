@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -652,19 +653,22 @@ func (h *HTTPFeaturesHandler) AddMyFeatureImages(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
+	files, err := multipartFeatureImageFiles(r)
+	if err != nil {
 		writeError(w, 400, "failed to parse multipart form")
 		return
 	}
-	files := r.MultipartForm.File["images"]
 	if len(files) == 0 {
 		writeValidationError(w, "images field is required")
 		return
 	}
-	req := &featurespb.AddMyFeatureImagesRequest{UserId: ids[0], FeatureId: ids[1]}
+	h.writeAddMyFeatureImages(w, r, ids[0], ids[1], files)
+}
+func (h *HTTPFeaturesHandler) writeAddMyFeatureImages(w http.ResponseWriter, r *http.Request, userID, featureID uint64, files []*multipart.FileHeader) {
+	req := &featurespb.AddMyFeatureImagesRequest{UserId: userID, FeatureId: featureID}
 	for _, file := range files {
-		ct := file.Header.Get("Content-Type")
-		if ct != "image/png" && ct != "image/jpeg" && ct != "image/bmp" {
+		ct := featureImageContentType(file)
+		if !isAllowedFeatureImageContentType(ct) {
 			writeValidationError(w, "invalid image type: must be PNG, JPG, or BMP")
 			return
 		}
@@ -677,10 +681,14 @@ func (h *HTTPFeaturesHandler) AddMyFeatureImages(w http.ResponseWriter, r *http.
 			writeError(w, 400, "failed to read file")
 			return
 		}
-		data, err := io.ReadAll(f)
+		data, err := io.ReadAll(io.LimitReader(f, 1024*1024+1))
 		_ = f.Close()
 		if err != nil {
 			writeError(w, 400, "failed to read file data")
+			return
+		}
+		if len(data) > 1024*1024 {
+			writeValidationError(w, "image size exceeds 1024 KB limit")
 			return
 		}
 		req.ImageData = append(req.ImageData, data)
@@ -713,6 +721,41 @@ func (h *HTTPFeaturesHandler) RemoveMyFeatureImage(w http.ResponseWriter, r *htt
 func (h *HTTPFeaturesHandler) UpdateMyFeature(w http.ResponseWriter, r *http.Request) {
 	ids, ok := h.myPath(w, r, "/features/", 0, 2)
 	if !ok {
+		return
+	}
+	// Clients often POST multipart images to the feature update URL. Accept them here so
+	// uploads are stored via storage-service and image rows are created in features-service.
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		files, err := multipartFeatureImageFiles(r)
+		if err != nil {
+			writeError(w, 400, "failed to parse multipart form")
+			return
+		}
+		if len(files) > 0 {
+			h.writeAddMyFeatureImages(w, r, ids[0], ids[1], files)
+			return
+		}
+		if raw := strings.TrimSpace(r.FormValue("minimum_price_percentage")); raw != "" {
+			minimum, err := strconv.ParseInt(raw, 10, 32)
+			if err != nil {
+				writeValidationError(w, "minimum_price_percentage must be at least 80")
+				return
+			}
+			if minimum < 80 {
+				writeValidationError(w, "minimum_price_percentage must be at least 80")
+				return
+			}
+			_, err = h.feature.UpdateMyFeature(r.Context(), &featurespb.UpdateMyFeatureRequest{
+				UserId: ids[0], FeatureId: ids[1], MinimumPricePercentage: int32(minimum),
+			})
+			if err != nil {
+				writeGRPCError(w, err)
+				return
+			}
+			w.WriteHeader(204)
+			return
+		}
+		writeError(w, 400, "request body is required")
 		return
 	}
 	var body struct {

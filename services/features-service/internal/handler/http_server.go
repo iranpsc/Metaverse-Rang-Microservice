@@ -34,13 +34,36 @@ func corsPreflightMiddleware(next http.Handler) http.Handler {
 
 func passthroughHTTP(next http.Handler) http.Handler { return next }
 
-func newPublicHTTPHandler(handlers HTTPServerHandlers, auth func(http.Handler) http.Handler, optionalAuth func(http.Handler) http.Handler) http.Handler {
+func composeHTTP(middlewares ...func(http.Handler) http.Handler) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		h := next
+		for i := len(middlewares) - 1; i >= 0; i-- {
+			if middlewares[i] == nil {
+				continue
+			}
+			h = middlewares[i](h)
+		}
+		return h
+	}
+}
+
+func newPublicHTTPHandler(
+	handlers HTTPServerHandlers,
+	auth func(http.Handler) http.Handler,
+	optionalAuth func(http.Handler) http.Handler,
+	accountSecurity func(http.Handler) http.Handler,
+) http.Handler {
 	if auth == nil {
 		auth = passthroughHTTP
 	}
 	if optionalAuth == nil {
 		optionalAuth = passthroughHTTP
 	}
+	if accountSecurity == nil {
+		accountSecurity = passthroughHTTP
+	}
+	// Mutating authenticated routes require auth + unlocked account security.
+	secureAuth := composeHTTP(auth, accountSecurity)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"}, true)
@@ -48,18 +71,18 @@ func newPublicHTTPHandler(handlers HTTPServerHandlers, auth func(http.Handler) h
 	mux.Handle("GET /api/features", optionalAuth(http.HandlerFunc(handlers.Features.ListFeatures)))
 	mux.Handle("GET /api/features/buildings/completed", optionalAuth(http.HandlerFunc(handlers.Features.ListCompletedBuildings)))
 	mux.Handle("GET /api/features/{feature}/trade-history", http.HandlerFunc(handlers.Features.TradeHistory))
-	mux.Handle("/api/features/", optionalAuth(http.HandlerFunc(handlers.Features.HandleFeaturesRoutes)))
-	mux.Handle("/api/my-features", auth(http.HandlerFunc(handlers.Features.ListMyFeatures)))
-	mux.Handle("/api/my-features/", auth(http.HandlerFunc(handlers.Features.HandleMyFeaturesRoutes)))
-	mux.Handle("/api/buy-requests", auth(http.HandlerFunc(handlers.Features.HandleBuyRequestsRoutes)))
-	mux.Handle("/api/buy-requests/", auth(http.HandlerFunc(handlers.Features.HandleBuyRequestsRoutes)))
-	mux.Handle("/api/sell-requests", auth(http.HandlerFunc(handlers.Features.HandleSellRequestsRoutes)))
-	mux.Handle("/api/sell-requests/", auth(http.HandlerFunc(handlers.Features.HandleSellRequestsRoutes)))
-	mux.Handle("/api/hourly-profits", auth(http.HandlerFunc(handlers.Profit.Handle)))
-	mux.Handle("/api/hourly-profits/", auth(http.HandlerFunc(handlers.Profit.Handle)))
-	mux.Handle("/api/isic-codes", optionalAuth(http.HandlerFunc(handlers.Isic.List)))
-	mux.Handle("/api/maps", optionalAuth(http.HandlerFunc(handlers.Maps.Handle)))
-	mux.Handle("/api/maps/", optionalAuth(http.HandlerFunc(handlers.Maps.Handle)))
+	mux.Handle("/api/features/", optionalAuth(accountSecurity(http.HandlerFunc(handlers.Features.HandleFeaturesRoutes))))
+	mux.Handle("/api/my-features", secureAuth(http.HandlerFunc(handlers.Features.ListMyFeatures)))
+	mux.Handle("/api/my-features/", secureAuth(http.HandlerFunc(handlers.Features.HandleMyFeaturesRoutes)))
+	mux.Handle("/api/buy-requests", secureAuth(http.HandlerFunc(handlers.Features.HandleBuyRequestsRoutes)))
+	mux.Handle("/api/buy-requests/", secureAuth(http.HandlerFunc(handlers.Features.HandleBuyRequestsRoutes)))
+	mux.Handle("/api/sell-requests", secureAuth(http.HandlerFunc(handlers.Features.HandleSellRequestsRoutes)))
+	mux.Handle("/api/sell-requests/", secureAuth(http.HandlerFunc(handlers.Features.HandleSellRequestsRoutes)))
+	mux.Handle("/api/hourly-profits", secureAuth(http.HandlerFunc(handlers.Profit.Handle)))
+	mux.Handle("/api/hourly-profits/", secureAuth(http.HandlerFunc(handlers.Profit.Handle)))
+	mux.Handle("/api/isic-codes", optionalAuth(accountSecurity(http.HandlerFunc(handlers.Isic.List))))
+	mux.Handle("/api/maps", optionalAuth(accountSecurity(http.HandlerFunc(handlers.Maps.Handle))))
+	mux.Handle("/api/maps/", optionalAuth(accountSecurity(http.HandlerFunc(handlers.Maps.Handle))))
 	mux.Handle("/api/citizen/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/citizen/"), "/"), "/")
 		if len(parts) < 2 || parts[0] == "" {
@@ -82,6 +105,12 @@ func newPublicHTTPHandler(handlers HTTPServerHandlers, auth func(http.Handler) h
 	return corsPreflightMiddleware(sentry.HTTPMiddleware(mux))
 }
 
-func StartHTTPServer(handlers HTTPServerHandlers, port string, auth func(http.Handler) http.Handler, optionalAuth func(http.Handler) http.Handler) error {
-	return (&http.Server{Addr: ":" + port, Handler: newPublicHTTPHandler(handlers, auth, optionalAuth)}).ListenAndServe()
+func StartHTTPServer(
+	handlers HTTPServerHandlers,
+	port string,
+	auth func(http.Handler) http.Handler,
+	optionalAuth func(http.Handler) http.Handler,
+	accountSecurity func(http.Handler) http.Handler,
+) error {
+	return (&http.Server{Addr: ":" + port, Handler: newPublicHTTPHandler(handlers, auth, optionalAuth, accountSecurity)}).ListenAndServe()
 }

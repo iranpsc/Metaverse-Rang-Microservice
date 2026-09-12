@@ -68,6 +68,7 @@ func TestLocalClients_AllMethods(t *testing.T) {
 	_, _ = clients.Auth.ValidateToken(ctx, &pb.ValidateTokenRequest{})
 	_, _ = clients.Auth.RequestAccountSecurity(ctx, &pb.RequestAccountSecurityRequest{})
 	_, _ = clients.Auth.VerifyAccountSecurity(ctx, &pb.VerifyAccountSecurityRequest{})
+	_, _ = clients.Auth.CheckAccountSecurity(ctx, &pb.CheckAccountSecurityRequest{UserId: 1})
 
 	// User
 	_, _ = clients.User.GetUser(ctx, &pb.GetUserRequest{})

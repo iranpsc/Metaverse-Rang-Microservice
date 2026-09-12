@@ -42,9 +42,18 @@ func (v *AuthServiceTokenValidator) ValidateToken(ctx context.Context, token str
 		return nil, ErrInvalidToken
 	}
 
+	return UserContextFromValidateToken(resp, token), nil
+}
+
+// UserContextFromValidateToken maps an auth-service ValidateToken response into UserContext.
+func UserContextFromValidateToken(resp *pb.ValidateTokenResponse, token string) *UserContext {
+	if resp == nil {
+		return nil
+	}
 	return &UserContext{
-		UserID: resp.UserId,
-		Email:  resp.Email,
-		Token:  token,
-	}, nil
+		UserID:      resp.GetUserId(),
+		Email:       resp.GetEmail(),
+		Token:       token,
+		WalletLogin: resp.GetWalletLogin(),
+	}
 }

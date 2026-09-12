@@ -17,6 +17,7 @@ import (
 	"metarang/auth-service/internal/repository"
 	"metarang/auth-service/internal/service"
 	pb "metarang/shared/pb/auth"
+	authpkg "metarang/shared/pkg/auth"
 	"metarang/shared/pkg/helpers"
 )
 
@@ -157,17 +158,18 @@ func (h *authHandler) Logout(ctx context.Context, req *pb.LogoutRequest) (*empty
 }
 
 func (h *authHandler) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
-	user, err := h.authService.ValidateToken(ctx, req.Token)
-	if err != nil {
+	session, err := h.tokenRepo.ValidateTokenSession(ctx, req.Token)
+	if err != nil || session == nil || session.User == nil {
 		return &pb.ValidateTokenResponse{
 			Valid: false,
 		}, nil
 	}
 
 	return &pb.ValidateTokenResponse{
-		Valid:  true,
-		UserId: user.ID,
-		Email:  user.Email,
+		Valid:       true,
+		UserId:      session.User.ID,
+		Email:       session.User.Email,
+		WalletLogin: session.WalletLogin,
 	}, nil
 }
 
@@ -198,6 +200,21 @@ func (h *authHandler) RequestAccountSecurity(ctx context.Context, req *pb.Reques
 		return nil, mapAccountSecurityErrorWithFields(err, h.locale)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (h *authHandler) CheckAccountSecurity(ctx context.Context, req *pb.CheckAccountSecurityRequest) (*pb.CheckAccountSecurityResponse, error) {
+	userID := req.GetUserId()
+	if userID == 0 {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+	if err := authpkg.AuthorizeSelfOrService(ctx, userID); err != nil {
+		return nil, err
+	}
+	unlocked, err := h.authService.CheckAccountSecurity(ctx, userID)
+	if err != nil {
+		return nil, mapAccountSecurityErrorWithFields(err, h.locale)
+	}
+	return &pb.CheckAccountSecurityResponse{Unlocked: unlocked}, nil
 }
 
 func (h *authHandler) VerifyAccountSecurity(ctx context.Context, req *pb.VerifyAccountSecurityRequest) (*emptypb.Empty, error) {

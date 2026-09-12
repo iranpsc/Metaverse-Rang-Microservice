@@ -17,11 +17,11 @@ func TestLockedAssetRepository_Create(t *testing.T) {
 	db, mock := testutil.NewSQLMock(t)
 	repo := repository.NewLockedAssetRepository(db)
 
-	mock.ExpectExec("INSERT INTO locked_wallets").
-		WithArgs(uint64(10), uint64(20), 105.0, 210.0).
+	mock.ExpectExec("INSERT INTO locked_assets").
+		WithArgs(uint64(1), uint64(10), uint64(20), 105.0, 210.0).
 		WillReturnResult(sqlmock.NewResult(7, 1))
 
-	id, err := repo.Create(context.Background(), 10, 20, 105, 210)
+	id, err := repo.Create(context.Background(), 1, 10, 20, 105, 210)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(7), id)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -49,7 +49,7 @@ func TestLockedAssetRepository_Delete(t *testing.T) {
 	db, mock := testutil.NewSQLMock(t)
 	repo := repository.NewLockedAssetRepository(db)
 
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(10)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -61,7 +61,7 @@ func TestLockedAssetRepository_DeleteAllForFeature(t *testing.T) {
 	db, mock := testutil.NewSQLMock(t)
 	repo := repository.NewLockedAssetRepository(db)
 
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE feature_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE feature_id").
 		WithArgs(uint64(20)).
 		WillReturnResult(sqlmock.NewResult(0, 2))
 
@@ -74,7 +74,7 @@ func TestLockedAssetRepository_DeleteWithTx(t *testing.T) {
 	repo := repository.NewLockedAssetRepository(db)
 
 	mock.ExpectBegin()
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(10)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 

@@ -47,6 +47,9 @@ func (m *mockAuthServiceClient) RequestAccountSecurity(context.Context, *pb.Requ
 func (m *mockAuthServiceClient) VerifyAccountSecurity(context.Context, *pb.VerifyAccountSecurityRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, nil
 }
+func (m *mockAuthServiceClient) CheckAccountSecurity(context.Context, *pb.CheckAccountSecurityRequest, ...grpc.CallOption) (*pb.CheckAccountSecurityResponse, error) {
+	return &pb.CheckAccountSecurityResponse{Unlocked: true}, nil
+}
 
 var _ pb.AuthServiceClient = (*mockAuthServiceClient)(nil)
 

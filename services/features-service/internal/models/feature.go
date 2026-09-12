@@ -77,9 +77,10 @@ type SellFeatureRequest struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// LockedAsset represents locked_wallets/locked_assets table
+// LockedAsset represents locked_assets table
 type LockedAsset struct {
 	ID                  uint64    `db:"id"`
+	UserID              uint64    `db:"user_id"`
 	BuyFeatureRequestID uint64    `db:"buy_feature_request_id"`
 	FeatureID           uint64    `db:"feature_id"`
 	PSC                 float64   `db:"psc"`

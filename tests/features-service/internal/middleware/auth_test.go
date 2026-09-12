@@ -17,7 +17,8 @@ import (
 )
 
 type mockAuthServiceClient struct {
-	ValidateTokenFunc func(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error)
+	ValidateTokenFunc         func(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error)
+	CheckAccountSecurityFunc  func(ctx context.Context, req *pb.CheckAccountSecurityRequest) (*pb.CheckAccountSecurityResponse, error)
 }
 
 func (m *mockAuthServiceClient) Register(context.Context, *pb.RegisterRequest, ...grpc.CallOption) (*pb.RegisterResponse, error) {
@@ -46,6 +47,12 @@ func (m *mockAuthServiceClient) RequestAccountSecurity(context.Context, *pb.Requ
 }
 func (m *mockAuthServiceClient) VerifyAccountSecurity(context.Context, *pb.VerifyAccountSecurityRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, nil
+}
+func (m *mockAuthServiceClient) CheckAccountSecurity(ctx context.Context, req *pb.CheckAccountSecurityRequest, _ ...grpc.CallOption) (*pb.CheckAccountSecurityResponse, error) {
+	if m.CheckAccountSecurityFunc != nil {
+		return m.CheckAccountSecurityFunc(ctx, req)
+	}
+	return &pb.CheckAccountSecurityResponse{Unlocked: true}, nil
 }
 
 var _ pb.AuthServiceClient = (*mockAuthServiceClient)(nil)

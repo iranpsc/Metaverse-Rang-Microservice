@@ -339,9 +339,10 @@ func main() {
 	httpHandlers.CitizenBuildings = handler.NewHTTPCitizenBuildingsHandler(citizenBuildingsHandler, httpHandlers.CitizenFeatures)
 	authMiddleware := middleware.AuthMiddleware(authClient)
 	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(authClient)
+	accountSecurityMiddleware := middleware.AccountSecurityMiddleware(authClient)
 	go func() {
 		log.Info("Features HTTP server started", "port", httpPort)
-		if err := handler.StartHTTPServer(httpHandlers, httpPort, authMiddleware, optionalAuthMiddleware); err != nil {
+		if err := handler.StartHTTPServer(httpHandlers, httpPort, authMiddleware, optionalAuthMiddleware, accountSecurityMiddleware); err != nil {
 			log.Fatal("Failed to serve HTTP", "error", err)
 		}
 	}()

@@ -18,6 +18,7 @@ type mockAuthService struct {
 	validateTokenFunc          func(context.Context, string) (*models.User, error)
 	requestAccountSecurityFunc func(context.Context, uint64, int32, string) error
 	verifyAccountSecurityFunc  func(context.Context, uint64, string, string, string) error
+	checkAccountSecurityFunc   func(context.Context, uint64) (bool, error)
 }
 
 func (m *mockAuthService) Register(ctx context.Context, backURL, referral string) (string, error) {
@@ -74,6 +75,13 @@ func (m *mockAuthService) VerifyAccountSecurity(ctx context.Context, userID uint
 		return m.verifyAccountSecurityFunc(ctx, userID, code, ip, userAgent)
 	}
 	return nil
+}
+
+func (m *mockAuthService) CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error) {
+	if m.checkAccountSecurityFunc != nil {
+		return m.checkAccountSecurityFunc(ctx, userID)
+	}
+	return true, nil
 }
 
 var _ service.AuthService = (*mockAuthService)(nil)

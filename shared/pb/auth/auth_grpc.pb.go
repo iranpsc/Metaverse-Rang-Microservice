@@ -28,6 +28,7 @@ const (
 	AuthService_ValidateToken_FullMethodName          = "/auth.AuthService/ValidateToken"
 	AuthService_RequestAccountSecurity_FullMethodName = "/auth.AuthService/RequestAccountSecurity"
 	AuthService_VerifyAccountSecurity_FullMethodName  = "/auth.AuthService/VerifyAccountSecurity"
+	AuthService_CheckAccountSecurity_FullMethodName   = "/auth.AuthService/CheckAccountSecurity"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -44,6 +45,8 @@ type AuthServiceClient interface {
 	ValidateToken(ctx context.Context, in *ValidateTokenRequest, opts ...grpc.CallOption) (*ValidateTokenResponse, error)
 	RequestAccountSecurity(ctx context.Context, in *RequestAccountSecurityRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	VerifyAccountSecurity(ctx context.Context, in *VerifyAccountSecurityRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// CheckAccountSecurity reports whether the user's account security window is currently unlocked.
+	CheckAccountSecurity(ctx context.Context, in *CheckAccountSecurityRequest, opts ...grpc.CallOption) (*CheckAccountSecurityResponse, error)
 }
 
 type authServiceClient struct {
@@ -134,6 +137,16 @@ func (c *authServiceClient) VerifyAccountSecurity(ctx context.Context, in *Verif
 	return out, nil
 }
 
+func (c *authServiceClient) CheckAccountSecurity(ctx context.Context, in *CheckAccountSecurityRequest, opts ...grpc.CallOption) (*CheckAccountSecurityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckAccountSecurityResponse)
+	err := c.cc.Invoke(ctx, AuthService_CheckAccountSecurity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -148,6 +161,8 @@ type AuthServiceServer interface {
 	ValidateToken(context.Context, *ValidateTokenRequest) (*ValidateTokenResponse, error)
 	RequestAccountSecurity(context.Context, *RequestAccountSecurityRequest) (*emptypb.Empty, error)
 	VerifyAccountSecurity(context.Context, *VerifyAccountSecurityRequest) (*emptypb.Empty, error)
+	// CheckAccountSecurity reports whether the user's account security window is currently unlocked.
+	CheckAccountSecurity(context.Context, *CheckAccountSecurityRequest) (*CheckAccountSecurityResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -181,6 +196,9 @@ func (UnimplementedAuthServiceServer) RequestAccountSecurity(context.Context, *R
 }
 func (UnimplementedAuthServiceServer) VerifyAccountSecurity(context.Context, *VerifyAccountSecurityRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VerifyAccountSecurity not implemented")
+}
+func (UnimplementedAuthServiceServer) CheckAccountSecurity(context.Context, *CheckAccountSecurityRequest) (*CheckAccountSecurityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckAccountSecurity not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -347,6 +365,24 @@ func _AuthService_VerifyAccountSecurity_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_CheckAccountSecurity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckAccountSecurityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CheckAccountSecurity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CheckAccountSecurity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CheckAccountSecurity(ctx, req.(*CheckAccountSecurityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -385,6 +421,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VerifyAccountSecurity",
 			Handler:    _AuthService_VerifyAccountSecurity_Handler,
+		},
+		{
+			MethodName: "CheckAccountSecurity",
+			Handler:    _AuthService_CheckAccountSecurity_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

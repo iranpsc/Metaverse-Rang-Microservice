@@ -429,7 +429,7 @@ services:
       APP_URL: http://localhost:8000
       AUTH_SERVICE_ADDR: auth-service:50051
       NOTIFICATION_SERVICE_ADDR: notifications-service:50058
-      STORAGE_SERVICE_ADDR: storage-service:8059
+      STORAGE_SERVICE_ADDR: storage-service:50060
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
       <<: [*grpc-certs-depends, *migrate-depends]

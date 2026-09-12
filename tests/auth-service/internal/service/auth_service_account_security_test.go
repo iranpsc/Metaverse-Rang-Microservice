@@ -728,3 +728,73 @@ func TestVerifyAccountSecurityUnlockWindow(t *testing.T) {
 		t.Errorf("expected unlock window between %d and %d, got %d", expectedMin, expectedMax, updatedSecurity.Until.Int64)
 	}
 }
+
+func TestCheckAccountSecurity(t *testing.T) {
+	ctx := context.Background()
+	users := map[uint64]*models.User{1: {ID: 1}}
+	userRepo := newFakeUserRepository(users)
+	accountRepo := newFakeAccountSecurityRepository()
+	svc := service.NewAuthService(userRepo, nil, nil, accountRepo, newFakeActivityRepository(), nil, nil, &fakeSMSServiceClient{}, "", "", "", "", "", false)
+
+	t.Run("no record allows", func(t *testing.T) {
+		unlocked, err := svc.CheckAccountSecurity(ctx, 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !unlocked {
+			t.Fatal("expected unlocked when no security record")
+		}
+	})
+
+	t.Run("locked record blocks", func(t *testing.T) {
+		accountRepo.records[1] = &models.AccountSecurity{ID: 1, UserID: 1, Unlocked: false}
+		unlocked, err := svc.CheckAccountSecurity(ctx, 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if unlocked {
+			t.Fatal("expected locked")
+		}
+	})
+
+	t.Run("valid unlock window allows and updates activity", func(t *testing.T) {
+		accountRepo.records[1] = &models.AccountSecurity{
+			ID:       1,
+			UserID:   1,
+			Unlocked: true,
+			Until:    sql.NullInt64{Int64: time.Now().Add(10 * time.Minute).Unix(), Valid: true},
+			Length:   900,
+		}
+		unlocked, err := svc.CheckAccountSecurity(ctx, 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !unlocked {
+			t.Fatal("expected unlocked")
+		}
+		if !accountRepo.records[1].LastActivity.Valid {
+			t.Fatal("expected last_activity to be updated")
+		}
+	})
+
+	t.Run("expired unlock window relocks", func(t *testing.T) {
+		accountRepo.records[1] = &models.AccountSecurity{
+			ID:       1,
+			UserID:   1,
+			Unlocked: true,
+			Until:    sql.NullInt64{Int64: time.Now().Add(-time.Minute).Unix(), Valid: true},
+			Length:   900,
+		}
+		unlocked, err := svc.CheckAccountSecurity(ctx, 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if unlocked {
+			t.Fatal("expected expired unlock to block")
+		}
+		if accountRepo.records[1].Unlocked {
+			t.Fatal("expected record to be relocked")
+		}
+	})
+}
+

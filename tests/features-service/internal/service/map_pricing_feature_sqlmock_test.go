@@ -380,14 +380,14 @@ func TestMarketplaceService_DeleteBuyRequest_SQLMock(t *testing.T) {
 	mock.ExpectQuery("FROM buy_feature_requests").
 		WithArgs(uint64(9)).
 		WillReturnRows(buyRequestFindRows(3, 2, 0))
-	mock.ExpectQuery("FROM locked_wallets").
+	mock.ExpectQuery("FROM locked_assets").
 		WithArgs(uint64(9)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "buy_feature_request_id", "feature_id", "psc", "irr", "created_at", "updated_at",
 		}).AddRow(7, 9, 1, 10.0, 20.0, now, now))
 	mock.ExpectExec("DELETE FROM transactions").
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("DELETE FROM locked_wallets").
+	mock.ExpectExec("DELETE FROM locked_assets").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("DELETE FROM buy_feature_requests").

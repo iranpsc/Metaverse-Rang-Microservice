@@ -21,9 +21,10 @@ type UserContextKey struct{}
 
 // UserContext holds authenticated user information
 type UserContext struct {
-	UserID uint64
-	Email  string
-	Token  string
+	UserID      uint64
+	Email       string
+	Token       string
+	WalletLogin bool
 }
 
 // TokenValidator interface for validating tokens

@@ -67,10 +67,26 @@ func TestDecodeBody(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	into = map[string]interface{}{}
-	if err := decodeBody(req, &into); err == nil {
-		if into["karbari"] != "t" {
-			t.Fatalf("got %#v", into)
-		}
+	if err := decodeBody(req, &into); err != nil {
+		t.Fatal(err)
+	}
+	if into["karbari"] != "t" {
+		t.Fatalf("got %#v", into)
+	}
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("minimum_price_percentage", "90")
+	_ = mw.Close()
+	req = httptest.NewRequest(http.MethodPost, "/", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.ContentLength = -1
+	into = map[string]interface{}{}
+	if err := decodeBody(req, &into); err != nil {
+		t.Fatal(err)
+	}
+	if into["minimum_price_percentage"] != "90" {
+		t.Fatalf("got %#v", into)
 	}
 }
 

@@ -17,6 +17,8 @@ service AuthService {
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc RequestAccountSecurity(RequestAccountSecurityRequest) returns (google.protobuf.Empty);
   rpc VerifyAccountSecurity(VerifyAccountSecurityRequest) returns (google.protobuf.Empty);
+  // CheckAccountSecurity reports whether the user's account security window is currently unlocked.
+  rpc CheckAccountSecurity(CheckAccountSecurityRequest) returns (CheckAccountSecurityResponse);
 }
 
 // User Service - handles user profile and settings
@@ -237,6 +239,7 @@ message ValidateTokenResponse {
   bool valid = 1;
   uint64 user_id = 2;
   string email = 3;
+  bool wallet_login = 4;
 }
 
 message RequestAccountSecurityRequest {
@@ -250,6 +253,15 @@ message VerifyAccountSecurityRequest {
   string code = 2;
   string ip = 3;
   string user_agent = 4;
+}
+
+message CheckAccountSecurityRequest {
+  uint64 user_id = 1;
+}
+
+message CheckAccountSecurityResponse {
+  // unlocked is true when no security record exists, or when the unlock window is still valid.
+  bool unlocked = 1;
 }
 
 message GetUserRequest {
@@ -602,7 +614,7 @@ message ListProfilePhotosResponse {
 
 message UploadProfilePhotoRequest {
   uint64 user_id = 1; // Authenticated user ID
-  bytes image_data = 2; // Image file data (PNG or JPEG, ≤1 MB)
+  bytes image_data = 2; // Image file data (PNG or JPEG, ≤2 MB)
   string filename = 3; // Original filename
   string content_type = 4; // MIME type (image/png, image/jpeg, etc.)
 }

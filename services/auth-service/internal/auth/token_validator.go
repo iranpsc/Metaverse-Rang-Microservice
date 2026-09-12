@@ -20,13 +20,14 @@ func NewLocalTokenValidator(tokenRepo repository.TokenRepository) *LocalTokenVal
 
 // ValidateToken implements sharedauth.TokenValidator.
 func (v *LocalTokenValidator) ValidateToken(ctx context.Context, token string) (*sharedauth.UserContext, error) {
-	user, err := v.tokenRepo.ValidateToken(ctx, token)
+	session, err := v.tokenRepo.ValidateTokenSession(ctx, token)
 	if err != nil {
 		return nil, err
 	}
 	return &sharedauth.UserContext{
-		UserID: user.ID,
-		Email:  user.Email,
-		Token:  token,
+		UserID:      session.User.ID,
+		Email:       session.User.Email,
+		Token:       token,
+		WalletLogin: session.WalletLogin,
 	}, nil
 }

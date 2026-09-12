@@ -361,8 +361,8 @@ func TestMarketplaceService_SendBuyRequest_WalletSuccess(t *testing.T) {
 	mock.ExpectExec("INSERT INTO buy_feature_requests").
 		WithArgs(uint64(2), uint64(3), uint64(1), "", 500.0, 500.0).
 		WillReturnResult(sqlmock.NewResult(9, 1))
-	mock.ExpectExec("INSERT INTO locked_wallets").
-		WithArgs(uint64(9), uint64(1), 525.0, 525.0).
+	mock.ExpectExec("INSERT INTO locked_assets").
+		WithArgs(uint64(2), uint64(9), uint64(1), 525.0, 525.0).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("FROM buy_feature_requests").
 		WithArgs(uint64(9)).
@@ -527,7 +527,7 @@ func TestMarketplaceService_AcceptBuyRequest_WalletThenCommit(t *testing.T) {
 	mock.ExpectExec("SET deleted_at = NOW\\(\\) WHERE id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("WHERE feature_id = \\? AND deleted_at IS NULL").
@@ -542,12 +542,12 @@ func TestMarketplaceService_AcceptBuyRequest_WalletThenCommit(t *testing.T) {
 			"id", "buyer_id", "seller_id", "feature_id", "note", "price_psc", "price_irr",
 			"status", "requested_grace_period", "created_at", "updated_at",
 		}).AddRow(10, uint64(4), uint64(3), 1, "n", 10.0, 20.0, 0, nil, now, now))
-	mock.ExpectQuery("FROM locked_wallets").
+	mock.ExpectQuery("FROM locked_assets").
 		WithArgs(uint64(10)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "buy_feature_request_id", "feature_id", "psc", "irr", "created_at", "updated_at",
 		}).AddRow(8, 10, 1, 5.0, 6.0, now, now))
-	mock.ExpectExec("DELETE FROM locked_wallets").
+	mock.ExpectExec("DELETE FROM locked_assets").
 		WithArgs(uint64(10)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("SET deleted_at = NOW\\(\\) WHERE id").
@@ -579,7 +579,7 @@ func expectRefundLockedWallet(mock sqlmock.Sqlmock, requestID uint64, sellerOrBu
 	mock.ExpectExec("DELETE FROM transactions WHERE transactionable_type").
 		WithArgs("App\\Models\\BuyFeatureRequest", requestID).
 		WillReturnResult(sqlmock.NewResult(0, 2))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(requestID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("DELETE FROM buy_feature_requests WHERE id").

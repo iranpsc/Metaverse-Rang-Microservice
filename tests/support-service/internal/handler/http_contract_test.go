@@ -174,7 +174,7 @@ func sampleTicket() *pbSupport.TicketResponse {
 }
 
 func TestHTTPContract_HealthMethodNotAllowedAndUnauthenticated(t *testing.T) {
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://localhost:8000")
 	mux := newSupportMux(h, identityMW)
 
 	rr := doJSON(mux, http.MethodGet, "/health", "")
@@ -253,7 +253,7 @@ func TestHTTPContract_TicketCRUDPaginationAndAliases(t *testing.T) {
 			return out, nil
 		},
 	}
-	h := handler.NewHTTPSupportHandler(tickets, &mockReportAPI{}, &mockNoteAPI{}, "", "http://app.test")
+	h := handler.NewHTTPSupportHandler(tickets, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://app.test")
 	mux := newSupportMux(h, withUser(7))
 
 	rr := doJSON(mux, http.MethodGet, "/api/tickets?page=2&per_page=2&recieved=true", "")
@@ -316,7 +316,7 @@ func TestHTTPContract_TicketValidationAndGRPCMapping(t *testing.T) {
 			return nil, status.Error(codes.AlreadyExists, "exists")
 		},
 	}
-	h := handler.NewHTTPSupportHandler(tickets, &mockReportAPI{}, &mockNoteAPI{}, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(tickets, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(7))
 
 	if doJSON(mux, http.MethodPost, "/api/tickets", `{`).Code != http.StatusBadRequest {
@@ -383,7 +383,7 @@ func TestHTTPContract_ReportsCRUDAndErrors(t *testing.T) {
 			return &pbSupport.ReportResponse{Id: 9, Reason: "t", ReportableType: "displayError", Description: "d", Url: "https://x"}, nil
 		},
 	}
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, reports, &mockNoteAPI{}, "", "http://app.test/")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, reports, &mockNoteAPI{}, nil, "http://app.test/")
 	mux := newSupportMux(h, withUser(3))
 
 	rr := doJSON(mux, http.MethodGet, "/api/support/reports?page=2&per_page=2", "")
@@ -442,7 +442,7 @@ func TestHTTPContract_NotesCRUDAndMethodSpoof(t *testing.T) {
 			return &pbCommon.Empty{}, nil
 		},
 	}
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(4))
 
 	rr := doJSON(mux, http.MethodGet, "/api/notes", "")

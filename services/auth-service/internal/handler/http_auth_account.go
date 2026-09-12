@@ -206,9 +206,10 @@ func (h *HTTPAuthHandler) ValidateToken(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"valid":   resp.Valid,
-		"user_id": resp.UserId,
-		"email":   resp.Email,
+		"valid":        resp.Valid,
+		"user_id":      resp.UserId,
+		"email":        resp.Email,
+		"wallet_login": resp.WalletLogin,
 	})
 }
 

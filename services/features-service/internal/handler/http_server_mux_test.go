@@ -14,7 +14,7 @@ func testPublicMux() http.Handler {
 		Maps:            &HTTPMapsHandler{},
 		Isic:            &HTTPIsicCodesHandler{},
 		CitizenFeatures: &HTTPCitizenFeaturesHandler{},
-	}, nil, nil)
+	}, nil, nil, nil)
 }
 
 func TestNewPublicHTTPHandler_HealthAndCitizen(t *testing.T) {

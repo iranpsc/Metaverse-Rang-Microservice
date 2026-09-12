@@ -1,4 +1,4 @@
-.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test test-unit test-services test-database test-all up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads openapi docs docs-up kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install ensure-networks wait-mysql
+.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test test-unit test-services test-database test-all up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads openapi docs docs-up kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install ensure-networks wait-mysql start-migrate-job auto-migrate
 
 # Proto generation
 PROTO_DIR=shared/proto
@@ -63,10 +63,10 @@ help:
 	@echo "Docker Compose:"
 	@echo "  ensure-networks  - Create dokploy-network and metarang-shared if missing"
 	@echo "  wait-mysql       - Block until Compose MySQL is healthy"
-	@echo "  dev              - Start complete development environment (runs migrations)"
-	@echo "  up               - Start all services (Compose migrate job, then apps)"
+	@echo "  dev              - Start complete development environment (migrates if $(MYSQL_DATABASE) exists)"
+	@echo "  up               - Start all services (migrates if $(MYSQL_DATABASE) exists, then apps)"
 	@echo "  down             - Stop all services"
-	@echo "  restart          - Run migrate job, then restart all services"
+	@echo "  restart          - Run migrate if $(MYSQL_DATABASE) exists, then restart all services"
 	@echo "  ps               - Show service status"
 	@echo "  logs             - Follow all service logs"
 	@echo "  build            - Build all services"
@@ -94,6 +94,7 @@ help:
 	@echo "  migrate-baseline      - Mark pending files as ran without executing SQL"
 	@echo "  migrate-make          - Create a migration stub (NAME=add_foo_to_bar)"
 	@echo "  AUTO_MIGRATE=0        - Skip migrate on up/dev/dev-up/restart (sets SKIP_MIGRATE=1)"
+	@echo "  Auto-migrate also skips when database $(MYSQL_DATABASE) does not exist"
 	@echo "  USE_HOST_MIGRATE=1    - Use go run ./shared/cmd/migrate instead of Compose"
 	@echo ""
 	@echo "Service-specific (set SERVICE=service-name):"
@@ -326,19 +327,12 @@ endif
 # Docker Compose Management
 # =============================================================================
 
-.PHONY: up down restart logs ps build clean import-schema import-database dev-up dev-down dev-build dev-logs dev-restart dev-ps kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install wait-mysql
+.PHONY: up down restart logs ps build clean import-schema import-database dev-up dev-down dev-build dev-logs dev-restart dev-ps kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install wait-mysql start-migrate-job auto-migrate
 
-# When 1 (default), make up/dev/dev-up/restart recreate the Compose migrate job.
+# When 1 (default), make up/dev/dev-up/restart run migrations if $(MYSQL_DATABASE) exists.
 AUTO_MIGRATE ?= 1
 # When 1, run migrations via go run on the host instead of the Compose migrate service.
 USE_HOST_MIGRATE ?= 0
-
-# SKIP_MIGRATE is passed into the Compose migrate container (entrypoint no-op).
-ifeq ($(AUTO_MIGRATE),1)
-COMPOSE_SKIP_MIGRATE := 0
-else
-COMPOSE_SKIP_MIGRATE := 1
-endif
 
 kong-validate:
 	@echo "🔍 Validating Kong declarative config..."
@@ -362,11 +356,8 @@ endif
 up: init-storage-uploads ensure-networks
 	@echo "🚀 Starting all microservices..."
 	@echo "Starting MySQL, Redis, and migrate job..."
-ifeq ($(OS),Windows_NT)
-	@powershell -NoProfile -Command "$$env:SKIP_MIGRATE='$(COMPOSE_SKIP_MIGRATE)'; $(DOCKER_COMPOSE) up -d --force-recreate migrate"
-else
-	SKIP_MIGRATE=$(COMPOSE_SKIP_MIGRATE) $(DOCKER_COMPOSE) up -d --force-recreate migrate
-endif
+	$(DOCKER_COMPOSE) up -d mysql
+	@$(MAKE) start-migrate-job
 	$(DOCKER_COMPOSE) up -d
 	@echo "✅ All services started!"
 	@echo ""
@@ -387,11 +378,7 @@ down:
 
 restart:
 	@echo "🔄 Restarting all microservices..."
-ifeq ($(AUTO_MIGRATE),1)
-	@$(MAKE) migrate
-else
-	@echo "⏭️  Skipping migrations (AUTO_MIGRATE=$(AUTO_MIGRATE))"
-endif
+	@$(MAKE) auto-migrate
 	$(DOCKER_COMPOSE) restart
 	@echo "✅ All services restarted"
 
@@ -500,6 +487,71 @@ else
 	done
 endif
 
+# Recreate the Compose migrate job. Skips SQL when AUTO_MIGRATE=0 or MYSQL_DATABASE is missing.
+# The container still runs (no-op) so DB-backed services can wait on service_completed_successfully.
+start-migrate-job:
+	@$(MAKE) wait-mysql
+ifeq ($(AUTO_MIGRATE),1)
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$ErrorActionPreference='Continue'; \
+		$$count = (docker compose exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) -Nse \"SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$(MYSQL_DATABASE)';\" 2>$$null | Select-Object -Last 1).Trim(); \
+		if ($$count -ne '1') { \
+			Write-Host '⏭️  Skipping migrations: database $(MYSQL_DATABASE) does not exist'; \
+			$$env:SKIP_MIGRATE='1'; \
+		} else { \
+			Write-Host '📦 Database $(MYSQL_DATABASE) exists; running migrations...'; \
+			$$env:SKIP_MIGRATE='0'; \
+		}; \
+		$(DOCKER_COMPOSE) up -d --force-recreate migrate"
+else
+	@DB_COUNT=$$($(DOCKER_COMPOSE) exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) -Nse "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$(MYSQL_DATABASE)';" 2>/dev/null | tr -d '\r'); \
+	if [ "$$DB_COUNT" != "1" ]; then \
+		echo "⏭️  Skipping migrations: database $(MYSQL_DATABASE) does not exist"; \
+		SKIP_MIGRATE=1 $(DOCKER_COMPOSE) up -d --force-recreate migrate; \
+	else \
+		echo "📦 Database $(MYSQL_DATABASE) exists; running migrations..."; \
+		SKIP_MIGRATE=0 $(DOCKER_COMPOSE) up -d --force-recreate migrate; \
+	fi
+endif
+else
+	@echo "⏭️  Skipping migrations (AUTO_MIGRATE=$(AUTO_MIGRATE))"
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "$$env:SKIP_MIGRATE='1'; $(DOCKER_COMPOSE) up -d --force-recreate migrate"
+else
+	SKIP_MIGRATE=1 $(DOCKER_COMPOSE) up -d --force-recreate migrate
+endif
+endif
+
+# Explicit migrate (restart/dev-restart). Skips when AUTO_MIGRATE=0 or MYSQL_DATABASE is missing.
+auto-migrate:
+ifeq ($(AUTO_MIGRATE),1)
+	$(DOCKER_COMPOSE) up -d mysql
+	@$(MAKE) wait-mysql
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "$$ErrorActionPreference='Continue'; \
+		$$count = (docker compose exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) -Nse \"SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$(MYSQL_DATABASE)';\" 2>$$null | Select-Object -Last 1).Trim(); \
+		if ($$count -ne '1') { \
+			Write-Host '⏭️  Skipping migrations: database $(MYSQL_DATABASE) does not exist'; \
+			exit 0; \
+		}; \
+		Write-Host '📦 Database $(MYSQL_DATABASE) exists; running migrations...'; \
+		$$ErrorActionPreference='Stop'; \
+		& make migrate; \
+		if ($$LASTEXITCODE -ne 0) { exit $$LASTEXITCODE }"
+else
+	@DB_COUNT=$$($(DOCKER_COMPOSE) exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) -Nse "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$(MYSQL_DATABASE)';" 2>/dev/null | tr -d '\r'); \
+	if [ "$$DB_COUNT" != "1" ]; then \
+		echo "⏭️  Skipping migrations: database $(MYSQL_DATABASE) does not exist"; \
+	else \
+		echo "📦 Database $(MYSQL_DATABASE) exists; running migrations..."; \
+		$(MAKE) migrate; \
+	fi
+endif
+else
+	@echo "⏭️  Skipping migrations (AUTO_MIGRATE=$(AUTO_MIGRATE))"
+endif
+
 import-schema:
 	@echo "📥 Importing database schema..."
 	@if [ ! -f scripts/schema.sql ]; then \
@@ -604,11 +656,7 @@ else
 	fi
 endif
 	@echo "Starting migrate job and all services..."
-ifeq ($(OS),Windows_NT)
-	@powershell -NoProfile -Command "$$env:SKIP_MIGRATE='$(COMPOSE_SKIP_MIGRATE)'; $(DOCKER_COMPOSE) up -d --force-recreate migrate"
-else
-	SKIP_MIGRATE=$(COMPOSE_SKIP_MIGRATE) $(DOCKER_COMPOSE) up -d --force-recreate migrate
-endif
+	@$(MAKE) start-migrate-job
 	$(DOCKER_COMPOSE) up -d
 	@echo ""
 	@echo "✅ Development environment ready!"
@@ -644,11 +692,8 @@ dev-up: init-storage-uploads ensure-networks
 	@echo "ℹ️  File changes will automatically trigger rebuilds (Go services)"
 	@echo ""
 	@echo "Starting MySQL, Redis, and migrate job..."
-ifeq ($(OS),Windows_NT)
-	@powershell -NoProfile -Command "$$env:SKIP_MIGRATE='$(COMPOSE_SKIP_MIGRATE)'; $(DOCKER_COMPOSE) up -d --force-recreate migrate"
-else
-	SKIP_MIGRATE=$(COMPOSE_SKIP_MIGRATE) $(DOCKER_COMPOSE) up -d --force-recreate migrate
-endif
+	$(DOCKER_COMPOSE) up -d mysql
+	@$(MAKE) start-migrate-job
 	$(DOCKER_COMPOSE) up --watch
 	@echo "✅ Development services started with watch mode!"
 
@@ -668,11 +713,7 @@ dev-logs:
 
 dev-restart:
 	@echo "🔄 Restarting development services..."
-ifeq ($(AUTO_MIGRATE),1)
-	@$(MAKE) migrate
-else
-	@echo "⏭️  Skipping migrations (AUTO_MIGRATE=$(AUTO_MIGRATE))"
-endif
+	@$(MAKE) auto-migrate
 	$(DOCKER_COMPOSE) restart
 	@echo "✅ Development services restarted"
 

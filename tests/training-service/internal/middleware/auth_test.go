@@ -44,6 +44,9 @@ func (m *mockAuthClient) RequestAccountSecurity(context.Context, *pb.RequestAcco
 func (m *mockAuthClient) VerifyAccountSecurity(context.Context, *pb.VerifyAccountSecurityRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, nil
 }
+func (m *mockAuthClient) CheckAccountSecurity(context.Context, *pb.CheckAccountSecurityRequest, ...grpc.CallOption) (*pb.CheckAccountSecurityResponse, error) {
+	return &pb.CheckAccountSecurityResponse{Unlocked: true}, nil
+}
 
 func TestAuthMiddleware_Success(t *testing.T) {
 	auth := &mockAuthClient{

@@ -46,6 +46,9 @@ func (routeAuthClient) RequestAccountSecurity(context.Context, *authpb.RequestAc
 func (routeAuthClient) VerifyAccountSecurity(context.Context, *authpb.VerifyAccountSecurityRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, nil
 }
+func (routeAuthClient) CheckAccountSecurity(context.Context, *authpb.CheckAccountSecurityRequest, ...grpc.CallOption) (*authpb.CheckAccountSecurityResponse, error) {
+	return &authpb.CheckAccountSecurityResponse{Unlocked: true}, nil
+}
 
 type mockHTTPMapAPI struct{}
 
@@ -127,6 +130,26 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.HandleMyFeaturesRoutes(w, req)
 	assert.Equal(t, 200, w.Code, w.Body.String())
+
+	// Updating feature images via the feature update URL (multipart) must not return
+	// "request body is required" — images are uploaded through storage-service.
+	var updateBuf bytes.Buffer
+	updateMW := multipart.NewWriter(&updateBuf)
+	updateHdr := make(textproto.MIMEHeader)
+	updateHdr.Set("Content-Disposition", `form-data; name="images[]"; filename="b.png"`)
+	// Browsers often omit part Content-Type; filename extension must be enough.
+	part2, err := updateMW.CreatePart(updateHdr)
+	require.NoError(t, err)
+	_, _ = part2.Write([]byte{4, 5, 6})
+	require.NoError(t, updateMW.Close())
+	updateReq := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/my-features/2/features/1", &updateBuf), 2)
+	updateReq.Header.Set("Content-Type", updateMW.FormDataContentType())
+	updateReq.Header.Set("Authorization", "Bearer tok")
+	updateReq.ContentLength = -1 // chunked / unset body length (Bruno and similar clients)
+	updateW := httptest.NewRecorder()
+	h.HandleMyFeaturesRoutes(updateW, updateReq)
+	assert.Equal(t, 200, updateW.Code, updateW.Body.String())
+	assert.NotContains(t, updateW.Body.String(), "request body is required")
 
 	profit := handler.NewHTTPProfitHandler(&mockHTTPProfitAPI{})
 	assert.Equal(t, 200, serve(profit.Handle, withUserJSON(http.MethodGet, "/api/hourly-profits?per_page=5", "")).Code)

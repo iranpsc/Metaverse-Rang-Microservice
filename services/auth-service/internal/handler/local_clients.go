@@ -79,6 +79,9 @@ func (c *localAuthClient) RequestAccountSecurity(ctx context.Context, in *pb.Req
 func (c *localAuthClient) VerifyAccountSecurity(ctx context.Context, in *pb.VerifyAccountSecurityRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
 	return c.AuthServiceServer.VerifyAccountSecurity(ctx, in)
 }
+func (c *localAuthClient) CheckAccountSecurity(ctx context.Context, in *pb.CheckAccountSecurityRequest, _ ...grpc.CallOption) (*pb.CheckAccountSecurityResponse, error) {
+	return c.AuthServiceServer.CheckAccountSecurity(ctx, in)
+}
 
 type localUserClient struct{ pb.UserServiceServer }
 

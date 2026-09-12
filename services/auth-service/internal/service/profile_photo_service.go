@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
+	"net/http"
+	"path/filepath"
 	"strings"
 
 	"metarang/auth-service/internal/models"
@@ -13,12 +16,12 @@ import (
 var (
 	ErrProfilePhotoNotFound = errors.New("profile photo not found")
 	ErrPhotoUnauthorized    = errors.New("unauthorized: profile photo does not belong to user")
-	ErrInvalidImage         = errors.New("invalid image: must be PNG or JPEG, ≤1 MB")
+	ErrInvalidImage         = errors.New("invalid image: must be PNG or JPEG, ≤2 MB")
 	ErrImageRequired        = errors.New("image is required")
 )
 
 const (
-	profilePhotoMaxSize    = 1024 * 1024
+	profilePhotoMaxSize    = 2 * 1024 * 1024
 	profilePhotoUploadPath = "/uploads/profile"
 )
 
@@ -57,7 +60,8 @@ func (s *profilePhotoService) ListProfilePhotos(ctx context.Context, userID uint
 }
 
 func (s *profilePhotoService) UploadProfilePhoto(ctx context.Context, userID uint64, imageData []byte, filename, contentType string) (*models.Image, error) {
-	if err := validateProfilePhotoFile(imageData, filename, contentType); err != nil {
+	normalizedType, err := validateProfilePhotoFile(imageData, filename, contentType)
+	if err != nil {
 		return nil, err
 	}
 	if s.fileStorage == nil {
@@ -69,7 +73,7 @@ func (s *profilePhotoService) UploadProfilePhoto(ctx context.Context, userID uin
 		NewUploadID("profile_photo", userID),
 		profilePhotoUploadPath,
 		filename,
-		contentType,
+		normalizedType,
 		imageData,
 	)
 	if err != nil {
@@ -84,27 +88,63 @@ func (s *profilePhotoService) UploadProfilePhoto(ctx context.Context, userID uin
 	return image, nil
 }
 
-func validateProfilePhotoFile(imageData []byte, filename, contentType string) error {
+func validateProfilePhotoFile(imageData []byte, filename, contentType string) (string, error) {
 	if len(imageData) == 0 {
-		return ErrImageRequired
+		return "", ErrImageRequired
 	}
 	if len(imageData) > profilePhotoMaxSize {
-		return ErrInvalidImage
+		return "", ErrInvalidImage
+	}
+	if strings.TrimSpace(filename) == "" {
+		return "", ErrInvalidImage
 	}
 
-	contentType = strings.ToLower(contentType)
-	if contentType != "image/png" && contentType != "image/jpeg" && contentType != "image/jpg" {
-		return ErrInvalidImage
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
+		return "", ErrInvalidImage
 	}
 
-	filenameLower := strings.ToLower(filename)
-	if !strings.HasSuffix(filenameLower, ".png") && !strings.HasSuffix(filenameLower, ".jpg") && !strings.HasSuffix(filenameLower, ".jpeg") {
-		return ErrInvalidImage
+	normalizedType := normalizeProfilePhotoContentType(contentType, filename, imageData)
+	if normalizedType != "image/png" && normalizedType != "image/jpeg" {
+		return "", ErrInvalidImage
 	}
-	if filename == "" || contentType == "" {
-		return ErrInvalidImage
+	return normalizedType, nil
+}
+
+// normalizeProfilePhotoContentType accepts image/png, image/jpeg, and image/jpg.
+// When multipart clients omit Content-Type or send application/octet-stream,
+// the type is inferred from the filename extension and/or file magic bytes.
+func normalizeProfilePhotoContentType(contentType, filename string, data []byte) string {
+	contentType = strings.TrimSpace(strings.ToLower(contentType))
+	if contentType != "" {
+		if mediaType, _, err := mime.ParseMediaType(contentType); err == nil {
+			contentType = mediaType
+		}
 	}
-	return nil
+	if contentType == "image/jpg" {
+		contentType = "image/jpeg"
+	}
+	if contentType == "image/png" || contentType == "image/jpeg" {
+		return contentType
+	}
+
+	if contentType == "" || contentType == "application/octet-stream" {
+		switch strings.ToLower(filepath.Ext(filename)) {
+		case ".png":
+			return "image/png"
+		case ".jpg", ".jpeg":
+			return "image/jpeg"
+		}
+	}
+
+	detected := http.DetectContentType(data)
+	if mediaType, _, err := mime.ParseMediaType(detected); err == nil {
+		detected = mediaType
+	}
+	if detected == "image/png" || detected == "image/jpeg" {
+		return detected
+	}
+	return contentType
 }
 
 func (s *profilePhotoService) GetProfilePhoto(ctx context.Context, id uint64) (*models.Image, error) {

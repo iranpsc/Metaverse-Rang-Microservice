@@ -70,7 +70,7 @@ spec:
         - name: AUTH_SERVICE_ADDR
           value: "auth-service:50051"
         - name: STORAGE_SERVICE_ADDR
-          value: "storage-service:8059"
+          value: "storage-service:50060"
         - name: APP_URL
           valueFrom:
             configMapKeyRef:
