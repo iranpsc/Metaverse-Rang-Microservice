@@ -47,6 +47,10 @@ temp/
 coverage/
 *.coverage
 *.test
+# Go coverage profiles written without a .out extension
+tests/**/coverage
+tests/**/coverage-*
+**/tmp-cover/
 services/**/bin/
 services/**/tmp/
 
