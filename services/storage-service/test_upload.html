@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Storage Service - Upload Test</title>
+    <title>Storage Service - Upload Test (resumable.js)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/resumable.js/1.1.0/resumable.min.js"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,7 +21,7 @@
             justify-content: center;
             padding: 20px;
         }
-        
+
         .container {
             background: white;
             padding: 40px;
@@ -29,19 +30,19 @@
             max-width: 600px;
             width: 100%;
         }
-        
+
         h1 {
             color: #333;
             margin-bottom: 10px;
             font-size: 28px;
         }
-        
+
         .subtitle {
             color: #666;
             margin-bottom: 30px;
             font-size: 14px;
         }
-        
+
         .upload-area {
             border: 3px dashed #ddd;
             border-radius: 15px;
@@ -52,27 +53,29 @@
             transition: all 0.3s;
             margin-bottom: 20px;
         }
-        
+
         .upload-area:hover {
             border-color: #667eea;
             background: #f0f0ff;
         }
-        
+
         .upload-area.dragging {
             border-color: #667eea;
             background: #e8ebff;
             transform: scale(1.02);
         }
-        
+
         .upload-icon {
             font-size: 48px;
             margin-bottom: 15px;
         }
-        
-        input[type="file"] {
-            display: none;
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
         }
-        
+
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -83,23 +86,28 @@
             cursor: pointer;
             transition: transform 0.2s;
             font-weight: 600;
+            flex: 1;
         }
-        
+
+        button.secondary {
+            background: #6c757d;
+        }
+
         button:hover {
             transform: translateY(-2px);
         }
-        
+
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .progress-container {
             margin: 20px 0;
             display: none;
         }
-        
+
         .progress-bar {
             width: 100%;
             height: 30px;
@@ -108,7 +116,7 @@
             overflow: hidden;
             position: relative;
         }
-        
+
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
@@ -119,8 +127,9 @@
             color: white;
             font-weight: bold;
             font-size: 14px;
+            width: 0%;
         }
-        
+
         .status {
             margin-top: 10px;
             padding: 15px;
@@ -128,25 +137,25 @@
             font-size: 14px;
             display: none;
         }
-        
+
         .status.success {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
+
         .status.error {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        
+
         .status.info {
             background: #d1ecf1;
             color: #0c5460;
             border: 1px solid #bee5eb;
         }
-        
+
         .file-info {
             background: #f8f9fa;
             padding: 15px;
@@ -154,27 +163,27 @@
             margin: 15px 0;
             display: none;
         }
-        
+
         .file-info p {
             margin: 5px 0;
             font-size: 14px;
             color: #555;
         }
-        
+
         .file-info strong {
             color: #333;
         }
-        
+
         .settings {
             margin-top: 30px;
             padding-top: 20px;
             border-top: 1px solid #eee;
         }
-        
+
         .setting-group {
             margin-bottom: 15px;
         }
-        
+
         .setting-group label {
             display: block;
             margin-bottom: 5px;
@@ -182,7 +191,7 @@
             color: #555;
             font-size: 14px;
         }
-        
+
         .setting-group input[type="text"],
         .setting-group input[type="number"] {
             width: 100%;
@@ -191,7 +200,20 @@
             border-radius: 6px;
             font-size: 14px;
         }
-        
+
+        .preset-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .preset-row button {
+            flex: 0 1 auto;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+
         .result {
             background: #f8f9fa;
             padding: 15px;
@@ -200,219 +222,280 @@
             display: none;
             word-break: break-all;
         }
-        
+
         .result pre {
             margin: 0;
             font-size: 12px;
             overflow-x: auto;
         }
+
+        .unsupported {
+            display: none;
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📤 Storage Service Upload Test</h1>
-        <p class="subtitle">Test the /api/upload endpoint with chunk support. Serve this page over http://localhost (not file://) so Kong CORS allows the request.</p>
-        
+        <h1>Storage Service Upload Test</h1>
+        <p class="subtitle">Uses <a href="https://github.com/23/resumable.js" target="_blank" rel="noopener noreferrer">resumable.js</a> against <code>/api/upload</code>. Serve this page over http://localhost (not file://) so CORS works.</p>
+
+        <div class="unsupported" id="unsupported">
+            This browser does not support the HTML5 File API required by resumable.js.
+        </div>
+
         <div class="upload-area" id="uploadArea">
             <div class="upload-icon">📁</div>
-            <p><strong>Click to select a file</strong></p>
-            <p style="font-size: 12px; color: #999; margin-top: 10px;">or drag and drop</p>
-            <input type="file" id="fileInput" accept="*/*">
+            <p><strong>Click or drop a file here</strong></p>
+            <p style="font-size: 12px; color: #999; margin-top: 10px;">Browse button also works below</p>
         </div>
-        
+
         <div class="file-info" id="fileInfo"></div>
-        
-        <button id="uploadBtn" style="width: 100%;" disabled>Upload File</button>
-        
+
+        <div class="btn-row">
+            <button id="browseBtn" type="button">Browse…</button>
+            <button id="uploadBtn" type="button" disabled>Upload File</button>
+            <button id="pauseBtn" type="button" class="secondary" disabled>Pause</button>
+            <button id="cancelBtn" type="button" class="secondary" disabled>Cancel</button>
+        </div>
+
         <div class="progress-container" id="progressContainer">
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill">0%</div>
             </div>
         </div>
-        
+
         <div class="status" id="status"></div>
-        
         <div class="result" id="result"></div>
-        
+
         <div class="settings">
             <div class="setting-group">
                 <label for="apiUrl">API Endpoint:</label>
                 <input type="text" id="apiUrl" value="http://localhost:8000/api/upload">
+                <div class="preset-row">
+                    <button type="button" id="presetLocal" class="secondary">localhost:8000</button>
+                    <button type="button" id="presetDev" class="secondary">dev-api.metarang.com</button>
+                </div>
                 <small style="color: #999;">Goes through Kong API Gateway → Storage Service</small>
             </div>
-            
+
             <div class="setting-group">
                 <label for="chunkSize">Chunk Size (bytes):</label>
                 <input type="number" id="chunkSize" value="1048576" min="1024">
-                <small style="color: #999;">Default: 1MB (1048576 bytes)</small>
+                <small style="color: #999;">Default: 1MB (1048576 bytes). Applied when starting upload.</small>
             </div>
         </div>
     </div>
 
     <script>
         const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
+        const browseBtn = document.getElementById('browseBtn');
         const uploadBtn = document.getElementById('uploadBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
         const progressContainer = document.getElementById('progressContainer');
         const progressFill = document.getElementById('progressFill');
-        const status = document.getElementById('status');
+        const statusEl = document.getElementById('status');
         const fileInfo = document.getElementById('fileInfo');
         const result = document.getElementById('result');
         const apiUrlInput = document.getElementById('apiUrl');
         const chunkSizeInput = document.getElementById('chunkSize');
-        
-        let selectedFile = null;
-        
-        // Upload area click
-        uploadArea.addEventListener('click', () => fileInput.click());
-        
-        // Drag and drop
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragging');
-        });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragging');
-        });
-        
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragging');
-            if (e.dataTransfer.files.length > 0) {
-                fileInput.files = e.dataTransfer.files;
-                handleFileSelect();
-            }
-        });
-        
-        // File selection
-        fileInput.addEventListener('change', handleFileSelect);
-        
-        function handleFileSelect() {
-            selectedFile = fileInput.files[0];
-            if (selectedFile) {
-                const sizeMB = (selectedFile.size / 1024 / 1024).toFixed(2);
-                fileInfo.replaceChildren();
-                const namePara = document.createElement('p');
-                namePara.appendChild(document.createElement('strong')).textContent = '📄 File:';
-                namePara.append(' ', selectedFile.name);
-                const sizePara = document.createElement('p');
-                sizePara.appendChild(document.createElement('strong')).textContent = '📊 Size:';
-                sizePara.append(` ${sizeMB} MB (${selectedFile.size.toLocaleString()} bytes)`);
-                const typePara = document.createElement('p');
-                typePara.appendChild(document.createElement('strong')).textContent = '📋 Type:';
-                typePara.append(' ', selectedFile.type || 'Unknown');
-                fileInfo.append(namePara, sizePara, typePara);
-                fileInfo.style.display = 'block';
-                uploadBtn.disabled = false;
-                showStatus('File selected! Click "Upload File" to start.', 'info');
-            }
+        const unsupported = document.getElementById('unsupported');
+
+        let r = null;
+        let lastCompletedPayload = null;
+        let paused = false;
+
+        if (typeof Resumable === 'undefined' || !new Resumable({}).support) {
+            unsupported.style.display = 'block';
+            browseBtn.disabled = true;
+            uploadBtn.disabled = true;
+            showStatus('resumable.js is not supported in this browser.', 'error');
+        } else {
+            initResumable();
         }
-        
-        // Upload button
-        uploadBtn.addEventListener('click', uploadFile);
-        
-        async function uploadFile() {
-            if (!selectedFile) return;
-            if (!selectedFile.size) {
+
+        document.getElementById('presetLocal').addEventListener('click', () => {
+            apiUrlInput.value = 'http://localhost:8000/api/upload';
+        });
+        document.getElementById('presetDev').addEventListener('click', () => {
+            apiUrlInput.value = 'https://dev-api.metarang.com/api/upload';
+        });
+
+        function initResumable() {
+            const chunkSize = parseChunkSize();
+            r = new Resumable({
+                target: apiUrlInput.value,
+                chunkSize: chunkSize,
+                simultaneousUploads: 3,
+                testChunks: true,
+                throttleProgressCallbacks: 1,
+                uploadMethod: 'POST',
+                testMethod: 'GET',
+                fileParameterName: 'file',
+                maxChunkRetries: 3,
+                chunkRetryInterval: 1000,
+                // Do not treat 404 as fatal: older Kong configs reject GET chunk tests with 404,
+                // which resumable.js should interpret as "chunk missing → upload it".
+                permanentErrors: [400, 401, 403, 409, 415, 500, 501]
+            });
+
+            r.assignBrowse(browseBtn);
+            r.assignBrowse(uploadArea);
+            r.assignDrop(uploadArea);
+            window.__resumable = r;
+
+            uploadArea.addEventListener('dragenter', () => uploadArea.classList.add('dragging'));
+            uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragging'));
+            uploadArea.addEventListener('drop', () => uploadArea.classList.remove('dragging'));
+
+            r.on('fileAdded', (file) => {
+                lastCompletedPayload = null;
+                result.style.display = 'none';
+                result.replaceChildren();
+                showFileInfo(file.file);
+                uploadBtn.disabled = false;
+                pauseBtn.disabled = true;
+                cancelBtn.disabled = true;
+                showStatus('File selected. Click "Upload File" to start (resumable.js).', 'info');
+            });
+
+            r.on('fileProgress', (file) => {
+                const pct = Math.round(file.progress() * 100);
+                setProgress(pct);
+                showStatus(`Uploading… ${pct}%`, 'info');
+            });
+
+            r.on('fileSuccess', (file, message) => {
+                setProgress(100);
+                let data = {};
+                try {
+                    data = message ? JSON.parse(message) : {};
+                } catch (err) {
+                    data = { raw: String(message || '') };
+                }
+                lastCompletedPayload = data;
+                showFinishedResult(data, apiUrlInput.value);
+                uploadBtn.disabled = false;
+                pauseBtn.disabled = true;
+                cancelBtn.disabled = true;
+                paused = false;
+                pauseBtn.textContent = 'Pause';
+            });
+
+            r.on('fileError', (file, message) => {
+                showStatus(`Upload failed: ${message || 'unknown error'}`, 'error');
+                uploadBtn.disabled = false;
+                pauseBtn.disabled = true;
+                cancelBtn.disabled = true;
+                paused = false;
+                pauseBtn.textContent = 'Pause';
+            });
+
+            r.on('complete', () => {
+                if (!lastCompletedPayload) {
+                    showStatus('Upload finished (no completion payload).', 'info');
+                }
+            });
+        }
+
+        function parseChunkSize() {
+            const chunkSize = parseInt(chunkSizeInput.value, 10);
+            if (!Number.isFinite(chunkSize) || chunkSize < 1) {
+                return 1048576;
+            }
+            return chunkSize;
+        }
+
+        uploadBtn.addEventListener('click', () => {
+            if (!r || r.files.length === 0) {
+                showStatus('Select a file first.', 'error');
+                return;
+            }
+            if (!r.files[0].size) {
                 showStatus('File is empty.', 'error');
                 return;
             }
-            
+
+            // Apply current target/chunk size before starting.
+            r.opts.target = apiUrlInput.value;
+            r.opts.chunkSize = parseChunkSize();
+
             uploadBtn.disabled = true;
+            pauseBtn.disabled = false;
+            cancelBtn.disabled = false;
             progressContainer.style.display = 'block';
             result.style.display = 'none';
             result.replaceChildren();
-            
-            const chunkSize = parseInt(chunkSizeInput.value, 10);
-            if (!Number.isFinite(chunkSize) || chunkSize < 1) {
-                showStatus('Chunk size must be a positive number.', 'error');
-                uploadBtn.disabled = false;
-                progressContainer.style.display = 'none';
-                return;
+            lastCompletedPayload = null;
+            paused = false;
+            pauseBtn.textContent = 'Pause';
+            setProgress(0);
+            showStatus('Starting resumable upload…', 'info');
+            r.upload();
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            if (!r) return;
+            if (!paused) {
+                r.pause();
+                paused = true;
+                pauseBtn.textContent = 'Resume';
+                showStatus('Upload paused.', 'info');
+            } else {
+                r.upload();
+                paused = false;
+                pauseBtn.textContent = 'Pause';
+                showStatus('Upload resumed.', 'info');
             }
-            const totalChunks = Math.ceil(selectedFile.size / chunkSize);
-            const uploadId = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-            const apiUrl = apiUrlInput.value;
-            
-            showStatus(`Uploading in ${totalChunks} chunk(s)...`, 'info');
-            
-            try {
-                for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-                    const start = chunkIndex * chunkSize;
-                    const end = Math.min(start + chunkSize, selectedFile.size);
-                    const chunk = selectedFile.slice(start, end);
-                    
-                    const formData = new FormData();
-                    formData.append('file', chunk, selectedFile.name);
-                    formData.append('upload_id', uploadId);
-                    formData.append('chunk_index', String(chunkIndex));
-                    formData.append('total_chunks', String(totalChunks));
-                    formData.append('filename', selectedFile.name);
-                    formData.append('content_type', selectedFile.type || 'application/octet-stream');
-                    formData.append('total_size', String(selectedFile.size));
-                    
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    
-                    const data = await parseJsonResponse(response);
-                    if (!response.ok) {
-                        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    // In-progress: { done }. Completed: { path, name, mime_type }.
-                    const finished = Boolean(data.is_finished) || typeof data.name === 'string';
-                    const progress = typeof data.done === 'number'
-                        ? Math.round(data.done)
-                        : (finished ? 100 : Math.round(((chunkIndex + 1) / totalChunks) * 100));
-                    const message = data.message
-                        || (finished ? 'File uploaded successfully' : `Chunk ${chunkIndex + 1}/${totalChunks} uploaded`);
-                    
-                    progressFill.style.width = `${progress}%`;
-                    progressFill.textContent = `${progress}%`;
-                    showStatus(`${message} (${progress}%)`, finished ? 'success' : 'info');
-                    
-                    if (finished) {
-                        showFinishedResult(data, apiUrl);
-                        setTimeout(() => {
-                            uploadBtn.disabled = false;
-                            progressContainer.style.display = 'none';
-                            progressFill.style.width = '0%';
-                            progressFill.textContent = '0%';
-                        }, 3000);
-                        return;
-                    }
-                }
-                throw new Error('Upload ended before the server returned a completed file.');
-            } catch (error) {
-                showStatus(`❌ Upload failed: ${error.message}`, 'error');
-                uploadBtn.disabled = false;
-                progressContainer.style.display = 'none';
-                console.error('Upload error:', error);
-            }
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            if (!r) return;
+            r.cancel();
+            uploadBtn.disabled = false;
+            pauseBtn.disabled = true;
+            cancelBtn.disabled = true;
+            paused = false;
+            pauseBtn.textContent = 'Pause';
+            progressContainer.style.display = 'none';
+            setProgress(0);
+            showStatus('Upload cancelled.', 'info');
+        });
+
+        function showFileInfo(file) {
+            const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+            fileInfo.replaceChildren();
+            const namePara = document.createElement('p');
+            namePara.appendChild(document.createElement('strong')).textContent = 'File:';
+            namePara.append(' ', file.name);
+            const sizePara = document.createElement('p');
+            sizePara.appendChild(document.createElement('strong')).textContent = 'Size:';
+            sizePara.append(` ${sizeMB} MB (${file.size.toLocaleString()} bytes)`);
+            const typePara = document.createElement('p');
+            typePara.appendChild(document.createElement('strong')).textContent = 'Type:';
+            typePara.append(' ', file.type || 'Unknown');
+            fileInfo.append(namePara, sizePara, typePara);
+            fileInfo.style.display = 'block';
         }
-        
-        async function parseJsonResponse(response) {
-            const text = await response.text();
-            if (!text) {
-                return {};
-            }
-            try {
-                return JSON.parse(text);
-            } catch (err) {
-                throw new Error(text.slice(0, 200) || `HTTP ${response.status}`);
-            }
+
+        function setProgress(pct) {
+            progressFill.style.width = `${pct}%`;
+            progressFill.textContent = `${pct}%`;
         }
-        
+
         function showFinishedResult(data, apiUrl) {
-            showStatus('✅ Upload complete!', 'success');
+            showStatus('Upload complete!', 'success');
             result.replaceChildren();
             const pre = document.createElement('pre');
             pre.textContent = JSON.stringify(data, null, 2);
             result.appendChild(pre);
-            
+
             const publicUrl = publicFileUrl(apiUrl, data.path, data.name);
             if (publicUrl) {
                 const linkPara = document.createElement('p');
@@ -429,7 +512,7 @@
             }
             result.style.display = 'block';
         }
-        
+
         function publicFileUrl(apiUrl, path, name) {
             if (!path || !name) {
                 return '';
@@ -442,22 +525,12 @@
                 return '';
             }
         }
-        
+
         function showStatus(message, type) {
-            status.textContent = message;
-            status.className = `status ${type}`;
-            status.style.display = 'block';
-        }
-        
-        // Format file size
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
         }
     </script>
 </body>
 </html>
-

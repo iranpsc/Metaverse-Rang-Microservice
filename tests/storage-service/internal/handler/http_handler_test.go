@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -179,14 +180,106 @@ func TestHTTPHandler_HandleChunkUpload(t *testing.T) {
 		}
 	})
 
+	t.Run("GET chunk test without session returns 204", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/upload?resumableIdentifier=missing&resumableChunkNumber=1", nil)
+		w := httptest.NewRecorder()
+
+		h.HandleChunkUpload(w, req)
+
+		if w.Code != http.StatusNoContent {
+			t.Errorf("Expected status 204 for missing chunk, got %d", w.Code)
+		}
+	})
+
 	t.Run("non-POST method returns 405", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/upload", nil)
+		req := httptest.NewRequest(http.MethodPut, "/api/upload", nil)
 		w := httptest.NewRecorder()
 
 		h.HandleChunkUpload(w, req)
 
 		if w.Code != http.StatusMethodNotAllowed {
 			t.Errorf("Expected status 405, got %d", w.Code)
+		}
+	})
+
+	t.Run("resumable.js chunk fields upload successfully", func(t *testing.T) {
+		fileContent := []byte("resumable chunk content")
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		part, err := writer.CreateFormFile("file", "resume.txt")
+		if err != nil {
+			t.Fatalf("Failed to create form file: %v", err)
+		}
+		if _, err := part.Write(fileContent); err != nil {
+			t.Fatalf("Failed to write file content: %v", err)
+		}
+
+		_ = writer.WriteField("resumableIdentifier", "23-resume-txt")
+		_ = writer.WriteField("resumableChunkNumber", "1") // 1-based
+		_ = writer.WriteField("resumableTotalChunks", "1")
+		_ = writer.WriteField("resumableTotalSize", strconv.Itoa(len(fileContent)))
+		_ = writer.WriteField("resumableFilename", "resume.txt")
+		_ = writer.WriteField("resumableType", "text/plain")
+		_ = writer.Close()
+
+		req := httptest.NewRequest(http.MethodPost, "/api/upload", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		w := httptest.NewRecorder()
+
+		h.HandleChunkUpload(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
+		}
+
+		var response map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Fatalf("Failed to parse response: %v", err)
+		}
+		if response["name"] == nil || response["path"] == nil {
+			t.Fatalf("Expected completed upload fields, got: %v", response)
+		}
+	})
+
+	t.Run("GET chunk test returns 200 after chunk uploaded", func(t *testing.T) {
+		fileContent := []byte("chunk-a")
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		part, err := writer.CreateFormFile("file", "multi.txt")
+		if err != nil {
+			t.Fatalf("Failed to create form file: %v", err)
+		}
+		if _, err := part.Write(fileContent); err != nil {
+			t.Fatalf("Failed to write file content: %v", err)
+		}
+		_ = writer.WriteField("resumableIdentifier", "test-resume-multi")
+		_ = writer.WriteField("resumableChunkNumber", "1")
+		_ = writer.WriteField("resumableTotalChunks", "2")
+		_ = writer.WriteField("resumableTotalSize", "14")
+		_ = writer.WriteField("resumableFilename", "multi.txt")
+		_ = writer.Close()
+
+		postReq := httptest.NewRequest(http.MethodPost, "/api/upload", body)
+		postReq.Header.Set("Content-Type", writer.FormDataContentType())
+		postW := httptest.NewRecorder()
+		h.HandleChunkUpload(postW, postReq)
+		if postW.Code != http.StatusOK {
+			t.Fatalf("Expected status 200 for first chunk, got %d. Body: %s", postW.Code, postW.Body.String())
+		}
+
+		getReq := httptest.NewRequest(http.MethodGet, "/api/upload?resumableIdentifier=test-resume-multi&resumableChunkNumber=1", nil)
+		getW := httptest.NewRecorder()
+		h.HandleChunkUpload(getW, getReq)
+		if getW.Code != http.StatusOK {
+			t.Errorf("Expected status 200 for existing chunk, got %d", getW.Code)
+		}
+
+		missingReq := httptest.NewRequest(http.MethodGet, "/api/upload?resumableIdentifier=test-resume-multi&resumableChunkNumber=2", nil)
+		missingW := httptest.NewRecorder()
+		h.HandleChunkUpload(missingW, missingReq)
+		if missingW.Code != http.StatusNoContent {
+			t.Errorf("Expected status 204 for missing chunk, got %d", missingW.Code)
 		}
 	})
 

@@ -163,6 +163,7 @@ routes:
 
   # Public file upload — storage-service only.
   # Exempt from rate-limiting: chunked uploads send one request per chunk.
+  # GET is required for resumable.js chunk existence tests (testChunks).
   - name: storage-upload
     service: storage-uploads
     paths:
@@ -174,6 +175,7 @@ routes:
       - http
       - https
     methods:
+      - GET
       - POST
       - OPTIONS
 

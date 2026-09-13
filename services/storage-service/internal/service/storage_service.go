@@ -140,6 +140,12 @@ func (s *StorageService) DeleteFile(filePath string) error {
 	return s.ftpClient.DeleteFile(filePath)
 }
 
+// HasUploadedChunk reports whether a chunk was already received for an upload session.
+// Used by resumable.js GET test requests before uploading each chunk.
+func (s *StorageService) HasUploadedChunk(uploadID string, chunkIndex int32) bool {
+	return s.chunkManager.HasChunk(uploadID, chunkIndex)
+}
+
 // HandleChunkUpload processes a chunk upload
 // Returns: isFinished, progress, filePath (relative path like "uploads/mime/date/"), finalFilename, mimeType, error
 func (s *StorageService) HandleChunkUpload(uploadID, filename, contentType string, chunkData []byte, chunkIndex, totalChunks int32, totalSize int64, uploadPath string) (bool, float64, string, string, string, error) {

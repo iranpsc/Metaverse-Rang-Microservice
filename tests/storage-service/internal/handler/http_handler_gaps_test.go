@@ -122,10 +122,10 @@ func TestHTTPHandler_HandleChunkUpload_CORSHeaders(t *testing.T) {
 		if got := header.Get("Access-Control-Allow-Origin"); got != "*" {
 			t.Fatalf("Allow-Origin = %q", got)
 		}
-		if got := header.Get("Access-Control-Allow-Methods"); got != "POST, OPTIONS" {
+		if got := header.Get("Access-Control-Allow-Methods"); got != "GET, POST, OPTIONS" {
 			t.Fatalf("Allow-Methods = %q", got)
 		}
-		if got := header.Get("Access-Control-Allow-Headers"); got != "Content-Type" {
+		if got := header.Get("Access-Control-Allow-Headers"); got != "Content-Type, Cache-Control, X-Requested-With" {
 			t.Fatalf("Allow-Headers = %q", got)
 		}
 	}
