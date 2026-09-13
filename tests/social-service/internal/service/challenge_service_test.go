@@ -72,7 +72,7 @@ func TestChallengeService_GetQuestion_OK(t *testing.T) {
 	q, err := svc.GetQuestion(context.Background(), 1)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), q.ID)
-	require.Equal(t, "psc", q.PrizeType)
+	require.Equal(t, "red", q.PrizeType)
 	require.Len(t, q.Answers, 1)
 	require.False(t, q.Answers[0].IsCorrect) // stripped for GET question
 }
@@ -106,12 +106,12 @@ func TestChallengeService_SubmitAnswer_AlreadyAnswered(t *testing.T) {
 	require.ErrorIs(t, err, service.ErrAlreadyAnswered)
 }
 
-func TestChallengeService_SubmitAnswer_CreditsPSC(t *testing.T) {
+func TestChallengeService_SubmitAnswer_CreditsRed(t *testing.T) {
 	var credited float64
 	com := &testutil.MockCommercialClient{}
 	com.AddBalanceFunc = func(ctx context.Context, userID uint64, asset string, amount float64) error {
 		credited = amount
-		require.Equal(t, "psc", asset)
+		require.Equal(t, "red", asset)
 		require.Equal(t, uint64(42), userID)
 		return nil
 	}
