@@ -30,11 +30,29 @@ import (
 	"metarang/shared/pkg/sentry"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 func main() {
+	configPaths := []string{
+		"services/features-service/config.env",
+		"config.env",
+		"./config.env",
+		"../../config.env",
+	}
+	var configLoaded bool
+	for _, configPath := range configPaths {
+		if err := godotenv.Load(configPath); err == nil {
+			configLoaded = true
+			break
+		}
+	}
+	if !configLoaded {
+		fmt.Println("Warning: config.env not found, using environment variables only")
+	}
+
 	// Initialize logger
 	log := logger.NewLogger("features-service")
 	log.Info("Starting Features Service...")

@@ -30,11 +30,10 @@ import (
 
 func main() {
 	configPaths := []string{
+		"services/social-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/social-service/config.env",
 	}
 	var configLoaded bool
 	for _, configPath := range configPaths {

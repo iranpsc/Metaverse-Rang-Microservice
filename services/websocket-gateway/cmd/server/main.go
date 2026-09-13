@@ -100,9 +100,10 @@ var startedAt = time.Now()
 
 func loadConfig() {
 	paths := []string{
+		"services/websocket-gateway/config.env",
 		"config.env",
 		"./config.env",
-		"services/websocket-gateway/config.env",
+		"../../config.env",
 	}
 	for _, path := range paths {
 		if err := godotenv.Load(path); err == nil {

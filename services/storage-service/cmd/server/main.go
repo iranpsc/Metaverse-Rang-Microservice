@@ -182,11 +182,10 @@ func ensureUploadsDir(dir string) error {
 
 func loadEnvFiles() bool {
 	configPaths := []string{
+		"services/storage-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/storage-service/config.env",
 	}
 	for _, configPath := range configPaths {
 		if err := godotenv.Load(configPath); err == nil {

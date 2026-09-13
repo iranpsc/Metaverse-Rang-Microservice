@@ -28,11 +28,10 @@ import (
 func main() {
 	// Load environment variables from config.env
 	configPaths := []string{
+		"services/calendar-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/calendar-service/config.env",
 	}
 	var configLoaded bool
 	for _, configPath := range configPaths {

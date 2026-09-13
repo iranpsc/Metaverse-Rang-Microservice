@@ -45,7 +45,6 @@ func main() {
 		"services/financial-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
 	}
 	var loadedConfigPath string

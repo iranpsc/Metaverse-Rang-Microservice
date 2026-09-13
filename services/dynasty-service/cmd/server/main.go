@@ -32,11 +32,10 @@ import (
 func main() {
 	// Load environment variables from config.env
 	configPaths := []string{
+		"services/dynasty-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/dynasty-service/config.env",
 	}
 	var configLoaded bool
 	for _, configPath := range configPaths {

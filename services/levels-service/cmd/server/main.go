@@ -30,11 +30,10 @@ import (
 func main() {
 	// Load environment variables from config.env
 	configPaths := []string{
+		"services/levels-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/levels-service/config.env",
 	}
 	for _, configPath := range configPaths {
 		if err := godotenv.Load(configPath); err == nil {

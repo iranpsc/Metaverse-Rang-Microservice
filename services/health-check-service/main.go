@@ -180,11 +180,9 @@ var servicePortMap = map[string]string{
 
 func main() {
 	configPaths := []string{
+		"services/health-check-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
-		"../../config.env",
-		"services/health-check-service/config.env",
 	}
 	for _, p := range configPaths {
 		if err := godotenv.Load(p); err == nil {
