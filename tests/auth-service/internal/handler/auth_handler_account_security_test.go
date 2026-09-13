@@ -93,6 +93,9 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 		if st.Code() != codes.InvalidArgument {
 			t.Errorf("Expected InvalidArgument error code, got %v", st.Code())
 		}
+		if st.Code() == codes.ResourceExhausted {
+			t.Fatal("phone required must not be mapped as rate limited")
+		}
 	})
 
 	t.Run("invalid phone format", func(t *testing.T) {
@@ -122,6 +125,9 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 		if st.Code() != codes.InvalidArgument {
 			t.Errorf("Expected InvalidArgument error code, got %v", st.Code())
 		}
+		if st.Code() == codes.ResourceExhausted {
+			t.Fatal("invalid phone format must not be mapped as rate limited")
+		}
 	})
 
 	t.Run("phone already taken", func(t *testing.T) {
@@ -150,6 +156,9 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 		}
 		if st.Code() != codes.InvalidArgument {
 			t.Errorf("Expected InvalidArgument error code, got %v", st.Code())
+		}
+		if st.Code() == codes.ResourceExhausted {
+			t.Fatal("phone already taken must not be mapped as rate limited")
 		}
 	})
 

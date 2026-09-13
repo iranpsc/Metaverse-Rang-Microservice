@@ -505,16 +505,58 @@ func (s *authService) RequestAccountSecurity(ctx context.Context, userID uint64,
 		return ErrInvalidUnlockDuration
 	}
 
-	if err := s.enforceAccountSecurityVerificationRateLimit(ctx, userID); err != nil {
-		return err
-	}
-
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("failed to find user: %w", err)
 	}
 	if user == nil {
 		return ErrUserNotFound
+	}
+
+	// Validate phone before consuming a verification rate-limit slot so users
+	// without a verified mobile get a validation error instead of rate limiting.
+	hasVerifiedPhone := user.Phone.Valid && strings.TrimSpace(user.Phone.String) != "" && user.PhoneVerifiedAt.Valid
+	sanitizedPhone := ""
+	if !hasVerifiedPhone {
+		sanitizedPhone = strings.TrimSpace(phone)
+		if sanitizedPhone == "" {
+			return ErrPhoneRequired
+		}
+		if !iranMobileRegex.MatchString(sanitizedPhone) {
+			return ErrInvalidPhoneFormat
+		}
+
+		// If the phone matches the user's current phone, skip the "phone already taken" check
+		currentPhone := ""
+		if user.Phone.Valid {
+			currentPhone = strings.TrimSpace(user.Phone.String)
+		}
+		if sanitizedPhone != currentPhone {
+			taken, err := s.userRepo.IsPhoneTaken(ctx, sanitizedPhone, user.ID)
+			if err != nil {
+				return fmt.Errorf("failed to validate phone uniqueness: %w", err)
+			}
+			if taken {
+				return ErrPhoneAlreadyTaken
+			}
+		}
+	}
+
+	// Apply rate limiting only after phone validation passes and before
+	// mutating state / sending a verification OTP.
+	if err := s.enforceAccountSecurityVerificationRateLimit(ctx, userID); err != nil {
+		return err
+	}
+
+	if !hasVerifiedPhone {
+		if err := s.userRepo.UpdatePhone(ctx, user.ID, sanitizedPhone); err != nil {
+			return fmt.Errorf("failed to update phone: %w", err)
+		}
+		user.Phone = sql.NullString{String: sanitizedPhone, Valid: true}
+	}
+
+	if user.Phone.Valid {
+		user.Phone = sql.NullString{String: strings.TrimSpace(user.Phone.String), Valid: true}
 	}
 
 	lengthSeconds := int64(minutes) * 60
@@ -541,42 +583,6 @@ func (s *authService) RequestAccountSecurity(ctx context.Context, userID uint64,
 		if err := s.accountSecurityRepo.Update(ctx, security); err != nil {
 			return fmt.Errorf("failed to update account security: %w", err)
 		}
-	}
-
-	// Only validate phone if user doesn't have a verified phone (both phone and phone_verified_at must be set)
-	hasVerifiedPhone := user.Phone.Valid && strings.TrimSpace(user.Phone.String) != "" && user.PhoneVerifiedAt.Valid
-	if !hasVerifiedPhone {
-		sanitizedPhone := strings.TrimSpace(phone)
-		if sanitizedPhone == "" {
-			return ErrPhoneRequired
-		}
-		if !iranMobileRegex.MatchString(sanitizedPhone) {
-			return ErrInvalidPhoneFormat
-		}
-
-		// If the phone matches the user's current phone, skip the "phone already taken" check
-		currentPhone := ""
-		if user.Phone.Valid {
-			currentPhone = strings.TrimSpace(user.Phone.String)
-		}
-		if sanitizedPhone != currentPhone {
-			taken, err := s.userRepo.IsPhoneTaken(ctx, sanitizedPhone, user.ID)
-			if err != nil {
-				return fmt.Errorf("failed to validate phone uniqueness: %w", err)
-			}
-			if taken {
-				return ErrPhoneAlreadyTaken
-			}
-		}
-
-		if err := s.userRepo.UpdatePhone(ctx, user.ID, sanitizedPhone); err != nil {
-			return fmt.Errorf("failed to update phone: %w", err)
-		}
-		user.Phone = sql.NullString{String: sanitizedPhone, Valid: true}
-	}
-
-	if user.Phone.Valid {
-		user.Phone = sql.NullString{String: strings.TrimSpace(user.Phone.String), Valid: true}
 	}
 
 	code, err := generateOtpCode()

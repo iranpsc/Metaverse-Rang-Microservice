@@ -168,6 +168,9 @@ func TestRequestAccountSecurityValidations(t *testing.T) {
 		if !errors.Is(err, service.ErrPhoneRequired) {
 			t.Fatalf("expected service.ErrPhoneRequired, got %v", err)
 		}
+		if accountRepo.records[1] != nil {
+			t.Fatalf("expected no account security mutation when phone is required")
+		}
 	})
 
 	t.Run("duplicate phone", func(t *testing.T) {
@@ -565,40 +568,206 @@ func TestIsProductionEnv(t *testing.T) {
 func TestRequestAccountSecurityVerificationRateLimit(t *testing.T) {
 	ctx := context.Background()
 
-	users := map[uint64]*models.User{
-		1: {
-			ID:              1,
-			Phone:           sql.NullString{String: "09123456789", Valid: true},
-			PhoneVerifiedAt: sql.NullTime{Time: time.Now(), Valid: true},
-		},
+	type requestHarness struct {
+		accountRepo *fakeAccountSecurityRepository
+		cacheRepo   *fakeCacheRepository
+		smsClient   *fakeSMSServiceClient
+		svc         service.AuthService
 	}
 
-	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
-	cacheRepo := newFakeCacheRepository()
-	smsClient := &fakeSMSServiceClient{}
+	newHarness := func(users map[uint64]*models.User, production bool) *requestHarness {
+		accountRepo := newFakeAccountSecurityRepository()
+		cacheRepo := newFakeCacheRepository()
+		smsClient := &fakeSMSServiceClient{}
+		return &requestHarness{
+			accountRepo: accountRepo,
+			cacheRepo:   cacheRepo,
+			smsClient:   smsClient,
+			svc: service.NewAuthService(
+				newFakeUserRepository(users),
+				nil,
+				cacheRepo,
+				accountRepo,
+				newFakeActivityRepository(),
+				nil,
+				nil,
+				smsClient,
+				"", "", "", "", "",
+				production,
+			),
+		}
+	}
+
+	assertNoRateLimitSlot := func(t *testing.T, h *requestHarness, userID uint64) {
+		t.Helper()
+		if _, limited := h.cacheRepo.verificationRequestSlots[userID]; limited {
+			t.Fatalf("expected rate limit slot not to be consumed for user %d", userID)
+		}
+	}
+
+	assertNoMutation := func(t *testing.T, h *requestHarness, userID uint64) {
+		t.Helper()
+		if h.accountRepo.records[userID] != nil {
+			t.Fatalf("expected no account security mutation for user %d", userID)
+		}
+		if h.smsClient.lastRequest != nil {
+			t.Fatalf("expected no OTP dispatch when validation fails")
+		}
+	}
 
 	t.Run("disabled outside production", func(t *testing.T) {
-		svc := service.NewAuthService(userRepo, nil, cacheRepo, accountRepo, activityRepo, nil, nil, smsClient, "", "", "", "", "", false)
+		h := newHarness(map[uint64]*models.User{
+			1: {
+				ID:              1,
+				Phone:           sql.NullString{String: "09123456789", Valid: true},
+				PhoneVerifiedAt: sql.NullTime{Time: time.Now(), Valid: true},
+			},
+		}, false)
 
-		if err := svc.RequestAccountSecurity(ctx, 1, 15, ""); err != nil {
+		if err := h.svc.RequestAccountSecurity(ctx, 1, 15, ""); err != nil {
 			t.Fatalf("first request failed: %v", err)
 		}
-		if err := svc.RequestAccountSecurity(ctx, 1, 15, ""); err != nil {
+		if err := h.svc.RequestAccountSecurity(ctx, 1, 15, ""); err != nil {
 			t.Fatalf("second request should not be rate limited outside production: %v", err)
 		}
 	})
 
 	t.Run("enabled in production", func(t *testing.T) {
-		svc := service.NewAuthService(userRepo, nil, cacheRepo, accountRepo, activityRepo, nil, nil, smsClient, "", "", "", "", "", true)
+		h := newHarness(map[uint64]*models.User{
+			1: {
+				ID:              1,
+				Phone:           sql.NullString{String: "09123456789", Valid: true},
+				PhoneVerifiedAt: sql.NullTime{Time: time.Now(), Valid: true},
+			},
+		}, true)
 
-		if err := svc.RequestAccountSecurity(ctx, 1, 15, ""); err != nil {
+		if err := h.svc.RequestAccountSecurity(ctx, 1, 15, ""); err != nil {
 			t.Fatalf("first request failed: %v", err)
 		}
-		err := svc.RequestAccountSecurity(ctx, 1, 15, "")
+		err := h.svc.RequestAccountSecurity(ctx, 1, 15, "")
 		if !errors.Is(err, service.ErrVerificationRequestRateLimited) {
 			t.Fatalf("expected service.ErrVerificationRequestRateLimited, got %v", err)
+		}
+	})
+
+	t.Run("missing phone does not consume rate limit slot", func(t *testing.T) {
+		h := newHarness(map[uint64]*models.User{
+			10: {
+				ID:              10,
+				Phone:           sql.NullString{Valid: false},
+				PhoneVerifiedAt: sql.NullTime{Valid: false},
+			},
+		}, true)
+
+		err := h.svc.RequestAccountSecurity(ctx, 10, 15, "")
+		if !errors.Is(err, service.ErrPhoneRequired) {
+			t.Fatalf("expected service.ErrPhoneRequired, got %v", err)
+		}
+		assertNoMutation(t, h, 10)
+		assertNoRateLimitSlot(t, h, 10)
+
+		if err := h.svc.RequestAccountSecurity(ctx, 10, 15, "09121112233"); err != nil {
+			t.Fatalf("request with phone after missing-phone attempt should succeed, got %v", err)
+		}
+		if h.smsClient.lastRequest == nil {
+			t.Fatalf("expected OTP to be dispatched after providing phone")
+		}
+	})
+
+	t.Run("whitespace phone does not consume rate limit slot", func(t *testing.T) {
+		h := newHarness(map[uint64]*models.User{
+			12: {
+				ID:              12,
+				Phone:           sql.NullString{Valid: false},
+				PhoneVerifiedAt: sql.NullTime{Valid: false},
+			},
+		}, true)
+
+		err := h.svc.RequestAccountSecurity(ctx, 12, 15, "   \t  ")
+		if !errors.Is(err, service.ErrPhoneRequired) {
+			t.Fatalf("expected service.ErrPhoneRequired for whitespace phone, got %v", err)
+		}
+		assertNoMutation(t, h, 12)
+		assertNoRateLimitSlot(t, h, 12)
+	})
+
+	t.Run("invalid phone format does not consume rate limit slot", func(t *testing.T) {
+		h := newHarness(map[uint64]*models.User{
+			13: {
+				ID:              13,
+				Phone:           sql.NullString{Valid: false},
+				PhoneVerifiedAt: sql.NullTime{Valid: false},
+			},
+		}, true)
+
+		err := h.svc.RequestAccountSecurity(ctx, 13, 15, "08123456789")
+		if !errors.Is(err, service.ErrInvalidPhoneFormat) {
+			t.Fatalf("expected service.ErrInvalidPhoneFormat, got %v", err)
+		}
+		assertNoMutation(t, h, 13)
+		assertNoRateLimitSlot(t, h, 13)
+
+		if err := h.svc.RequestAccountSecurity(ctx, 13, 15, "09121112233"); err != nil {
+			t.Fatalf("valid phone after format error should succeed, got %v", err)
+		}
+	})
+
+	t.Run("taken phone does not consume rate limit slot", func(t *testing.T) {
+		h := newHarness(map[uint64]*models.User{
+			14: {
+				ID:              14,
+				Phone:           sql.NullString{Valid: false},
+				PhoneVerifiedAt: sql.NullTime{Valid: false},
+			},
+			15: {
+				ID:              15,
+				Phone:           sql.NullString{String: "09123456789", Valid: true},
+				PhoneVerifiedAt: sql.NullTime{Valid: true},
+			},
+		}, true)
+
+		err := h.svc.RequestAccountSecurity(ctx, 14, 15, "09123456789")
+		if !errors.Is(err, service.ErrPhoneAlreadyTaken) {
+			t.Fatalf("expected service.ErrPhoneAlreadyTaken, got %v", err)
+		}
+		assertNoMutation(t, h, 14)
+		assertNoRateLimitSlot(t, h, 14)
+
+		if err := h.svc.RequestAccountSecurity(ctx, 14, 15, "09121112233"); err != nil {
+			t.Fatalf("unique phone after taken-phone error should succeed, got %v", err)
+		}
+	})
+
+	t.Run("unverified registered phone without request phone returns phone required", func(t *testing.T) {
+		h := newHarness(map[uint64]*models.User{
+			11: {
+				ID:              11,
+				Phone:           sql.NullString{String: "09123334455", Valid: true},
+				PhoneVerifiedAt: sql.NullTime{Valid: false},
+			},
+		}, true)
+
+		err := h.svc.RequestAccountSecurity(ctx, 11, 15, "")
+		if !errors.Is(err, service.ErrPhoneRequired) {
+			t.Fatalf("expected service.ErrPhoneRequired for unverified mobile, got %v", err)
+		}
+		assertNoMutation(t, h, 11)
+		assertNoRateLimitSlot(t, h, 11)
+
+		err = h.svc.RequestAccountSecurity(ctx, 11, 15, "")
+		if !errors.Is(err, service.ErrPhoneRequired) {
+			t.Fatalf("repeated missing-phone request should keep returning phone required, got %v", err)
+		}
+		assertNoRateLimitSlot(t, h, 11)
+
+		if err := h.svc.RequestAccountSecurity(ctx, 11, 15, "09123334455"); err != nil {
+			t.Fatalf("providing registered unverified phone should succeed, got %v", err)
+		}
+		if h.smsClient.lastRequest == nil {
+			t.Fatalf("expected OTP to be dispatched after providing registered phone")
+		}
+		if h.smsClient.lastRequest.Phone != "09123334455" {
+			t.Fatalf("expected OTP on registered phone, got %q", h.smsClient.lastRequest.Phone)
 		}
 	})
 }
@@ -797,4 +966,3 @@ func TestCheckAccountSecurity(t *testing.T) {
 		}
 	})
 }
-
