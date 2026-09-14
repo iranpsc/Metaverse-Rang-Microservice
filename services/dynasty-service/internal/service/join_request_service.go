@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -385,11 +386,51 @@ func (s *JoinRequestService) notifyJoinRequestCreated(ctx context.Context, sende
 	receiverMsg := s.fillDynastyTemplate(receiverTemplate, senderInfo, receiverInfo, relationship, now)
 	senderSMS, senderEmail := s.joinRequestNotifyChannels(ctx, senderInfo.ID)
 	receiverSMS, receiverEmail := s.joinRequestNotifyChannels(ctx, receiverInfo.ID)
+
+	dynastyName := firstNonEmpty(senderInfo.Name, "خاندان "+senderInfo.Code)
+	dynastyCode := firstNonEmpty(senderInfo.Code, fmt.Sprintf("%d", senderInfo.ID))
+	submittedDate := helpers.FormatJalaliDate(now)
+	submittedTime := helpers.FormatJalaliTime(now)
+	relationshipTitle := s.getRelationshipTitle(relationship)
+	baseURL := dynastyAppBaseURL()
+
+	senderData := map[string]string{
+		"side":          "sent",
+		"relationship":  relationship,
+		"Role":          relationshipTitle,
+		"RequesterName": senderInfo.Name,
+		"RequesterCode": senderInfo.Code,
+		"RecipientName": senderInfo.Name,
+		"DynastyName":   dynastyName,
+		"DynastyCode":   dynastyCode,
+		"Message":       firstNonEmpty(senderMsg, relationshipTitle),
+		"SubmittedDate": submittedDate,
+		"SubmittedTime": submittedTime,
+		"ManageURL":     baseURL + "/api/dynasty",
+		"CancelURL":     baseURL + "/api/dynasty",
+	}
+	receiverData := map[string]string{
+		"side":          "received",
+		"relationship":  relationship,
+		"Role":          relationshipTitle,
+		"OwnerName":     senderInfo.Name,
+		"RequesterName": senderInfo.Name,
+		"RequesterCode": senderInfo.Code,
+		"RecipientName": receiverInfo.Name,
+		"DynastyName":   dynastyName,
+		"DynastyCode":   dynastyCode,
+		"Message":       firstNonEmpty(receiverMsg, relationshipTitle),
+		"SubmittedDate": submittedDate,
+		"SubmittedTime": submittedTime,
+		"ManageURL":     baseURL + "/api/dynasty",
+		"SecurityURL":   "https://rgb.irpsc.com/fa/security",
+	}
+
 	if senderMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, senderInfo.ID, "dynasty_join_request", "Dynasty", senderMsg, map[string]string{"relationship": relationship}, senderSMS, senderEmail)
+		_ = s.notificationClient.SendNotification(ctx, senderInfo.ID, "dynasty_join_request", "درخواست پیوستن ارسال شد", senderMsg, senderData, senderSMS, senderEmail)
 	}
 	if receiverMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, receiverInfo.ID, "dynasty_join_request", "Dynasty", receiverMsg, map[string]string{"relationship": relationship}, receiverSMS, receiverEmail)
+		_ = s.notificationClient.SendNotification(ctx, receiverInfo.ID, "dynasty_join_request", "درخواست پیوستن جدید", receiverMsg, receiverData, receiverSMS, receiverEmail)
 	}
 }
 
@@ -417,11 +458,45 @@ func (s *JoinRequestService) notifyJoinRequestAccepted(ctx context.Context, requ
 	now := time.Now()
 	requesterMsg := s.fillDynastyTemplate(requesterTemplate, requesterInfo, receiverInfo, relationship, now)
 	receiverMsg := s.fillDynastyTemplate(receiverTemplate, requesterInfo, receiverInfo, relationship, now)
+	requesterSMS, requesterEmail := s.joinRequestNotifyChannels(ctx, requesterID)
+	receiverSMS, receiverEmail := s.joinRequestNotifyChannels(ctx, receiverID)
+
+	dynastyName := firstNonEmpty(requesterInfo.Name, "خاندان "+requesterInfo.Code)
+	dynastyCode := firstNonEmpty(requesterInfo.Code, fmt.Sprintf("%d", requesterInfo.ID))
+	acceptedAt := helpers.FormatJalaliDateTime(now)
+	relationshipTitle := s.getRelationshipTitle(relationship)
+	baseURL := dynastyAppBaseURL()
+
+	requesterData := map[string]string{
+		"side":          "requester",
+		"relationship":  relationship,
+		"Role":          relationshipTitle,
+		"RecipientName": requesterInfo.Name,
+		"DynastyName":   dynastyName,
+		"DynastyCode":   dynastyCode,
+		"AcceptedBy":    receiverInfo.Name,
+		"AcceptedAt":    acceptedAt,
+		"DashboardURL":  baseURL + "/api/dynasty",
+		"GuidelineURL":  baseURL + "/api/dynasty",
+	}
+	receiverData := map[string]string{
+		"side":          "receiver",
+		"relationship":  relationship,
+		"Role":          relationshipTitle,
+		"RecipientName": receiverInfo.Name,
+		"DynastyName":   dynastyName,
+		"DynastyCode":   dynastyCode,
+		"AcceptedBy":    requesterInfo.Name,
+		"AcceptedAt":    acceptedAt,
+		"DashboardURL":  baseURL + "/api/dynasty",
+		"GuidelineURL":  baseURL + "/api/dynasty",
+	}
+
 	if requesterMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, requesterID, "dynasty_join_request_accept", "Dynasty", requesterMsg, map[string]string{"relationship": relationship}, false, false)
+		_ = s.notificationClient.SendNotification(ctx, requesterID, "dynasty_join_request_accept", "پیوستن به خاندان تأیید شد", requesterMsg, requesterData, requesterSMS, requesterEmail)
 	}
 	if receiverMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, receiverID, "dynasty_join_request_accept", "Dynasty", receiverMsg, map[string]string{"relationship": relationship}, false, false)
+		_ = s.notificationClient.SendNotification(ctx, receiverID, "dynasty_join_request_accept", "پیوستن به خاندان تأیید شد", receiverMsg, receiverData, receiverSMS, receiverEmail)
 	}
 }
 
@@ -448,12 +523,58 @@ func (s *JoinRequestService) notifyJoinRequestRejected(ctx context.Context, requ
 	now := time.Now()
 	requesterMsg := s.fillDynastyTemplate(requesterTemplate, requesterInfo, receiverInfo, "", now)
 	receiverMsg := s.fillDynastyTemplate(receiverTemplate, requesterInfo, receiverInfo, "", now)
+	requesterSMS, requesterEmail := s.joinRequestNotifyChannels(ctx, requesterID)
+	receiverSMS, receiverEmail := s.joinRequestNotifyChannels(ctx, receiverID)
+
+	dynastyName := firstNonEmpty(requesterInfo.Name, "خاندان "+requesterInfo.Code)
+	dynastyCode := firstNonEmpty(requesterInfo.Code, fmt.Sprintf("%d", requesterInfo.ID))
+	rejectedAt := helpers.FormatJalaliDateTime(now)
+	baseURL := dynastyAppBaseURL()
+
+	requesterData := map[string]string{
+		"side":            "requester",
+		"RecipientName":   requesterInfo.Name,
+		"DynastyName":     dynastyName,
+		"DynastyCode":     dynastyCode,
+		"RejectedAt":      rejectedAt,
+		"RejectionReason": firstNonEmpty(requesterMsg, "درخواست رد شد"),
+		"ExploreURL":      baseURL + "/api/dynasty",
+		"ProfileURL":      baseURL + "/api/user/profile",
+	}
+	receiverData := map[string]string{
+		"side":            "receiver",
+		"RecipientName":   receiverInfo.Name,
+		"DynastyName":     dynastyName,
+		"DynastyCode":     dynastyCode,
+		"RejectedAt":      rejectedAt,
+		"RejectionReason": firstNonEmpty(receiverMsg, "درخواست رد شد"),
+		"ExploreURL":      baseURL + "/api/dynasty",
+		"ProfileURL":      baseURL + "/api/user/profile",
+	}
+
 	if requesterMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, requesterID, "dynasty_join_request_reject", "Dynasty", requesterMsg, nil, false, false)
+		_ = s.notificationClient.SendNotification(ctx, requesterID, "dynasty_join_request_reject", "درخواست پیوستن رد شد", requesterMsg, requesterData, requesterSMS, requesterEmail)
 	}
 	if receiverMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, receiverID, "dynasty_join_request_reject", "Dynasty", receiverMsg, nil, false, false)
+		_ = s.notificationClient.SendNotification(ctx, receiverID, "dynasty_join_request_reject", "درخواست پیوستن رد شد", receiverMsg, receiverData, receiverSMS, receiverEmail)
 	}
+}
+
+func dynastyAppBaseURL() string {
+	base := strings.TrimSuffix(os.Getenv("APP_URL"), "/")
+	if base == "" {
+		return "https://rgb.irpsc.com"
+	}
+	return base
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // GetPrizeByRelationship retrieves dynasty prize by relationship type
