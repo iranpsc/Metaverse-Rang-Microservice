@@ -171,17 +171,22 @@ func TestJoinRequestService_SendJoinRequest_NotifiesSenderAndReceiver_WithSendSM
 
 	assert.Equal(t, fromUserID, calls[0].UserID)
 	assert.Equal(t, "dynasty_join_request", calls[0].NotificationType)
-	assert.Equal(t, "Dynasty", calls[0].Title)
+	assert.Equal(t, "درخواست پیوستن ارسال شد", calls[0].Title)
 	assert.Contains(t, calls[0].Message, "Receiver")
 	assert.Contains(t, calls[0].Message, "برادر")
-	assert.Equal(t, map[string]string{"relationship": relationship}, calls[0].Data)
+	assert.Equal(t, "sent", calls[0].Data["side"])
+	assert.Equal(t, relationship, calls[0].Data["relationship"])
+	assert.Equal(t, "S10", calls[0].Data["RequesterCode"])
+	assert.Equal(t, "Sender", calls[0].Data["DynastyName"])
 	assert.True(t, calls[0].SendSMS, "SendJoinRequest must request SMS delivery")
 	assert.True(t, calls[0].SendEmail, "SendJoinRequest must request email delivery")
 
 	assert.Equal(t, toUserID, calls[1].UserID)
 	assert.Equal(t, "dynasty_join_request", calls[1].NotificationType)
+	assert.Equal(t, "درخواست پیوستن جدید", calls[1].Title)
 	assert.Contains(t, calls[1].Message, "Sender")
-	assert.Equal(t, map[string]string{"relationship": relationship}, calls[1].Data)
+	assert.Equal(t, "received", calls[1].Data["side"])
+	assert.Equal(t, relationship, calls[1].Data["relationship"])
 	assert.True(t, calls[1].SendSMS)
 	assert.True(t, calls[1].SendEmail)
 
@@ -375,7 +380,7 @@ func TestJoinRequestService_SendJoinRequest_SendNotificationFailure_DoesNotFailM
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestJoinRequestService_AcceptJoinRequest_NotifiesWithAcceptType_SendSMSFalseSendEmailFalse(t *testing.T) {
+func TestJoinRequestService_AcceptJoinRequest_NotifiesWithAcceptType_UsesNotificationChannels(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
@@ -427,6 +432,8 @@ func TestJoinRequestService_AcceptJoinRequest_NotifiesWithAcceptType_SendSMSFals
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
 		WithArgs("reciever_accept_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("you accepted [sender-name]"))
+	expectJoinNotificationChannels(mock, fromUserID, "09120000001", "from@example.com", false, false)
+	expectJoinNotificationChannels(mock, toUserID, "09120000002", "to@example.com", false, false)
 
 	require.NoError(t, svc.AcceptJoinRequest(context.Background(), requestID, toUserID))
 
@@ -434,6 +441,8 @@ func TestJoinRequestService_AcceptJoinRequest_NotifiesWithAcceptType_SendSMSFals
 	require.Len(t, calls, 2)
 	assert.Equal(t, "dynasty_join_request_accept", calls[0].NotificationType)
 	assert.Equal(t, fromUserID, calls[0].UserID)
+	assert.Equal(t, "پیوستن به خاندان تأیید شد", calls[0].Title)
+	assert.Equal(t, "From", calls[0].Data["DynastyName"])
 	assert.False(t, calls[0].SendSMS)
 	assert.False(t, calls[0].SendEmail)
 	assert.Equal(t, "dynasty_join_request_accept", calls[1].NotificationType)
@@ -443,7 +452,7 @@ func TestJoinRequestService_AcceptJoinRequest_NotifiesWithAcceptType_SendSMSFals
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestJoinRequestService_RejectJoinRequest_UsesDefaultTemplatesWhenDBEmpty_SendSMSFalseSendEmailFalse(t *testing.T) {
+func TestJoinRequestService_RejectJoinRequest_UsesDefaultTemplatesWhenDBEmpty_UsesNotificationChannels(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
@@ -478,6 +487,8 @@ func TestJoinRequestService_RejectJoinRequest_UsesDefaultTemplatesWhenDBEmpty_Se
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
 		WithArgs("reciever_reject_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow(""))
+	expectJoinNotificationChannels(mock, fromUserID, "", "", false, false)
+	expectJoinNotificationChannels(mock, toUserID, "", "", false, false)
 
 	require.NoError(t, svc.RejectJoinRequest(context.Background(), requestID, toUserID))
 
@@ -486,7 +497,7 @@ func TestJoinRequestService_RejectJoinRequest_UsesDefaultTemplatesWhenDBEmpty_Se
 	assert.Equal(t, "dynasty_join_request_reject", calls[0].NotificationType)
 	assert.Equal(t, fromUserID, calls[0].UserID)
 	assert.Contains(t, calls[0].Message, "RCV22")
-	assert.Empty(t, calls[0].Data)
+	assert.Equal(t, "Requester", calls[0].Data["DynastyName"])
 	assert.False(t, calls[0].SendSMS)
 	assert.False(t, calls[0].SendEmail)
 

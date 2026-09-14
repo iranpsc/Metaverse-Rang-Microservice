@@ -116,10 +116,19 @@ func (c *smtpEmailChannel) SendEmail(ctx context.Context, payload models.EmailPa
 		auth = smtp.PlainAuth("", c.cfg.Username, c.cfg.Password, c.cfg.Host)
 	}
 
-	if err := c.send(addr, auth, c.cfg.FromEmail, recipients, []byte(msg.String())); err != nil {
-		return "", fmt.Errorf("smtp send failed: %w", err)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- c.send(addr, auth, c.cfg.FromEmail, recipients, []byte(msg.String()))
+	}()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return "", fmt.Errorf("smtp send failed: %w", err)
+		}
+		return addr, nil
+	case <-ctx.Done():
+		return "", fmt.Errorf("smtp send canceled: %w", ctx.Err())
 	}
-	return addr, nil
 }
 
 func formatEmailHeaderAddress(address string) string {

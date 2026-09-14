@@ -35,42 +35,86 @@ type NotificationDelivery struct {
 
 // BuyFeatureNotifyInput is the Laravel BuyFeatureNotification payload.
 type BuyFeatureNotifyInput struct {
-	UserID        uint64
-	FeatureID     uint64
-	PropertiesID  string
-	IsRGBPurchase bool
-	Color         string
-	Stability     float64
-	PSCAmount     float64
-	IRRAmount     float64
-	BuyerName     string
-	SellerName    string
-	Delivery      NotificationDelivery
+	UserID             uint64
+	FeatureID          uint64
+	PropertiesID       string
+	IsRGBPurchase      bool
+	Color              string
+	Stability          float64
+	PSCAmount          float64
+	IRRAmount          float64
+	BuyerName          string
+	SellerName         string
+	BuyerCode          string
+	SellerCode         string
+	OwnerCode          string
+	FeatureArea        string
+	FeatureApplication string
+	FeatureDensity     string
+	FeatureCoordinates string
+	FeatureAddress     string
+	TransactionID      string
+	TransactionDate    string
+	TransactionTime    string
+	Delivery           NotificationDelivery
 }
 
 // SellFeatureNotifyInput is the Laravel sellFeature payload.
 type SellFeatureNotifyInput struct {
-	UserID       uint64
-	FeatureID    uint64
-	PropertiesID string
-	TradeID      uint64
-	PSCAmount    float64
-	IRRAmount    float64
-	BuyerName    string
-	SellerName   string
-	Delivery     NotificationDelivery
+	UserID             uint64
+	FeatureID          uint64
+	PropertiesID       string
+	TradeID            uint64
+	PSCAmount          float64
+	IRRAmount          float64
+	BuyerName          string
+	SellerName         string
+	BuyerCode          string
+	SellerCode         string
+	FeatureArea        string
+	FeatureApplication string
+	TransactionDate    string
+	TransactionTime    string
+	Delivery           NotificationDelivery
 }
 
 // BuyRequestNotifyInput is the Laravel BuyRequestNotification payload.
 type BuyRequestNotifyInput struct {
-	UserID       uint64
-	Role         string
-	BuyRequestID uint64
-	FeatureID    uint64
-	PropertiesID string
-	PricePSC     float64
-	PriceIRR     float64
-	Delivery     NotificationDelivery
+	UserID             uint64
+	Role               string
+	BuyRequestID       uint64
+	FeatureID          uint64
+	PropertiesID       string
+	PricePSC           float64
+	PriceIRR           float64
+	BuyerName          string
+	BuyerCode          string
+	OwnerName          string
+	OwnerCode          string
+	FeatureArea        string
+	FeatureApplication string
+	FeatureDensity     string
+	FeatureCoordinates string
+	FeatureAddress     string
+	CreatedDate        string
+	CreatedTime        string
+	Delivery           NotificationDelivery
+}
+
+// SellRequestNotifyInput is the sell-request notification payload.
+type SellRequestNotifyInput struct {
+	SellerID      uint64
+	FeatureID     uint64
+	PropertiesID  string
+	SellerName    string
+	SellerCode    string
+	RequesterCode string
+	FeatureTitle  string
+	OfferPSC      float64
+	OfferIRR      float64
+	CreatedDate   string
+	CreatedTime   string
+	Delivery      NotificationDelivery
 }
 
 // NotificationClient wraps gRPC client for Notification Service
@@ -113,12 +157,67 @@ func senderImageURL() string {
 	return base + "/" + senderImageRel
 }
 
+func appPath(path string) string {
+	base := strings.TrimSuffix(os.Getenv("APP_URL"), "/")
+	if base == "" {
+		base = "https://rgb.irpsc.com"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return base + path
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func colorAssetLabel(colorPersian string) string {
+	color := strings.TrimSpace(colorPersian)
+	if color == "" {
+		return "رنگ"
+	}
+	if strings.HasPrefix(color, "رنگ") {
+		return color
+	}
+	return "رنگ " + color
+}
+
+// setPaidAmount writes amount fields only when amount > 0 so email templates hide unused assets.
+func setPaidAmount(data map[string]string, legacyKey, amountKey, labelKey, label string, amount float64) {
+	if amount <= 0 {
+		return
+	}
+	formatted := formatPlainAmount(amount)
+	if legacyKey != "" {
+		data[legacyKey] = formatted
+	}
+	data[amountKey] = formatted
+	if labelKey != "" && label != "" {
+		data[labelKey] = label
+	}
+}
+
 func withSenderMeta(data map[string]string) map[string]string {
 	if data == nil {
 		data = map[string]string{}
 	}
 	data["sender-name"] = senderName
 	data["sender-image"] = senderImageURL()
+	if _, ok := data["ContactURL"]; !ok {
+		data["ContactURL"] = "https://rgb.irpsc.com/contact"
+	}
+	if _, ok := data["SecurityURL"]; !ok {
+		data["SecurityURL"] = "https://rgb.irpsc.com/fa/security"
+	}
+	if _, ok := data["FaqURL"]; !ok {
+		data["FaqURL"] = "https://rgb.irpsc.com/fa/metaverse-forum"
+	}
 	return data
 }
 
@@ -147,14 +246,29 @@ func (c *NotificationClient) SendNotification(ctx context.Context, userID uint64
 // SendBuyRequestNotification sends a buy request notification to buyer or seller
 func (c *NotificationClient) SendBuyRequestNotification(ctx context.Context, in BuyRequestNotifyInput) error {
 	data := withSenderMeta(map[string]string{
-		"buy_request_id": fmt.Sprintf("%d", in.BuyRequestID),
-		"feature_id":     fmt.Sprintf("%d", in.FeatureID),
-		"properties_id":  in.PropertiesID,
-		"price_psc":      formatPlainAmount(in.PricePSC),
-		"price_irr":      formatPlainAmount(in.PriceIRR),
-		"type":           in.Role,
-		"related-to":     "transactions",
+		"buy_request_id":     fmt.Sprintf("%d", in.BuyRequestID),
+		"RequestId":          fmt.Sprintf("%d", in.BuyRequestID),
+		"feature_id":         fmt.Sprintf("%d", in.FeatureID),
+		"properties_id":      in.PropertiesID,
+		"FeatureID":          firstNonEmpty(in.PropertiesID, fmt.Sprintf("%d", in.FeatureID)),
+		"type":               in.Role,
+		"related-to":         "transactions",
+		"BuyerName":          in.BuyerName,
+		"BuyerCode":          in.BuyerCode,
+		"OwnerName":          in.OwnerName,
+		"OwnerCode":          in.OwnerCode,
+		"FeatureArea":        in.FeatureArea,
+		"FeatureApplication": in.FeatureApplication,
+		"FeatureDensity":     in.FeatureDensity,
+		"FeatureCoordinates": in.FeatureCoordinates,
+		"FeatureAddress":     in.FeatureAddress,
+		"CreatedDate":        in.CreatedDate,
+		"CreatedTime":        in.CreatedTime,
+		"CancelURL":          appPath("/api/buy-requests"),
+		"ManageURL":          appPath("/api/buy-requests"),
 	})
+	setPaidAmount(data, "price_psc", "OfferPSC", "OfferPSCLabel", "PSC", in.PricePSC)
+	setPaidAmount(data, "price_irr", "OfferIRR", "OfferIRRLabel", "IRR", in.PriceIRR)
 
 	var title, message string
 	if in.Role == "buyer" {
@@ -179,9 +293,25 @@ func (c *NotificationClient) SendBuyRequestNotification(ctx context.Context, in 
 // SendBuyFeatureNotification sends a notification when a feature is purchased
 func (c *NotificationClient) SendBuyFeatureNotification(ctx context.Context, in BuyFeatureNotifyInput) error {
 	data := withSenderMeta(map[string]string{
-		"feature_id":    fmt.Sprintf("%d", in.FeatureID),
-		"properties_id": in.PropertiesID,
-		"related-to":    "transactions",
+		"feature_id":         fmt.Sprintf("%d", in.FeatureID),
+		"properties_id":      in.PropertiesID,
+		"FeatureID":          firstNonEmpty(in.PropertiesID, fmt.Sprintf("%d", in.FeatureID)),
+		"related-to":         "transactions",
+		"RecipientName":      in.BuyerName,
+		"BuyerName":          in.BuyerName,
+		"BuyerCode":          in.BuyerCode,
+		"OwnerCode":          firstNonEmpty(in.OwnerCode, in.BuyerCode),
+		"SellerCode":         in.SellerCode,
+		"SellerName":         in.SellerName,
+		"FeatureArea":        in.FeatureArea,
+		"FeatureApplication": in.FeatureApplication,
+		"FeatureDensity":     in.FeatureDensity,
+		"FeatureCoordinates": in.FeatureCoordinates,
+		"FeatureAddress":     in.FeatureAddress,
+		"TransactionId":      in.TransactionID,
+		"TransactionDate":    in.TransactionDate,
+		"TransactionTime":    in.TransactionTime,
+		"DisputeURL":         appPath("/api/support"),
 	})
 
 	title := "خریداری ملک"
@@ -192,12 +322,14 @@ func (c *NotificationClient) SendBuyFeatureNotification(ctx context.Context, in 
 		data["stability"] = formatPlainAmount(in.Stability)
 		data["color"] = in.Color
 		data["purchase_type"] = "rgb"
+		data["PaidAssetLabel"] = colorAssetLabel(in.Color)
+		data["PaidAssetAmount"] = formatPlainAmount(in.Stability)
 	} else {
 		message = fmt.Sprintf("از حساب شما %s psc و %s ریال بابت خرید ملک %s برداشت شد.",
 			formatPlainAmount(in.PSCAmount), formatPlainAmount(in.IRRAmount), in.PropertiesID)
-		data["psc_amount"] = formatPlainAmount(in.PSCAmount)
-		data["irr_amount"] = formatPlainAmount(in.IRRAmount)
 		data["purchase_type"] = "user"
+		setPaidAmount(data, "psc_amount", "PricePSC", "PricePSCLabel", "PSC", in.PSCAmount)
+		setPaidAmount(data, "irr_amount", "PriceIRR", "PriceIRRLabel", "IRR", in.IRRAmount)
 	}
 
 	in.Delivery.SMSTemplate = smsTemplateBuyFeature
@@ -213,12 +345,26 @@ func (c *NotificationClient) SendBuyFeatureNotification(ctx context.Context, in 
 // SendSellFeatureNotification sends a notification when a user sells a feature.
 func (c *NotificationClient) SendSellFeatureNotification(ctx context.Context, in SellFeatureNotifyInput) error {
 	data := withSenderMeta(map[string]string{
-		"feature_id":    fmt.Sprintf("%d", in.FeatureID),
-		"properties_id": in.PropertiesID,
-		"related-to":    "transactions",
+		"feature_id":         fmt.Sprintf("%d", in.FeatureID),
+		"properties_id":      in.PropertiesID,
+		"FeatureID":          firstNonEmpty(in.PropertiesID, fmt.Sprintf("%d", in.FeatureID)),
+		"related-to":         "transactions",
+		"RecipientName":      in.SellerName,
+		"SellerName":         in.SellerName,
+		"SellerCode":         in.SellerCode,
+		"BuyerName":          in.BuyerName,
+		"BuyerCode":          in.BuyerCode,
+		"FeatureArea":        in.FeatureArea,
+		"FeatureApplication": in.FeatureApplication,
+		"TransactionDate":    in.TransactionDate,
+		"TransactionTime":    in.TransactionTime,
+		"DisputeURL":         appPath("/api/support"),
 	})
+	setPaidAmount(data, "psc_amount", "PricePSC", "PricePSCLabel", "PSC", in.PSCAmount)
+	setPaidAmount(data, "irr_amount", "PriceIRR", "PriceIRRLabel", "IRR", in.IRRAmount)
 	if in.TradeID > 0 {
 		data["trade_id"] = fmt.Sprintf("%d", in.TradeID)
+		data["TransactionId"] = fmt.Sprintf("%d", in.TradeID)
 	}
 
 	title := "فروش ملک"
@@ -251,21 +397,32 @@ func sellFeatureMessage(pscAmount, irrAmount float64, propertiesID string) strin
 }
 
 // SendSellRequestNotification sends a notification when a sell request is created
-func (c *NotificationClient) SendSellRequestNotification(ctx context.Context, sellerID uint64, featureID uint64, featurePropertiesID string, delivery NotificationDelivery) error {
+func (c *NotificationClient) SendSellRequestNotification(ctx context.Context, in SellRequestNotifyInput) error {
 	title := "درخواست فروش ملک"
-	message := fmt.Sprintf("ملک %s با موفقیت قیمت گذاری شد.", featurePropertiesID)
+	message := fmt.Sprintf("ملک %s با موفقیت قیمت گذاری شد.", in.PropertiesID)
 	data := withSenderMeta(map[string]string{
-		"feature_id":    fmt.Sprintf("%d", featureID),
-		"properties_id": featurePropertiesID,
+		"feature_id":    fmt.Sprintf("%d", in.FeatureID),
+		"properties_id": in.PropertiesID,
+		"FeatureID":     firstNonEmpty(in.PropertiesID, fmt.Sprintf("%d", in.FeatureID)),
 		"related-to":    "sell-requests",
+		"SellerName":    in.SellerName,
+		"SellerCode":    in.SellerCode,
+		"RequesterCode": firstNonEmpty(in.RequesterCode, in.SellerCode),
+		"FeatureTitle":  firstNonEmpty(in.FeatureTitle, in.PropertiesID),
+		"CreatedDate":   in.CreatedDate,
+		"CreatedTime":   in.CreatedTime,
+		"ManageURL":     appPath("/api/sell-requests"),
+		"DeclineURL":    appPath("/api/sell-requests"),
 	})
+	setPaidAmount(data, "offer_psc", "OfferPSC", "OfferPSCLabel", "PSC", in.OfferPSC)
+	setPaidAmount(data, "offer_irr", "OfferIRR", "OfferIRRLabel", "IRR", in.OfferIRR)
 
-	delivery.SMSTemplate = smsTemplateSellRequest
-	delivery.SMSTokens = map[string]string{
-		"token": featurePropertiesID,
+	in.Delivery.SMSTemplate = smsTemplateSellRequest
+	in.Delivery.SMSTokens = map[string]string{
+		"token": in.PropertiesID,
 	}
 
-	return c.SendNotification(ctx, sellerID, "SellRequestNotification", title, message, data, delivery)
+	return c.SendNotification(ctx, in.SellerID, "SellRequestNotification", title, message, data, in.Delivery)
 }
 
 // SendFeatureHourlyProfitDeposit sends a notification when hourly profit is withdrawn.

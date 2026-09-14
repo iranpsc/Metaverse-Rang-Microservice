@@ -59,4 +59,6 @@ type EmailPayload struct {
 type UserContact struct {
 	Phone string
 	Email string
+	Name  string
+	Code  string
 }

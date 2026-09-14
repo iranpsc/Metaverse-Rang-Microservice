@@ -49,14 +49,24 @@
         <td>{{.}}</td>
       </tr>
       {{end}}
+      {{if .PaidAssetAmount}}
       <tr>
-        <th>مبلغ پرداختی (IRR)</th>
-        <td>{{with .PriceIRR}}{{.}}{{else}}—{{end}}</td>
+        <th>مبلغ پرداختی ({{if .PaidAssetLabel}}{{.PaidAssetLabel}}{{else}}دارایی{{end}})</th>
+        <td>{{.PaidAssetAmount}}</td>
       </tr>
+      {{end}}
+      {{if .PriceIRR}}
       <tr>
-        <th>مبلغ پرداختی (PSC)</th>
-        <td>{{with .PricePSC}}{{.}}{{else}}—{{end}}</td>
+        <th>مبلغ پرداختی ({{if .PriceIRRLabel}}{{.PriceIRRLabel}}{{else}}IRR{{end}})</th>
+        <td>{{.PriceIRR}}</td>
       </tr>
+      {{end}}
+      {{if .PricePSC}}
+      <tr>
+        <th>مبلغ پرداختی ({{if .PricePSCLabel}}{{.PricePSCLabel}}{{else}}PSC{{end}})</th>
+        <td>{{.PricePSC}}</td>
+      </tr>
+      {{end}}
       {{with .TransactionId}}
       <tr>
         <th>شناسه عملیات</th>

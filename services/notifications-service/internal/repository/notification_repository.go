@@ -286,9 +286,9 @@ func (r *NotificationRepository) GetUserContact(ctx context.Context, userID uint
 		return nil, fmt.Errorf("database connection is nil")
 	}
 
-	query := `SELECT phone, email FROM users WHERE id = ? LIMIT 1`
-	var phone, email sql.NullString
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(&phone, &email)
+	query := `SELECT phone, email, name, code FROM users WHERE id = ? LIMIT 1`
+	var phone, email, name, code sql.NullString
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&phone, &email, &name, &code)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -299,6 +299,8 @@ func (r *NotificationRepository) GetUserContact(ctx context.Context, userID uint
 	return &models.UserContact{
 		Phone: phone.String,
 		Email: email.String,
+		Name:  name.String,
+		Code:  code.String,
 	}, nil
 }
 

@@ -159,6 +159,45 @@ func expectTradeChannels(mock sqlmock.Sqlmock, userID uint64, name string) {
 			AddRow(name, "09120000000", t, `{"trades_sms":true,"trades_email":true}`))
 }
 
+func expectFeatureCoordinates(mock sqlmock.Sqlmock, featureID uint64) {
+	mock.ExpectQuery("SELECT c.x, c.y").
+		WithArgs(featureID).
+		WillReturnRows(sqlmock.NewRows([]string{"x", "y"}).
+			AddRow(51.4, 35.7).
+			AddRow(51.5, 35.8))
+}
+
+func expectUserCodeLookup(mock sqlmock.Sqlmock, userID uint64, code string) {
+	mock.ExpectQuery("SELECT code FROM users WHERE id").
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"code"}).AddRow(code))
+}
+
+func expectBuyFeatureNotifyEnrichment(mock sqlmock.Sqlmock, featureID, buyerID, sellerID uint64, buyerCode, sellerCode string) {
+	expectFeatureCoordinates(mock, featureID)
+	expectUserCodeLookup(mock, buyerID, buyerCode)
+	if sellerID > 0 {
+		expectUserCodeLookup(mock, sellerID, sellerCode)
+	}
+}
+
+func expectSellFeatureNotifyEnrichment(mock sqlmock.Sqlmock, featureID, sellerID, buyerID uint64, sellerCode, buyerCode string) {
+	expectFeatureCoordinates(mock, featureID)
+	expectUserCodeLookup(mock, sellerID, sellerCode)
+	if buyerID > 0 {
+		expectUserCodeLookup(mock, buyerID, buyerCode)
+	}
+}
+
+func expectBuyRequestNotifyEnrichment(mock sqlmock.Sqlmock, featureID, buyerID, sellerID uint64, buyerCode, sellerCode string, counterpartNameUserID uint64) {
+	expectFeatureCoordinates(mock, featureID)
+	mock.ExpectQuery("SELECT name FROM users WHERE id").
+		WithArgs(counterpartNameUserID).
+		WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("counterpart"))
+	expectUserCodeLookup(mock, buyerID, buyerCode)
+	expectUserCodeLookup(mock, sellerID, sellerCode)
+}
+
 func TestMarketplaceService_BuyFeature_Limited_NoLimitation(t *testing.T) {
 	stub := testutil.NewCommercialStub()
 	svc, mock := newMarketplaceWithWallet(t, stub)

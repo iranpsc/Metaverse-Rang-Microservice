@@ -412,9 +412,9 @@ func TestGetUserContact(t *testing.T) {
 		defer db.Close()
 		repo := repository.NewNotificationRepository(db)
 
-		mock.ExpectQuery(`SELECT phone, email FROM users WHERE id = \? LIMIT 1`).
+		mock.ExpectQuery(`SELECT phone, email, name, code FROM users WHERE id = \? LIMIT 1`).
 			WithArgs(uint64(42)).
-			WillReturnRows(sqlmock.NewRows([]string{"phone", "email"}).AddRow("09120000000", "user@example.com"))
+			WillReturnRows(sqlmock.NewRows([]string{"phone", "email", "name", "code"}).AddRow("09120000000", "user@example.com", "User", "U1"))
 
 		contact, err := repo.GetUserContact(ctx, 42)
 		require.NoError(t, err)
@@ -430,9 +430,9 @@ func TestGetUserContact(t *testing.T) {
 		defer db.Close()
 		repo := repository.NewNotificationRepository(db)
 
-		mock.ExpectQuery(`SELECT phone, email FROM users WHERE id = \? LIMIT 1`).
+		mock.ExpectQuery(`SELECT phone, email, name, code FROM users WHERE id = \? LIMIT 1`).
 			WithArgs(uint64(7)).
-			WillReturnRows(sqlmock.NewRows([]string{"phone", "email"}).AddRow(nil, "a@b.com"))
+			WillReturnRows(sqlmock.NewRows([]string{"phone", "email", "name", "code"}).AddRow(nil, "a@b.com", "A", "A1"))
 
 		contact, err := repo.GetUserContact(ctx, 7)
 		require.NoError(t, err)
@@ -448,7 +448,7 @@ func TestGetUserContact(t *testing.T) {
 		defer db.Close()
 		repo := repository.NewNotificationRepository(db)
 
-		mock.ExpectQuery(`SELECT phone, email FROM users WHERE id = \? LIMIT 1`).
+		mock.ExpectQuery(`SELECT phone, email, name, code FROM users WHERE id = \? LIMIT 1`).
 			WithArgs(uint64(9)).
 			WillReturnError(sql.ErrNoRows)
 
@@ -464,7 +464,7 @@ func TestGetUserContact(t *testing.T) {
 		defer db.Close()
 		repo := repository.NewNotificationRepository(db)
 
-		mock.ExpectQuery(`SELECT phone, email FROM users WHERE id = \? LIMIT 1`).
+		mock.ExpectQuery(`SELECT phone, email, name, code FROM users WHERE id = \? LIMIT 1`).
 			WithArgs(uint64(1)).
 			WillReturnError(sql.ErrConnDone)
 

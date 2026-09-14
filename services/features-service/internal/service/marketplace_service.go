@@ -240,7 +240,7 @@ func (s *MarketplaceService) handleLimitedFeature(ctx context.Context, feature *
 		Color:         constants.GetColorPersian(properties.Karbari),
 		Stability:     properties.Stability,
 		BuyerName:     buyerName,
-	})
+	}, properties, feature.OwnerID)
 
 	// Broadcast feature status change
 	if s.eventBroadcaster != nil {
@@ -349,7 +349,7 @@ func (s *MarketplaceService) buyFromRGB(ctx context.Context, feature *models.Fea
 		Color:         constants.GetColorPersian(properties.Karbari),
 		Stability:     properties.Stability,
 		BuyerName:     buyerName,
-	})
+	}, properties, feature.OwnerID)
 
 	// Broadcast feature status change
 	if s.eventBroadcaster != nil {
@@ -511,7 +511,7 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 			IRRAmount:     buyerChargeIRR,
 			BuyerName:     buyerName,
 			SellerName:    sellerName,
-		})
+		}, properties, feature.OwnerID)
 		s.sendSellFeatureNotification(ctx, feature.OwnerID, client.SellFeatureNotifyInput{
 			FeatureID:    feature.ID,
 			PropertiesID: properties.ID,
@@ -520,7 +520,7 @@ func (s *MarketplaceService) buyFromUser(ctx context.Context, feature *models.Fe
 			IRRAmount:    sellerPayIRR,
 			BuyerName:    buyerName,
 			SellerName:   sellerName,
-		})
+		}, properties, buyerID)
 	}
 
 	// Broadcast feature status change
@@ -714,11 +714,11 @@ func (s *MarketplaceService) SendBuyRequest(ctx context.Context, req *pb.SendBuy
 	s.sendBuyRequestNotification(ctx, client.BuyRequestNotifyInput{
 		UserID: buyerID, Role: "buyer", BuyRequestID: requestID,
 		FeatureID: featureID, PropertiesID: properties.ID, PricePSC: buyerChargePSC, PriceIRR: buyerChargeIRR,
-	})
+	}, properties, buyerID, sellerID)
 	s.sendBuyRequestNotification(ctx, client.BuyRequestNotifyInput{
 		UserID: sellerID, Role: "seller", BuyRequestID: requestID,
 		FeatureID: featureID, PropertiesID: properties.ID, PricePSC: pricePSC, PriceIRR: priceIRR,
-	})
+	}, properties, buyerID, sellerID)
 
 	return buyRequest, nil
 }
@@ -911,7 +911,7 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 			IRRAmount:     buyerChargeIRR,
 			BuyerName:     buyerName,
 			SellerName:    sellerName,
-		})
+		}, properties, sellerID)
 		s.sendSellFeatureNotification(ctx, sellerID, client.SellFeatureNotifyInput{
 			FeatureID:    buyRequest.FeatureID,
 			PropertiesID: properties.ID,
@@ -920,7 +920,7 @@ func (s *MarketplaceService) AcceptBuyRequest(ctx context.Context, requestID, se
 			IRRAmount:    sellerPayIRR,
 			BuyerName:    buyerName,
 			SellerName:   sellerName,
-		})
+		}, properties, buyRequest.BuyerID)
 	}
 
 	// Broadcast feature status change
@@ -1075,7 +1075,7 @@ func (s *MarketplaceService) CreateSellRequest(ctx context.Context, req *pb.Crea
 		}
 	}
 
-	s.sendSellRequestNotification(ctx, sellerID, featureID, properties.ID)
+	s.sendSellRequestNotification(ctx, sellerID, featureID, properties, requestedPricePSC, requestedPriceIRR)
 
 	// Get created sell request
 	sellRequest, err := s.sellRequestRepo.FindByID(ctx, sellRequestID)

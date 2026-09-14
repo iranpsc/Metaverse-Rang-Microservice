@@ -29,16 +29,22 @@
         <td>{{.}}</td>
       </tr>
       {{end}}
-      {{with .OfferIRR}}
+      {{if .PaidAssetAmount}}
       <tr>
-        <th>مبلغ پیشنهادی IRR</th>
-        <td>{{.}}</td>
+        <th>مبلغ پیشنهادی ({{if .PaidAssetLabel}}{{.PaidAssetLabel}}{{else}}دارایی{{end}})</th>
+        <td>{{.PaidAssetAmount}}</td>
       </tr>
       {{end}}
-      {{with .OfferPSC}}
+      {{if .OfferIRR}}
       <tr>
-        <th>مبلغ پیشنهادی PSC</th>
-        <td>{{.}}</td>
+        <th>مبلغ پیشنهادی ({{if .OfferIRRLabel}}{{.OfferIRRLabel}}{{else}}IRR{{end}})</th>
+        <td>{{.OfferIRR}}</td>
+      </tr>
+      {{end}}
+      {{if .OfferPSC}}
+      <tr>
+        <th>مبلغ پیشنهادی ({{if .OfferPSCLabel}}{{.OfferPSCLabel}}{{else}}PSC{{end}})</th>
+        <td>{{.OfferPSC}}</td>
       </tr>
       {{end}}
       {{with .CreatedDate}}

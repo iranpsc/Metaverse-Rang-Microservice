@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"sync"
+	"time"
 
 	commonpb "metarang/shared/pb/common"
 	pb "metarang/shared/pb/notifications"
@@ -21,6 +22,7 @@ type NotificationCall struct {
 	SendEmail   bool
 	SMSTemplate string
 	SMSTokens   map[string]string
+	Timeout     time.Duration
 }
 
 // NotificationStub is a configurable NotificationServiceClient for tests.
@@ -37,7 +39,7 @@ func NewNotificationStub() *NotificationStub {
 	return &NotificationStub{}
 }
 
-func (s *NotificationStub) SendNotification(_ context.Context, in *pb.SendNotificationRequest, _ ...grpc.CallOption) (*pb.NotificationResponse, error) {
+func (s *NotificationStub) SendNotification(ctx context.Context, in *pb.SendNotificationRequest, _ ...grpc.CallOption) (*pb.NotificationResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	data := map[string]string{}
@@ -47,6 +49,10 @@ func (s *NotificationStub) SendNotification(_ context.Context, in *pb.SendNotifi
 	tokens := map[string]string{}
 	for k, v := range in.GetSmsTokens() {
 		tokens[k] = v
+	}
+	var timeout time.Duration
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = time.Until(deadline)
 	}
 	s.Calls = append(s.Calls, NotificationCall{
 		UserID:      in.GetUserId(),
@@ -58,6 +64,7 @@ func (s *NotificationStub) SendNotification(_ context.Context, in *pb.SendNotifi
 		SendEmail:   in.GetSendEmail(),
 		SMSTemplate: in.GetSmsTemplate(),
 		SMSTokens:   tokens,
+		Timeout:     timeout,
 	})
 	if s.Err != nil {
 		return nil, s.Err

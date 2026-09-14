@@ -35,14 +35,24 @@
         <td>{{.}}</td>
       </tr>
       {{end}}
+      {{if .PaidAssetAmount}}
       <tr>
-        <th>مبلغ IRR</th>
-        <td>{{with .PriceIRR}}{{.}}{{else}}—{{end}}</td>
+        <th>مبلغ ({{if .PaidAssetLabel}}{{.PaidAssetLabel}}{{else}}دارایی{{end}})</th>
+        <td>{{.PaidAssetAmount}}</td>
       </tr>
+      {{end}}
+      {{if .PriceIRR}}
       <tr>
-        <th>مبلغ PSC</th>
-        <td>{{with .PricePSC}}{{.}}{{else}}—{{end}}</td>
+        <th>مبلغ ({{if .PriceIRRLabel}}{{.PriceIRRLabel}}{{else}}IRR{{end}})</th>
+        <td>{{.PriceIRR}}</td>
       </tr>
+      {{end}}
+      {{if .PricePSC}}
+      <tr>
+        <th>مبلغ ({{if .PricePSCLabel}}{{.PricePSCLabel}}{{else}}PSC{{end}})</th>
+        <td>{{.PricePSC}}</td>
+      </tr>
+      {{end}}
       {{with .TransactionId}}
       <tr>
         <th>شناسه تراکنش</th>

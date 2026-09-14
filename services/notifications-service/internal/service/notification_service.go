@@ -76,10 +76,9 @@ func (s *notificationService) SendNotification(ctx context.Context, input SendNo
 
 	s.resolveChannelPayloads(ctx, &input)
 
-	if err := s.deliverSMS(ctx, input); err != nil {
-		return &models.NotificationResult{ID: id, Sent: false}, err
-	}
-	if err := s.deliverEmail(ctx, input); err != nil {
+	smsErr := s.deliverSMS(ctx, input)
+	emailErr := s.deliverEmail(ctx, input)
+	if err := channelDeliveryError(input.SendSMS, input.SendEmail, smsErr, emailErr); err != nil {
 		return &models.NotificationResult{ID: id, Sent: false}, err
 	}
 
@@ -87,6 +86,21 @@ func (s *notificationService) SendNotification(ctx context.Context, input SendNo
 		ID:   id,
 		Sent: true,
 	}, nil
+}
+
+// channelDeliveryError keeps SMS and email independent.
+// A Kavenegar failure must not skip or fail the whole notification when email succeeded.
+func channelDeliveryError(sendSMS, sendEmail bool, smsErr, emailErr error) error {
+	if sendEmail && emailErr == nil && sendSMS && smsErr != nil {
+		return nil
+	}
+	if smsErr != nil && emailErr != nil {
+		return errors.Join(smsErr, emailErr)
+	}
+	if smsErr != nil {
+		return smsErr
+	}
+	return emailErr
 }
 
 func (s *notificationService) resolveChannelPayloads(ctx context.Context, input *SendNotificationInput) {
@@ -114,6 +128,14 @@ func (s *notificationService) resolveChannelPayloads(ctx context.Context, input 
 	if needEmail {
 		if email := strings.TrimSpace(contact.Email); email != "" {
 			htmlBody := input.HTMLBody
+			if htmlBody == "" {
+				if rendered, err := RenderNotificationEmail(input.Type, input.Title, input.Data, contact.Name); err == nil && rendered != "" {
+					htmlBody = rendered
+				} else if err != nil {
+					// Keep delivery working even if a template fails to render.
+					fmt.Printf("Warning: email template render failed type=%s: %v\n", input.Type, err)
+				}
+			}
 			if htmlBody == "" && input.Message != "" {
 				htmlBody = fmt.Sprintf(`<div dir="rtl" style="font-family:Tahoma,sans-serif">%s</div>`, html.EscapeString(input.Message))
 			}
