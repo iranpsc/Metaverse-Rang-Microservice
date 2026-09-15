@@ -92,7 +92,7 @@ spec:
               key: redis.password
               optional: true
         - name: BROADCAST_CHANNEL
-          value: "feature-events"
+          value: "feature-status"
         - name: COMMERCIAL_SERVICE_TIMEOUT
           value: "3s"
         - name: COMMERCIAL_SERVICE_RETRIES

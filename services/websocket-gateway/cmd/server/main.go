@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ func main() {
 	port := getEnv("PORT", "3002")
 	redisURL := getEnv("REDIS_URL", "redis://redis:6379")
 	authAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:50051")
+	corsOrigins := parseCORSOrigins(getEnv("CORS_ORIGIN", "http://localhost:5173"))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -38,7 +40,18 @@ func main() {
 		log.Fatalf("Failed to connect to auth service: %v", err)
 	}
 
-	eventHub := hub.New(validator)
+	eventHub := hub.New(validator, corsOrigins)
+	go func() {
+		if err := eventHub.Serve(); err != nil {
+			log.Printf("Socket.IO serve stopped: %v", err)
+		}
+	}()
+	defer func() {
+		if err := eventHub.Close(); err != nil {
+			log.Printf("Failed to close Socket.IO hub: %v", err)
+		}
+	}()
+
 	subscriber, err := redisbus.NewSubscriber(ctx, redisURL, eventHub)
 	if err != nil {
 		log.Fatalf("Failed to subscribe to Redis: %v", err)
@@ -72,7 +85,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           mux,
+		Handler:           withCORS(mux, corsOrigins),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -80,6 +93,7 @@ func main() {
 		log.Printf("WebSocket gateway listening on port %s", port)
 		log.Printf("Redis URL: %s", redisURL)
 		log.Printf("Auth Service: %s", authAddr)
+		log.Printf("CORS origins: %v", corsOrigins)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server failed: %v", err)
 		}
@@ -117,6 +131,62 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func parseCORSOrigins(raw string) []string {
+	parts := strings.Split(raw, ",")
+	origins := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			origins = append(origins, part)
+		}
+	}
+	if len(origins) == 0 {
+		return []string{"*"}
+	}
+	return origins
+}
+
+func withCORS(next http.Handler, corsOrigins []string) http.Handler {
+	allowAll := false
+	allowed := make(map[string]struct{}, len(corsOrigins))
+	for _, origin := range corsOrigins {
+		if origin == "*" {
+			allowAll = true
+			continue
+		}
+		allowed[origin] = struct{}{}
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if allowAll {
+			if origin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			} else {
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+			}
+		} else if origin != "" {
+			if _, ok := allowed[origin]; ok {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+		}
+
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

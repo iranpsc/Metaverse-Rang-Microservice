@@ -695,7 +695,8 @@ services:
       PORT: 3002
       REDIS_URL: redis://redis:6379
       AUTH_SERVICE_ADDR: auth-service:50051
-      <<: [*sentry-environment, *grpc-tls]
+      AUTH_SERVICE_HTTP_URL: http://auth-service:8066
+      <<: [*sentry-environment, *internal-auth, *grpc-tls]
     depends_on:
       <<: *grpc-certs-depends
       redis:

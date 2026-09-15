@@ -22,6 +22,8 @@ import (
 
 var errUnauthorized = errors.New("unauthorized")
 
+const publicFeatureRoom = "feature-status"
+
 // Hub manages Socket.IO connections and Redis-driven broadcasts.
 type Hub struct {
 	server *socketio.Server
@@ -31,16 +33,22 @@ type Hub struct {
 }
 
 // New creates a Socket.IO hub with authentication on connect.
-func New(validator *auth.Validator) *Hub {
+func New(validator *auth.Validator, corsOrigins []string) *Hub {
 	h := &Hub{
 		users: make(map[uint64]map[string]struct{}),
 		auth:  validator,
 	}
 
+	allowOrigin := makeOriginChecker(corsOrigins)
+
 	opts := &engineio.Options{
 		Transports: []transport.Transport{
-			polling.Default,
-			websocket.Default,
+			&polling.Transport{
+				CheckOrigin: allowOrigin,
+			},
+			&websocket.Transport{
+				CheckOrigin: allowOrigin,
+			},
 		},
 	}
 
@@ -52,7 +60,7 @@ func New(validator *auth.Validator) *Hub {
 			return errUnauthorized
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		userID, err := h.auth.ValidateToken(ctx, token)
@@ -63,17 +71,26 @@ func New(validator *auth.Validator) *Hub {
 
 		s.SetContext(userID)
 		h.track(userID, s.ID())
-		room := userRoom(userID)
-		s.Join(room)
+		s.Join(userRoom(userID))
+		s.Join(publicFeatureRoom)
 
-		s.Emit("connected", map[string]any{
-			"message":   "Connected to metarang WebSocket Gateway",
-			"userId":    userID,
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		})
+		// Emit after OnConnect returns — go-socket.io's write loop is not running yet
+		// during OnConnect, and writeChan is unbuffered, so Emit here would deadlock.
+		go func(conn socketio.Conn, uid uint64) {
+			time.Sleep(20 * time.Millisecond)
+			conn.Emit("connected", map[string]any{
+				"message":   "Connected to metarang WebSocket Gateway",
+				"userId":    uid,
+				"timestamp": time.Now().UTC().Format(time.RFC3339),
+			})
+		}(s, userID)
 		return nil
 	})
 
+	server.OnEvent("/", "client-ping", func(s socketio.Conn) {
+		s.Emit("client-pong", map[string]any{"timestamp": time.Now().UnixMilli()})
+	})
+	// Keep legacy alias for older clients.
 	server.OnEvent("/", "ping", func(s socketio.Conn) {
 		s.Emit("pong", map[string]any{"timestamp": time.Now().UnixMilli()})
 	})
@@ -94,6 +111,16 @@ func New(validator *auth.Validator) *Hub {
 	return h
 }
 
+// Serve starts accepting Socket.IO connections. Blocks until the server is closed.
+func (h *Hub) Serve() error {
+	return h.server.Serve()
+}
+
+// Close shuts down the Socket.IO server.
+func (h *Hub) Close() error {
+	return h.server.Close()
+}
+
 // ServeHTTP handles Socket.IO traffic.
 func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.server.ServeHTTP(w, r)
@@ -108,6 +135,34 @@ func extractToken(s socketio.Conn) string {
 		return strings.TrimPrefix(strings.TrimSpace(authHeader), "Bearer ")
 	}
 	return ""
+}
+
+func makeOriginChecker(corsOrigins []string) func(*http.Request) bool {
+	allowed := make(map[string]struct{}, len(corsOrigins))
+	allowAll := false
+	for _, origin := range corsOrigins {
+		origin = strings.TrimSpace(origin)
+		if origin == "" {
+			continue
+		}
+		if origin == "*" {
+			allowAll = true
+			continue
+		}
+		allowed[origin] = struct{}{}
+	}
+
+	return func(r *http.Request) bool {
+		if allowAll || len(allowed) == 0 {
+			return true
+		}
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		_, ok := allowed[origin]
+		return ok
+	}
 }
 
 func (h *Hub) track(userID uint64, socketID string) {
@@ -146,13 +201,21 @@ func (h *Hub) Stats() (connections int, users int) {
 func (h *Hub) BroadcastUserStatus(data map[string]any) {
 	userID, ok := numericID(data["user_id"])
 	if !ok {
+		userID, ok = numericID(data["id"])
+	}
+	if !ok {
 		return
 	}
 	h.server.BroadcastToRoom("/", userRoom(userID), "user-status-changed", data)
 }
 
-// BroadcastFeatureStatus sends feature ownership updates to involved users.
+// BroadcastFeatureStatus sends feature status updates to map clients and involved owners.
 func (h *Hub) BroadcastFeatureStatus(data map[string]any) {
+	// Public map updates (id + rgb) go to every connected client.
+	if _, hasID := numericID(data["id"]); hasID {
+		h.server.BroadcastToRoom("/", publicFeatureRoom, "feature-status-changed", data)
+	}
+
 	if oldOwner, ok := numericID(data["old_owner_id"]); ok {
 		h.server.BroadcastToRoom("/", userRoom(oldOwner), "feature-status-changed", merge(data, map[string]any{"userType": "old_owner"}))
 	}

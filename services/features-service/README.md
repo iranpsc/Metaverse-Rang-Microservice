@@ -359,7 +359,7 @@ The service broadcasts `FeatureStatusChanged` events via Redis when:
 - A feature is purchased (all three paths: limited, RGB, user-to-user)
 - A buy request is accepted
 
-Events are published to the channel specified by `BROADCAST_CHANNEL` (default: `feature-events`).
+Events are published to the channel specified by `BROADCAST_CHANNEL` (default: `feature-status`).
 
 ## Notifications
 

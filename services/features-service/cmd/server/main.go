@@ -147,7 +147,7 @@ func main() {
 	// Initialize Redis event broadcaster
 	redisAddr := getEnv("REDIS_ADDR", "redis:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "")
-	broadcastChannel := getEnv("BROADCAST_CHANNEL", "feature-events")
+	broadcastChannel := getEnv("BROADCAST_CHANNEL", "feature-status")
 	eventBroadcaster, err := events.NewRedisBroadcaster(redisAddr, redisPassword, broadcastChannel)
 	if err != nil {
 		log.Warn("Failed to connect to Redis - event broadcasting disabled", "error", err)

@@ -12,6 +12,15 @@ import (
 	"metarang/websocket-gateway/internal/hub"
 )
 
+// Channels the gateway listens on. Includes legacy publisher names for compatibility.
+var subscribedChannels = []string{
+	"user-status",
+	"user-status-changed",
+	"feature-status",
+	"feature-events",
+	"notifications",
+}
+
 // Subscriber listens to Redis pub/sub channels and forwards events to the hub.
 type Subscriber struct {
 	client *redis.Client
@@ -29,7 +38,7 @@ func NewSubscriber(ctx context.Context, redisURL string, h *hub.Hub) (*Subscribe
 	}
 
 	client := redis.NewClient(opts)
-	pubsub := client.Subscribe(ctx, "user-status", "feature-status", "notifications")
+	pubsub := client.Subscribe(ctx, subscribedChannels...)
 
 	s := &Subscriber{client: client, pubsub: pubsub}
 	go s.forward(ctx, h)
@@ -53,9 +62,9 @@ func (s *Subscriber) forward(ctx context.Context, h *hub.Hub) {
 			}
 
 			switch msg.Channel {
-			case "user-status":
+			case "user-status", "user-status-changed":
 				h.BroadcastUserStatus(data)
-			case "feature-status":
+			case "feature-status", "feature-events":
 				h.BroadcastFeatureStatus(data)
 			case "notifications":
 				h.BroadcastNotification(data)
