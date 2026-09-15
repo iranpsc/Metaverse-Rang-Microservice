@@ -44,10 +44,10 @@ type EmailView struct {
 	OfferPSC           string
 	OfferIRRLabel      string
 	OfferPSCLabel      string
-	TransactionId      string
+	TransactionID      string
 	TransactionDate    string
 	TransactionTime    string
-	RequestId          string
+	RequestID          string
 	CreatedDate        string
 	CreatedTime        string
 	DisputeURL         string
@@ -95,7 +95,7 @@ type EmailView struct {
 	SupportURL       string
 	PaidAmount       string
 	PaidAmountPSC    string
-	PaymentId        string
+	PaymentID        string
 	AssetTitle       string
 	Quantity         string
 	LockURL          string
@@ -268,10 +268,10 @@ func buildEmailView(root, subject string, data map[string]string, recipientName 
 		OfferPSC:           get("OfferPSC", "offer_psc"),
 		OfferIRRLabel:      get("OfferIRRLabel", "offer_irr_label"),
 		OfferPSCLabel:      get("OfferPSCLabel", "offer_psc_label"),
-		TransactionId:      get("TransactionId", "transaction_id", "trade_id"),
+		TransactionID:      get("TransactionId", "TransactionID", "transaction_id", "trade_id"),
 		TransactionDate:    get("TransactionDate", "transaction_date"),
 		TransactionTime:    get("TransactionTime", "transaction_time"),
-		RequestId:          get("RequestId", "request_id", "buy_request_id"),
+		RequestID:          get("RequestId", "RequestID", "request_id", "buy_request_id"),
 		CreatedDate:        get("CreatedDate", "created_date"),
 		CreatedTime:        get("CreatedTime", "created_time"),
 		DisputeURL:         get("DisputeURL", "dispute_url"),
@@ -317,7 +317,7 @@ func buildEmailView(root, subject string, data map[string]string, recipientName 
 		SupportURL:       get("SupportURL", "support_url"),
 		PaidAmount:       get("PaidAmount", "paid_amount"),
 		PaidAmountPSC:    get("PaidAmountPSC", "paid_amount_psc"),
-		PaymentId:        get("PaymentId", "payment_id"),
+		PaymentID:        get("PaymentId", "PaymentID", "payment_id"),
 		AssetTitle:       get("AssetTitle", "asset_title"),
 		Quantity:         get("Quantity", "quantity"),
 		LockURL:          get("LockURL", "lock_url"),

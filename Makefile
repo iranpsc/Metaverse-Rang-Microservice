@@ -1,4 +1,4 @@
-.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test test-unit test-services test-database test-all up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads openapi docs docs-up kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install ensure-networks wait-mysql start-migrate-job auto-migrate
+.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test test-unit test-services test-database test-all lint lint-fix ensure-golangci-lint up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads openapi docs docs-up kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install ensure-networks wait-mysql start-migrate-job auto-migrate
 
 # Proto generation
 PROTO_DIR=shared/proto
@@ -55,6 +55,11 @@ help:
 	@echo "  test-coverage-features  - features-service handler coverage ≥70%"
 	@echo "  test-coverage-financial - financial-service internal coverage ≥70%"
 	@echo "  test-coverage-social    - social-service internal coverage ≥70%"
+	@echo ""
+	@echo "Linting:"
+	@echo "  lint             - Check Go lint issues (golangci-lint, matches CI)"
+	@echo "  lint-fix        - Check and auto-fix Go lint/format issues"
+	@echo "  DIR=shared       - Optional: limit lint/lint-fix to one module path"
 	@echo ""
 	@echo "Local uploads:"
 	@echo "  link-uploads           - Symlink ./uploads -> $(UPLOADS_SRC)"
@@ -273,6 +278,171 @@ test-all: test-unit test-services test-database
 	@echo "✅ All test suites passed"
 
 test: test-all
+
+# =============================================================================
+# Linting (golangci-lint; config: .golangci.yml)
+# =============================================================================
+
+# Keep in sync with .github/workflows/service-ci.yml GOLANGCI_LINT_VERSION.
+# Prefer official release binaries: they are built with a Go version that can
+# type-check the host toolchain. `go install` may produce a binary built with
+# an older Go and panic with "file requires newer Go version".
+GOLANGCI_LINT_VERSION ?= v2.9.0
+
+ensure-golangci-lint:
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$ErrorActionPreference='Stop'; \
+		$$want = '$(GOLANGCI_LINT_VERSION)'.TrimStart('v'); \
+		$$needInstall = $$true; \
+		$$cmd = Get-Command golangci-lint -ErrorAction SilentlyContinue; \
+		if ($$cmd) { \
+			$$verOut = (& golangci-lint version 2>&1 | Out-String); \
+			if ($$verOut -match ('version\s+' + [regex]::Escape($$want) + '\b') -and $$verOut -match 'built with go([\d.]+)') { \
+				$$builtGo = [version]$$Matches[1]; \
+				$$hostGo = [version]((go version) -replace '.*go([\d.]+).*','$$1'); \
+				$$hostMM = [version](\"$$($$hostGo.Major).$$($$hostGo.Minor)\"); \
+				$$builtMM = [version](\"$$($$builtGo.Major).$$($$builtGo.Minor)\"); \
+				if ($$builtMM -ge $$hostMM) { $$needInstall = $$false } \
+				else { Write-Host (\"golangci-lint built with go$$builtGo is older than host go$$hostGo; reinstalling official binary...\") } \
+			} else { Write-Host 'golangci-lint version mismatch or unreadable; reinstalling official binary...' } \
+		}; \
+		if (-not $$needInstall) { exit 0 }; \
+		Write-Host 'Installing golangci-lint $(GOLANGCI_LINT_VERSION) (official binary)...'; \
+		$$gopath = (go env GOPATH).Trim(); \
+		$$binDir = Join-Path $$gopath 'bin'; \
+		New-Item -ItemType Directory -Force -Path $$binDir | Out-Null; \
+		$$zip = \"golangci-lint-$$want-windows-amd64.zip\"; \
+		$$url = \"https://github.com/golangci/golangci-lint/releases/download/v$$want/$$zip\"; \
+		$$tmpZip = Join-Path $$env:TEMP $$zip; \
+		$$tmpDir = Join-Path $$env:TEMP \"golangci-lint-$$want\"; \
+		Invoke-WebRequest -Uri $$url -OutFile $$tmpZip; \
+		if (Test-Path $$tmpDir) { Remove-Item -Recurse -Force $$tmpDir }; \
+		Expand-Archive -Path $$tmpZip -DestinationPath $$tmpDir -Force; \
+		$$exe = Get-ChildItem $$tmpDir -Recurse -Filter golangci-lint.exe | Select-Object -First 1; \
+		if (-not $$exe) { throw 'golangci-lint.exe not found in release archive' }; \
+		Copy-Item -Path $$exe.FullName -Destination (Join-Path $$binDir 'golangci-lint.exe') -Force; \
+		& (Join-Path $$binDir 'golangci-lint.exe') version"
+else
+	@need_install=1; \
+	if command -v golangci-lint >/dev/null 2>&1; then \
+		ver_out=$$(golangci-lint version 2>&1 || true); \
+		want=$${$(GOLANGCI_LINT_VERSION)#v}; \
+		built=$$(printf '%s\n' "$$ver_out" | sed -n 's/.*built with go\([0-9.]*\).*/\1/p' | head -1); \
+		host=$$(go version | sed -n 's/.*go\([0-9.]*\).*/\1/p'); \
+		host_mm=$${host%.*}; \
+		built_mm=$${built%.*}; \
+		case "$$ver_out" in \
+			*"version $$want"*|*"version v$$want"*) \
+				if [ -n "$$built_mm" ] && [ -n "$$host_mm" ]; then \
+					lowest=$$(printf '%s\n%s\n' "$$built_mm" "$$host_mm" | sort -V | head -1); \
+					if [ "$$lowest" = "$$host_mm" ] || [ "$$built_mm" = "$$host_mm" ]; then need_install=0; fi; \
+				fi; \
+				;; \
+		esac; \
+		if [ "$$need_install" = 1 ] && [ -n "$$built" ]; then \
+			echo "golangci-lint built with go$$built may be older than host go$$host; reinstalling official binary..."; \
+		fi; \
+	fi; \
+	if [ "$$need_install" = 0 ]; then exit 0; fi; \
+	echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION) (official binary)..."; \
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$$(go env GOPATH)/bin" $(GOLANGCI_LINT_VERSION); \
+	golangci-lint version
+endif
+
+# Check lint issues. Optional: DIR=shared or DIR=services/auth-service
+lint: ensure-golangci-lint
+	@echo "🔍 Checking Go lint issues..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$failed = @(); \
+		$$dirs = @(); \
+		if ('$(DIR)' -ne '') { $$dirs = @('$(DIR)') } \
+		else { $$dirs = @('shared') + @(Get-ChildItem -Directory services | ForEach-Object { 'services/' + $$_.Name }) }; \
+		foreach ($$dir in $$dirs) { \
+			if (-not (Test-Path (Join-Path $$dir 'go.mod'))) { continue }; \
+			Write-Host ('Linting ' + $$dir + '...'); \
+			Push-Location $$dir; \
+			try { \
+				& go mod download 2>$$null | Out-Null; \
+				& golangci-lint run --timeout=5m; \
+				if ($$LASTEXITCODE -ne 0) { $$failed += $$dir } \
+			} finally { Pop-Location } \
+		}; \
+		if ($$failed.Count -gt 0) { \
+			Write-Host ('❌ Lint failed in: ' + ($$failed -join ', ')); \
+			exit 1 \
+		}; \
+		Write-Host '✅ Lint passed'"
+else
+	@failed=""; \
+	if [ -n "$(DIR)" ]; then \
+		dirs="$(DIR)"; \
+	else \
+		dirs="shared $$(ls -d services/*/ 2>/dev/null)"; \
+	fi; \
+	for dir in $$dirs; do \
+		dir=$${dir%/}; \
+		[ -f "$$dir/go.mod" ] || continue; \
+		echo "Linting $$dir..."; \
+		if ! (cd $$dir && go mod download >/dev/null 2>&1; golangci-lint run --timeout=5m); then \
+			failed="$$failed $$dir"; \
+		fi; \
+	done; \
+	if [ -n "$$failed" ]; then \
+		echo "❌ Lint failed in:$$failed"; \
+		exit 1; \
+	fi; \
+	echo "✅ Lint passed"
+endif
+
+# Check and auto-fix issues (gofmt/goimports + supported linter fixes).
+# Continues across modules so one failure does not skip the rest.
+# Optional: DIR=shared or DIR=services/auth-service
+lint-fix: ensure-golangci-lint
+	@echo "🔧 Checking and auto-fixing Go lint issues..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$failed = @(); \
+		$$dirs = @(); \
+		if ('$(DIR)' -ne '') { $$dirs = @('$(DIR)') } \
+		else { $$dirs = @('shared') + @(Get-ChildItem -Directory services | ForEach-Object { 'services/' + $$_.Name }) }; \
+		foreach ($$dir in $$dirs) { \
+			if (-not (Test-Path (Join-Path $$dir 'go.mod'))) { continue }; \
+			Write-Host ('Lint-fix ' + $$dir + '...'); \
+			Push-Location $$dir; \
+			try { \
+				& go mod download 2>$$null | Out-Null; \
+				& golangci-lint run --fix --timeout=5m; \
+				if ($$LASTEXITCODE -ne 0) { $$failed += $$dir } \
+			} finally { Pop-Location } \
+		}; \
+		if ($$failed.Count -gt 0) { \
+			Write-Host ('❌ Lint-fix finished with issues in: ' + ($$failed -join ', ')); \
+			exit 1 \
+		}; \
+		Write-Host '✅ Lint-fix complete'"
+else
+	@failed=""; \
+	if [ -n "$(DIR)" ]; then \
+		dirs="$(DIR)"; \
+	else \
+		dirs="shared $$(ls -d services/*/ 2>/dev/null)"; \
+	fi; \
+	for dir in $$dirs; do \
+		dir=$${dir%/}; \
+		[ -f "$$dir/go.mod" ] || continue; \
+		echo "Lint-fix $$dir..."; \
+		if ! (cd $$dir && go mod download >/dev/null 2>&1; golangci-lint run --fix --timeout=5m); then \
+			failed="$$failed $$dir"; \
+		fi; \
+	done; \
+	if [ -n "$$failed" ]; then \
+		echo "❌ Lint-fix finished with issues in:$$failed"; \
+		exit 1; \
+	fi; \
+	echo "✅ Lint-fix complete"
+endif
 
 # =============================================================================
 # Local uploads symlink

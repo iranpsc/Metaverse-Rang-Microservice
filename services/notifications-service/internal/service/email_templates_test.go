@@ -86,7 +86,7 @@ func TestRenderNotificationEmail_DynastyJoinReceived(t *testing.T) {
 		"side":          "received",
 		"OwnerName":     "مالک",
 		"DynastyName":   "خاندان نمونه",
-		"RequesterName": "درخواست‌کننده",
+		"RequesterName": "درخواست\u200cکننده",
 		"RequesterCode": "HM-9",
 	}, "مالک")
 	if err != nil {

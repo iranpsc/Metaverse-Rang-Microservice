@@ -8,9 +8,9 @@ import (
 func TestParseEmailAddress(t *testing.T) {
 	t.Run("accepts valid addresses", func(t *testing.T) {
 		cases := map[string]string{
-			"user@example.com":                 "user@example.com",
-			" User <user@example.com> ":       "user@example.com",
-			"display@example.com":              "display@example.com",
+			"user@example.com":                  "user@example.com",
+			" User <user@example.com> ":         "user@example.com",
+			"display@example.com":               "display@example.com",
 			"first.last+tag@mail.example.co.uk": "first.last+tag@mail.example.co.uk",
 		}
 		for input, want := range cases {
