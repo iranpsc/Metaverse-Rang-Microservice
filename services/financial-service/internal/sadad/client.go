@@ -92,12 +92,15 @@ func NewClientWithEndpoints(endpoints Endpoints) *Client {
 }
 
 // MultiplexingRow is a single IBAN allocation in MultiplexingData.
+// IbanNumber is the registered Sheba (with IR) or Sadad account row index.
+// Value is a percentage (Type=Percentage) or amount in Rials (Type=Amount).
 type MultiplexingRow struct {
 	IbanNumber string `json:"IbanNumber"`
-	Value      int    `json:"Value"`
+	Value      int64  `json:"Value"`
 }
 
 // MultiplexingData routes settlement across IBANs (percentage or amount split).
+// Official Type values: "Percentage" | "Amount".
 type MultiplexingData struct {
 	Type             string            `json:"Type"`
 	MultiplexingRows []MultiplexingRow `json:"MultiplexingRows"`
@@ -346,9 +349,9 @@ func (v *VerificationResponse) Error() *SadadError {
 
 // generateSignData encrypts request fields using 3DES per Sadad/Shaparak gateway specification.
 func generateSignData(data, base64Key string) (string, error) {
-	key, err := base64.StdEncoding.DecodeString(base64Key)
+	key, err := prepareTripleDESKey(base64Key)
 	if err != nil {
-		return "", fmt.Errorf("invalid transaction key: %w", err)
+		return "", err
 	}
 
 	// Sadad mandates Triple-DES for SignData; cannot substitute a different algorithm.
@@ -367,6 +370,26 @@ func generateSignData(data, base64Key string) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(encrypted), nil
+}
+
+// prepareTripleDESKey decodes the merchant key and expands 16-byte keys to 24 bytes
+// (K1||K2||K1), matching Sadad/OpenSSL DES-EDE3 and the Laravel Crypto::prepareKey.
+func prepareTripleDESKey(base64Key string) ([]byte, error) {
+	key, err := base64.StdEncoding.DecodeString(base64Key)
+	if err != nil {
+		return nil, fmt.Errorf("invalid transaction key: %w", err)
+	}
+	switch len(key) {
+	case 16:
+		expanded := make([]byte, 24)
+		copy(expanded, key)
+		copy(expanded[16:], key[:8])
+		return expanded, nil
+	case 24:
+		return key, nil
+	default:
+		return nil, fmt.Errorf("invalid transaction key length: got %d bytes, want 16 or 24", len(key))
+	}
 }
 
 func pkcs7Pad(data []byte, blockSize int) []byte {
@@ -398,22 +421,35 @@ func isSuccessResCode(code string) bool {
 }
 
 func validateMultiplexingData(data *MultiplexingData) error {
-	if data.Type == "" {
+	switch data.Type {
+	case "Percentage", "Amount":
+	case "":
 		return fmt.Errorf("multiplexing type is required")
+	default:
+		return fmt.Errorf("multiplexing type must be Percentage or Amount, got %q", data.Type)
 	}
 	if len(data.MultiplexingRows) == 0 {
 		return fmt.Errorf("multiplexing rows are required")
 	}
+
+	var sum int64
 	for i, row := range data.MultiplexingRows {
 		if row.IbanNumber == "" {
 			return fmt.Errorf("multiplexing row %d: iban number is required", i)
 		}
+		if row.Value <= 0 {
+			return fmt.Errorf("multiplexing row %d: value must be positive (zero rows are rejected by Sadad)", i)
+		}
+		sum += row.Value
+	}
+	if data.Type == "Percentage" && sum != 100 {
+		return fmt.Errorf("percentage multiplexing rows must sum to 100, got %d", sum)
 	}
 	return nil
 }
 
 // sadadLocalDateTime returns the timestamp Sadad expects (Iran local time).
-// Matches shetabit/multipay Sadad driver format: m/d/Y g:i:s a
+// Matches shetabit/multipay and Laravel format: m/d/Y g:i:s a (zero-padded month/day).
 func sadadLocalDateTime() string {
-	return time.Now().In(tehranLocation).Format("1/2/2006 3:04:05 pm")
+	return time.Now().In(tehranLocation).Format("01/02/2006 3:04:05 pm")
 }

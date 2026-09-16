@@ -378,14 +378,14 @@ func TestOrderService_CreateOrder(t *testing.T) {
 					t.Errorf("Sadad ReturnURL must not point to frontend verify page, got %q", sadadClient.lastRequest.ReturnURL)
 				}
 				mux := sadadClient.lastRequest.MultiplexingData
-				if mux == nil || mux.Type != "Percentage" || len(mux.MultiplexingRows) != 2 {
-					t.Fatalf("expected MultiplexingData with 2 rows, got %+v", mux)
+				if mux == nil || mux.Type != "Amount" || len(mux.MultiplexingRows) != 1 {
+					t.Fatalf("expected Amount MultiplexingData with 1 row, got %+v", mux)
 				}
-				if mux.MultiplexingRows[0].IbanNumber != "1" || mux.MultiplexingRows[0].Value != 0 {
-					t.Errorf("expected IRR IBAN at 0%% for non-IRR asset, got %+v", mux.MultiplexingRows[0])
+				if mux.MultiplexingRows[0].IbanNumber != "2" {
+					t.Errorf("expected non-IRR IBAN for non-IRR asset, got %+v", mux.MultiplexingRows[0])
 				}
-				if mux.MultiplexingRows[1].IbanNumber != "2" || mux.MultiplexingRows[1].Value != 100 {
-					t.Errorf("expected non-IRR IBAN at 100%% for non-IRR asset, got %+v", mux.MultiplexingRows[1])
+				if mux.MultiplexingRows[0].Value <= 0 {
+					t.Errorf("expected positive Amount multiplexing value, got %+v", mux.MultiplexingRows[0])
 				}
 			}
 		})

@@ -20,17 +20,16 @@ func logPaymentWarning(format string, args ...interface{}) {
 }
 
 func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset string, rate float64) (string, string, error) {
-	multiplexingData, err := s.buildMultiplexingData(asset)
-	if err != nil {
-		return "", "", err
-	}
-
 	returnURL, err := s.sadadCallbackReturnURL()
 	if err != nil {
 		return "", "", err
 	}
 
 	amountRials := amountInRials(amount, rate)
+	multiplexingData, err := s.buildMultiplexingData(asset, amountRials)
+	if err != nil {
+		return "", "", err
+	}
 
 	response, err := s.sadadClient.RequestPayment(sadad.RequestParams{
 		MerchantID:       s.sadadConfig.SadadMerchantID,
@@ -56,10 +55,14 @@ func amountInRials(amount int32, rate float64) int64 {
 }
 
 func sadadFailureMessage(response *sadad.RequestResponse) string {
-	if response.Description != "" {
-		return response.Description
+	msg := response.Description
+	if msg == "" {
+		msg = response.Error().Message()
 	}
-	return response.Error().Message()
+	if response.ResCode != "" {
+		return fmt.Sprintf("%s (ResCode=%s)", msg, response.ResCode)
+	}
+	return msg
 }
 
 func (s *orderService) storeTransactionToken(ctx context.Context, transaction *models.Transaction, token string) {
@@ -74,29 +77,34 @@ func (s *orderService) storeTransactionToken(ctx context.Context, transaction *m
 	}
 }
 
-func (s *orderService) buildMultiplexingData(asset string) (*sadad.MultiplexingData, error) {
+// buildMultiplexingData mirrors the production Laravel Sadad driver:
+// Type=Amount with a single IBAN row for the full payment amount.
+// Sadad rejects Percentage splits that include a zero-value row (common cause of
+// Description "عملیات ناموفق بود" / ResCode 1104).
+func (s *orderService) buildMultiplexingData(asset string, amountRials int64) (*sadad.MultiplexingData, error) {
 	if s.sadadConfig.SadadSandbox {
 		return nil, nil
 	}
+	if amountRials <= 0 {
+		return nil, fmt.Errorf("%w: invalid multiplexing amount", ErrPaymentFailed)
+	}
 
-	rialIban := s.sadadConfig.SadadPaymentIdentityRial
-	nonRialIban := s.sadadConfig.SadadPaymentIdentityNonRial
+	rialIban := strings.TrimSpace(s.sadadConfig.SadadPaymentIdentityRial)
+	nonRialIban := strings.TrimSpace(s.sadadConfig.SadadPaymentIdentityNonRial)
 	if rialIban == "" || nonRialIban == "" {
 		return nil, fmt.Errorf("%w: payment IBANs not configured for multiplexing", ErrPaymentFailed)
 	}
 
-	rialValue := 0
-	nonRialValue := 100
+	// IRR → loan/rial IBAN; all other assets → main/non-rial IBAN (same as Laravel MultiplexingData::forAsset).
+	iban := nonRialIban
 	if asset == "irr" {
-		rialValue = 100
-		nonRialValue = 0
+		iban = rialIban
 	}
 
 	return &sadad.MultiplexingData{
-		Type: "Percentage",
+		Type: "Amount",
 		MultiplexingRows: []sadad.MultiplexingRow{
-			{IbanNumber: rialIban, Value: rialValue},
-			{IbanNumber: nonRialIban, Value: nonRialValue},
+			{IbanNumber: iban, Value: amountRials},
 		},
 	}, nil
 }

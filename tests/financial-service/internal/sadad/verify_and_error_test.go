@@ -60,20 +60,59 @@ func TestRequestPaymentValidationAndErrors(t *testing.T) {
 		_, err := client.RequestPayment(sadad.RequestParams{
 			SignData: testKey,
 			MultiplexingData: &sadad.MultiplexingData{
-				Type:             "Percentage",
-				MultiplexingRows: []sadad.MultiplexingRow{{IbanNumber: ""}},
+				Type:             "Amount",
+				MultiplexingRows: []sadad.MultiplexingRow{{IbanNumber: "", Value: 1000}},
 			},
 		})
 		if err == nil {
 			t.Fatal("expected iban required")
 		}
 	})
+	t.Run("zero value row", func(t *testing.T) {
+		_, err := client.RequestPayment(sadad.RequestParams{
+			SignData: testKey,
+			MultiplexingData: &sadad.MultiplexingData{
+				Type: "Percentage",
+				MultiplexingRows: []sadad.MultiplexingRow{
+					{IbanNumber: "IR1", Value: 100},
+					{IbanNumber: "IR2", Value: 0},
+				},
+			},
+		})
+		if err == nil {
+			t.Fatal("expected zero value rejected")
+		}
+	})
+	t.Run("percentage sum not 100", func(t *testing.T) {
+		_, err := client.RequestPayment(sadad.RequestParams{
+			SignData: testKey,
+			MultiplexingData: &sadad.MultiplexingData{
+				Type:             "Percentage",
+				MultiplexingRows: []sadad.MultiplexingRow{{IbanNumber: "IR1", Value: 50}},
+			},
+		})
+		if err == nil {
+			t.Fatal("expected percentage sum validation")
+		}
+	})
+	t.Run("invalid type", func(t *testing.T) {
+		_, err := client.RequestPayment(sadad.RequestParams{
+			SignData: testKey,
+			MultiplexingData: &sadad.MultiplexingData{
+				Type:             "Foo",
+				MultiplexingRows: []sadad.MultiplexingRow{{IbanNumber: "IR1", Value: 100}},
+			},
+		})
+		if err == nil {
+			t.Fatal("expected invalid type")
+		}
+	})
 	t.Run("invalid sign key", func(t *testing.T) {
 		_, err := client.RequestPayment(sadad.RequestParams{
 			SignData: "%%%",
 			MultiplexingData: &sadad.MultiplexingData{
-				Type:             "Percentage",
-				MultiplexingRows: []sadad.MultiplexingRow{{IbanNumber: "IR1", Value: 100}},
+				Type:             "Amount",
+				MultiplexingRows: []sadad.MultiplexingRow{{IbanNumber: "IR1", Value: 1000}},
 			},
 		})
 		if err == nil {
@@ -109,12 +148,12 @@ func TestRequestPaymentHTTPFailures(t *testing.T) {
 		Amount:     10,
 		ReturnURL:  "http://cb",
 		MultiplexingData: &sadad.MultiplexingData{
-			Type: "Percentage",
+			Type: "Amount",
 			MultiplexingRows: []sadad.MultiplexingRow{
-				{IbanNumber: "IR1", Value: 100},
+				{IbanNumber: "IR1", Value: 10},
 			},
 		},
-		LocalDateTime: "1/2/2006 3:04:05 pm",
+		LocalDateTime: "01/02/2006 3:04:05 pm",
 	}
 
 	for _, path := range []string{"/ok-empty", "/fail", "/bad-json"} {
@@ -216,7 +255,7 @@ func TestVerifyPayment(t *testing.T) {
 }
 
 func TestSadadErrorMessages(t *testing.T) {
-	codes := []string{"0", "-1", "101", "102", "103", "104", "105", "106", "107", "999"}
+	codes := []string{"0", "-1", "101", "102", "103", "104", "105", "106", "107", "1104", "999"}
 	for _, code := range codes {
 		e := sadad.NewSadadError(code)
 		if e.GetCode() != code {
@@ -228,5 +267,8 @@ func TestSadadErrorMessages(t *testing.T) {
 		if e.IsSuccess() != (code == "0") {
 			t.Fatalf("IsSuccess for %s", code)
 		}
+	}
+	if got := sadad.NewSadadError("1104").Message(); got != "اطلاعات تسهیم صحیح نیست" {
+		t.Fatalf("expected multiplexing error message, got %q", got)
 	}
 }

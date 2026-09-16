@@ -41,10 +41,9 @@ func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 		Amount:     1000,
 		ReturnURL:  "https://example.com/callback",
 		MultiplexingData: &sadad.MultiplexingData{
-			Type: "Percentage",
+			Type: "Amount",
 			MultiplexingRows: []sadad.MultiplexingRow{
-				{IbanNumber: "IRRIAL", Value: 100},
-				{IbanNumber: "IRNONRIAL", Value: 0},
+				{IbanNumber: "IRRIAL", Value: 1000},
 			},
 		},
 	})
@@ -66,20 +65,16 @@ func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected MultiplexingData object, got %T", received["MultiplexingData"])
 	}
-	if muxData["Type"] != "Percentage" {
-		t.Fatalf("expected Type Percentage, got %v", muxData["Type"])
+	if muxData["Type"] != "Amount" {
+		t.Fatalf("expected Type Amount, got %v", muxData["Type"])
 	}
 	rows, ok := muxData["MultiplexingRows"].([]interface{})
-	if !ok || len(rows) != 2 {
-		t.Fatalf("expected 2 MultiplexingRows, got %v", muxData["MultiplexingRows"])
+	if !ok || len(rows) != 1 {
+		t.Fatalf("expected 1 MultiplexingRow, got %v", muxData["MultiplexingRows"])
 	}
 	row0, _ := rows[0].(map[string]interface{})
-	row1, _ := rows[1].(map[string]interface{})
-	if row0["IbanNumber"] != "IRRIAL" || row0["Value"] != float64(100) {
-		t.Fatalf("unexpected first multiplexing row: %+v", row0)
-	}
-	if row1["IbanNumber"] != "IRNONRIAL" || row1["Value"] != float64(0) {
-		t.Fatalf("unexpected second multiplexing row: %+v", row1)
+	if row0["IbanNumber"] != "IRRIAL" || row0["Value"] != float64(1000) {
+		t.Fatalf("unexpected multiplexing row: %+v", row0)
 	}
 
 	localDateTime, _ := received["LocalDateTime"].(string)
@@ -95,6 +90,11 @@ func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 	}
 	if strings.Contains(localDateTime, "-") {
 		t.Fatalf("expected Sadad date format without dashes, got %q", localDateTime)
+	}
+	// Zero-padded month/day per PHP m/d/Y (e.g. 09/16/2026).
+	parts := strings.SplitN(localDateTime, " ", 2)
+	if len(parts) == 0 || len(parts[0]) != 10 {
+		t.Fatalf("expected zero-padded m/d/Y LocalDateTime date, got %q", localDateTime)
 	}
 }
 
