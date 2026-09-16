@@ -42,10 +42,37 @@ func TestSandboxEndpointsMatchBankTestURLs(t *testing.T) {
 	}
 }
 
-func TestProductionEndpointsUseMultiplexing(t *testing.T) {
-	if sadad.ProductionEndpoints.PaymentRequestURL != "https://sadad.shaparak.ir/VPG/api/v0/Request/PaymentRequest" {
-		t.Fatalf("unexpected production payment request URL: %q", sadad.ProductionEndpoints.PaymentRequestURL)
+func TestProductionEndpointsMatchOfficialVPGHelp(t *testing.T) {
+	cases := []struct {
+		name     string
+		got      string
+		expected string
+	}{
+		{
+			name:     "payment request",
+			got:      sadad.ProductionEndpoints.PaymentRequestURL,
+			expected: "https://sadad.shaparak.ir/api/v0/Request/PaymentRequest",
+		},
+		{
+			name:     "verify",
+			got:      sadad.ProductionEndpoints.VerifyURL,
+			expected: "https://sadad.shaparak.ir/api/v0/Advice/Verify",
+		},
+		{
+			name:     "purchase gateway",
+			got:      sadad.ProductionEndpoints.GatewayURL,
+			expected: "https://sadad.shaparak.ir/Purchase",
+		},
 	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.got != tc.expected {
+				t.Fatalf("expected %q, got %q", tc.expected, tc.got)
+			}
+		})
+	}
+
 	if !sadad.ProductionEndpoints.Multiplexed {
 		t.Fatal("production endpoints must send MultiplexingData")
 	}

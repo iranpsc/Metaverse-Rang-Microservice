@@ -22,10 +22,12 @@ var tehranLocation = func() *time.Location {
 
 const sadadHost = "https://sadad.shaparak.ir"
 
+// Production URLs match Sadad VPG Help v1.10 (no /VPG prefix).
+// BankTest sandbox still uses /VPG/ paths.
 const (
-	productionVerifyURL         = sadadHost + "/VPG/api/v0/Advice/Verify"
-	productionGatewayURL        = sadadHost + "/VPG/Purchase"
-	productionPaymentRequestURL = sadadHost + "/VPG/api/v0/Request/PaymentRequest"
+	productionVerifyURL         = sadadHost + "/api/v0/Advice/Verify"
+	productionGatewayURL        = sadadHost + "/Purchase"
+	productionPaymentRequestURL = sadadHost + "/api/v0/Request/PaymentRequest"
 )
 
 const banktestSandboxHost = "https://sandbox.banktest.ir/melli/sadad.shaparak.ir"

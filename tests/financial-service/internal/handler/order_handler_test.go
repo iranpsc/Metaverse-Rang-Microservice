@@ -43,7 +43,7 @@ func TestOrderHandler_CreateOrder(t *testing.T) {
 				if userID != 1 || amount != 10 || asset != "psc" {
 					t.Errorf("unexpected parameters: userID=%d, amount=%d, asset=%s", userID, amount, asset)
 				}
-				return "https://sadad.shaparak.ir/VPG/Purchase?Token=abc123", nil
+				return "https://sadad.shaparak.ir/Purchase?Token=abc123", nil
 			},
 		}
 		h := handler.NewOrderHandler(mockService)
@@ -59,8 +59,8 @@ func TestOrderHandler_CreateOrder(t *testing.T) {
 			t.Fatalf("CreateOrder failed: %v", err)
 		}
 
-		if resp.Link != "https://sadad.shaparak.ir/VPG/Purchase?Token=abc123" {
-			t.Errorf("expected link %s, got %s", "https://sadad.shaparak.ir/VPG/Purchase?Token=abc123", resp.Link)
+		if resp.Link != "https://sadad.shaparak.ir/Purchase?Token=abc123" {
+			t.Errorf("expected link %s, got %s", "https://sadad.shaparak.ir/Purchase?Token=abc123", resp.Link)
 		}
 	})
 
@@ -71,7 +71,7 @@ func TestOrderHandler_CreateOrder(t *testing.T) {
 			t.Run("asset_"+asset, func(t *testing.T) {
 				mockService := &mockOrderService{
 					createOrderFunc: func(ctx context.Context, userID uint64, amount int32, asset string) (string, error) {
-						return "https://sadad.shaparak.ir/VPG/Purchase?Token=test", nil
+						return "https://sadad.shaparak.ir/Purchase?Token=test", nil
 					},
 				}
 				h := handler.NewOrderHandler(mockService)
