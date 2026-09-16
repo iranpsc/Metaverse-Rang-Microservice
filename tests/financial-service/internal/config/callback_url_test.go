@@ -41,13 +41,26 @@ func TestResolveSadadCallbackURL(t *testing.T) {
 	t.Setenv("SADAD_CALLBACK_URL", "${PROJECT_URL}/api/order/callback")
 	t.Setenv("SADAD_CALLBACK_PORT", "8080")
 	if got := config.ResolveSadadCallbackURL(); got != "http://localhost:8080/api/order/callback" {
-		t.Fatalf("expected callback URL with SADAD_CALLBACK_PORT applied, got %q", got)
+		t.Fatalf("expected callback URL with SADAD_CALLBACK_PORT applied for http, got %q", got)
+	}
+
+	// Production-safe: do not rewrite https ReturnUrls with SADAD_CALLBACK_PORT=8080.
+	t.Setenv("SADAD_CALLBACK_URL", "https://api.example.com/api/order/callback")
+	t.Setenv("SADAD_CALLBACK_PORT", "8080")
+	if got := config.ResolveSadadCallbackURL(); got != "https://api.example.com/api/order/callback" {
+		t.Fatalf("expected https ReturnUrl to ignore SADAD_CALLBACK_PORT=8080, got %q", got)
 	}
 
 	t.Setenv("SADAD_CALLBACK_URL", "https://api.example.com:8443/api/order/callback")
 	t.Setenv("SADAD_CALLBACK_PORT", "8080")
-	if got := config.ResolveSadadCallbackURL(); got != "https://api.example.com:8080/api/order/callback" {
-		t.Fatalf("expected explicit callback URL port to be replaced, got %q", got)
+	if got := config.ResolveSadadCallbackURL(); got != "https://api.example.com:8443/api/order/callback" {
+		t.Fatalf("expected https URL to keep original port when SADAD_CALLBACK_PORT=8080 is ignored, got %q", got)
+	}
+
+	t.Setenv("SADAD_CALLBACK_URL", "http://localhost:8000/api/order/callback")
+	t.Setenv("SADAD_CALLBACK_PORT", "8065")
+	if got := config.ResolveSadadCallbackURL(); got != "http://localhost:8065/api/order/callback" {
+		t.Fatalf("expected local http callback port override, got %q", got)
 	}
 }
 

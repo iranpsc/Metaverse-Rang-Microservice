@@ -44,6 +44,15 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 		return "", "", fmt.Errorf("failed to request payment: %w", err)
 	}
 	if !response.Success() {
+		logPaymentWarning(
+			"Sadad PaymentRequest rejected order_id=%d amount_rials=%d return_url=%q multiplexing=%s res_code=%s description=%q",
+			orderID,
+			amountRials,
+			returnURL,
+			formatMultiplexingForLog(multiplexingData),
+			response.ResCode,
+			response.Description,
+		)
 		return "", "", fmt.Errorf("%w: %s", ErrPaymentFailed, sadadFailureMessage(response))
 	}
 
@@ -107,6 +116,25 @@ func (s *orderService) buildMultiplexingData(asset string, amountRials int64) (*
 			{IbanNumber: iban, Value: amountRials},
 		},
 	}, nil
+}
+
+func formatMultiplexingForLog(data *sadad.MultiplexingData) string {
+	if data == nil {
+		return "none"
+	}
+	parts := make([]string, 0, len(data.MultiplexingRows))
+	for _, row := range data.MultiplexingRows {
+		parts = append(parts, fmt.Sprintf("%s=%d", maskIban(row.IbanNumber), row.Value))
+	}
+	return fmt.Sprintf("type=%s rows=[%s]", data.Type, strings.Join(parts, ","))
+}
+
+func maskIban(iban string) string {
+	iban = strings.TrimSpace(iban)
+	if len(iban) <= 8 {
+		return iban
+	}
+	return iban[:4] + "…" + iban[len(iban)-4:]
 }
 
 func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token string, resCode string, additionalParams map[string]string) (string, error) {

@@ -90,8 +90,11 @@ spec:
             configMapKeyRef:
               name: metarang-config
               key: frontend.url
-        - name: SADAD_CALLBACK_PORT
-          value: "8080"
+        # Do NOT set SADAD_CALLBACK_PORT in production.
+        # It rewrites ReturnUrl to host:port (e.g. https://api.metarang.com:8080/...),
+        # which Sadad rejects. Public callback is Kong on 443 via PROJECT_URL.
+        - name: SADAD_CALLBACK_URL
+          value: "https://api.metarang.com/api/order/callback"
         - name: SADAD_MERCHANT_ID
           valueFrom:
             secretKeyRef:
