@@ -27,7 +27,7 @@ func TestBuildDSN(t *testing.T) {
 	t.Setenv("DB_DATABASE", "storage_db")
 
 	dsn := buildDSN()
-	want := "app:secret@tcp(db.internal:3307)/storage_db?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci"
+	want := "app:secret@tcp(db.internal:3307)/storage_db?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local"
 	if dsn != want {
 		t.Fatalf("buildDSN() = %q, want %q", dsn, want)
 	}

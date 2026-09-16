@@ -149,7 +149,7 @@ func openDB() (*sql.DB, error) {
 	user := getenv("DB_USER", "root")
 	pass := getenv("DB_PASSWORD", "")
 	name := getenv("DB_DATABASE", "metarang_db")
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&multiStatements=false&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&multiStatements=false&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 		user, pass, host, port, name)
 
 	db, err := sql.Open("mysql", dsn)

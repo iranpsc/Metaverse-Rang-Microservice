@@ -97,6 +97,7 @@ curl http://localhost:3002/health
 Each service loads from `config.env` in its directory. Copy `config.env.sample` → `config.env` and set:
 
 - **Database**: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_DATABASE`
+- **Timezone**: `TZ` (default `Asia/Tehran` in Docker Compose so MySQL `NOW()` / `created_at` match local time)
 - **OAuth** (auth-service): `OAUTH_SERVER_URL`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`
 - **SMS** (auth, notifications): `KAVENEGAR_API_KEY`
 - **Parsian** (commercial, financial): `PARSIAN_MERCHANT_ID`, `PARSIAN_PIN`, etc.

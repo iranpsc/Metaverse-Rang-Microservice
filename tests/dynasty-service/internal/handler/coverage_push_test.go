@@ -229,22 +229,28 @@ func TestDynastyHandler_GetUserDynasty_Existing(t *testing.T) {
 		"",
 	))
 	userID := uint64(7)
+	dynastyFeatureID := uint64(100)
+	otherFeatureID := uint64(200)
+	anotherFeatureID := uint64(300)
 
 	mock.ExpectQuery("SELECT id, user_id, feature_id").
 		WithArgs(userID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
-			AddRow(1, userID, 100, now, now))
+			AddRow(1, userID, dynastyFeatureID, now, now))
 	mock.ExpectQuery("SELECT id, dynasty_id").
 		WithArgs(uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}).
 			AddRow(1, 1, now, now))
 	mock.ExpectQuery("SELECT").
-		WithArgs(uint64(100)).
+		WithArgs(dynastyFeatureID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability"}).
-			AddRow(100, "1", "a", "d", "15000"))
+			AddRow(dynastyFeatureID, "1", "a", "d", "15000"))
+	// GetUserFeatures excludes the current dynasty feature and returns other maskoni features
 	mock.ExpectQuery("SELECT").
-		WithArgs(userID, uint64(100)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "density", "stability", "area"}))
+		WithArgs(userID, dynastyFeatureID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability", "karbari"}).
+			AddRow(otherFeatureID, "2", "1200", "40", "11000", "m").
+			AddRow(anotherFeatureID, "3", "1300", "45", "12000", "m"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(userID).
 		WillReturnError(sql.ErrNoRows)
@@ -256,9 +262,17 @@ func TestDynastyHandler_GetUserDynasty_Existing(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, resp.UserHasDynasty)
 	require.NotNil(t, resp.DynastyFeature)
-	require.Len(t, resp.Features, 1)
-	assert.Equal(t, uint64(100), resp.Features[0].Id)
-	assert.Equal(t, "15000", resp.Features[0].Stability)
+	assert.Equal(t, dynastyFeatureID, resp.DynastyFeature.Id)
+
+	// Features must include all other maskoni features, but not the current dynasty feature
+	require.Len(t, resp.Features, 2)
+	assert.Equal(t, otherFeatureID, resp.Features[0].Id)
+	assert.Equal(t, "11000", resp.Features[0].Stability)
+	assert.Equal(t, anotherFeatureID, resp.Features[1].Id)
+	assert.Equal(t, "12000", resp.Features[1].Stability)
+	for _, f := range resp.Features {
+		assert.NotEqual(t, dynastyFeatureID, f.Id, "current dynasty feature must not appear in Features")
+	}
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

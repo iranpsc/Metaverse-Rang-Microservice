@@ -15,7 +15,7 @@ RUN go build -trimpath -ldflags="-s -w" -o health-check-service main.go
 
 FROM docker.arvancloud.ir/alpine:3.21
 
-RUN apk add --no-cache ca-certificates wget && \
+RUN apk add --no-cache ca-certificates tzdata wget && \
     addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser
 

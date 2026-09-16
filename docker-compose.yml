@@ -4,6 +4,10 @@ x-sentry-environment: &sentry-environment
   SENTRY_RELEASE: ${SENTRY_RELEASE:-}
   SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0}
 
+# Keep container clocks (and MySQL NOW()) aligned with Iran local time.
+# Override with TZ=... in the host .env / Dokploy if needed.
+# Applied via TZ on mysql, migrate, and x-db-environment (all DB-backed services).
+
 x-internal-auth: &internal-auth
   INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-metarang-local-dev-service-secret-change-in-production}
 
@@ -35,6 +39,7 @@ x-db-environment: &db-environment
   DB_DATABASE: ${MYSQL_DATABASE:-metarang_db}
   DB_USER: ${MYSQL_USER:-metarang_user}
   DB_PASSWORD: ${MYSQL_PASSWORD:-metarang_password}
+  TZ: ${TZ:-Asia/Tehran}
 
 services:
   # ============================================================================
@@ -64,6 +69,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-metarang_db}
       MYSQL_USER: ${MYSQL_USER:-metarang_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-metarang_password}
+      TZ: ${TZ:-Asia/Tehran}
     # Bind to loopback so local tools work; not reachable from the public internet.
     ports:
       - "127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306"
@@ -79,6 +85,8 @@ services:
       - --pid-file=/tmp/mysqld.pid
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
+      # Offset form avoids requiring mysql.time_zone_* tables. Iran is UTC+03:30 year-round.
+      - --default-time-zone=+03:30
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD || exit 1"]
       interval: 10s
@@ -121,6 +129,7 @@ services:
       SKIP_MIGRATE: ${SKIP_MIGRATE:-0}
       MIGRATIONS_PATH: /migrations
       MYSQL_WAIT_SECONDS: ${MYSQL_WAIT_SECONDS:-90}
+      TZ: ${TZ:-Asia/Tehran}
     volumes:
       # Host mount so new SQL files apply without rebuilding the image locally.
       - ./scripts/migrations:/migrations:ro

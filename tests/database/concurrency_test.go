@@ -24,7 +24,7 @@ func TestWalletConcurrency(t *testing.T) {
 	t.Run("ConcurrentDeductions", func(t *testing.T) {
 		// Create test user and wallet
 		userID := createTestUser(t, db)
-		createTestWallet(t, db, userID, "10000.0000000000", "0.0000000000")
+		createTestWallet(t, db, userID, "10000.0000000000")
 
 		// Perform 100 concurrent deductions of 10 each
 		// Expected final balance: 10000 - (10 * 100) = 9000
@@ -38,7 +38,7 @@ func TestWalletConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				
+
 				tx, err := db.Begin()
 				if err != nil {
 					errors <- err
@@ -52,7 +52,7 @@ func TestWalletConcurrency(t *testing.T) {
 					SET psc = psc - ? 
 					WHERE user_id = ? AND psc >= ?
 				`, deductAmount, userID, deductAmount)
-				
+
 				if err != nil {
 					errors <- err
 					return
@@ -83,16 +83,16 @@ func TestWalletConcurrency(t *testing.T) {
 
 		// Balance should never be negative
 		assert.NotEqual(t, "-", finalBalance[0:1], "Balance should not be negative")
-		
+
 		t.Logf("Final balance after %d concurrent deductions: %s", numOperations, finalBalance)
-		
+
 		// Cleanup
 		cleanup(t, db, userID)
 	})
 
 	t.Run("ConcurrentAdditionsAndDeductions", func(t *testing.T) {
 		userID := createTestUser(t, db)
-		createTestWallet(t, db, userID, "5000.0000000000", "0.0000000000")
+		createTestWallet(t, db, userID, "5000.0000000000")
 
 		numOperations := 50
 		var wg sync.WaitGroup
@@ -102,7 +102,7 @@ func TestWalletConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				
+
 				tx, err := db.Begin()
 				if err != nil {
 					return
@@ -114,7 +114,7 @@ func TestWalletConcurrency(t *testing.T) {
 					return
 				}
 
-				tx.Commit()
+				_ = tx.Commit()
 			}()
 		}
 
@@ -123,7 +123,7 @@ func TestWalletConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				
+
 				tx, err := db.Begin()
 				if err != nil {
 					return
@@ -135,7 +135,7 @@ func TestWalletConcurrency(t *testing.T) {
 					return
 				}
 
-				tx.Commit()
+				_ = tx.Commit()
 			}()
 		}
 
@@ -148,9 +148,9 @@ func TestWalletConcurrency(t *testing.T) {
 		// Expected: 5000 + (50 * 100) - (X * 50) where X is successful deductions
 		// Should be >= 5000 and never negative
 		assert.NotEqual(t, "-", finalBalance[0:1], "Balance should not be negative")
-		
+
 		t.Logf("Final balance after mixed operations: %s", finalBalance)
-		
+
 		cleanup(t, db, userID)
 	})
 
@@ -158,8 +158,8 @@ func TestWalletConcurrency(t *testing.T) {
 		// Create two users
 		user1 := createTestUser(t, db)
 		user2 := createTestUser(t, db)
-		createTestWallet(t, db, user1, "1000.0000000000", "0.0000000000")
-		createTestWallet(t, db, user2, "1000.0000000000", "0.0000000000")
+		createTestWallet(t, db, user1, "1000.0000000000")
+		createTestWallet(t, db, user2, "1000.0000000000")
 
 		var wg sync.WaitGroup
 		deadlocks := 0
@@ -172,7 +172,7 @@ func TestWalletConcurrency(t *testing.T) {
 			// Goroutine 1: Transfer from user1 to user2
 			go func() {
 				defer wg.Done()
-				
+
 				tx, err := db.Begin()
 				if err != nil {
 					return
@@ -199,13 +199,13 @@ func TestWalletConcurrency(t *testing.T) {
 					return
 				}
 
-				tx.Commit()
+				_ = tx.Commit()
 			}()
 
 			// Goroutine 2: Transfer from user2 to user1
 			go func() {
 				defer wg.Done()
-				
+
 				tx, err := db.Begin()
 				if err != nil {
 					return
@@ -232,24 +232,24 @@ func TestWalletConcurrency(t *testing.T) {
 					return
 				}
 
-				tx.Commit()
+				_ = tx.Commit()
 			}()
 		}
 
 		wg.Wait()
 
 		t.Logf("Deadlock attempts: %d", deadlocks)
-		
+
 		// Verify both balances are still consistent
 		var balance1, balance2 string
-		db.QueryRow("SELECT psc FROM wallets WHERE user_id = ?", user1).Scan(&balance1)
-		db.QueryRow("SELECT psc FROM wallets WHERE user_id = ?", user2).Scan(&balance2)
-		
+		_ = db.QueryRow("SELECT psc FROM wallets WHERE user_id = ?", user1).Scan(&balance1)
+		_ = db.QueryRow("SELECT psc FROM wallets WHERE user_id = ?", user2).Scan(&balance2)
+
 		assert.NotEqual(t, "-", balance1[0:1], "User1 balance should not be negative")
 		assert.NotEqual(t, "-", balance2[0:1], "User2 balance should not be negative")
-		
+
 		t.Logf("Final balances - User1: %s, User2: %s", balance1, balance2)
-		
+
 		cleanup(t, db, user1, user2)
 	})
 }
@@ -265,15 +265,15 @@ func TestSoftDeleteQueries(t *testing.T) {
 
 	t.Run("ExcludeDeletedRecords", func(t *testing.T) {
 		// Create test data
-		sender := createTestUser(t, db)
-		receiver := createTestUser(t, db)
-		feature := createTestFeature(t, db, receiver)
+		buyer := createTestUser(t, db)
+		seller := createTestUser(t, db)
+		featureID := createTestFeature(t, db, seller)
 
 		// Create buy request
 		requestID, err := db.Exec(`
-			INSERT INTO buy_feature_requests (sender_id, receiver_id, feature_id, offer_amount, status, created_at, updated_at)
-			VALUES (?, ?, ?, '1000', 'pending', NOW(), NOW())
-		`, sender, receiver, feature)
+			INSERT INTO buy_feature_requests (buyer_id, seller_id, feature_id, note, price_psc, price_irr, status, created_at, updated_at)
+			VALUES (?, ?, ?, 'test', 1000.00, 0, 0, NOW(), NOW())
+		`, buyer, seller, featureID)
 		require.NoError(t, err)
 
 		reqID, _ := requestID.LastInsertId()
@@ -298,48 +298,50 @@ func TestSoftDeleteQueries(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 1, count)
 
-		cleanup(t, db, sender, receiver)
+		cleanup(t, db, buyer, seller)
 	})
 }
 
 // Helper functions
 func createTestUser(t *testing.T, db *sql.DB) int64 {
-	username := fmt.Sprintf("test_user_%d", time.Now().UnixNano())
+	suffix := time.Now().UnixNano()
+	name := fmt.Sprintf("test_user_%d", suffix)
+	code := fmt.Sprintf("TU%d", suffix%1_000_000_000)
 	result, err := db.Exec(`
-		INSERT INTO users (username, email, password, created_at, updated_at)
-		VALUES (?, ?, '$2a$10$test', NOW(), NOW())
-	`, username, username+"@test.com")
+		INSERT INTO users (name, email, password, ip, code, created_at, updated_at)
+		VALUES (?, ?, '$2a$10$testpasswordhashvalue12', '127.0.0.1', ?, NOW(), NOW())
+	`, name, name+"@test.com", code)
 	require.NoError(t, err)
 
 	id, _ := result.LastInsertId()
 	return id
 }
 
-func createTestWallet(t *testing.T, db *sql.DB, userID int64, psc, rgb string) {
+func createTestWallet(t *testing.T, db *sql.DB, userID int64, psc string) {
 	_, err := db.Exec(`
-		INSERT INTO wallets (user_id, psc, rgb, created_at, updated_at)
-		VALUES (?, ?, ?, NOW(), NOW())
-	`, userID, psc, rgb)
+		INSERT INTO wallets (user_id, psc, created_at, updated_at)
+		VALUES (?, ?, NOW(), NOW())
+	`, userID, psc)
 	require.NoError(t, err)
 }
 
-func createTestFeature(t *testing.T, db *sql.DB, userID int64) string {
-	featureID := fmt.Sprintf("F-%d", time.Now().UnixNano())
-	_, err := db.Exec(`
-		INSERT INTO features (id, user_id, status, created_at, updated_at)
-		VALUES (?, ?, 'active', NOW(), NOW())
-	`, featureID, userID)
+func createTestFeature(t *testing.T, db *sql.DB, ownerID int64) int64 {
+	result, err := db.Exec(`
+		INSERT INTO features (map_id, owner_id, type, created_at, updated_at)
+		VALUES (1, ?, 'residential', NOW(), NOW())
+	`, ownerID)
 	require.NoError(t, err)
-	return featureID
+	id, _ := result.LastInsertId()
+	return id
 }
 
 func cleanup(t *testing.T, db *sql.DB, userIDs ...int64) {
+	t.Helper()
 	for _, userID := range userIDs {
-		db.Exec("DELETE FROM wallets WHERE user_id = ?", userID)
-		db.Exec("DELETE FROM features WHERE user_id = ?", userID)
-		db.Exec("DELETE FROM buy_feature_requests WHERE sender_id = ? OR receiver_id = ?", userID, userID)
-		db.Exec("DELETE FROM transactions WHERE user_id = ?", userID)
-		db.Exec("DELETE FROM users WHERE id = ?", userID)
+		_, _ = db.Exec("DELETE FROM wallets WHERE user_id = ?", userID)
+		_, _ = db.Exec("DELETE FROM features WHERE owner_id = ?", userID)
+		_, _ = db.Exec("DELETE FROM buy_feature_requests WHERE buyer_id = ? OR seller_id = ?", userID, userID)
+		_, _ = db.Exec("DELETE FROM transactions WHERE user_id = ?", userID)
+		_, _ = db.Exec("DELETE FROM users WHERE id = ?", userID)
 	}
 }
-

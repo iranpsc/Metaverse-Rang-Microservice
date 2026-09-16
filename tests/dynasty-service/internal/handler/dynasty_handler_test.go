@@ -345,8 +345,8 @@ func TestDynastyHandler_GetUserDynasty_NoDynasty_AllMemberTitles(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 	mock.ExpectQuery("SELECT").
 		WithArgs(userID, uint64(0)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "density", "stability", "area"}).
-			AddRow(uint64(1), "p", "d", "s", "a")) // exercise getUint64/getString via available features
+		WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability", "karbari"}).
+			AddRow(uint64(1), "p", "a", "d", "s", "m")) // all maskoni features when no dynasty
 	rows := sqlmock.NewRows([]string{
 		"id", "member", "satisfaction", "introduction_profit_increase",
 		"accumulated_capital_reserve", "data_storage", "psc", "created_at", "updated_at",
@@ -361,6 +361,10 @@ func TestDynastyHandler_GetUserDynasty_NoDynasty_AllMemberTitles(t *testing.T) {
 
 	resp, err := h.GetUserDynasty(ctx, &dynastypb.GetUserDynastyRequest{UserId: userID})
 	require.NoError(t, err)
+	assert.False(t, resp.UserHasDynasty)
+	require.Len(t, resp.Features, 1)
+	assert.Equal(t, uint64(1), resp.Features[0].Id)
+	assert.Equal(t, "p", resp.Features[0].PropertiesId)
 	require.Len(t, resp.Prizes, len(members))
 	assert.Equal(t, "خواهر", resp.Prizes[1].Member)
 	assert.Equal(t, "other", resp.Prizes[7].Member)

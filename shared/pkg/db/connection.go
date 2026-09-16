@@ -29,7 +29,9 @@ type Connection struct {
 
 // NewConnection creates a new database connection with retry logic
 func NewConnection(cfg Config) (*Connection, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+	// loc=Local keeps DATETIME (created_at/updated_at) aligned with the process
+	// timezone. Containers should set TZ (default Asia/Tehran in docker-compose).
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 		cfg.User,
 		cfg.Password,
 		cfg.Host,
