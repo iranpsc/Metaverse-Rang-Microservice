@@ -426,7 +426,6 @@ services:
     environment:
       GRPC_PORT: 50056
       HTTP_PORT: 8070
-      APP_URL: http://localhost:8000
       AUTH_SERVICE_ADDR: auth-service:50051
       NOTIFICATION_SERVICE_ADDR: notifications-service:50058
       STORAGE_SERVICE_ADDR: storage-service:50060
