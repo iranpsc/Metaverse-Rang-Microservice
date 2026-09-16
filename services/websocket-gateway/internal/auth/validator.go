@@ -84,7 +84,7 @@ func (v *Validator) validateTokenHTTP(ctx context.Context, token string) (uint64
 	if err != nil {
 		return 0, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {

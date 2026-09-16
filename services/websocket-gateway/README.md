@@ -1,10 +1,10 @@
 # WebSocket Gateway (Go)
 
-Real-time event broadcasting gateway for the MetaRGB microservices architecture using Socket.IO and Redis Pub/Sub.
+Real-time event broadcasting gateway for the MetaRGB microservices architecture using Socket.IO v4 and Redis Pub/Sub.
 
 ## Features
 
-- Socket.IO server (`github.com/googollee/go-socket.io`)
+- Socket.IO v4 server (`github.com/zishang520/socket.io/v2`, Engine.IO 4)
 - Sanctum token validation via auth-service gRPC
 - Redis pub/sub channels: `user-status`, `feature-status`, `notifications` (also accepts legacy `user-status-changed` / `feature-events`)
 - Health (`/health`) and metrics (`/metrics`) endpoints
@@ -20,14 +20,15 @@ Built from `services/websocket-gateway/Dockerfile` and exposed on port `3002` vi
 
 ## Client usage
 
-Use `socket.io-client@2.x` (Engine.IO 3) to match `go-socket.io` v1.7:
+Use `socket.io-client@4.x` (Engine.IO 4) to match this gateway:
 
 ```javascript
-import io from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 const socket = io('http://localhost:3002', {
   path: '/socket.io/',
   transports: ['websocket', 'polling'],
+  auth: { token: 'your-sanctum-token' },
   query: { token: 'your-sanctum-token' },
 });
 
@@ -48,5 +49,5 @@ socket.on('notification-received', (payload) => {
 });
 ```
 
-Authentication requires a Sanctum token via `?token=` query parameter (or `Authorization: Bearer` header for non-browser clients).
+Authentication requires a Sanctum token via Socket.IO `auth.token` and/or `?token=` query parameter (or `Authorization: Bearer` header for non-browser clients).
 On connect the client is joined to `user:{id}` and the public `feature-status` room automatically.

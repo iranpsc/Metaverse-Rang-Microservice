@@ -41,11 +41,6 @@ func main() {
 	}
 
 	eventHub := hub.New(validator, corsOrigins)
-	go func() {
-		if err := eventHub.Serve(); err != nil {
-			log.Printf("Socket.IO serve stopped: %v", err)
-		}
-	}()
 	defer func() {
 		if err := eventHub.Close(); err != nil {
 			log.Printf("Failed to close Socket.IO hub: %v", err)
@@ -178,7 +173,7 @@ func withCORS(next http.Handler, corsOrigins []string) http.Handler {
 		}
 
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, Origin, X-Requested-With")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

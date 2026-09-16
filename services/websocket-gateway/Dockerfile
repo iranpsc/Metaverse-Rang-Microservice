@@ -2,6 +2,8 @@
 FROM docker.arvancloud.ir/golang:1.25-alpine AS builder
 
 ENV CGO_ENABLED=0
+ENV GOPROXY=https://goproxy.io,https://goproxy.cn,direct
+ENV GOSUMDB=off
 
 RUN apk add --no-cache git make protoc protobuf-dev
 
