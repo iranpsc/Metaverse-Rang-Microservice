@@ -40,6 +40,64 @@ type socketFrame struct {
 	data json.RawMessage
 }
 
+func TestSocketIOAnonymousConnectAndFeatureBroadcast(t *testing.T) {
+	h := hub.New(stubValidator{userID: 42}, []string{"*"})
+	t.Cleanup(func() { _ = h.Close() })
+
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+
+	conn := dialEngineIO(t, srv.URL, "", false, nil)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	connected := waitForEvent(t, conn, "connected", 3*time.Second)
+	var payload map[string]any
+	if err := json.Unmarshal(connected.data, &payload); err != nil {
+		t.Fatalf("decode connected payload: %v", err)
+	}
+	if payload["authenticated"] != false {
+		t.Fatalf("connected payload = %#v, want authenticated=false", payload)
+	}
+	if _, hasUser := payload["userId"]; hasUser {
+		t.Fatalf("anonymous connected payload must not include userId: %#v", payload)
+	}
+
+	connections, users := h.Stats()
+	if connections != 0 || users != 0 {
+		t.Fatalf("stats after anonymous connect = %d/%d, want 0/0", connections, users)
+	}
+
+	h.BroadcastFeatureStatus(map[string]any{"id": float64(1001), "rgb": "G"})
+	feature := waitForEvent(t, conn, "feature-status-changed", 3*time.Second)
+	var featurePayload map[string]any
+	if err := json.Unmarshal(feature.data, &featurePayload); err != nil {
+		t.Fatalf("decode feature payload: %v", err)
+	}
+	if fmt.Sprint(featurePayload["id"]) != "1001" || featurePayload["rgb"] != "G" {
+		t.Fatalf("feature payload = %#v", featurePayload)
+	}
+
+	h.BroadcastUserStatus(map[string]any{"user_id": float64(99), "online": true})
+	status := waitForEvent(t, conn, "user-status-changed", 3*time.Second)
+	var statusPayload map[string]any
+	if err := json.Unmarshal(status.data, &statusPayload); err != nil {
+		t.Fatalf("decode user-status payload: %v", err)
+	}
+	if statusPayload["online"] != true {
+		t.Fatalf("user-status payload = %#v", statusPayload)
+	}
+
+	// Private notifications target user rooms only; anonymous sockets never join them.
+	h.BroadcastNotification(map[string]any{
+		"user_id": float64(42),
+		"id":      "n-1",
+		"title":   "secret",
+	})
+	if got := readEventIfAny(t, conn, 500*time.Millisecond); got != nil && got.name == "notification-received" {
+		t.Fatalf("anonymous client received private notification: %s", got.raw)
+	}
+}
+
 func TestSocketIOConnectAndFeatureBroadcast(t *testing.T) {
 	h := hub.New(stubValidator{userID: 42}, []string{"*"})
 	t.Cleanup(func() { _ = h.Close() })
@@ -57,6 +115,9 @@ func TestSocketIOConnectAndFeatureBroadcast(t *testing.T) {
 	}
 	if fmt.Sprint(payload["userId"]) != "42" {
 		t.Fatalf("connected payload = %#v", payload)
+	}
+	if payload["authenticated"] != true {
+		t.Fatalf("connected payload = %#v, want authenticated=true", payload)
 	}
 
 	connections, users := h.Stats()
@@ -244,25 +305,58 @@ func waitForEvent(t *testing.T, conn *websocket.Conn, name string, timeout time.
 	t.Helper()
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
-		_, message, err := conn.ReadMessage()
+		frame, err := readSocketFrame(conn, 500*time.Millisecond)
 		if err != nil {
-			continue
-		}
-		raw := string(message)
-		switch {
-		case raw == "2":
-			_ = conn.WriteMessage(websocket.TextMessage, []byte("3"))
-			continue
-		case strings.HasPrefix(raw, "42"):
-			frame, ok := parseSocketEvent(raw)
-			if ok && frame.name == name {
-				return frame
+			if isTimeoutErr(err) {
+				continue
 			}
+			t.Fatalf("read while waiting for %s: %v", name, err)
+		}
+		if frame != nil && frame.name == name {
+			return *frame
 		}
 	}
 	t.Fatalf("timed out waiting for %s", name)
 	return socketFrame{}
+}
+
+func readEventIfAny(t *testing.T, conn *websocket.Conn, wait time.Duration) *socketFrame {
+	t.Helper()
+	frame, err := readSocketFrame(conn, wait)
+	if err != nil {
+		return nil
+	}
+	return frame
+}
+
+func readSocketFrame(conn *websocket.Conn, wait time.Duration) (*socketFrame, error) {
+	_ = conn.SetReadDeadline(time.Now().Add(wait))
+	_, message, err := conn.ReadMessage()
+	if err != nil {
+		return nil, err
+	}
+	raw := string(message)
+	switch {
+	case raw == "2":
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("3"))
+		return nil, nil
+	case strings.HasPrefix(raw, "42"):
+		frame, ok := parseSocketEvent(raw)
+		if !ok {
+			return nil, nil
+		}
+		return &frame, nil
+	default:
+		return nil, nil
+	}
+}
+
+func isTimeoutErr(err error) bool {
+	type timeout interface{ Timeout() bool }
+	if te, ok := err.(timeout); ok {
+		return te.Timeout()
+	}
+	return false
 }
 
 func parseSocketEvent(raw string) (socketFrame, bool) {

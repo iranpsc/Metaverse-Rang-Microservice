@@ -14,11 +14,21 @@ import (
 	"github.com/zishang520/socket.io/v2/socket"
 )
 
-const publicFeatureRoom = "feature-status"
+const (
+	publicFeatureRoom = "feature-status"
+	publicUserRoom    = "user-status"
+)
 
 // TokenValidator validates Sanctum tokens for incoming Socket.IO connections.
 type TokenValidator interface {
 	ValidateToken(ctx context.Context, token string) (uint64, error)
+}
+
+// connectionIdentity is stored on each socket after the auth middleware runs.
+// Anonymous public clients have Authenticated=false and UserID=0.
+type connectionIdentity struct {
+	UserID        uint64
+	Authenticated bool
 }
 
 // Hub manages Socket.IO connections and Redis-driven broadcasts.
@@ -30,7 +40,9 @@ type Hub struct {
 	auth    TokenValidator
 }
 
-// New creates a Socket.IO v4 hub with authentication on connect.
+// New creates a Socket.IO v4 hub.
+// Public rooms (feature-status, user-status) are open without a token.
+// Private notifications require a valid Sanctum token (user:{id} room).
 func New(validator TokenValidator, corsOrigins []string) *Hub {
 	h := &Hub{
 		users: make(map[uint64]map[string]struct{}),
@@ -57,7 +69,9 @@ func New(validator TokenValidator, corsOrigins []string) *Hub {
 	server.Use(func(client *socket.Socket, next func(*socket.ExtendedError)) {
 		token := extractToken(client)
 		if token == "" {
-			next(socket.NewExtendedError("unauthorized", map[string]any{"message": "unauthorized"}))
+			// Anonymous clients may listen to public channels only.
+			client.SetData(connectionIdentity{})
+			next(nil)
 			return
 		}
 
@@ -71,7 +85,7 @@ func New(validator TokenValidator, corsOrigins []string) *Hub {
 			return
 		}
 
-		client.SetData(userID)
+		client.SetData(connectionIdentity{UserID: userID, Authenticated: true})
 		next(nil)
 	})
 
@@ -81,21 +95,29 @@ func New(validator TokenValidator, corsOrigins []string) *Hub {
 			return
 		}
 
-		userID, ok := client.Data().(uint64)
+		identity, ok := client.Data().(connectionIdentity)
 		if !ok {
 			client.Disconnect(true)
 			return
 		}
 
 		socketID := string(client.Id())
-		h.track(userID, socketID)
-		client.Join(socket.Room(userRoom(userID)), socket.Room(publicFeatureRoom))
+		rooms := []socket.Room{socket.Room(publicFeatureRoom), socket.Room(publicUserRoom)}
+		if identity.Authenticated {
+			h.track(identity.UserID, socketID)
+			rooms = append(rooms, socket.Room(userRoom(identity.UserID)))
+		}
+		client.Join(rooms...)
 
-		_ = client.Emit("connected", map[string]any{
-			"message":   "Connected to metarang WebSocket Gateway",
-			"userId":    userID,
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		})
+		payload := map[string]any{
+			"message":       "Connected to metarang WebSocket Gateway",
+			"authenticated": identity.Authenticated,
+			"timestamp":     time.Now().UTC().Format(time.RFC3339),
+		}
+		if identity.Authenticated {
+			payload["userId"] = identity.UserID
+		}
+		_ = client.Emit("connected", payload)
 
 		if err := client.On("client-ping", func(...any) {
 			_ = client.Emit("client-pong", map[string]any{"timestamp": time.Now().UnixMilli()})
@@ -108,10 +130,13 @@ func New(validator TokenValidator, corsOrigins []string) *Hub {
 		}); err != nil {
 			log.Printf("failed to register ping handler: %v", err)
 		}
-		if err := client.On("disconnect", func(...any) {
-			h.untrack(userID, socketID)
-		}); err != nil {
-			log.Printf("failed to register disconnect handler: %v", err)
+		if identity.Authenticated {
+			userID := identity.UserID
+			if err := client.On("disconnect", func(...any) {
+				h.untrack(userID, socketID)
+			}); err != nil {
+				log.Printf("failed to register disconnect handler: %v", err)
+			}
 		}
 	}); err != nil {
 		log.Printf("failed to register connection handler: %v", err)
@@ -246,16 +271,14 @@ func (h *Hub) Stats() (connections int, users int) {
 	return connections, len(h.users)
 }
 
-// BroadcastUserStatus sends a user-status event to a specific user room.
+// BroadcastUserStatus sends a user-status event to the public user-status room.
 func (h *Hub) BroadcastUserStatus(data map[string]any) {
-	userID, ok := numericID(data["user_id"])
-	if !ok {
-		userID, ok = numericID(data["id"])
+	if _, ok := numericID(data["user_id"]); !ok {
+		if _, ok = numericID(data["id"]); !ok {
+			return
+		}
 	}
-	if !ok {
-		return
-	}
-	_ = h.server.To(socket.Room(userRoom(userID))).Emit("user-status-changed", data)
+	_ = h.server.To(socket.Room(publicUserRoom)).Emit("user-status-changed", data)
 }
 
 // BroadcastFeatureStatus sends feature status updates to map clients and involved owners.

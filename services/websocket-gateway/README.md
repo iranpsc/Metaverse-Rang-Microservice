@@ -5,7 +5,9 @@ Real-time event broadcasting gateway for the MetaRGB microservices architecture 
 ## Features
 
 - Socket.IO v4 server (`github.com/zishang520/socket.io/v2`, Engine.IO 4)
-- Sanctum token validation via auth-service gRPC
+- Optional Sanctum token validation via auth-service gRPC (required only for private notifications)
+- Public rooms without auth: `feature-status`, `user-status`
+- Private room with auth: `user:{id}` (notifications)
 - Redis pub/sub channels: `user-status`, `feature-status`, `notifications` (also accepts legacy `user-status-changed` / `feature-events`)
 - Health (`/health`) and metrics (`/metrics`) endpoints
 - CORS via `CORS_ORIGIN`
@@ -25,29 +27,37 @@ Use `socket.io-client@4.x` (Engine.IO 4) to match this gateway:
 ```javascript
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:3002', {
+// Public channels only (no token)
+const publicSocket = io('http://localhost:3002', {
+  path: '/socket.io/',
+  transports: ['websocket', 'polling'],
+});
+
+// Authenticated: public channels + private notifications
+const privateSocket = io('http://localhost:3002', {
   path: '/socket.io/',
   transports: ['websocket', 'polling'],
   auth: { token: 'your-sanctum-token' },
   query: { token: 'your-sanctum-token' },
 });
 
-socket.on('connected', (data) => {
-  console.log('connected', data.userId);
+publicSocket.on('connected', (data) => {
+  console.log('connected', data.authenticated); // false
 });
 
-socket.on('feature-status-changed', (payload) => {
+publicSocket.on('feature-status-changed', (payload) => {
   // { id, rgb, ... }
 });
 
-socket.on('user-status-changed', (payload) => {
+publicSocket.on('user-status-changed', (payload) => {
   // { user_id|id, online, ... }
 });
 
-socket.on('notification-received', (payload) => {
-  // notification payload
+privateSocket.on('notification-received', (payload) => {
+  // notification payload (auth required)
 });
 ```
 
-Authentication requires a Sanctum token via Socket.IO `auth.token` and/or `?token=` query parameter (or `Authorization: Bearer` header for non-browser clients).
-On connect the client is joined to `user:{id}` and the public `feature-status` room automatically.
+Authentication is optional. Without a token the client joins public rooms only.
+With a valid Sanctum token (`auth.token`, `?token=`, or `Authorization: Bearer`) the client also joins `user:{id}` for private notifications.
+Invalid tokens are still rejected.
