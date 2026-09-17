@@ -14,3 +14,7 @@ func FormatJalaliDate(t time.Time) string {
 func FormatJalaliDateTime(t time.Time) string {
 	return helpers.FormatJalaliDateTimeDash(t)
 }
+
+func formatJalaliTime(t time.Time) string {
+	return helpers.FormatJalaliTime(t)
+}

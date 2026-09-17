@@ -247,7 +247,10 @@ func main() {
 
 	httpAuthHandler := handler.NewHTTPAuthHandler(localClients, levelClient, projectLocale)
 	httpWalletHandler := handler.NewHTTPWalletHandler(localClients.WalletConnection, projectLocale)
-	authMiddleware := middleware.AuthMiddleware(tokenValidator)
+	authMiddleware := middleware.WithLastSeen(
+		middleware.AuthMiddleware(tokenValidator),
+		middleware.LastSeenMiddleware(userRepo, redisPublisher),
+	)
 	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(tokenValidator)
 	guestMiddleware := middleware.GuestMiddleware(tokenValidator)
 

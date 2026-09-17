@@ -239,6 +239,77 @@ func TestNotificationService_SendNotification_SkipsNilPayloads(t *testing.T) {
 		assert.NotContains(t, gotHTML, `<div dir="rtl"`)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
+
+	t.Run("login email falls back to contact code when user_code missing", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		var gotHTML string
+		svc := newNotificationService(db, &testutil.MockSMSChannel{}, &testutil.MockEmailChannel{
+			SendEmailFunc: func(_ context.Context, payload models.EmailPayload) (string, error) {
+				gotHTML = payload.HTMLBody
+				return "email", nil
+			},
+		})
+		expectCreateNotification(mock)
+		mock.ExpectQuery(`SELECT phone, email, name, code FROM users WHERE id = \? LIMIT 1`).
+			WithArgs(uint64(7)).
+			WillReturnRows(sqlmock.NewRows([]string{"phone", "email", "name", "code"}).
+				AddRow("09120000000", "login@example.com", "علی", "CIT-99"))
+
+		result, err := svc.SendNotification(ctx, service.SendNotificationInput{
+			UserID: 7, Type: "login", Title: "ورود به حساب کاربری",
+			Message:   "شما با موفقیت وارد حساب کاربری خود شدید.",
+			SendEmail: true,
+			Data: map[string]string{
+				"ip":         "203.0.113.10",
+				"login_date": "1404/06/26",
+				"login_time": "12:30:00",
+			},
+		})
+		require.NoError(t, err)
+		assert.True(t, result.Sent)
+		assert.Contains(t, gotHTML, "ورود موفق به متارنگ")
+		assert.Contains(t, gotHTML, "CIT-99")
+		assert.Contains(t, gotHTML, "1404/06/26")
+		assert.Contains(t, gotHTML, "203.0.113.10")
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("login email keeps explicit user_code over contact code", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		var gotHTML string
+		svc := newNotificationService(db, &testutil.MockSMSChannel{}, &testutil.MockEmailChannel{
+			SendEmailFunc: func(_ context.Context, payload models.EmailPayload) (string, error) {
+				gotHTML = payload.HTMLBody
+				return "email", nil
+			},
+		})
+		expectCreateNotification(mock)
+		mock.ExpectQuery(`SELECT phone, email, name, code FROM users WHERE id = \? LIMIT 1`).
+			WithArgs(uint64(7)).
+			WillReturnRows(sqlmock.NewRows([]string{"phone", "email", "name", "code"}).
+				AddRow("09120000000", "login@example.com", "علی", "CONTACT-CODE"))
+
+		result, err := svc.SendNotification(ctx, service.SendNotificationInput{
+			UserID: 7, Type: "login", Title: "ورود به حساب کاربری",
+			Message:   "login",
+			SendEmail: true,
+			Data: map[string]string{
+				"user_code": "EXPLICIT-77",
+				"ip":        "10.0.0.1",
+			},
+		})
+		require.NoError(t, err)
+		assert.True(t, result.Sent)
+		assert.Contains(t, gotHTML, "EXPLICIT-77")
+		assert.NotContains(t, gotHTML, "CONTACT-CODE")
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestNotificationService_SendNotification_UnimplementedChannelStillSent(t *testing.T) {

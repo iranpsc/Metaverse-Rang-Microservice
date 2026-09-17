@@ -703,6 +703,7 @@ func TestCallbackLoggedInEvent(t *testing.T) {
 				ID:              1,
 				Email:           "returning@example.com",
 				Name:            "Old Name",
+				Code:            "RET123",
 				Phone:           sql.NullString{String: "09121112233", Valid: true},
 				PhoneVerifiedAt: sql.NullTime{Time: time.Now(), Valid: true},
 			},
@@ -811,6 +812,21 @@ func TestCallbackLoggedInEvent(t *testing.T) {
 		}
 		if req.Data["ip"] != "203.0.113.10" {
 			t.Errorf("Expected notification data ip, got %v", req.Data)
+		}
+		if req.Data["user_code"] != "RET123" {
+			t.Errorf("Expected notification data user_code RET123, got %v", req.Data["user_code"])
+		}
+		if req.Data["login_date"] == "" {
+			t.Error("Expected notification data login_date")
+		}
+		if req.Data["login_time"] == "" {
+			t.Error("Expected notification data login_time")
+		}
+		if req.SmsTemplate != "login" {
+			t.Errorf("Expected SmsTemplate login, got %q", req.SmsTemplate)
+		}
+		if req.SmsTokens["token"] != "203.0.113.10" {
+			t.Errorf("Expected SmsTokens token=ip, got %v", req.SmsTokens)
 		}
 		if !req.SendSms {
 			t.Error("Expected SendSms true when login_verification_sms enabled and phone verified")
@@ -1298,6 +1314,7 @@ func (p *trackingPublisher) Close() error {
 
 type fakeNotificationServiceClient struct {
 	lastRequest *notificationspb.SendNotificationRequest
+	err         error
 }
 
 func newFakeNotificationServiceClient() *fakeNotificationServiceClient {
@@ -1306,6 +1323,9 @@ func newFakeNotificationServiceClient() *fakeNotificationServiceClient {
 
 func (f *fakeNotificationServiceClient) SendNotification(_ context.Context, in *notificationspb.SendNotificationRequest, _ ...grpc.CallOption) (*notificationspb.NotificationResponse, error) {
 	f.lastRequest = in
+	if f.err != nil {
+		return nil, f.err
+	}
 	return &notificationspb.NotificationResponse{Id: 1, Sent: true}, nil
 }
 

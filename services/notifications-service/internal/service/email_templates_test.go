@@ -21,6 +21,7 @@ func TestResolveEmailTemplate(t *testing.T) {
 		{"dynasty received", "dynasty_join_request", map[string]string{"side": "received"}, "email/dynasty/join_request_received"},
 		{"dynasty accept", "dynasty_join_request_accept", nil, "email/dynasty/join_request_accepted"},
 		{"dynasty reject", "dynasty_join_request_reject", nil, "email/dynasty/join_request_rejected"},
+		{"login alert", "login", nil, "email/login_alert"},
 		{"unknown", "FeatureHourlyProfitDeposit", nil, ""},
 	}
 	for _, tt := range tests {
@@ -97,5 +98,25 @@ func TestRenderNotificationEmail_DynastyJoinReceived(t *testing.T) {
 	}
 	if !strings.Contains(html, "خاندان نمونه") || !strings.Contains(html, "HM-9") {
 		t.Fatalf("missing dynasty placeholders: %s", html)
+	}
+}
+
+func TestRenderNotificationEmail_LoginAlert(t *testing.T) {
+	html, err := RenderNotificationEmail("login", "ورود به حساب کاربری", map[string]string{
+		"user_code":  "HM-77",
+		"login_date": "1404/06/26",
+		"login_time": "12:30:00",
+		"ip":         "203.0.113.10",
+	}, "علی")
+	if err != nil {
+		t.Fatalf("RenderNotificationEmail: %v", err)
+	}
+	if html == "" {
+		t.Fatal("expected rendered HTML")
+	}
+	for _, want := range []string{"ورود موفق به متارنگ", "علی", "HM-77", "1404/06/26", "12:30:00", "203.0.113.10"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("rendered HTML missing %q", want)
+		}
 	}
 }

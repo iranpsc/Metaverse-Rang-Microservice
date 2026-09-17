@@ -129,7 +129,8 @@ func (s *notificationService) resolveChannelPayloads(ctx context.Context, input 
 		if email := strings.TrimSpace(contact.Email); email != "" {
 			htmlBody := input.HTMLBody
 			if htmlBody == "" {
-				if rendered, err := RenderNotificationEmail(input.Type, input.Title, input.Data, contact.Name); err == nil && rendered != "" {
+				emailData := enrichEmailData(input.Data, contact)
+				if rendered, err := RenderNotificationEmail(input.Type, input.Title, emailData, contact.Name); err == nil && rendered != "" {
 					htmlBody = rendered
 				} else if err != nil {
 					// Keep delivery working even if a template fails to render.
@@ -170,6 +171,23 @@ func ignoreUnimplemented(err error) error {
 		return nil
 	}
 	return err
+}
+
+// enrichEmailData fills missing template fields from the user contact (e.g. citizen code).
+func enrichEmailData(data map[string]string, contact *models.UserContact) map[string]string {
+	out := make(map[string]string, len(data)+1)
+	for k, v := range data {
+		out[k] = v
+	}
+	if contact == nil {
+		return out
+	}
+	if strings.TrimSpace(out["user_code"]) == "" && strings.TrimSpace(out["UserCode"]) == "" {
+		if code := strings.TrimSpace(contact.Code); code != "" {
+			out["user_code"] = code
+		}
+	}
+	return out
 }
 
 func (s *notificationService) GetNotifications(ctx context.Context, userID uint64, filter models.NotificationFilter) ([]models.Notification, int64, error) {
