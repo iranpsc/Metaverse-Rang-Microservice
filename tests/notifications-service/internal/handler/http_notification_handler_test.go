@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"metarang/notifications-service/internal/errs"
 	"metarang/notifications-service/internal/handler"
 	"metarang/notifications-service/internal/models"
 	"metarang/notifications-service/internal/service"
@@ -28,9 +27,6 @@ type notificationAPIAdapter struct {
 
 func (a *notificationAPIAdapter) GetNotifications(ctx context.Context, req *pb.GetNotificationsRequest) (*pb.NotificationsResponse, error) {
 	return a.h.GetNotifications(ctx, req)
-}
-func (a *notificationAPIAdapter) GetNotification(ctx context.Context, req *pb.GetNotificationRequest) (*pb.Notification, error) {
-	return a.h.GetNotification(ctx, req)
 }
 func (a *notificationAPIAdapter) MarkAsRead(ctx context.Context, req *pb.MarkAsReadRequest) (*pbCommon.Empty, error) {
 	return a.h.MarkAsRead(ctx, req)
@@ -117,37 +113,27 @@ func TestHTTP_GetNotifications_MethodNotAllowed(t *testing.T) {
 	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 }
 
-func TestHTTP_GetNotification_Success(t *testing.T) {
-	svc := &testutil.MockNotificationService{
-		GetNotificationByIDFunc: func(_ context.Context, id string, userID uint64) (*models.Notification, error) {
-			readAt := time.Now()
-			return &models.Notification{
-				ID: id, UserID: userID, Type: "system", Title: "T", Message: "M",
-				CreatedAt: time.Date(2024, 3, 10, 14, 30, 0, 0, time.UTC),
-				ReadAt:    &readAt,
-				Data:      map[string]string{"message": "override"},
-			}, nil
-		},
+func TestHTTP_RemovedRoutes_NotFound(t *testing.T) {
+	mux := newHTTPHandler(t, &testutil.MockNotificationService{}, 42)
+	for _, tc := range []struct {
+		method, path string
+	}{
+		{http.MethodGet, "/api/notifications/notif-abc"},
+		{http.MethodGet, "/api/notifications/missing"},
+		{http.MethodGet, "/api/notifications/550e8400-e29b-41d4-a716-446655440000"},
+		{http.MethodPost, "/api/notifications/notif-abc"},
+		{http.MethodPost, "/api/notifications/mark-all-read"},
+		{http.MethodGet, "/api/notifications/mark-all-read"},
+		{http.MethodPost, "/api/notifications/mark-read"},
+		{http.MethodGet, "/api/notifications/mark-read"},
+		{http.MethodPost, "/api/notifications/"},
+		{http.MethodGet, "/api/notifications/read"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			rr := serveRequest(mux, tc.method, tc.path, 42)
+			assert.Equal(t, http.StatusNotFound, rr.Code)
+		})
 	}
-	mux := newHTTPHandler(t, svc, 42)
-	rr := serveRequest(mux, http.MethodGet, "/api/notifications/notif-abc", 42)
-	assert.Equal(t, http.StatusOK, rr.Code)
-
-	var body map[string]map[string]interface{}
-	require.NoError(t, json.NewDecoder(rr.Body).Decode(&body))
-	assert.Equal(t, "notif-abc", body["data"]["id"])
-	assert.NotNil(t, body["data"]["read_at"])
-}
-
-func TestHTTP_GetNotification_NotFound(t *testing.T) {
-	svc := &testutil.MockNotificationService{
-		GetNotificationByIDFunc: func(context.Context, string, uint64) (*models.Notification, error) {
-			return nil, errs.ErrNotificationNotFound
-		},
-	}
-	mux := newHTTPHandler(t, svc, 42)
-	rr := serveRequest(mux, http.MethodGet, "/api/notifications/missing", 42)
-	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 func TestHTTP_MarkAsRead_Success(t *testing.T) {
@@ -166,6 +152,23 @@ func TestHTTP_MarkAsRead_Success(t *testing.T) {
 	assert.True(t, called)
 }
 
+func TestHTTP_MarkAsRead_UUID(t *testing.T) {
+	const id = "550e8400-e29b-41d4-a716-446655440000"
+	called := false
+	svc := &testutil.MockNotificationService{
+		MarkAsReadFunc: func(_ context.Context, gotID string, userID uint64) error {
+			called = true
+			assert.Equal(t, id, gotID)
+			assert.Equal(t, uint64(42), userID)
+			return nil
+		},
+	}
+	mux := newHTTPHandler(t, svc, 42)
+	rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/"+id, 42)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.True(t, called)
+}
+
 func TestHTTP_MarkAllAsRead_Success(t *testing.T) {
 	svc := &testutil.MockNotificationService{
 		MarkAllAsReadFunc: func(_ context.Context, userID uint64) error {
@@ -174,16 +177,14 @@ func TestHTTP_MarkAllAsRead_Success(t *testing.T) {
 		},
 	}
 	mux := newHTTPHandler(t, svc, 42)
-	for _, path := range []string{"/api/notifications/read/all", "/api/notifications/mark-all-read"} {
-		rr := serveRequest(mux, http.MethodPost, path, 42)
-		assert.Equal(t, http.StatusNoContent, rr.Code, path)
-	}
+	rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/all", 42)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
 }
 
 func TestHTTP_MarkAsRead_MissingID(t *testing.T) {
 	mux := newHTTPHandler(t, &testutil.MockNotificationService{}, 42)
-	rr := serveRequest(mux, http.MethodPost, "/api/notifications/mark-read", 42)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/", 42)
+	assert.Equal(t, http.StatusNotFound, rr.Code)
 }
 
 func TestHTTP_GetNotifications_ServiceError(t *testing.T) {
@@ -195,18 +196,6 @@ func TestHTTP_GetNotifications_ServiceError(t *testing.T) {
 	mux := newHTTPHandler(t, svc, 42)
 	rr := serveRequest(mux, http.MethodGet, "/api/notifications", 42)
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
-}
-
-func TestHTTP_GetNotification_MethodNotAllowed(t *testing.T) {
-	mux := newHTTPHandler(t, &testutil.MockNotificationService{}, 42)
-	rr := serveRequest(mux, http.MethodPost, "/api/notifications/notif-1", 42)
-	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
-}
-
-func TestHTTP_GetNotification_MissingID(t *testing.T) {
-	mux := newHTTPHandler(t, &testutil.MockNotificationService{}, 42)
-	rr := serveRequest(mux, http.MethodGet, "/api/notifications/", 42)
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
 
 func TestHTTP_MarkAsRead_ServiceError(t *testing.T) {

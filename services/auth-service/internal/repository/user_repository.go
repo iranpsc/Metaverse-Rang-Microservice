@@ -263,14 +263,15 @@ func (r *userRepository) GetKYC(ctx context.Context, userID uint64) (*models.KYC
 }
 
 func (r *userRepository) GetUnreadNotificationsCount(ctx context.Context, userID uint64) (int32, error) {
+	// Must match notifications-service notifiable_type ("App\User") so mark-as-read updates are reflected.
 	query := `
-		SELECT COUNT(*) FROM notifications 
-		WHERE notifiable_type = 'App\\Models\\User' 
-		AND notifiable_id = ? 
+		SELECT COUNT(*) FROM notifications
+		WHERE notifiable_type = ?
+		AND notifiable_id = ?
 		AND read_at IS NULL
 	`
 	var count int32
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(&count)
+	err := r.db.QueryRowContext(ctx, query, "App\\User", userID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get unread notifications count: %w", err)
 	}

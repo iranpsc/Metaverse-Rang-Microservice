@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"metarang/notifications-service/internal/handler"
+	pbCommon "metarang/shared/pb/common"
 	pb "metarang/shared/pb/notifications"
 )
 
@@ -54,7 +56,7 @@ func TestHTTP_UnauthorizedWithoutUser(t *testing.T) {
 	for _, tc := range []struct {
 		method, path string
 	}{
-		{http.MethodGet, "/api/notifications/n1"},
+		{http.MethodGet, "/api/notifications"},
 		{http.MethodPost, "/api/notifications/read/n1"},
 		{http.MethodPost, "/api/notifications/read/all"},
 	} {
@@ -65,10 +67,100 @@ func TestHTTP_UnauthorizedWithoutUser(t *testing.T) {
 	}
 }
 
+func TestHTTP_MarkAsRead_ExtractsPathValue(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "simple id", id: "notif-abc"},
+		{name: "uuid with hyphens", id: "550e8400-e29b-41d4-a716-446655440000"},
+		{name: "id containing all", id: "all-except-literal"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var gotID string
+			var gotUser uint64
+			mux := muxWithAPI(&mockNotificationAPI{
+				MarkAsReadFunc: func(_ context.Context, req *pb.MarkAsReadRequest) (*pbCommon.Empty, error) {
+					gotID = req.NotificationId
+					gotUser = req.UserId
+					return &pbCommon.Empty{}, nil
+				},
+			}, 42)
+
+			rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/"+tt.id, 42)
+			assert.Equal(t, http.StatusNoContent, rr.Code)
+			assert.Equal(t, tt.id, gotID)
+			assert.Equal(t, uint64(42), gotUser)
+		})
+	}
+}
+
+func TestHTTP_MarkAllAsRead_LiteralRouteWinsOverWildcard(t *testing.T) {
+	markAsReadCalled := false
+	markAllCalled := false
+	mux := muxWithAPI(&mockNotificationAPI{
+		MarkAsReadFunc: func(_ context.Context, req *pb.MarkAsReadRequest) (*pbCommon.Empty, error) {
+			markAsReadCalled = true
+			t.Errorf("MarkAsRead must not run for /read/all; got id=%q", req.NotificationId)
+			return &pbCommon.Empty{}, nil
+		},
+		MarkAllAsReadFunc: func(_ context.Context, req *pb.MarkAllAsReadRequest) (*pbCommon.Empty, error) {
+			markAllCalled = true
+			assert.Equal(t, uint64(42), req.UserId)
+			return &pbCommon.Empty{}, nil
+		},
+	}, 42)
+
+	rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/all", 42)
+	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.True(t, markAllCalled)
+	assert.False(t, markAsReadCalled)
+}
+
+func TestHTTP_RemainingRoutes_MethodNotAllowed(t *testing.T) {
+	mux := muxWithAPI(&mockNotificationAPI{}, 42)
+	for _, tc := range []struct {
+		method, path string
+	}{
+		{http.MethodPost, "/api/notifications"},
+		{http.MethodPut, "/api/notifications"},
+		{http.MethodDelete, "/api/notifications"},
+		{http.MethodPatch, "/api/notifications"},
+		{http.MethodGet, "/api/notifications/read/n1"},
+		{http.MethodPut, "/api/notifications/read/n1"},
+		{http.MethodDelete, "/api/notifications/read/n1"},
+		{http.MethodPatch, "/api/notifications/read/n1"},
+		{http.MethodGet, "/api/notifications/read/all"},
+		{http.MethodPut, "/api/notifications/read/all"},
+		{http.MethodDelete, "/api/notifications/read/all"},
+		{http.MethodPatch, "/api/notifications/read/all"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			rr := serveRequest(mux, tc.method, tc.path, 42)
+			assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+		})
+	}
+}
+
 func TestHTTP_MarkAsRead_MethodNotAllowed(t *testing.T) {
 	mux := muxWithAPI(&mockNotificationAPI{}, 42)
 	rr := serveRequest(mux, http.MethodGet, "/api/notifications/read/n1", 42)
 	assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
+}
+
+func TestHTTP_MarkAsRead_EmptyPathValue(t *testing.T) {
+	httpH := handler.NewHTTPNotificationHandler(&mockNotificationAPI{})
+	req := httptest.NewRequest(http.MethodPost, "/api/notifications/read/", nil)
+	req.SetPathValue("id", "")
+	rr := httptest.NewRecorder()
+	httpH.MarkAsRead(rr, req)
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	var body map[string]string
+	require.NoError(t, json.NewDecoder(rr.Body).Decode(&body))
+	assert.Equal(t, "notification ID is required", body["error"])
 }
 
 func TestHTTP_TransformNotification(t *testing.T) {
@@ -142,17 +234,18 @@ func TestHTTP_TransformNotification(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mux := muxWithAPI(&mockNotificationAPI{
-				GetNotificationFunc: func(context.Context, *pb.GetNotificationRequest) (*pb.Notification, error) {
-					return tt.notif, nil
+				GetNotificationsFunc: func(context.Context, *pb.GetNotificationsRequest) (*pb.NotificationsResponse, error) {
+					return &pb.NotificationsResponse{Notifications: []*pb.Notification{tt.notif}}, nil
 				},
 			}, 42)
 
-			rr := serveRequest(mux, http.MethodGet, "/api/notifications/"+tt.notif.Id, 42)
+			rr := serveRequest(mux, http.MethodGet, "/api/notifications", 42)
 			require.Equal(t, http.StatusOK, rr.Code)
 
-			var wrapped map[string]map[string]interface{}
+			var wrapped map[string][]map[string]interface{}
 			require.NoError(t, json.NewDecoder(rr.Body).Decode(&wrapped))
-			tt.check(t, wrapped["data"])
+			require.Len(t, wrapped["data"], 1)
+			tt.check(t, wrapped["data"][0])
 		})
 	}
 }

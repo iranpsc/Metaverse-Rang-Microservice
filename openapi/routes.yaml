@@ -921,11 +921,17 @@ routes:
     tag: Notifications
     summary: List notifications
     security: bearer
-  - path: /api/notifications/{id}
-    methods: [get]
+  - path: /api/notifications/read/{id}
+    methods: [post]
     tag: Notifications
-    summary: Get notification
+    summary: Mark notification as read
     security: bearer
+    params:
+      - name: id
+        in: path
+        type: string
+        description: Notification ID
+        example: 550e8400-e29b-41d4-a716-446655440000
   - path: /api/notifications/read/all
     methods: [post]
     tag: Notifications

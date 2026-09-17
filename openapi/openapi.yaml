@@ -18,7 +18,6 @@ tags:
     - name: Auth
     - name: Calendar
     - name: Citizen
-    - name: Comments
     - name: Commercial
     - name: Dynasty
     - name: Events
@@ -30,7 +29,6 @@ tags:
     - name: Notifications
     - name: Personal Info
     - name: Profile
-    - name: ProfilePhotos
     - name: Reports
     - name: Search
     - name: Settings
@@ -39,7 +37,6 @@ tags:
     - name: Support
     - name: Tickets
     - name: Training
-    - name: Tutorials
     - name: Users
     - name: Wallet
 paths:
@@ -108,19 +105,6 @@ paths:
     /api/auth/callback:
         get:
             operationId: get_auth_callback
-            parameters:
-                - description: OAuth authorization code
-                  in: query
-                  name: code
-                  required: true
-                  schema:
-                    type: string
-                - description: OAuth state parameter
-                  in: query
-                  name: state
-                  required: true
-                  schema:
-                    type: string
             responses:
                 "200":
                     description: Successful response
@@ -193,52 +177,9 @@ paths:
             summary: Get authenticated user profile
             tags:
                 - Auth
-        post:
-            operationId: post_auth_me
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: GetMe
-            tags:
-                - Auth
     /api/auth/redirect:
         get:
             operationId: get_auth_redirect
-            parameters:
-                - description: Return URL after authentication
-                  in: query
-                  name: back_url
-                  required: false
-                  schema:
-                    type: string
-                - description: Redirect target URL
-                  in: query
-                  name: redirect_to
-                  required: false
-                  schema:
-                    type: string
             responses:
                 "200":
                     description: Successful response
@@ -378,7 +319,7 @@ paths:
         delete:
             operationId: delete_bank-accounts_id
             parameters:
-                - description: Bank account ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -409,7 +350,7 @@ paths:
         get:
             operationId: get_bank-accounts_id
             parameters:
-                - description: Bank account ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -440,7 +381,7 @@ paths:
         patch:
             operationId: patch_bank-accounts_id
             parameters:
-                - description: Bank account ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -479,7 +420,7 @@ paths:
         put:
             operationId: put_bank-accounts_id
             parameters:
-                - description: Bank account ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -1304,88 +1245,6 @@ paths:
             summary: Per-karbari feature summary cards (current, bought, sold) for a period
             tags:
                 - Citizen
-    /api/citizen/{code}/referrals:
-        get:
-            operationId: get_citizen_code_referrals
-            parameters:
-                - description: Citizen code
-                  in: path
-                  name: code
-                  required: true
-                  schema:
-                    example: example-slug
-                    type: string
-                - description: Page number for pagination
-                  in: query
-                  name: page
-                  required: false
-                  schema:
-                    type: integer
-                - description: Search query
-                  in: query
-                  name: search
-                  required: false
-                  schema:
-                    type: string
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: GetCitizenReferrals
-            tags:
-                - Citizen
-    /api/citizen/{code}/referrals/chart:
-        get:
-            operationId: get_citizen_code_referrals_chart
-            parameters:
-                - description: Citizen code
-                  in: path
-                  name: code
-                  required: true
-                  schema:
-                    example: example-slug
-                    type: string
-                - description: 'Chart range: daily, weekly, monthly, or yearly'
-                  in: query
-                  name: range
-                  required: false
-                  schema:
-                    type: string
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: GetCitizenReferralChart
-            tags:
-                - Citizen
     /api/citizen/{code}/wallet/history/chart:
         get:
             operationId: get_citizen_code_wallet_history_chart
@@ -1512,141 +1371,6 @@ paths:
             summary: List comment replies
             tags:
                 - Training
-    /api/comments/{comment}/replies/{reply}:
-        delete:
-            operationId: delete_comments_comment_replies_reply
-            parameters:
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Reply ID
-                  in: path
-                  name: reply
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: DeleteReply
-            tags:
-                - Comments
-        put:
-            operationId: put_comments_comment_replies_reply
-            parameters:
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Reply ID
-                  in: path
-                  name: reply
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: UpdateReply
-            tags:
-                - Comments
-    /api/comments/{comment}/replies/{reply}/interactions:
-        post:
-            operationId: post_comments_comment_replies_reply_interactions
-            parameters:
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Reply ID
-                  in: path
-                  name: reply
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: AddReplyInteraction
-            tags:
-                - Comments
     /api/comments/{comment}/reply:
         post:
             operationId: post_comments_comment_reply
@@ -1942,13 +1666,6 @@ paths:
     /api/dynasty/prizes:
         get:
             operationId: get_dynasty_prizes
-            parameters:
-                - description: Page number for pagination
-                  in: query
-                  name: page
-                  required: false
-                  schema:
-                    type: integer
             responses:
                 "200":
                     description: Successful response
@@ -2043,13 +1760,6 @@ paths:
     /api/dynasty/requests/recieved:
         get:
             operationId: get_dynasty_requests_recieved
-            parameters:
-                - description: Page number for pagination
-                  in: query
-                  name: page
-                  required: false
-                  schema:
-                    type: integer
             responses:
                 "200":
                     description: Successful response
@@ -2175,13 +1885,6 @@ paths:
     /api/dynasty/requests/sent:
         get:
             operationId: get_dynasty_requests_sent
-            parameters:
-                - description: Page number for pagination
-                  in: query
-                  name: page
-                  required: false
-                  schema:
-                    type: integer
             responses:
                 "200":
                     description: Successful response
@@ -2299,13 +2002,6 @@ paths:
     /api/events:
         get:
             operationId: get_events
-            parameters:
-                - description: Page number for pagination
-                  in: query
-                  name: page
-                  required: false
-                  schema:
-                    type: integer
             responses:
                 "200":
                     description: Successful response
@@ -2330,7 +2026,7 @@ paths:
         get:
             operationId: get_events_id
             parameters:
-                - description: User event ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -2403,126 +2099,6 @@ paths:
             security:
                 - BearerAuth: []
             summary: Report user event
-            tags:
-                - Events
-    /api/events/report/{userEvent}:
-        post:
-            operationId: post_events_report_userEvent
-            parameters:
-                - description: User event ID
-                  in: path
-                  name: userEvent
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: ReportUserEvent
-            tags:
-                - Events
-    /api/events/report/close/{userEvent}:
-        post:
-            operationId: post_events_report_close_userEvent
-            parameters:
-                - description: User event ID
-                  in: path
-                  name: userEvent
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: CloseEventReport
-            tags:
-                - Events
-    /api/events/report/response/{userEvent}:
-        post:
-            operationId: post_events_report_response_userEvent
-            parameters:
-                - description: User event ID
-                  in: path
-                  name: userEvent
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: SendReportResponse
             tags:
                 - Events
     /api/features:
@@ -3105,61 +2681,6 @@ paths:
                 - KYC
         patch:
             operationId: patch_kyc
-            parameters:
-                - description: birthdate query parameter
-                  in: query
-                  name: birthdate
-                  required: false
-                  schema:
-                    type: string
-                - description: fname query parameter
-                  in: query
-                  name: fname
-                  required: false
-                  schema:
-                    type: string
-                - description: gender query parameter
-                  in: query
-                  name: gender
-                  required: false
-                  schema:
-                    type: string
-                - description: lname query parameter
-                  in: query
-                  name: lname
-                  required: false
-                  schema:
-                    type: string
-                - description: melli_code query parameter
-                  in: query
-                  name: melli_code
-                  required: false
-                  schema:
-                    type: string
-                - description: province query parameter
-                  in: query
-                  name: province
-                  required: false
-                  schema:
-                    type: string
-                - description: verify_text_id query parameter
-                  in: query
-                  name: verify_text_id
-                  required: false
-                  schema:
-                    type: string
-                - description: video[name] query parameter
-                  in: query
-                  name: video[name]
-                  required: false
-                  schema:
-                    type: string
-                - description: video[path] query parameter
-                  in: query
-                  name: video[path]
-                  required: false
-                  schema:
-                    type: string
             requestBody:
                 content:
                     application/json:
@@ -3190,61 +2711,6 @@ paths:
                 - KYC
         put:
             operationId: put_kyc
-            parameters:
-                - description: birthdate query parameter
-                  in: query
-                  name: birthdate
-                  required: false
-                  schema:
-                    type: string
-                - description: fname query parameter
-                  in: query
-                  name: fname
-                  required: false
-                  schema:
-                    type: string
-                - description: gender query parameter
-                  in: query
-                  name: gender
-                  required: false
-                  schema:
-                    type: string
-                - description: lname query parameter
-                  in: query
-                  name: lname
-                  required: false
-                  schema:
-                    type: string
-                - description: melli_code query parameter
-                  in: query
-                  name: melli_code
-                  required: false
-                  schema:
-                    type: string
-                - description: province query parameter
-                  in: query
-                  name: province
-                  required: false
-                  schema:
-                    type: string
-                - description: verify_text_id query parameter
-                  in: query
-                  name: verify_text_id
-                  required: false
-                  schema:
-                    type: string
-                - description: video[name] query parameter
-                  in: query
-                  name: video[name]
-                  required: false
-                  schema:
-                    type: string
-                - description: video[path] query parameter
-                  in: query
-                  name: video[path]
-                  required: false
-                  schema:
-                    type: string
             requestBody:
                 content:
                     application/json:
@@ -3417,6 +2883,28 @@ paths:
     /api/my-features:
         get:
             operationId: get_my-features
+            parameters:
+                - description: Optional filter by karbari code (e.g. m, t, a)
+                  in: query
+                  name: filter
+                  required: false
+                  schema:
+                    example: m
+                    type: string
+                - description: Page number (default 1, 5 items per page)
+                  in: query
+                  name: page
+                  required: false
+                  schema:
+                    example: 1
+                    type: integer
+                - description: Optional search by feature properties ID or address
+                  in: query
+                  name: search
+                  required: false
+                  schema:
+                    example: TO111
+                    type: string
             responses:
                 "200":
                     description: Successful response
@@ -3494,7 +2982,7 @@ paths:
         delete:
             operationId: delete_notes_id
             parameters:
-                - description: Note ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -3525,7 +3013,7 @@ paths:
         get:
             operationId: get_notes_id
             parameters:
-                - description: Note ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -3556,7 +3044,7 @@ paths:
         patch:
             operationId: patch_notes_id
             parameters:
-                - description: Note ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -3595,7 +3083,7 @@ paths:
         put:
             operationId: put_notes_id
             parameters:
-                - description: Note ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -3654,18 +3142,25 @@ paths:
             summary: List notifications
             tags:
                 - Notifications
-    /api/notifications/{id}:
-        get:
-            operationId: get_notifications_id
+    /api/notifications/read/{id}:
+        post:
+            operationId: post_notifications_read_id
             parameters:
-                - description: Resource ID
+                - description: Notification ID
                   in: path
                   name: id
                   required: true
                   schema:
-                    example: 1
-                    format: int64
-                    type: integer
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
             responses:
                 "200":
                     description: Successful response
@@ -3683,7 +3178,7 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: Get notification
+            summary: Mark notification as read
             tags:
                 - Notifications
     /api/notifications/read/all:
@@ -3968,7 +3463,7 @@ paths:
         delete:
             operationId: delete_profile-limitations_id
             parameters:
-                - description: Profile limitation ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -3999,7 +3494,7 @@ paths:
         patch:
             operationId: patch_profile-limitations_id
             parameters:
-                - description: Profile limitation ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -4038,7 +3533,7 @@ paths:
         put:
             operationId: put_profile-limitations_id
             parameters:
-                - description: Profile limitation ID
+                - description: Resource ID
                   in: path
                   name: id
                   required: true
@@ -4190,122 +3685,6 @@ paths:
             summary: Get or delete profile photo
             tags:
                 - Profile
-    /api/profilePhotos:
-        get:
-            operationId: get_profilePhotos
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: ListProfilePhotos
-            tags:
-                - ProfilePhotos
-        post:
-            operationId: post_profilePhotos
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: UploadProfilePhoto
-            tags:
-                - ProfilePhotos
-    /api/profilePhotos/{profilePhoto}:
-        delete:
-            operationId: delete_profilePhotos_profilePhoto
-            parameters:
-                - description: Profile photo ID
-                  in: path
-                  name: profilePhoto
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: DeleteProfilePhoto
-            tags:
-                - ProfilePhotos
-        get:
-            operationId: get_profilePhotos_profilePhoto
-            parameters:
-                - description: Profile photo ID
-                  in: path
-                  name: profilePhoto
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: GetProfilePhoto
-            tags:
-                - ProfilePhotos
     /api/remove/{user}:
         post:
             operationId: post_remove_user
@@ -4411,13 +3790,13 @@ paths:
             summary: List or create reports (alias)
             tags:
                 - Support
-    /api/reports/{report}:
+    /api/reports/{id}:
         get:
-            operationId: get_reports_report
+            operationId: get_reports_id
             parameters:
-                - description: Report ID
+                - description: Resource ID
                   in: path
-                  name: report
+                  name: id
                   required: true
                   schema:
                     example: 1
@@ -4467,36 +3846,6 @@ paths:
             summary: Search features
             tags:
                 - Search
-        post:
-            operationId: post_search_features
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: SearchFeatures
-            tags:
-                - Search
     /api/search/isic-codes:
         get:
             operationId: get_search_isic-codes
@@ -4521,36 +3870,6 @@ paths:
             summary: Search ISIC codes
             tags:
                 - Search
-        post:
-            operationId: post_search_isic-codes
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: SearchIsicCodes
-            tags:
-                - Search
     /api/search/users:
         get:
             operationId: get_search_users
@@ -4573,36 +3892,6 @@ paths:
                 - {}
                 - BearerAuth: []
             summary: Search users
-            tags:
-                - Search
-        post:
-            operationId: post_search_users
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: SearchUsers
             tags:
                 - Search
     /api/sell-requests:
@@ -5208,12 +4497,6 @@ paths:
         get:
             operationId: get_tickets
             parameters:
-                - description: cursor query parameter
-                  in: query
-                  name: cursor
-                  required: false
-                  schema:
-                    type: string
                 - description: Page number for pagination
                   in: query
                   name: page
@@ -5282,13 +4565,13 @@ paths:
             summary: List or create tickets (alias)
             tags:
                 - Support
-    /api/tickets/{ticket}:
+    /api/tickets/{id}:
         get:
-            operationId: get_tickets_ticket
+            operationId: get_tickets_id
             parameters:
-                - description: Ticket ID
+                - description: Resource ID
                   in: path
-                  name: ticket
+                  name: id
                   required: true
                   schema:
                     example: 1
@@ -5315,11 +4598,11 @@ paths:
             tags:
                 - Tickets
         patch:
-            operationId: patch_tickets_ticket
+            operationId: patch_tickets_id
             parameters:
-                - description: Ticket ID
+                - description: Resource ID
                   in: path
-                  name: ticket
+                  name: id
                   required: true
                   schema:
                     example: 1
@@ -5354,11 +4637,11 @@ paths:
             tags:
                 - Tickets
         put:
-            operationId: put_tickets_ticket
+            operationId: put_tickets_id
             parameters:
-                - description: Ticket ID
+                - description: Resource ID
                   in: path
-                  name: ticket
+                  name: id
                   required: true
                   schema:
                     example: 1
@@ -5392,13 +4675,13 @@ paths:
             summary: UpdateTicket
             tags:
                 - Tickets
-    /api/tickets/close/{ticket}:
+    /api/tickets/close/{id}:
         get:
-            operationId: get_tickets_close_ticket
+            operationId: get_tickets_close_id
             parameters:
-                - description: Ticket ID
+                - description: Resource ID
                   in: path
-                  name: ticket
+                  name: id
                   required: true
                   schema:
                     example: 1
@@ -5424,13 +4707,13 @@ paths:
             summary: CloseTicket
             tags:
                 - Tickets
-    /api/tickets/response/{ticket}:
+    /api/tickets/response/{id}:
         post:
-            operationId: post_tickets_response_ticket
+            operationId: post_tickets_response_id
             parameters:
-                - description: Ticket ID
+                - description: Resource ID
                   in: path
-                  name: ticket
+                  name: id
                   required: true
                   schema:
                     example: 1
@@ -5473,19 +4756,6 @@ paths:
     /api/tutorials:
         get:
             operationId: get_tutorials
-            parameters:
-                - description: Category ID
-                  in: query
-                  name: category_id
-                  required: false
-                  schema:
-                    type: integer
-                - description: Sub-category ID
-                  in: query
-                  name: sub_category_id
-                  required: false
-                  schema:
-                    type: integer
             responses:
                 "200":
                     description: Successful response
@@ -5612,396 +4882,9 @@ paths:
             summary: List or add video comments
             tags:
                 - Training
-    /api/tutorials/{video}/comments/{comment}:
-        delete:
-            operationId: delete_tutorials_video_comments_comment
-            parameters:
-                - description: Video slug or ID
-                  in: path
-                  name: video
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: DeleteComment
-            tags:
-                - Tutorials
-        post:
-            operationId: post_tutorials_video_comments_comment
-            parameters:
-                - description: Video slug or ID
-                  in: path
-                  name: video
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: UpdateComment
-            tags:
-                - Tutorials
-        put:
-            operationId: put_tutorials_video_comments_comment
-            parameters:
-                - description: Video slug or ID
-                  in: path
-                  name: video
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: UpdateComment
-            tags:
-                - Tutorials
-    /api/tutorials/{video}/comments/{comment}/dislike:
-        post:
-            operationId: post_tutorials_video_comments_comment_dislike
-            parameters:
-                - description: Video slug or ID
-                  in: path
-                  name: video
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: AddCommentDislike
-            tags:
-                - Tutorials
-    /api/tutorials/{video}/comments/{comment}/interactions:
-        post:
-            operationId: post_tutorials_video_comments_comment_interactions
-            parameters:
-                - description: Video slug or ID
-                  in: path
-                  name: video
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: AddCommentInteraction
-            tags:
-                - Tutorials
-    /api/tutorials/{video}/comments/{comment}/like:
-        post:
-            operationId: post_tutorials_video_comments_comment_like
-            parameters:
-                - description: Video slug or ID
-                  in: path
-                  name: video
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: AddCommentLike
-            tags:
-                - Tutorials
-    /api/tutorials/{video}/comments/{comment}/report:
-        post:
-            operationId: post_tutorials_video_comments_comment_report
-            parameters:
-                - description: Video slug or ID
-                  in: path
-                  name: video
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Comment ID
-                  in: path
-                  name: comment
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: ReportComment
-            tags:
-                - Tutorials
-    /api/tutorials/{video}/interactions:
-        post:
-            operationId: post_tutorials_video_interactions
-            parameters:
-                - description: Video slug or ID
-                  in: path
-                  name: video
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Like/dislike flag
-                  in: query
-                  name: liked
-                  required: false
-                  schema:
-                    type: boolean
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: AddInteraction
-            tags:
-                - Tutorials
     /api/tutorials/categories:
         get:
             operationId: get_tutorials_categories
-            parameters:
-                - description: count query parameter
-                  in: query
-                  name: count
-                  required: false
-                  schema:
-                    type: integer
             responses:
                 "200":
                     description: Successful response
@@ -6023,50 +4906,11 @@ paths:
             summary: List tutorial categories
             tags:
                 - Training
-    /api/tutorials/categories/{category}/{subCategory}:
-        get:
-            operationId: get_tutorials_categories_category_subCategory
-            parameters:
-                - description: category path parameter
-                  in: path
-                  name: category
-                  required: true
-                  schema:
-                    example: category
-                    type: string
-                - description: subCategory path parameter
-                  in: path
-                  name: subCategory
-                  required: true
-                  schema:
-                    example: subCategory
-                    type: string
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: GetSubCategory
-            tags:
-                - Tutorials
     /api/tutorials/categories/{slug}:
         get:
             operationId: get_tutorials_categories_slug
             parameters:
-                - description: category path parameter
+                - description: URL slug
                   in: path
                   name: slug
                   required: true
@@ -6098,19 +4942,13 @@ paths:
         get:
             operationId: get_tutorials_categories_slug_videos
             parameters:
-                - description: category path parameter
+                - description: URL slug
                   in: path
                   name: slug
                   required: true
                   schema:
                     example: example-slug
                     type: string
-                - description: Items per page
-                  in: query
-                  name: per_page
-                  required: false
-                  schema:
-                    type: integer
             responses:
                 "200":
                     description: Successful response
@@ -6156,37 +4994,6 @@ paths:
             summary: Search video tutorials
             tags:
                 - Training
-        post:
-            operationId: post_tutorials_search
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - {}
-                - BearerAuth: []
-            summary: SearchVideos
-            tags:
-                - Tutorials
     /api/unfollow/{user}:
         post:
             operationId: post_unfollow_user
@@ -6277,6 +5084,35 @@ paths:
                 - {}
                 - BearerAuth: []
             summary: Get user by query parameter
+            tags:
+                - Users
+    /api/user/{code}/level:
+        get:
+            operationId: get_user_code_level
+            parameters:
+                - description: Citizen code
+                  in: path
+                  name: code
+                  required: true
+                  schema:
+                    example: HM-2000000
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            summary: Get user level by citizen code
             tags:
                 - Users
     /api/user/profile:
@@ -6412,25 +5248,6 @@ paths:
     /api/users:
         get:
             operationId: get_users
-            parameters:
-                - description: order-by query parameter
-                  in: query
-                  name: order-by
-                  required: false
-                  schema:
-                    type: string
-                - description: Page number for pagination
-                  in: query
-                  name: page
-                  required: false
-                  schema:
-                    type: integer
-                - description: Search query
-                  in: query
-                  name: search
-                  required: false
-                  schema:
-                    type: string
             responses:
                 "200":
                     description: Successful response
@@ -6516,37 +5333,6 @@ paths:
             summary: List user features
             tags:
                 - Users
-    /api/users/{user}/features/count:
-        get:
-            operationId: get_users_user_features_count
-            parameters:
-                - description: User ID or citizen code
-                  in: path
-                  name: user
-                  required: true
-                  schema:
-                    example: user-code
-                    type: string
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: GetUserFeaturesCount
-            tags:
-                - Users
     /api/users/{user}/followers:
         get:
             operationId: get_users_user_followers
@@ -6611,68 +5397,6 @@ paths:
             summary: List users followed by user
             tags:
                 - Users
-    /api/users/{user}/levels:
-        get:
-            operationId: get_users_user_levels
-            parameters:
-                - description: User ID or citizen code
-                  in: path
-                  name: user
-                  required: true
-                  schema:
-                    example: user-code
-                    type: string
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: GetUserLevels
-            tags:
-                - Users
-    /api/users/{user}/profile:
-        get:
-            operationId: get_users_user_profile
-            parameters:
-                - description: User ID or citizen code
-                  in: path
-                  name: user
-                  required: true
-                  schema:
-                    example: user-code
-                    type: string
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: GetUserProfile
-            tags:
-                - Users
     /api/users/{user}/profile-limitations:
         get:
             operationId: get_users_user_profile-limitations
@@ -6704,37 +5428,6 @@ paths:
             summary: Get mutual profile limitation between caller and user
             tags:
                 - Profile
-    /api/users/{user}/wallet:
-        get:
-            operationId: get_users_user_wallet
-            parameters:
-                - description: User ID or citizen code
-                  in: path
-                  name: user
-                  required: true
-                  schema:
-                    example: user-code
-                    type: string
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: GetUserWallet
-            tags:
-                - Users
     /api/video-tutorials:
         post:
             operationId: post_video-tutorials
@@ -6883,17 +5576,18 @@ paths:
                     application/json:
                         schema:
                             type: object
-                            properties:
-                                wallet_address:
-                                    type: string
-                            required:
-                                - wallet_address
                     multipart/form-data:
                         schema:
                             type: object
             responses:
                 "200":
                     description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
                 "422":
                     content:
                         application/json:
