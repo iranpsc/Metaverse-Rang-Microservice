@@ -26,13 +26,17 @@ func buildDynastyHTTPResponse(resp *dynastypb.DynastyResponse) map[string]interf
 		if resp.DynastyFeature != nil {
 			data["dynasty-feature"] = buildDynastyFeatureHTTP(resp.DynastyFeature)
 		}
-		data["features"] = buildSelectedFeatureHTTP(resp)
-	} else if len(resp.Features) > 0 {
+	}
+
+	// All user maskoni features except the current dynasty feature (already filtered in gRPC layer).
+	if len(resp.Features) > 0 {
 		features := make([]map[string]interface{}, 0, len(resp.Features))
 		for _, feature := range resp.Features {
 			features = append(features, availableFeatureHTTP(feature))
 		}
 		data["features"] = features
+	} else if resp.UserHasDynasty {
+		data["features"] = []map[string]interface{}{}
 	}
 
 	if len(resp.Prizes) > 0 {
@@ -62,34 +66,6 @@ func buildDynastyFeatureHTTP(feature *dynastypb.DynastyFeature) map[string]inter
 		"feature-profit-increase": feature.FeatureProfitIncrease,
 		"family-members-count":    feature.FamilyMembersCount,
 		"last-updated":            feature.LastUpdated,
-	}
-}
-
-func buildSelectedFeatureHTTP(resp *dynastypb.DynastyResponse) map[string]interface{} {
-	if resp == nil || resp.DynastyFeature == nil {
-		return map[string]interface{}{
-			"id":            "",
-			"properties_id": "",
-			"density":       "",
-			"area":          "",
-			"stability":     "",
-		}
-	}
-
-	stability := ""
-	for _, feature := range resp.Features {
-		if feature != nil && feature.Id == resp.DynastyFeature.Id {
-			stability = feature.Stability
-			break
-		}
-	}
-
-	return map[string]interface{}{
-		"id":            resp.DynastyFeature.Id,
-		"properties_id": resp.DynastyFeature.PropertiesId,
-		"density":       resp.DynastyFeature.Density,
-		"area":          resp.DynastyFeature.Area,
-		"stability":     stability,
 	}
 }
 

@@ -105,13 +105,6 @@ func availableFeatureFromDetails(details map[string]interface{}) *dynastypb.Avai
 	}
 }
 
-func withSelectedFeature(selected *dynastypb.AvailableFeature, others []*dynastypb.AvailableFeature) []*dynastypb.AvailableFeature {
-	if selected == nil {
-		return others
-	}
-	return append([]*dynastypb.AvailableFeature{selected}, others...)
-}
-
 func memberTitle(member string) string {
 	switch member {
 	case "brother":

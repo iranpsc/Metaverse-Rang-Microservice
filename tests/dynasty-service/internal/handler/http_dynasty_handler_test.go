@@ -210,7 +210,6 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 						FeatureProfitIncrease: "0.5", FamilyMembersCount: 3, LastUpdated: "1403/01/02",
 					},
 					Features: []*dynastypb.AvailableFeature{
-						{Id: 100, PropertiesId: "p1", Density: "d", Stability: "15000", Area: "a"},
 						{Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3"},
 					},
 					Prizes: []*dynastypb.IntroductionPrize{{
@@ -232,9 +231,12 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, true, data["user-has-dynasty"])
 		assert.Equal(t, photo, data["profile-image"])
+		features, ok := data["features"].([]interface{})
+		require.True(t, ok)
+		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
-			"id": float64(100), "properties_id": "p1", "density": "d", "area": "a", "stability": "15000",
-		}, data["features"])
+			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
+		}, features[0])
 		_, prizesOK := data["prizes"].([]interface{})
 		assert.True(t, prizesOK)
 	})
@@ -291,9 +293,7 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &payload))
 		data, ok := payload["data"].(map[string]interface{})
 		require.True(t, ok)
-		assert.Equal(t, map[string]interface{}{
-			"id": "", "properties_id": "", "density": "", "area": "", "stability": "",
-		}, data["features"])
+		assert.Equal(t, []interface{}{}, data["features"])
 	})
 
 	t.Run("unauthenticated", func(t *testing.T) {
