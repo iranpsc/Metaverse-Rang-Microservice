@@ -204,6 +204,16 @@ func (s *MarketplaceService) handleLimitedFeature(ctx context.Context, feature *
 		return err
 	}
 
+	// Persist color payment against the trade so trade-history can resolve price.type=color.
+	if s.commercialClient != nil {
+		_, _ = s.commercialClient.CreateTransaction(
+			ctx, buyerID, color, properties.Stability, "withdraw", 1, `App\Models\Trade`, tradeID,
+		)
+		_, _ = s.commercialClient.CreateTransaction(
+			ctx, feature.OwnerID, color, properties.Stability, "deposit", 1, `App\Models\Trade`, tradeID,
+		)
+	}
+
 	s.log.Info("Limited feature purchased", "trade_id", tradeID, "feature_id", feature.ID, "buyer_id", buyerID)
 
 	// Record metrics
@@ -315,9 +325,19 @@ func (s *MarketplaceService) buyFromRGB(ctx context.Context, feature *models.Fea
 	}
 
 	// Create trade
-	_, err = s.tradeRepo.Create(ctx, feature.ID, buyerID, feature.OwnerID, 0, 0)
+	tradeID, err := s.tradeRepo.Create(ctx, feature.ID, buyerID, feature.OwnerID, 0, 0)
 	if err != nil {
 		return err
+	}
+
+	// Persist color payment against the trade so trade-history can resolve price.type=color.
+	if s.commercialClient != nil {
+		_, _ = s.commercialClient.CreateTransaction(
+			ctx, buyerID, color, properties.Stability, "withdraw", 1, `App\Models\Trade`, tradeID,
+		)
+		_, _ = s.commercialClient.CreateTransaction(
+			ctx, feature.OwnerID, color, properties.Stability, "deposit", 1, `App\Models\Trade`, tradeID,
+		)
 	}
 
 	// Assign hourly profit to buyer (reuses existing feature row if any)

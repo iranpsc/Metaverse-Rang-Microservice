@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"metarang/features-service/internal/constants"
 	"metarang/features-service/internal/models"
 
 	ptime "github.com/yaa110/go-persian-calendar"
@@ -56,7 +57,7 @@ func (s *FeatureTradeHistoryService) Paginate(
 		page = 1
 	}
 
-	feature, _, err := s.featureRepo.FindByID(ctx, featureID)
+	feature, properties, err := s.featureRepo.FindByID(ctx, featureID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, models.ErrFeatureNotFound
@@ -80,7 +81,7 @@ func (s *FeatureTradeHistoryService) Paginate(
 
 	items := make([]models.TradeHistoryItem, 0, len(trades)+1)
 	for _, trade := range trades {
-		items = append(items, s.transformTrade(trade, systemUserPtr))
+		items = append(items, s.transformTrade(trade, systemUserPtr, properties))
 	}
 	items = append(items, s.buildGenesisEntry(feature))
 
@@ -127,6 +128,7 @@ func (s *FeatureTradeHistoryService) Paginate(
 func (s *FeatureTradeHistoryService) transformTrade(
 	trade models.TradeHistoryTrade,
 	systemUserID *uint64,
+	properties *models.FeatureProperties,
 ) models.TradeHistoryItem {
 	id := trade.ID
 	var participantCode *string
@@ -141,7 +143,7 @@ func (s *FeatureTradeHistoryService) transformTrade(
 		ParticipantCode:  participantCode,
 		ParticipantLabel: trade.BuyerName,
 		DateTime:         formatTradeHistoryDateTime(trade.TradeTimestamp(s.now())),
-		Price:            s.resolvePrice(trade, systemUserID),
+		Price:            s.resolvePrice(trade, systemUserID, properties),
 	}
 }
 
@@ -168,25 +170,10 @@ func (s *FeatureTradeHistoryService) buildGenesisEntry(feature *models.Feature) 
 func (s *FeatureTradeHistoryService) resolvePrice(
 	trade models.TradeHistoryTrade,
 	systemUserID *uint64,
+	properties *models.FeatureProperties,
 ) models.TradeHistoryPrice {
 	if s.isSystemPurchase(trade, systemUserID) {
-		color, amount := firstColorWithdraw(trade.Transactions)
-		var colorPtr, colorNamePtr *string
-		var amountPtr *int64
-		if color != "" {
-			colorPtr = &color
-			if name, ok := colorAssets[color]; ok {
-				colorNamePtr = &name
-			}
-		}
-		amt := int64(amount)
-		amountPtr = &amt
-		return models.TradeHistoryPrice{
-			Type:        models.TradeHistoryPriceColor,
-			Color:       colorPtr,
-			ColorName:   colorNamePtr,
-			ColorAmount: amountPtr,
-		}
+		return resolveColorPrice(trade.Transactions, properties)
 	}
 
 	psc := int64(trade.PSCAmount)
@@ -195,6 +182,42 @@ func (s *FeatureTradeHistoryService) resolvePrice(
 		Type:     models.TradeHistoryPriceCurrency,
 		PricePSC: &psc,
 		PriceIRR: &irr,
+	}
+}
+
+// resolveColorPrice prefers Trade-linked color withdraws; falls back to feature
+// karbari/stability because RGB purchases historically only moved wallet balances
+// without creating payable morph transactions.
+func resolveColorPrice(
+	transactions []models.TradeHistoryTransaction,
+	properties *models.FeatureProperties,
+) models.TradeHistoryPrice {
+	color, amount := firstColorWithdraw(transactions)
+	if color == "" && properties != nil {
+		color = constants.GetColor(properties.Karbari)
+		amount = properties.Stability
+	}
+
+	var colorPtr, colorNamePtr *string
+	var amountPtr *int64
+	if color != "" {
+		colorPtr = &color
+		if name, ok := colorAssets[color]; ok {
+			colorNamePtr = &name
+		} else if properties != nil {
+			if name := constants.GetColorPersian(properties.Karbari); name != "" {
+				colorNamePtr = &name
+			}
+		}
+		amt := int64(amount)
+		amountPtr = &amt
+	}
+
+	return models.TradeHistoryPrice{
+		Type:        models.TradeHistoryPriceColor,
+		Color:       colorPtr,
+		ColorName:   colorNamePtr,
+		ColorAmount: amountPtr,
 	}
 }
 

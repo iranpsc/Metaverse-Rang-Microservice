@@ -75,6 +75,15 @@ func sampleFeature(ownerID uint64, createdAt time.Time) *models.Feature {
 	}
 }
 
+func sampleProperties(karbari string, stability float64) *models.FeatureProperties {
+	return &models.FeatureProperties{
+		ID:        "P-10",
+		FeatureID: 10,
+		Karbari:   karbari,
+		Stability: stability,
+	}
+}
+
 func TestFeatureTradeHistoryService_NotFound(t *testing.T) {
 	svc := newTradeHistoryService(&mockTradeHistoryFeatureRepo{}, &mockTradeHistoryTradeRepo{})
 	_, err := svc.Paginate(context.Background(), 99, 1)
@@ -113,6 +122,60 @@ func TestFeatureTradeHistoryService_GenesisOnly(t *testing.T) {
 	assert.Equal(t, "آبان 1401 | 09:00:00", item.DateTime.Formatted)
 }
 
+func TestFeatureTradeHistoryService_RGBPurchaseFallsBackToFeatureProperties(t *testing.T) {
+	// RGB / system purchases historically only move wallet balances and leave
+	// trades without linked color withdraw transactions.
+	createdAt := time.Date(2022, 2, 4, 10, 28, 24, 0, time.UTC) // ~1400/11/15-ish genesis style
+	tradeAt := time.Date(2026, 9, 17, 7, 34, 43, 0, time.UTC)
+	systemUserID := uint64(1)
+
+	trades := []models.TradeHistoryTrade{
+		{
+			ID:        287,
+			FeatureID: 10,
+			BuyerID:   491,
+			SellerID:  systemUserID,
+			PSCAmount: 0,
+			IRRAmount: 0,
+			CreatedAt: sql.NullTime{Time: tradeAt, Valid: true},
+			BuyerCode: "hm-2000491",
+			BuyerName: "Parsa",
+			// No Transactions — reproduces the null color_* bug.
+		},
+	}
+
+	svc := newTradeHistoryService(
+		&mockTradeHistoryFeatureRepo{
+			feature:    sampleFeature(491, createdAt),
+			properties: sampleProperties("t", 1250), // tejari → red
+		},
+		&mockTradeHistoryTradeRepo{systemUserID: systemUserID, trades: trades},
+	)
+
+	page, err := svc.Paginate(context.Background(), 10, 1)
+	require.NoError(t, err)
+	require.Len(t, page.Items, 2)
+
+	item := page.Items[0]
+	require.NotNil(t, item.ID)
+	assert.Equal(t, uint64(287), *item.ID)
+	assert.Equal(t, models.TradeHistoryTypeTrade, item.Type)
+	require.NotNil(t, item.ParticipantCode)
+	assert.Equal(t, "HM-2000491", *item.ParticipantCode)
+	assert.Equal(t, "Parsa", item.ParticipantLabel)
+	assert.Equal(t, models.TradeHistoryPriceColor, item.Price.Type)
+	assert.Nil(t, item.Price.PricePSC)
+	assert.Nil(t, item.Price.PriceIRR)
+	require.NotNil(t, item.Price.Color)
+	assert.Equal(t, "red", *item.Price.Color)
+	require.NotNil(t, item.Price.ColorName)
+	assert.Equal(t, "قرمز", *item.Price.ColorName)
+	require.NotNil(t, item.Price.ColorAmount)
+	assert.Equal(t, int64(1250), *item.Price.ColorAmount)
+
+	assert.Equal(t, models.TradeHistoryTypeGenesis, page.Items[1].Type)
+}
+
 func TestFeatureTradeHistoryService_SortDescendingAndCurrencyVsColor(t *testing.T) {
 	createdAt := time.Date(2022, 11, 1, 9, 0, 0, 0, time.UTC)
 	systemUserID := uint64(1)
@@ -126,7 +189,7 @@ func TestFeatureTradeHistoryService_SortDescendingAndCurrencyVsColor(t *testing.
 			BuyerID:   3,
 			SellerID:  81,
 			PSCAmount: 2500000,
-			IRRAmount: 0,
+			IRRAmount: 100000,
 			CreatedAt: sql.NullTime{Time: newer, Valid: true},
 			BuyerCode: "hm-2000003",
 			BuyerName: "کاربر فعلی",
@@ -148,7 +211,10 @@ func TestFeatureTradeHistoryService_SortDescendingAndCurrencyVsColor(t *testing.
 	}
 
 	svc := newTradeHistoryService(
-		&mockTradeHistoryFeatureRepo{feature: sampleFeature(3, createdAt)},
+		&mockTradeHistoryFeatureRepo{
+			feature:    sampleFeature(3, createdAt),
+			properties: sampleProperties("t", 250),
+		},
 		&mockTradeHistoryTradeRepo{systemUserID: systemUserID, trades: trades},
 	)
 
@@ -157,7 +223,7 @@ func TestFeatureTradeHistoryService_SortDescendingAndCurrencyVsColor(t *testing.
 	require.Len(t, page.Items, 3)
 	assert.Equal(t, 3, page.Total)
 
-	// Newest trade first
+	// Newest trade first — P2P currency
 	assert.Equal(t, models.TradeHistoryTypeTrade, page.Items[0].Type)
 	require.NotNil(t, page.Items[0].ID)
 	assert.Equal(t, uint64(42), *page.Items[0].ID)
@@ -167,8 +233,13 @@ func TestFeatureTradeHistoryService_SortDescendingAndCurrencyVsColor(t *testing.
 	assert.Equal(t, models.TradeHistoryPriceCurrency, page.Items[0].Price.Type)
 	require.NotNil(t, page.Items[0].Price.PricePSC)
 	assert.Equal(t, int64(2500000), *page.Items[0].Price.PricePSC)
+	require.NotNil(t, page.Items[0].Price.PriceIRR)
+	assert.Equal(t, int64(100000), *page.Items[0].Price.PriceIRR)
+	assert.Nil(t, page.Items[0].Price.Color)
+	assert.Nil(t, page.Items[0].Price.ColorName)
+	assert.Nil(t, page.Items[0].Price.ColorAmount)
 
-	// Older system purchase uses color price
+	// Older system purchase uses color price from linked transactions
 	assert.Equal(t, models.TradeHistoryTypeTrade, page.Items[1].Type)
 	require.NotNil(t, page.Items[1].ID)
 	assert.Equal(t, uint64(41), *page.Items[1].ID)
@@ -210,7 +281,10 @@ func TestFeatureTradeHistoryService_ColorViaTransactionsWithoutSystemSeller(t *t
 	}
 
 	svc := newTradeHistoryService(
-		&mockTradeHistoryFeatureRepo{feature: sampleFeature(7, createdAt)},
+		&mockTradeHistoryFeatureRepo{
+			feature:    sampleFeature(7, createdAt),
+			properties: sampleProperties("a", 999), // fallback must NOT override linked tx
+		},
 		&mockTradeHistoryTradeRepo{systemUserID: 1, trades: trades},
 	)
 
@@ -222,6 +296,8 @@ func TestFeatureTradeHistoryService_ColorViaTransactionsWithoutSystemSeller(t *t
 	assert.Equal(t, "blue", *page.Items[0].Price.Color)
 	require.NotNil(t, page.Items[0].Price.ColorName)
 	assert.Equal(t, "آبی", *page.Items[0].Price.ColorName)
+	require.NotNil(t, page.Items[0].Price.ColorAmount)
+	assert.Equal(t, int64(100), *page.Items[0].Price.ColorAmount)
 }
 
 func TestFeatureTradeHistoryService_UsesDateWhenCreatedAtMissing(t *testing.T) {

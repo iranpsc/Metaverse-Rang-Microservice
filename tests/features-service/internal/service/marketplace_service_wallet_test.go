@@ -253,6 +253,15 @@ func TestMarketplaceService_BuyFeature_Limited_HappyPath(t *testing.T) {
 	assert.Equal(t, testutil.BalanceOp{UserID: 2, Asset: "yellow", Amount: 10}, stub.DeductCalls[0])
 	require.GreaterOrEqual(t, len(stub.AddCalls), 1)
 	assert.Equal(t, testutil.BalanceOp{UserID: 5, Asset: "yellow", Amount: 10}, stub.AddCalls[0])
+	require.Len(t, stub.CreateTxCalls, 2)
+	assert.Equal(t, testutil.CreateTxOp{
+		UserID: 2, Asset: "yellow", Amount: 10, Action: "withdraw", Status: 1,
+		PayableType: `App\Models\Trade`, PayableID: 7,
+	}, stub.CreateTxCalls[0])
+	assert.Equal(t, testutil.CreateTxOp{
+		UserID: 5, Asset: "yellow", Amount: 10, Action: "deposit", Status: 1,
+		PayableType: `App\Models\Trade`, PayableID: 7,
+	}, stub.CreateTxCalls[1])
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -292,6 +301,12 @@ func TestMarketplaceService_BuyFeature_RGB_HappyPath(t *testing.T) {
 	require.Len(t, stub.DeductCalls, 1)
 	assert.Equal(t, testutil.BalanceOp{UserID: 2, Asset: "yellow", Amount: 10}, stub.DeductCalls[0])
 	assert.Equal(t, testutil.BalanceOp{UserID: 5, Asset: "yellow", Amount: 10}, stub.AddCalls[0])
+	require.Len(t, stub.CreateTxCalls, 2)
+	assert.Equal(t, "withdraw", stub.CreateTxCalls[0].Action)
+	assert.Equal(t, "yellow", stub.CreateTxCalls[0].Asset)
+	assert.Equal(t, `App\Models\Trade`, stub.CreateTxCalls[0].PayableType)
+	assert.Equal(t, uint64(7), stub.CreateTxCalls[0].PayableID)
+	assert.Equal(t, "deposit", stub.CreateTxCalls[1].Action)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
