@@ -15,6 +15,30 @@ func NewSellRequestRepository(db *sql.DB) *SellRequestRepository {
 	return &SellRequestRepository{db: db}
 }
 
+// GetLatestByFeatureID returns the newest sell request for a feature, if any.
+func (r *SellRequestRepository) GetLatestByFeatureID(ctx context.Context, featureID uint64) (*models.SellFeatureRequest, error) {
+	request := &models.SellFeatureRequest{}
+
+	query := `
+		SELECT id, seller_id, feature_id, price_psc, price_irr, ` + "`limit`" + `, status, created_at, updated_at
+		FROM sell_feature_requests
+		WHERE feature_id = ?
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`
+
+	err := r.db.QueryRowContext(ctx, query, featureID).Scan(
+		&request.ID, &request.SellerID, &request.FeatureID,
+		&request.PricePSC, &request.PriceIRR, &request.Limit, &request.Status,
+		&request.CreatedAt, &request.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	return request, err
+}
+
 // Create creates a new sell feature request
 func (r *SellRequestRepository) Create(ctx context.Context, sellerID, featureID uint64, pricePSC, priceIRR float64, limit int) (uint64, error) {
 	query := `

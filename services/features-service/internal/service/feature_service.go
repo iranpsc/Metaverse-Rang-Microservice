@@ -20,6 +20,7 @@ type FeatureService struct {
 	buildingRepo     *repository.BuildingRepository
 	tradeRepo        *repository.TradeRepository
 	hourlyProfitRepo *repository.HourlyProfitRepository
+	sellRequestRepo  *repository.SellRequestRepository
 	pricingService   *FeaturePricingService
 	fileStorage      FileStorage
 	apiGatewayURL    string
@@ -47,6 +48,7 @@ func NewFeatureService(
 		buildingRepo:     buildingRepo,
 		tradeRepo:        tradeRepo,
 		hourlyProfitRepo: hourlyProfitRepo,
+		sellRequestRepo:  repository.NewSellRequestRepository(db),
 		pricingService:   pricingService,
 		fileStorage:      fileStorage,
 		apiGatewayURL:    apiGatewayURL,
@@ -152,8 +154,28 @@ func (s *FeatureService) ListFeatures(ctx context.Context, points []string, load
 	return result, nil
 }
 
+// isForSaleFromLatestSellRequest maps the latest sell-request status to the
+// feature-details is_for_sale flag: open (0) => 1, completed (1) or missing => 0.
+func isForSaleFromLatestSellRequest(req *models.SellFeatureRequest) int32 {
+	if req != nil && req.Status == 0 {
+		return 1
+	}
+	return 0
+}
+
+func (s *FeatureService) loadIsForSale(ctx context.Context, featureID uint64) int32 {
+	if s.sellRequestRepo == nil {
+		return 0
+	}
+	latest, err := s.sellRequestRepo.GetLatestByFeatureID(ctx, featureID)
+	if err != nil {
+		return 0
+	}
+	return isForSaleFromLatestSellRequest(latest)
+}
+
 // GetFeature retrieves a single feature with all relations
-// Loads: properties, images, latestTraded.seller, hourlyProfit, buildingModels
+// Loads: properties, images, latestTraded.seller, hourlyProfit, buildingModels, latest sell-request (is_for_sale)
 func (s *FeatureService) GetFeature(ctx context.Context, featureID uint64) (*pb.Feature, error) {
 	feature, properties, err := s.featureRepo.FindByID(ctx, featureID)
 	if err != nil {
@@ -236,6 +258,7 @@ func (s *FeatureService) GetFeature(ctx context.Context, featureID uint64) (*pb.
 		Seller:               pbSeller,
 		IsHourlyProfitActive: isHourlyProfitActive,
 		BuildingModels:       buildings,
+		IsForSale:            s.loadIsForSale(ctx, featureID),
 	}
 
 	return pbFeature, nil

@@ -108,3 +108,53 @@ func TestSellRequestRepository_ListByFeatureID_Empty(t *testing.T) {
 	assert.Empty(t, requests)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestSellRequestRepository_GetLatestByFeatureID(t *testing.T) {
+	db, mock := testutil.NewSQLMock(t)
+	repo := repository.NewSellRequestRepository(db)
+	now := time.Now()
+
+	mock.ExpectQuery("FROM sell_feature_requests").
+		WithArgs(uint64(10)).
+		WillReturnRows(sqlmock.NewRows(sellRequestCols()).
+			AddRow(2, 3, 10, 15.0, 25.0, 100, 0, now, now))
+
+	req, err := repo.GetLatestByFeatureID(context.Background(), 10)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	assert.Equal(t, uint64(2), req.ID)
+	assert.Equal(t, uint64(10), req.FeatureID)
+	assert.Equal(t, 0, req.Status)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSellRequestRepository_GetLatestByFeatureID_None(t *testing.T) {
+	db, mock := testutil.NewSQLMock(t)
+	repo := repository.NewSellRequestRepository(db)
+
+	mock.ExpectQuery("FROM sell_feature_requests").
+		WithArgs(uint64(99)).
+		WillReturnRows(sqlmock.NewRows(sellRequestCols()))
+
+	req, err := repo.GetLatestByFeatureID(context.Background(), 99)
+	require.NoError(t, err)
+	assert.Nil(t, req)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSellRequestRepository_GetLatestByFeatureID_CompletedStatus(t *testing.T) {
+	db, mock := testutil.NewSQLMock(t)
+	repo := repository.NewSellRequestRepository(db)
+	now := time.Now()
+
+	mock.ExpectQuery("FROM sell_feature_requests").
+		WithArgs(uint64(10)).
+		WillReturnRows(sqlmock.NewRows(sellRequestCols()).
+			AddRow(5, 3, 10, 15.0, 25.0, 100, 1, now, now))
+
+	req, err := repo.GetLatestByFeatureID(context.Background(), 10)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	assert.Equal(t, 1, req.Status)
+	require.NoError(t, mock.ExpectationsWereMet())
+}

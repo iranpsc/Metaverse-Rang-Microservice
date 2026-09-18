@@ -1331,8 +1331,10 @@ type Feature struct {
 	Seller               *Seller                `protobuf:"bytes,9,opt,name=seller,proto3" json:"seller,omitempty"` // Latest seller from trade
 	IsHourlyProfitActive bool                   `protobuf:"varint,10,opt,name=is_hourly_profit_active,json=isHourlyProfitActive,proto3" json:"is_hourly_profit_active,omitempty"`
 	BuildingModels       []*Building            `protobuf:"bytes,11,rep,name=building_models,json=buildingModels,proto3" json:"building_models,omitempty"` // Building models with pivot metadata
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// 1 when the latest sell request is open (status=0), otherwise 0 (status=1 or none).
+	IsForSale     int32 `protobuf:"varint,12,opt,name=is_for_sale,json=isForSale,proto3" json:"is_for_sale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Feature) Reset() {
@@ -1440,6 +1442,13 @@ func (x *Feature) GetBuildingModels() []*Building {
 		return x.BuildingModels
 	}
 	return nil
+}
+
+func (x *Feature) GetIsForSale() int32 {
+	if x != nil {
+		return x.IsForSale
+	}
+	return 0
 }
 
 type Seller struct {
@@ -6885,7 +6894,7 @@ const file_features_proto_rawDesc = "" +
 	"\x14SimplePaginationMeta\x12!\n" +
 	"\fcurrent_page\x18\x01 \x01(\x05R\vcurrentPage\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x19\n" +
-	"\bper_page\x18\x03 \x01(\x05R\aperPage\"\xc5\x03\n" +
+	"\bper_page\x18\x03 \x01(\x05R\aperPage\"\xe5\x03\n" +
 	"\aFeature\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x15\n" +
 	"\x06map_id\x18\x02 \x01(\x04R\x05mapId\x12\x19\n" +
@@ -6900,7 +6909,8 @@ const file_features_proto_rawDesc = "" +
 	"\x06seller\x18\t \x01(\v2\x10.features.SellerR\x06seller\x125\n" +
 	"\x17is_hourly_profit_active\x18\n" +
 	" \x01(\bR\x14isHourlyProfitActive\x12;\n" +
-	"\x0fbuilding_models\x18\v \x03(\v2\x12.features.BuildingR\x0ebuildingModels\"@\n" +
+	"\x0fbuilding_models\x18\v \x03(\v2\x12.features.BuildingR\x0ebuildingModels\x12\x1e\n" +
+	"\vis_for_sale\x18\f \x01(\x05R\tisForSale\"@\n" +
 	"\x06Seller\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +

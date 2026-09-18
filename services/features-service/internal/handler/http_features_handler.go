@@ -894,7 +894,7 @@ func featureMap(f *featurespb.Feature) map[string]interface{} {
 	if f == nil {
 		return map[string]interface{}{}
 	}
-	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive}
+	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive, "is_for_sale": f.IsForSale}
 	if f.Properties != nil {
 		out["properties"] = propertyMap(f.Properties)
 	}
