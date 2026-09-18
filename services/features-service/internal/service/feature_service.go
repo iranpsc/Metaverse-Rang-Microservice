@@ -10,6 +10,7 @@ import (
 	"metarang/features-service/internal/models"
 	"metarang/features-service/internal/repository"
 	pb "metarang/shared/pb/features"
+	"metarang/shared/pkg/helpers"
 )
 
 type FeatureService struct {
@@ -237,6 +238,7 @@ func (s *FeatureService) GetFeature(ctx context.Context, featureID uint64) (*pb.
 		IsHourlyProfitActive: isHourlyProfitActive,
 		BuildingModels:       buildings,
 	}
+	s.applyLatestSellRequest(ctx, pbFeature)
 
 	return pbFeature, nil
 }
@@ -312,6 +314,7 @@ func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page
 		}
 		result = append(result, pbFeature)
 	}
+	s.applyLatestSellRequests(ctx, result)
 
 	return result, nil
 }
@@ -390,6 +393,7 @@ func (s *FeatureService) GetMyFeature(ctx context.Context, userID, featureID uin
 		Images:     pbImages,
 		Seller:     pbSeller,
 	}
+	s.applyLatestSellRequest(ctx, pbFeature)
 
 	return pbFeature, nil
 }
@@ -506,6 +510,60 @@ func (s *FeatureService) UpdateMyFeature(ctx context.Context, userID, featureID 
 		PricePsc: pricing.PricePSC,
 		PriceIrr: pricing.PriceIRR,
 	}, nil
+}
+
+func (s *FeatureService) applyLatestSellRequest(ctx context.Context, feature *pb.Feature) {
+	if feature == nil || s.db == nil {
+		return
+	}
+	req, err := repository.NewSellRequestRepository(s.db).GetLatestOpenByFeatureID(ctx, feature.Id)
+	if err != nil || req == nil {
+		return
+	}
+	feature.IsForSale = true
+	feature.LatestSellRequest = sellRequestToPB(req)
+}
+
+func (s *FeatureService) applyLatestSellRequests(ctx context.Context, features []*pb.Feature) {
+	if s.db == nil || len(features) == 0 {
+		return
+	}
+	ids := make([]uint64, 0, len(features))
+	for _, feature := range features {
+		if feature != nil {
+			ids = append(ids, feature.Id)
+		}
+	}
+	latest, err := repository.NewSellRequestRepository(s.db).GetLatestOpenByFeatureIDs(ctx, ids)
+	if err != nil {
+		return
+	}
+	for _, feature := range features {
+		if feature == nil {
+			continue
+		}
+		req := latest[feature.Id]
+		if req == nil {
+			continue
+		}
+		feature.IsForSale = true
+		feature.LatestSellRequest = sellRequestToPB(req)
+	}
+}
+
+func sellRequestToPB(req *models.SellFeatureRequest) *pb.SellRequestResponse {
+	if req == nil {
+		return nil
+	}
+	return &pb.SellRequestResponse{
+		Id:        req.ID,
+		SellerId:  req.SellerID,
+		FeatureId: req.FeatureID,
+		PricePsc:  fmt.Sprintf("%.10f", req.PricePSC),
+		PriceIrr:  fmt.Sprintf("%.10f", req.PriceIRR),
+		Status:    int32(req.Status),
+		CreatedAt: helpers.FormatJalaliDate(req.CreatedAt),
+	}
 }
 
 func formatCoordValue(v float64) string {
