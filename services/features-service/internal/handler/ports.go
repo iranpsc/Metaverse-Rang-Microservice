@@ -19,7 +19,7 @@ type FeatureServicePort interface {
 	GetMyFeature(ctx context.Context, userID, featureID uint64) (*pb.Feature, error)
 	AddMyFeatureImages(ctx context.Context, userID, featureID uint64, imageData [][]byte, filenames, contentTypes []string) (*pb.Feature, error)
 	RemoveMyFeatureImage(ctx context.Context, userID, featureID, imageID uint64) error
-	UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error
+	UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error)
 }
 
 // TradeHistoryServicePort is implemented by *service.FeatureTradeHistoryService.

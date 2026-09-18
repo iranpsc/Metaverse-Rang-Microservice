@@ -110,14 +110,14 @@ func TestFeaturePricingService_SQLMock(t *testing.T) {
 	assert.Equal(t, "m", info["karbari"])
 
 	expectFeatureFindByID(mock, 99, "m", 1000, 80)
-	err = svc.UpdateFeaturePricing(context.Background(), 1, 3, 90)
+	_, err = svc.UpdateFeaturePricing(context.Background(), 1, 3, 90)
 	require.Error(t, err)
 
 	expectFeatureFindByID(mock, 3, "m", 1000, 80)
 	mock.ExpectQuery("SELECT birthdate FROM kycs").
 		WithArgs(uint64(3)).
 		WillReturnError(sql.ErrNoRows)
-	err = svc.UpdateFeaturePricing(context.Background(), 1, 3, 70)
+	_, err = svc.UpdateFeaturePricing(context.Background(), 1, 3, 70)
 	require.Error(t, err)
 
 	expectFeatureFindByID(mock, 3, "m", 1000, 80)
@@ -132,7 +132,11 @@ func TestFeaturePricingService_SQLMock(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1.0))
 	mock.ExpectExec("SET price_psc").
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	require.NoError(t, svc.UpdateFeaturePricing(context.Background(), 1, 3, 90))
+	pricing, err := svc.UpdateFeaturePricing(context.Background(), 1, 3, 90)
+	require.NoError(t, err)
+	require.NotNil(t, pricing)
+	assert.Equal(t, "450.0000000000", pricing.PricePSC)
+	assert.Equal(t, "450.0000000000", pricing.PriceIRR)
 
 	expectFeatureFindByID(mock, 3, "m", 1000, 80)
 	mock.ExpectExec("UPDATE feature_properties SET").
@@ -199,7 +203,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 			"p1", 1, "m", "d", "o", "l", "addr",
 			10.0, 1, 10.0, "0", "0", 80, now, now,
 		))
-	err = svc.UpdateMyFeature(context.Background(), 2, 1, 90)
+	_, err = svc.UpdateMyFeature(context.Background(), 2, 1, 90)
 	require.Error(t, err)
 
 	mock.ExpectQuery("f.owner_id").

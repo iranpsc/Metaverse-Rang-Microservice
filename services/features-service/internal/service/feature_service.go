@@ -479,27 +479,33 @@ func (s *FeatureService) RemoveMyFeatureImage(ctx context.Context, userID, featu
 
 // UpdateMyFeature updates the minimum price percentage for a feature
 // Verifies ownership and calculates new pricing based on stability and rates
-func (s *FeatureService) UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error {
+func (s *FeatureService) UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
 	// Verify ownership
 	feature, _, err := s.featureRepo.FindByOwnerAndFeatureID(ctx, userID, featureID)
 	if err != nil {
-		return fmt.Errorf("failed to find feature: %w", err)
+		return nil, fmt.Errorf("failed to find feature: %w", err)
 	}
 	if feature == nil {
-		return fmt.Errorf("feature not found or does not belong to user")
+		return nil, fmt.Errorf("feature not found or does not belong to user")
 	}
 
 	// Use pricing service to update (handles validation and calculation)
 	if s.pricingService == nil {
-		return fmt.Errorf("pricing service not initialized")
+		return nil, fmt.Errorf("pricing service not initialized")
 	}
 
-	err = s.pricingService.UpdateFeaturePricing(ctx, featureID, userID, int(minimumPricePercentage))
+	pricing, err := s.pricingService.UpdateFeaturePricing(ctx, featureID, userID, int(minimumPricePercentage))
 	if err != nil {
-		return fmt.Errorf("failed to update feature pricing: %w", err)
+		return nil, fmt.Errorf("failed to update feature pricing: %w", err)
+	}
+	if pricing == nil {
+		return &pb.UpdateMyFeatureResponse{}, nil
 	}
 
-	return nil
+	return &pb.UpdateMyFeatureResponse{
+		PricePsc: pricing.PricePSC,
+		PriceIrr: pricing.PriceIRR,
+	}, nil
 }
 
 func formatCoordValue(v float64) string {

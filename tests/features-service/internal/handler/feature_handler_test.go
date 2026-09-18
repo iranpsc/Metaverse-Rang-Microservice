@@ -26,7 +26,7 @@ type mockFeaturePort struct {
 	getMyFeature    func(ctx context.Context, userID, featureID uint64) (*pb.Feature, error)
 	addMyImages     func(ctx context.Context, userID, featureID uint64, imageData [][]byte, filenames, contentTypes []string) (*pb.Feature, error)
 	removeMyImage   func(ctx context.Context, userID, featureID, imageID uint64) error
-	updateMyFeature func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error
+	updateMyFeature func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error)
 }
 
 func (m *mockFeaturePort) ListFeatures(ctx context.Context, points []string, loadBuildings bool, userFeaturesLocation bool, authUserID uint64) ([]*pb.Feature, error) {
@@ -92,11 +92,11 @@ func (m *mockFeaturePort) RemoveMyFeatureImage(ctx context.Context, userID, feat
 	return errors.New("not implemented")
 }
 
-func (m *mockFeaturePort) UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error {
+func (m *mockFeaturePort) UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
 	if m.updateMyFeature != nil {
 		return m.updateMyFeature(ctx, userID, featureID, minimumPricePercentage)
 	}
-	return errors.New("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func bboxPoints() []string {
