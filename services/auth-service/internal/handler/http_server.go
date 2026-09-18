@@ -38,6 +38,8 @@ func StartHTTPServer(
 	mux.Handle("/api/auth/logout", authMiddleware(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("/api/account/security", authMiddleware(http.HandlerFunc(authHandler.RequestAccountSecurity)))
 	mux.Handle("/api/account/security/verify", authMiddleware(http.HandlerFunc(authHandler.VerifyAccountSecurity)))
+	mux.Handle("/api/mobile/send", authMiddleware(http.HandlerFunc(authHandler.SendMobileChangeCode)))
+	mux.Handle("/api/mobile/verify", authMiddleware(http.HandlerFunc(authHandler.VerifyMobileChange)))
 
 	mux.Handle("/api/wallet/link/nonce", authMiddleware(http.HandlerFunc(walletHandler.GetLinkNonce)))
 	mux.Handle("/api/wallet/link", authMiddleware(http.HandlerFunc(walletHandler.LinkWallet)))

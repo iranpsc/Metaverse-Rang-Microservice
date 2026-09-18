@@ -445,6 +445,7 @@ routes:
     paths:
       - /api/auth
       - /api/account
+      - /api/mobile
       - /api/wallet
       - /api/wallets
       - /api/users

@@ -191,6 +191,8 @@ func TestStartHTTPServer_LiveRouteCoverage(t *testing.T) {
 	postJSON("/api/auth/logout", "")
 	postJSON("/api/auth/validate", `{"token":"t"}`)
 	postJSON("/api/account/security", `{"time":15}`)
+	postJSON("/api/mobile/send", `{"mobile":"09121112233"}`)
+	postJSON("/api/mobile/verify", `{"code":"123456"}`)
 	get("/api/users")
 	get("/api/user")
 	get("/api/user/wallet")

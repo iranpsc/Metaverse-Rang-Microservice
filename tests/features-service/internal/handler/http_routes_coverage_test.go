@@ -49,6 +49,12 @@ func (routeAuthClient) VerifyAccountSecurity(context.Context, *authpb.VerifyAcco
 func (routeAuthClient) CheckAccountSecurity(context.Context, *authpb.CheckAccountSecurityRequest, ...grpc.CallOption) (*authpb.CheckAccountSecurityResponse, error) {
 	return &authpb.CheckAccountSecurityResponse{Unlocked: true}, nil
 }
+func (routeAuthClient) SendMobileChangeCode(context.Context, *authpb.SendMobileChangeCodeRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (routeAuthClient) VerifyMobileChange(context.Context, *authpb.VerifyMobileChangeRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
 
 type mockHTTPMapAPI struct{}
 

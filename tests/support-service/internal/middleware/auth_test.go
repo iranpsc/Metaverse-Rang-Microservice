@@ -48,6 +48,12 @@ func (m *mockAuthClient) VerifyAccountSecurity(context.Context, *pb.VerifyAccoun
 func (m *mockAuthClient) CheckAccountSecurity(context.Context, *pb.CheckAccountSecurityRequest, ...grpc.CallOption) (*pb.CheckAccountSecurityResponse, error) {
 	return &pb.CheckAccountSecurityResponse{Unlocked: true}, nil
 }
+func (m *mockAuthClient) SendMobileChangeCode(context.Context, *pb.SendMobileChangeCodeRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (m *mockAuthClient) VerifyMobileChange(context.Context, *pb.VerifyMobileChangeRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
 
 func TestAuthMiddleware_RawAuthorizationHeaderWithoutBearer(t *testing.T) {
 	auth := &mockAuthClient{

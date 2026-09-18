@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -30,6 +31,12 @@ type CacheRepository interface {
 
 	// TryAcquireAccountSecurityVerificationSlot returns true when the user may request a new verification code.
 	TryAcquireAccountSecurityVerificationSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error)
+
+	TryAcquireMobileChangeSendSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error)
+	ReleaseMobileChangeSendSlot(ctx context.Context, userID uint64) error
+	SaveMobileChangeChallenge(ctx context.Context, userID uint64, challenge *MobileChangeChallenge, ttl time.Duration) error
+	GetMobileChangeChallenge(ctx context.Context, userID uint64) (*MobileChangeChallenge, error)
+	DeleteMobileChangeChallenge(ctx context.Context, userID uint64) error
 
 	SetWeb3LinkNonce(ctx context.Context, userID uint64, address, nonce string, ttl time.Duration) error
 	PullWeb3LinkNonce(ctx context.Context, userID uint64, address string) (string, error)
@@ -115,6 +122,73 @@ func (r *cacheRepository) TryAcquireAccountSecurityVerificationSlot(ctx context.
 		return false, fmt.Errorf("failed to check verification request rate limit: %w", err)
 	}
 	return ok, nil
+}
+
+// MobileChangeChallenge is the pending OTP + target mobile used to change a user's phone number.
+type MobileChangeChallenge struct {
+	Phone     string    `json:"phone"`
+	CodeHash  string    `json:"code_hash"`
+	CreatedAt time.Time `json:"created_at"`
+	Attempts  int       `json:"attempts"`
+}
+
+func mobileChangeSendSlotKey(userID uint64) string {
+	return fmt.Sprintf("mobile_change:send_slot:%d", userID)
+}
+
+func mobileChangeChallengeKey(userID uint64) string {
+	return fmt.Sprintf("mobile_change:challenge:%d", userID)
+}
+
+func (r *cacheRepository) TryAcquireMobileChangeSendSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error) {
+	ok, err := r.client.SetNX(ctx, mobileChangeSendSlotKey(userID), "1", period).Result()
+	if err != nil {
+		return false, fmt.Errorf("failed to check mobile change send rate limit: %w", err)
+	}
+	return ok, nil
+}
+
+func (r *cacheRepository) ReleaseMobileChangeSendSlot(ctx context.Context, userID uint64) error {
+	if err := r.client.Del(ctx, mobileChangeSendSlotKey(userID)).Err(); err != nil {
+		return fmt.Errorf("failed to release mobile change send rate limit: %w", err)
+	}
+	return nil
+}
+
+func (r *cacheRepository) SaveMobileChangeChallenge(ctx context.Context, userID uint64, challenge *MobileChangeChallenge, ttl time.Duration) error {
+	if challenge == nil {
+		return fmt.Errorf("mobile change challenge is required")
+	}
+	payload, err := json.Marshal(challenge)
+	if err != nil {
+		return fmt.Errorf("failed to encode mobile change challenge: %w", err)
+	}
+	if err := r.client.Set(ctx, mobileChangeChallengeKey(userID), payload, ttl).Err(); err != nil {
+		return fmt.Errorf("failed to store mobile change challenge: %w", err)
+	}
+	return nil
+}
+
+func (r *cacheRepository) GetMobileChangeChallenge(ctx context.Context, userID uint64) (*MobileChangeChallenge, error) {
+	val, err := r.client.Get(ctx, mobileChangeChallengeKey(userID)).Bytes()
+	if err == redis.Nil {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to load mobile change challenge: %w", err)
+	}
+	challenge := &MobileChangeChallenge{}
+	if err := json.Unmarshal(val, challenge); err != nil {
+		return nil, fmt.Errorf("failed to decode mobile change challenge: %w", err)
+	}
+	return challenge, nil
+}
+
+func (r *cacheRepository) DeleteMobileChangeChallenge(ctx context.Context, userID uint64) error {
+	if err := r.client.Del(ctx, mobileChangeChallengeKey(userID)).Err(); err != nil {
+		return fmt.Errorf("failed to delete mobile change challenge: %w", err)
+	}
+	return nil
 }
 
 func (r *cacheRepository) SetWeb3LinkNonce(ctx context.Context, userID uint64, address, nonce string, ttl time.Duration) error {

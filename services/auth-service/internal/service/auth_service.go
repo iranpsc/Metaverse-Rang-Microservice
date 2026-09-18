@@ -39,6 +39,8 @@ type AuthService interface {
 	// CheckAccountSecurity reports whether mutating requests may proceed.
 	// Returns true when no security record exists or the unlock window is still valid.
 	CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error)
+	SendMobileChangeCode(ctx context.Context, userID uint64, mobile string) error
+	VerifyMobileChange(ctx context.Context, userID uint64, code, ip, userAgent string) error
 }
 
 type authService struct {
@@ -102,6 +104,9 @@ var (
 	ErrUserNotFound                   = errors.New("user not found")
 	ErrInvalidUnlockDuration          = errors.New("invalid unlock duration")
 	ErrVerificationRequestRateLimited = errors.New("verification request rate limit exceeded")
+	ErrOTPNotFound                    = errors.New("verification code not found")
+	ErrOTPExpired                     = errors.New("verification code expired")
+	ErrVerificationAttemptRateLimited = errors.New("verification attempt rate limit exceeded")
 )
 
 const accountSecurityVerificationRequestPeriod = time.Minute
