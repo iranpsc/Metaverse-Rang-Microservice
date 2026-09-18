@@ -509,7 +509,7 @@ func TestFeatureService_GetMyFeature_IncludesLatestOpenSellRequest(t *testing.T)
 
 	feat, err := svc.GetMyFeature(context.Background(), 2, 1)
 	require.NoError(t, err)
-	require.True(t, feat.IsForSale)
+	require.Equal(t, int32(1), feat.IsForSale)
 	require.NotNil(t, feat.LatestSellRequest)
 	assert.Equal(t, uint64(8), feat.LatestSellRequest.Id)
 	assert.Equal(t, "12.5000000000", feat.LatestSellRequest.PricePsc)

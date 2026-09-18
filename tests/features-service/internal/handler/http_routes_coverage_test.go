@@ -191,7 +191,7 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 func TestHTTPGetMyFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 	api := &mockHTTPFeatureAPI{getMyFeature: func(_ context.Context, _ *pb.GetMyFeatureRequest) (*pb.FeatureResponse, error) {
 		feat := sampleHTTPFeature()
-		feat.IsForSale = true
+		feat.IsForSale = 1
 		feat.LatestSellRequest = &pb.SellRequestResponse{
 			Id: 8, FeatureId: 1, SellerId: 2, PricePsc: "12.5", PriceIrr: "450", Status: 0, CreatedAt: "1404/01/01",
 		}
@@ -207,7 +207,7 @@ func TestHTTPGetMyFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	data := body["data"].(map[string]interface{})
-	assert.Equal(t, true, data["is_for_sale"])
+	assert.Equal(t, float64(1), data["is_for_sale"])
 	latest := data["latest_sell_request"].(map[string]interface{})
 	assert.Equal(t, float64(8), latest["id"])
 	assert.Equal(t, "12.5", latest["price_psc"])
