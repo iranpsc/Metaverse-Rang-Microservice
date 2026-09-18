@@ -1382,7 +1382,9 @@ type Feature struct {
 	IsOwnedByAuthUser    bool                   `protobuf:"varint,8,opt,name=is_owned_by_auth_user,json=isOwnedByAuthUser,proto3" json:"is_owned_by_auth_user,omitempty"`
 	Seller               *Seller                `protobuf:"bytes,9,opt,name=seller,proto3" json:"seller,omitempty"` // Latest seller from trade
 	IsHourlyProfitActive bool                   `protobuf:"varint,10,opt,name=is_hourly_profit_active,json=isHourlyProfitActive,proto3" json:"is_hourly_profit_active,omitempty"`
-	BuildingModels       []*Building            `protobuf:"bytes,11,rep,name=building_models,json=buildingModels,proto3" json:"building_models,omitempty"` // Building models with pivot metadata
+	BuildingModels       []*Building            `protobuf:"bytes,11,rep,name=building_models,json=buildingModels,proto3" json:"building_models,omitempty"`            // Building models with pivot metadata
+	IsForSale            bool                   `protobuf:"varint,12,opt,name=is_for_sale,json=isForSale,proto3" json:"is_for_sale,omitempty"`                        // True when the feature has an open sell request
+	LatestSellRequest    *SellRequestResponse   `protobuf:"bytes,13,opt,name=latest_sell_request,json=latestSellRequest,proto3" json:"latest_sell_request,omitempty"` // Present when is_for_sale is true
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -1490,6 +1492,20 @@ func (x *Feature) GetIsHourlyProfitActive() bool {
 func (x *Feature) GetBuildingModels() []*Building {
 	if x != nil {
 		return x.BuildingModels
+	}
+	return nil
+}
+
+func (x *Feature) GetIsForSale() bool {
+	if x != nil {
+		return x.IsForSale
+	}
+	return false
+}
+
+func (x *Feature) GetLatestSellRequest() *SellRequestResponse {
+	if x != nil {
+		return x.LatestSellRequest
 	}
 	return nil
 }
@@ -6940,7 +6956,7 @@ const file_features_proto_rawDesc = "" +
 	"\x14SimplePaginationMeta\x12!\n" +
 	"\fcurrent_page\x18\x01 \x01(\x05R\vcurrentPage\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x19\n" +
-	"\bper_page\x18\x03 \x01(\x05R\aperPage\"\xc5\x03\n" +
+	"\bper_page\x18\x03 \x01(\x05R\aperPage\"\xb4\x04\n" +
 	"\aFeature\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x15\n" +
 	"\x06map_id\x18\x02 \x01(\x04R\x05mapId\x12\x19\n" +
@@ -6955,7 +6971,9 @@ const file_features_proto_rawDesc = "" +
 	"\x06seller\x18\t \x01(\v2\x10.features.SellerR\x06seller\x125\n" +
 	"\x17is_hourly_profit_active\x18\n" +
 	" \x01(\bR\x14isHourlyProfitActive\x12;\n" +
-	"\x0fbuilding_models\x18\v \x03(\v2\x12.features.BuildingR\x0ebuildingModels\"@\n" +
+	"\x0fbuilding_models\x18\v \x03(\v2\x12.features.BuildingR\x0ebuildingModels\x12\x1e\n" +
+	"\vis_for_sale\x18\f \x01(\bR\tisForSale\x12M\n" +
+	"\x13latest_sell_request\x18\r \x01(\v2\x1d.features.SellRequestResponseR\x11latestSellRequest\"@\n" +
 	"\x06Seller\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -7572,153 +7590,154 @@ var file_features_proto_depIdxs = []int32{
 	27,  // 13: features.Feature.images:type_name -> features.Image
 	23,  // 14: features.Feature.seller:type_name -> features.Seller
 	66,  // 15: features.Feature.building_models:type_name -> features.Building
-	26,  // 16: features.Geometry.coordinates:type_name -> features.Coordinate
-	22,  // 17: features.BuyFeatureResponse.feature:type_name -> features.Feature
-	32,  // 18: features.BuyRequestResponse.buyer:type_name -> features.BuyerInfo
-	33,  // 19: features.BuyRequestResponse.seller:type_name -> features.SellerInfo
-	24,  // 20: features.BuyRequestResponse.feature_properties:type_name -> features.FeatureProperties
-	26,  // 21: features.BuyRequestResponse.feature_coordinates:type_name -> features.Coordinate
-	31,  // 22: features.BuyRequestsResponse.buy_requests:type_name -> features.BuyRequestResponse
-	24,  // 23: features.SellRequestResponse.feature_properties:type_name -> features.FeatureProperties
-	26,  // 24: features.SellRequestResponse.feature_coordinates:type_name -> features.Coordinate
-	45,  // 25: features.SellRequestsResponse.sell_requests:type_name -> features.SellRequestResponse
-	51,  // 26: features.HourlyProfitsResponse.profits:type_name -> features.HourlyProfit
-	51,  // 27: features.HourlyProfitResponse.profit:type_name -> features.HourlyProfit
-	60,  // 28: features.BuildPackageResponse.models:type_name -> features.BuildingModel
-	62,  // 29: features.BuildFeatureRequest.information:type_name -> features.BuildingInformation
-	22,  // 30: features.BuildFeatureResponse.feature:type_name -> features.Feature
-	66,  // 31: features.BuildingsResponse.buildings:type_name -> features.Building
-	60,  // 32: features.Building.model:type_name -> features.BuildingModel
-	62,  // 33: features.UpdateBuildingRequest.information:type_name -> features.BuildingInformation
-	62,  // 34: features.UpdateBuildingInformationRequest.information:type_name -> features.BuildingInformation
-	62,  // 35: features.UpdateBuildingInformationResponse.information:type_name -> features.BuildingInformation
-	66,  // 36: features.BuildingResponse.building:type_name -> features.Building
-	74,  // 37: features.ListCompletedBuildingsResponse.data:type_name -> features.CompletedBuilding
-	20,  // 38: features.ListCompletedBuildingsResponse.links:type_name -> features.PaginationLinks
-	19,  // 39: features.ListCompletedBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	81,  // 40: features.ListMapsResponse.maps:type_name -> features.Map
-	81,  // 41: features.GetMapResponse.map:type_name -> features.Map
-	80,  // 42: features.GetMapBorderResponse.data:type_name -> features.MapBorderData
-	82,  // 43: features.Map.features:type_name -> features.MapFeatures
-	83,  // 44: features.MapFeatures.maskoni:type_name -> features.MapFeatureCount
-	83,  // 45: features.MapFeatures.tejari:type_name -> features.MapFeatureCount
-	83,  // 46: features.MapFeatures.amoozeshi:type_name -> features.MapFeatureCount
-	86,  // 47: features.GetCitizenFeatureSummaryResponse.data:type_name -> features.CitizenFeatureSummaryItem
-	90,  // 48: features.GetCitizenFeatureChartResponse.data:type_name -> features.CitizenFeatureChartData
-	89,  // 49: features.CitizenFeatureChartData.bought:type_name -> features.CitizenChartPoint
-	89,  // 50: features.CitizenFeatureChartData.sold:type_name -> features.CitizenChartPoint
-	93,  // 51: features.ListCitizenFeaturesResponse.data:type_name -> features.CitizenFeatureItem
-	20,  // 52: features.ListCitizenFeaturesResponse.links:type_name -> features.PaginationLinks
-	19,  // 53: features.ListCitizenFeaturesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	95,  // 54: features.ListCitizenFeaturesResponse.map_markers:type_name -> features.CitizenFeatureMapMarker
-	94,  // 55: features.CitizenFeatureItem.center:type_name -> features.CitizenFeatureCenter
-	27,  // 56: features.CitizenFeatureItem.images:type_name -> features.Image
-	94,  // 57: features.CitizenFeatureMapMarker.center:type_name -> features.CitizenFeatureCenter
-	98,  // 58: features.GetCitizenBuildingSummaryResponse.data:type_name -> features.CitizenBuildingSummaryItem
-	101, // 59: features.GetCitizenBuildingChartResponse.data:type_name -> features.CitizenBuildingChartData
-	89,  // 60: features.CitizenBuildingChartData.completed:type_name -> features.CitizenChartPoint
-	104, // 61: features.ListCitizenBuildingsResponse.data:type_name -> features.CitizenBuildingItem
-	20,  // 62: features.ListCitizenBuildingsResponse.links:type_name -> features.PaginationLinks
-	19,  // 63: features.ListCitizenBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	27,  // 64: features.CitizenBuildingItem.images:type_name -> features.Image
-	107, // 65: features.ListIsicCodesResponse.data:type_name -> features.IsicCode
-	20,  // 66: features.ListIsicCodesResponse.links:type_name -> features.PaginationLinks
-	19,  // 67: features.ListIsicCodesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	0,   // 68: features.FeatureService.ListFeatures:input_type -> features.ListFeaturesRequest
-	2,   // 69: features.FeatureService.GetFeature:input_type -> features.GetFeatureRequest
-	4,   // 70: features.FeatureService.UpdateFeature:input_type -> features.UpdateFeatureRequest
-	5,   // 71: features.FeatureService.AddFeatureImages:input_type -> features.AddFeatureImagesRequest
-	6,   // 72: features.FeatureService.GetMyFeatures:input_type -> features.GetMyFeaturesRequest
-	7,   // 73: features.FeatureService.ListMyFeatures:input_type -> features.ListMyFeaturesRequest
-	9,   // 74: features.FeatureService.GetMyFeature:input_type -> features.GetMyFeatureRequest
-	10,  // 75: features.FeatureService.AddMyFeatureImages:input_type -> features.AddMyFeatureImagesRequest
-	11,  // 76: features.FeatureService.RemoveMyFeatureImage:input_type -> features.RemoveMyFeatureImageRequest
-	12,  // 77: features.FeatureService.UpdateMyFeature:input_type -> features.UpdateMyFeatureRequest
-	14,  // 78: features.FeatureService.GetFeatureTradeHistory:input_type -> features.GetFeatureTradeHistoryRequest
-	28,  // 79: features.FeatureMarketplaceService.BuyFeature:input_type -> features.BuyFeatureRequest
-	30,  // 80: features.FeatureMarketplaceService.SendBuyRequest:input_type -> features.SendBuyRequestRequest
-	40,  // 81: features.FeatureMarketplaceService.AcceptBuyRequest:input_type -> features.AcceptBuyRequestRequest
-	41,  // 82: features.FeatureMarketplaceService.CreateSellRequest:input_type -> features.CreateSellRequestRequest
-	42,  // 83: features.FeatureMarketplaceService.ListSellRequests:input_type -> features.ListSellRequestsRequest
-	43,  // 84: features.FeatureMarketplaceService.ListFeatureSellRequests:input_type -> features.ListFeatureSellRequestsRequest
-	44,  // 85: features.FeatureMarketplaceService.DeleteSellRequest:input_type -> features.DeleteSellRequestRequest
-	47,  // 86: features.FeatureMarketplaceService.RequestGracePeriod:input_type -> features.RequestGracePeriodRequest
-	34,  // 87: features.FeatureMarketplaceService.ListBuyRequests:input_type -> features.ListBuyRequestsRequest
-	35,  // 88: features.FeatureMarketplaceService.ListReceivedBuyRequests:input_type -> features.ListReceivedBuyRequestsRequest
-	37,  // 89: features.FeatureMarketplaceService.RejectBuyRequest:input_type -> features.RejectBuyRequestRequest
-	38,  // 90: features.FeatureMarketplaceService.DeleteBuyRequest:input_type -> features.DeleteBuyRequestRequest
-	39,  // 91: features.FeatureMarketplaceService.UpdateGracePeriod:input_type -> features.UpdateGracePeriodRequest
-	49,  // 92: features.FeatureProfitService.GetHourlyProfits:input_type -> features.GetHourlyProfitsRequest
-	52,  // 93: features.FeatureProfitService.GetSingleProfit:input_type -> features.GetSingleProfitRequest
-	54,  // 94: features.FeatureProfitService.GetProfitsByApplication:input_type -> features.GetProfitsByApplicationRequest
-	56,  // 95: features.FeatureProfitService.GetHourlyProfitTimePercentage:input_type -> features.GetHourlyProfitTimePercentageRequest
-	58,  // 96: features.BuildingService.GetBuildPackage:input_type -> features.GetBuildPackageRequest
-	61,  // 97: features.BuildingService.BuildFeature:input_type -> features.BuildFeatureRequest
-	64,  // 98: features.BuildingService.GetBuildings:input_type -> features.GetBuildingsRequest
-	67,  // 99: features.BuildingService.UpdateBuilding:input_type -> features.UpdateBuildingRequest
-	68,  // 100: features.BuildingService.UpdateBuildingInformation:input_type -> features.UpdateBuildingInformationRequest
-	71,  // 101: features.BuildingService.DestroyBuilding:input_type -> features.DestroyBuildingRequest
-	72,  // 102: features.BuildingService.ListCompletedBuildings:input_type -> features.ListCompletedBuildingsRequest
-	75,  // 103: features.MapsService.ListMaps:input_type -> features.ListMapsRequest
-	76,  // 104: features.MapsService.GetMap:input_type -> features.GetMapRequest
-	76,  // 105: features.MapsService.GetMapBorder:input_type -> features.GetMapRequest
-	84,  // 106: features.CitizenFeaturesService.GetCitizenFeatureSummary:input_type -> features.GetCitizenFeatureSummaryRequest
-	87,  // 107: features.CitizenFeaturesService.GetCitizenFeatureChart:input_type -> features.GetCitizenFeatureChartRequest
-	91,  // 108: features.CitizenFeaturesService.ListCitizenFeatures:input_type -> features.ListCitizenFeaturesRequest
-	96,  // 109: features.CitizenBuildingsService.GetCitizenBuildingSummary:input_type -> features.GetCitizenBuildingSummaryRequest
-	99,  // 110: features.CitizenBuildingsService.GetCitizenBuildingChart:input_type -> features.GetCitizenBuildingChartRequest
-	102, // 111: features.CitizenBuildingsService.ListCitizenBuildings:input_type -> features.ListCitizenBuildingsRequest
-	105, // 112: features.IsicCodeService.ListIsicCodes:input_type -> features.ListIsicCodesRequest
-	1,   // 113: features.FeatureService.ListFeatures:output_type -> features.FeaturesResponse
-	3,   // 114: features.FeatureService.GetFeature:output_type -> features.FeatureResponse
-	3,   // 115: features.FeatureService.UpdateFeature:output_type -> features.FeatureResponse
-	3,   // 116: features.FeatureService.AddFeatureImages:output_type -> features.FeatureResponse
-	1,   // 117: features.FeatureService.GetMyFeatures:output_type -> features.FeaturesResponse
-	8,   // 118: features.FeatureService.ListMyFeatures:output_type -> features.ListMyFeaturesResponse
-	3,   // 119: features.FeatureService.GetMyFeature:output_type -> features.FeatureResponse
-	3,   // 120: features.FeatureService.AddMyFeatureImages:output_type -> features.FeatureResponse
-	108, // 121: features.FeatureService.RemoveMyFeatureImage:output_type -> google.protobuf.Empty
-	13,  // 122: features.FeatureService.UpdateMyFeature:output_type -> features.UpdateMyFeatureResponse
-	15,  // 123: features.FeatureService.GetFeatureTradeHistory:output_type -> features.GetFeatureTradeHistoryResponse
-	29,  // 124: features.FeatureMarketplaceService.BuyFeature:output_type -> features.BuyFeatureResponse
-	31,  // 125: features.FeatureMarketplaceService.SendBuyRequest:output_type -> features.BuyRequestResponse
-	31,  // 126: features.FeatureMarketplaceService.AcceptBuyRequest:output_type -> features.BuyRequestResponse
-	45,  // 127: features.FeatureMarketplaceService.CreateSellRequest:output_type -> features.SellRequestResponse
-	46,  // 128: features.FeatureMarketplaceService.ListSellRequests:output_type -> features.SellRequestsResponse
-	46,  // 129: features.FeatureMarketplaceService.ListFeatureSellRequests:output_type -> features.SellRequestsResponse
-	108, // 130: features.FeatureMarketplaceService.DeleteSellRequest:output_type -> google.protobuf.Empty
-	48,  // 131: features.FeatureMarketplaceService.RequestGracePeriod:output_type -> features.GracePeriodResponse
-	36,  // 132: features.FeatureMarketplaceService.ListBuyRequests:output_type -> features.BuyRequestsResponse
-	36,  // 133: features.FeatureMarketplaceService.ListReceivedBuyRequests:output_type -> features.BuyRequestsResponse
-	108, // 134: features.FeatureMarketplaceService.RejectBuyRequest:output_type -> google.protobuf.Empty
-	108, // 135: features.FeatureMarketplaceService.DeleteBuyRequest:output_type -> google.protobuf.Empty
-	108, // 136: features.FeatureMarketplaceService.UpdateGracePeriod:output_type -> google.protobuf.Empty
-	50,  // 137: features.FeatureProfitService.GetHourlyProfits:output_type -> features.HourlyProfitsResponse
-	53,  // 138: features.FeatureProfitService.GetSingleProfit:output_type -> features.HourlyProfitResponse
-	55,  // 139: features.FeatureProfitService.GetProfitsByApplication:output_type -> features.ProfitsByApplicationResponse
-	57,  // 140: features.FeatureProfitService.GetHourlyProfitTimePercentage:output_type -> features.GetHourlyProfitTimePercentageResponse
-	59,  // 141: features.BuildingService.GetBuildPackage:output_type -> features.BuildPackageResponse
-	63,  // 142: features.BuildingService.BuildFeature:output_type -> features.BuildFeatureResponse
-	65,  // 143: features.BuildingService.GetBuildings:output_type -> features.BuildingsResponse
-	70,  // 144: features.BuildingService.UpdateBuilding:output_type -> features.BuildingResponse
-	69,  // 145: features.BuildingService.UpdateBuildingInformation:output_type -> features.UpdateBuildingInformationResponse
-	70,  // 146: features.BuildingService.DestroyBuilding:output_type -> features.BuildingResponse
-	73,  // 147: features.BuildingService.ListCompletedBuildings:output_type -> features.ListCompletedBuildingsResponse
-	77,  // 148: features.MapsService.ListMaps:output_type -> features.ListMapsResponse
-	78,  // 149: features.MapsService.GetMap:output_type -> features.GetMapResponse
-	79,  // 150: features.MapsService.GetMapBorder:output_type -> features.GetMapBorderResponse
-	85,  // 151: features.CitizenFeaturesService.GetCitizenFeatureSummary:output_type -> features.GetCitizenFeatureSummaryResponse
-	88,  // 152: features.CitizenFeaturesService.GetCitizenFeatureChart:output_type -> features.GetCitizenFeatureChartResponse
-	92,  // 153: features.CitizenFeaturesService.ListCitizenFeatures:output_type -> features.ListCitizenFeaturesResponse
-	97,  // 154: features.CitizenBuildingsService.GetCitizenBuildingSummary:output_type -> features.GetCitizenBuildingSummaryResponse
-	100, // 155: features.CitizenBuildingsService.GetCitizenBuildingChart:output_type -> features.GetCitizenBuildingChartResponse
-	103, // 156: features.CitizenBuildingsService.ListCitizenBuildings:output_type -> features.ListCitizenBuildingsResponse
-	106, // 157: features.IsicCodeService.ListIsicCodes:output_type -> features.ListIsicCodesResponse
-	113, // [113:158] is the sub-list for method output_type
-	68,  // [68:113] is the sub-list for method input_type
-	68,  // [68:68] is the sub-list for extension type_name
-	68,  // [68:68] is the sub-list for extension extendee
-	0,   // [0:68] is the sub-list for field type_name
+	45,  // 16: features.Feature.latest_sell_request:type_name -> features.SellRequestResponse
+	26,  // 17: features.Geometry.coordinates:type_name -> features.Coordinate
+	22,  // 18: features.BuyFeatureResponse.feature:type_name -> features.Feature
+	32,  // 19: features.BuyRequestResponse.buyer:type_name -> features.BuyerInfo
+	33,  // 20: features.BuyRequestResponse.seller:type_name -> features.SellerInfo
+	24,  // 21: features.BuyRequestResponse.feature_properties:type_name -> features.FeatureProperties
+	26,  // 22: features.BuyRequestResponse.feature_coordinates:type_name -> features.Coordinate
+	31,  // 23: features.BuyRequestsResponse.buy_requests:type_name -> features.BuyRequestResponse
+	24,  // 24: features.SellRequestResponse.feature_properties:type_name -> features.FeatureProperties
+	26,  // 25: features.SellRequestResponse.feature_coordinates:type_name -> features.Coordinate
+	45,  // 26: features.SellRequestsResponse.sell_requests:type_name -> features.SellRequestResponse
+	51,  // 27: features.HourlyProfitsResponse.profits:type_name -> features.HourlyProfit
+	51,  // 28: features.HourlyProfitResponse.profit:type_name -> features.HourlyProfit
+	60,  // 29: features.BuildPackageResponse.models:type_name -> features.BuildingModel
+	62,  // 30: features.BuildFeatureRequest.information:type_name -> features.BuildingInformation
+	22,  // 31: features.BuildFeatureResponse.feature:type_name -> features.Feature
+	66,  // 32: features.BuildingsResponse.buildings:type_name -> features.Building
+	60,  // 33: features.Building.model:type_name -> features.BuildingModel
+	62,  // 34: features.UpdateBuildingRequest.information:type_name -> features.BuildingInformation
+	62,  // 35: features.UpdateBuildingInformationRequest.information:type_name -> features.BuildingInformation
+	62,  // 36: features.UpdateBuildingInformationResponse.information:type_name -> features.BuildingInformation
+	66,  // 37: features.BuildingResponse.building:type_name -> features.Building
+	74,  // 38: features.ListCompletedBuildingsResponse.data:type_name -> features.CompletedBuilding
+	20,  // 39: features.ListCompletedBuildingsResponse.links:type_name -> features.PaginationLinks
+	19,  // 40: features.ListCompletedBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	81,  // 41: features.ListMapsResponse.maps:type_name -> features.Map
+	81,  // 42: features.GetMapResponse.map:type_name -> features.Map
+	80,  // 43: features.GetMapBorderResponse.data:type_name -> features.MapBorderData
+	82,  // 44: features.Map.features:type_name -> features.MapFeatures
+	83,  // 45: features.MapFeatures.maskoni:type_name -> features.MapFeatureCount
+	83,  // 46: features.MapFeatures.tejari:type_name -> features.MapFeatureCount
+	83,  // 47: features.MapFeatures.amoozeshi:type_name -> features.MapFeatureCount
+	86,  // 48: features.GetCitizenFeatureSummaryResponse.data:type_name -> features.CitizenFeatureSummaryItem
+	90,  // 49: features.GetCitizenFeatureChartResponse.data:type_name -> features.CitizenFeatureChartData
+	89,  // 50: features.CitizenFeatureChartData.bought:type_name -> features.CitizenChartPoint
+	89,  // 51: features.CitizenFeatureChartData.sold:type_name -> features.CitizenChartPoint
+	93,  // 52: features.ListCitizenFeaturesResponse.data:type_name -> features.CitizenFeatureItem
+	20,  // 53: features.ListCitizenFeaturesResponse.links:type_name -> features.PaginationLinks
+	19,  // 54: features.ListCitizenFeaturesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	95,  // 55: features.ListCitizenFeaturesResponse.map_markers:type_name -> features.CitizenFeatureMapMarker
+	94,  // 56: features.CitizenFeatureItem.center:type_name -> features.CitizenFeatureCenter
+	27,  // 57: features.CitizenFeatureItem.images:type_name -> features.Image
+	94,  // 58: features.CitizenFeatureMapMarker.center:type_name -> features.CitizenFeatureCenter
+	98,  // 59: features.GetCitizenBuildingSummaryResponse.data:type_name -> features.CitizenBuildingSummaryItem
+	101, // 60: features.GetCitizenBuildingChartResponse.data:type_name -> features.CitizenBuildingChartData
+	89,  // 61: features.CitizenBuildingChartData.completed:type_name -> features.CitizenChartPoint
+	104, // 62: features.ListCitizenBuildingsResponse.data:type_name -> features.CitizenBuildingItem
+	20,  // 63: features.ListCitizenBuildingsResponse.links:type_name -> features.PaginationLinks
+	19,  // 64: features.ListCitizenBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	27,  // 65: features.CitizenBuildingItem.images:type_name -> features.Image
+	107, // 66: features.ListIsicCodesResponse.data:type_name -> features.IsicCode
+	20,  // 67: features.ListIsicCodesResponse.links:type_name -> features.PaginationLinks
+	19,  // 68: features.ListIsicCodesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	0,   // 69: features.FeatureService.ListFeatures:input_type -> features.ListFeaturesRequest
+	2,   // 70: features.FeatureService.GetFeature:input_type -> features.GetFeatureRequest
+	4,   // 71: features.FeatureService.UpdateFeature:input_type -> features.UpdateFeatureRequest
+	5,   // 72: features.FeatureService.AddFeatureImages:input_type -> features.AddFeatureImagesRequest
+	6,   // 73: features.FeatureService.GetMyFeatures:input_type -> features.GetMyFeaturesRequest
+	7,   // 74: features.FeatureService.ListMyFeatures:input_type -> features.ListMyFeaturesRequest
+	9,   // 75: features.FeatureService.GetMyFeature:input_type -> features.GetMyFeatureRequest
+	10,  // 76: features.FeatureService.AddMyFeatureImages:input_type -> features.AddMyFeatureImagesRequest
+	11,  // 77: features.FeatureService.RemoveMyFeatureImage:input_type -> features.RemoveMyFeatureImageRequest
+	12,  // 78: features.FeatureService.UpdateMyFeature:input_type -> features.UpdateMyFeatureRequest
+	14,  // 79: features.FeatureService.GetFeatureTradeHistory:input_type -> features.GetFeatureTradeHistoryRequest
+	28,  // 80: features.FeatureMarketplaceService.BuyFeature:input_type -> features.BuyFeatureRequest
+	30,  // 81: features.FeatureMarketplaceService.SendBuyRequest:input_type -> features.SendBuyRequestRequest
+	40,  // 82: features.FeatureMarketplaceService.AcceptBuyRequest:input_type -> features.AcceptBuyRequestRequest
+	41,  // 83: features.FeatureMarketplaceService.CreateSellRequest:input_type -> features.CreateSellRequestRequest
+	42,  // 84: features.FeatureMarketplaceService.ListSellRequests:input_type -> features.ListSellRequestsRequest
+	43,  // 85: features.FeatureMarketplaceService.ListFeatureSellRequests:input_type -> features.ListFeatureSellRequestsRequest
+	44,  // 86: features.FeatureMarketplaceService.DeleteSellRequest:input_type -> features.DeleteSellRequestRequest
+	47,  // 87: features.FeatureMarketplaceService.RequestGracePeriod:input_type -> features.RequestGracePeriodRequest
+	34,  // 88: features.FeatureMarketplaceService.ListBuyRequests:input_type -> features.ListBuyRequestsRequest
+	35,  // 89: features.FeatureMarketplaceService.ListReceivedBuyRequests:input_type -> features.ListReceivedBuyRequestsRequest
+	37,  // 90: features.FeatureMarketplaceService.RejectBuyRequest:input_type -> features.RejectBuyRequestRequest
+	38,  // 91: features.FeatureMarketplaceService.DeleteBuyRequest:input_type -> features.DeleteBuyRequestRequest
+	39,  // 92: features.FeatureMarketplaceService.UpdateGracePeriod:input_type -> features.UpdateGracePeriodRequest
+	49,  // 93: features.FeatureProfitService.GetHourlyProfits:input_type -> features.GetHourlyProfitsRequest
+	52,  // 94: features.FeatureProfitService.GetSingleProfit:input_type -> features.GetSingleProfitRequest
+	54,  // 95: features.FeatureProfitService.GetProfitsByApplication:input_type -> features.GetProfitsByApplicationRequest
+	56,  // 96: features.FeatureProfitService.GetHourlyProfitTimePercentage:input_type -> features.GetHourlyProfitTimePercentageRequest
+	58,  // 97: features.BuildingService.GetBuildPackage:input_type -> features.GetBuildPackageRequest
+	61,  // 98: features.BuildingService.BuildFeature:input_type -> features.BuildFeatureRequest
+	64,  // 99: features.BuildingService.GetBuildings:input_type -> features.GetBuildingsRequest
+	67,  // 100: features.BuildingService.UpdateBuilding:input_type -> features.UpdateBuildingRequest
+	68,  // 101: features.BuildingService.UpdateBuildingInformation:input_type -> features.UpdateBuildingInformationRequest
+	71,  // 102: features.BuildingService.DestroyBuilding:input_type -> features.DestroyBuildingRequest
+	72,  // 103: features.BuildingService.ListCompletedBuildings:input_type -> features.ListCompletedBuildingsRequest
+	75,  // 104: features.MapsService.ListMaps:input_type -> features.ListMapsRequest
+	76,  // 105: features.MapsService.GetMap:input_type -> features.GetMapRequest
+	76,  // 106: features.MapsService.GetMapBorder:input_type -> features.GetMapRequest
+	84,  // 107: features.CitizenFeaturesService.GetCitizenFeatureSummary:input_type -> features.GetCitizenFeatureSummaryRequest
+	87,  // 108: features.CitizenFeaturesService.GetCitizenFeatureChart:input_type -> features.GetCitizenFeatureChartRequest
+	91,  // 109: features.CitizenFeaturesService.ListCitizenFeatures:input_type -> features.ListCitizenFeaturesRequest
+	96,  // 110: features.CitizenBuildingsService.GetCitizenBuildingSummary:input_type -> features.GetCitizenBuildingSummaryRequest
+	99,  // 111: features.CitizenBuildingsService.GetCitizenBuildingChart:input_type -> features.GetCitizenBuildingChartRequest
+	102, // 112: features.CitizenBuildingsService.ListCitizenBuildings:input_type -> features.ListCitizenBuildingsRequest
+	105, // 113: features.IsicCodeService.ListIsicCodes:input_type -> features.ListIsicCodesRequest
+	1,   // 114: features.FeatureService.ListFeatures:output_type -> features.FeaturesResponse
+	3,   // 115: features.FeatureService.GetFeature:output_type -> features.FeatureResponse
+	3,   // 116: features.FeatureService.UpdateFeature:output_type -> features.FeatureResponse
+	3,   // 117: features.FeatureService.AddFeatureImages:output_type -> features.FeatureResponse
+	1,   // 118: features.FeatureService.GetMyFeatures:output_type -> features.FeaturesResponse
+	8,   // 119: features.FeatureService.ListMyFeatures:output_type -> features.ListMyFeaturesResponse
+	3,   // 120: features.FeatureService.GetMyFeature:output_type -> features.FeatureResponse
+	3,   // 121: features.FeatureService.AddMyFeatureImages:output_type -> features.FeatureResponse
+	108, // 122: features.FeatureService.RemoveMyFeatureImage:output_type -> google.protobuf.Empty
+	13,  // 123: features.FeatureService.UpdateMyFeature:output_type -> features.UpdateMyFeatureResponse
+	15,  // 124: features.FeatureService.GetFeatureTradeHistory:output_type -> features.GetFeatureTradeHistoryResponse
+	29,  // 125: features.FeatureMarketplaceService.BuyFeature:output_type -> features.BuyFeatureResponse
+	31,  // 126: features.FeatureMarketplaceService.SendBuyRequest:output_type -> features.BuyRequestResponse
+	31,  // 127: features.FeatureMarketplaceService.AcceptBuyRequest:output_type -> features.BuyRequestResponse
+	45,  // 128: features.FeatureMarketplaceService.CreateSellRequest:output_type -> features.SellRequestResponse
+	46,  // 129: features.FeatureMarketplaceService.ListSellRequests:output_type -> features.SellRequestsResponse
+	46,  // 130: features.FeatureMarketplaceService.ListFeatureSellRequests:output_type -> features.SellRequestsResponse
+	108, // 131: features.FeatureMarketplaceService.DeleteSellRequest:output_type -> google.protobuf.Empty
+	48,  // 132: features.FeatureMarketplaceService.RequestGracePeriod:output_type -> features.GracePeriodResponse
+	36,  // 133: features.FeatureMarketplaceService.ListBuyRequests:output_type -> features.BuyRequestsResponse
+	36,  // 134: features.FeatureMarketplaceService.ListReceivedBuyRequests:output_type -> features.BuyRequestsResponse
+	108, // 135: features.FeatureMarketplaceService.RejectBuyRequest:output_type -> google.protobuf.Empty
+	108, // 136: features.FeatureMarketplaceService.DeleteBuyRequest:output_type -> google.protobuf.Empty
+	108, // 137: features.FeatureMarketplaceService.UpdateGracePeriod:output_type -> google.protobuf.Empty
+	50,  // 138: features.FeatureProfitService.GetHourlyProfits:output_type -> features.HourlyProfitsResponse
+	53,  // 139: features.FeatureProfitService.GetSingleProfit:output_type -> features.HourlyProfitResponse
+	55,  // 140: features.FeatureProfitService.GetProfitsByApplication:output_type -> features.ProfitsByApplicationResponse
+	57,  // 141: features.FeatureProfitService.GetHourlyProfitTimePercentage:output_type -> features.GetHourlyProfitTimePercentageResponse
+	59,  // 142: features.BuildingService.GetBuildPackage:output_type -> features.BuildPackageResponse
+	63,  // 143: features.BuildingService.BuildFeature:output_type -> features.BuildFeatureResponse
+	65,  // 144: features.BuildingService.GetBuildings:output_type -> features.BuildingsResponse
+	70,  // 145: features.BuildingService.UpdateBuilding:output_type -> features.BuildingResponse
+	69,  // 146: features.BuildingService.UpdateBuildingInformation:output_type -> features.UpdateBuildingInformationResponse
+	70,  // 147: features.BuildingService.DestroyBuilding:output_type -> features.BuildingResponse
+	73,  // 148: features.BuildingService.ListCompletedBuildings:output_type -> features.ListCompletedBuildingsResponse
+	77,  // 149: features.MapsService.ListMaps:output_type -> features.ListMapsResponse
+	78,  // 150: features.MapsService.GetMap:output_type -> features.GetMapResponse
+	79,  // 151: features.MapsService.GetMapBorder:output_type -> features.GetMapBorderResponse
+	85,  // 152: features.CitizenFeaturesService.GetCitizenFeatureSummary:output_type -> features.GetCitizenFeatureSummaryResponse
+	88,  // 153: features.CitizenFeaturesService.GetCitizenFeatureChart:output_type -> features.GetCitizenFeatureChartResponse
+	92,  // 154: features.CitizenFeaturesService.ListCitizenFeatures:output_type -> features.ListCitizenFeaturesResponse
+	97,  // 155: features.CitizenBuildingsService.GetCitizenBuildingSummary:output_type -> features.GetCitizenBuildingSummaryResponse
+	100, // 156: features.CitizenBuildingsService.GetCitizenBuildingChart:output_type -> features.GetCitizenBuildingChartResponse
+	103, // 157: features.CitizenBuildingsService.ListCitizenBuildings:output_type -> features.ListCitizenBuildingsResponse
+	106, // 158: features.IsicCodeService.ListIsicCodes:output_type -> features.ListIsicCodesResponse
+	114, // [114:159] is the sub-list for method output_type
+	69,  // [69:114] is the sub-list for method input_type
+	69,  // [69:69] is the sub-list for extension type_name
+	69,  // [69:69] is the sub-list for extension extendee
+	0,   // [0:69] is the sub-list for field type_name
 }
 
 func init() { file_features_proto_init() }

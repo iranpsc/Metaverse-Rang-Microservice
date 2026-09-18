@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -92,6 +93,30 @@ func TestSellRequestRepository_ListByFeatureID_NewestFirst(t *testing.T) {
 	assert.Equal(t, uint64(2), requests[0].ID)
 	assert.Equal(t, uint64(1), requests[1].ID)
 	assert.True(t, requests[0].CreatedAt.After(requests[1].CreatedAt) || requests[0].CreatedAt.Equal(requests[1].CreatedAt))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSellRequestRepository_GetLatestOpenByFeatureID_NoRows(t *testing.T) {
+	db, mock := testutil.NewSQLMock(t)
+	repo := repository.NewSellRequestRepository(db)
+
+	mock.ExpectQuery("feature_id = \\? AND status = 0").
+		WithArgs(uint64(99)).
+		WillReturnError(sql.ErrNoRows)
+
+	req, err := repo.GetLatestOpenByFeatureID(context.Background(), 99)
+	require.NoError(t, err)
+	assert.Nil(t, req)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSellRequestRepository_GetLatestOpenByFeatureIDs_Empty(t *testing.T) {
+	db, mock := testutil.NewSQLMock(t)
+	repo := repository.NewSellRequestRepository(db)
+
+	out, err := repo.GetLatestOpenByFeatureIDs(context.Background(), nil)
+	require.NoError(t, err)
+	assert.Empty(t, out)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

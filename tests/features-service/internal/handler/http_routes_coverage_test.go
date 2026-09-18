@@ -188,6 +188,32 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	assert.Equal(t, 400, serve(maps.Handle, httptest.NewRequest(http.MethodGet, "/api/maps/nope", nil)).Code)
 }
 
+func TestHTTPGetMyFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
+	api := &mockHTTPFeatureAPI{getMyFeature: func(_ context.Context, _ *pb.GetMyFeatureRequest) (*pb.FeatureResponse, error) {
+		feat := sampleHTTPFeature()
+		feat.IsForSale = true
+		feat.LatestSellRequest = &pb.SellRequestResponse{
+			Id: 8, FeatureId: 1, SellerId: 2, PricePsc: "12.5", PriceIrr: "450", Status: 0, CreatedAt: "1404/01/01",
+		}
+		return &pb.FeatureResponse{Feature: feat}, nil
+	}}
+	h := handler.NewHTTPFeaturesHandler(api, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features/2/features/1", nil), 2)
+	req.Header.Set("Authorization", "Bearer tok")
+	w := httptest.NewRecorder()
+	h.HandleMyFeaturesRoutes(w, req)
+	require.Equal(t, 200, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, true, data["is_for_sale"])
+	latest := data["latest_sell_request"].(map[string]interface{})
+	assert.Equal(t, float64(8), latest["id"])
+	assert.Equal(t, "12.5", latest["price_psc"])
+	assert.Equal(t, "450", latest["price_irr"])
+}
+
 func TestHTTPUpdateMyFeature_ReturnsPricesJSON(t *testing.T) {
 	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
 	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/my-features/2/features/1", strings.NewReader(`{"minimum_price_percentage":90}`)), 2)

@@ -590,7 +590,10 @@ func (h *HTTPFeaturesHandler) ListMyFeatures(w http.ResponseWriter, r *http.Requ
 	}
 	data := []map[string]interface{}{}
 	for _, x := range resp.Data {
-		row := map[string]interface{}{"id": x.Id, "images": []interface{}{}}
+		row := map[string]interface{}{"id": x.Id, "images": []interface{}{}, "is_for_sale": x.IsForSale}
+		if x.IsForSale && x.LatestSellRequest != nil {
+			row["latest_sell_request"] = sellRequestMap(x.LatestSellRequest)
+		}
 		if x.Properties != nil {
 			row["properties"] = map[string]interface{}{
 				"id":                       x.Properties.Id,
@@ -908,7 +911,10 @@ func featureMap(f *featurespb.Feature) map[string]interface{} {
 	if f == nil {
 		return map[string]interface{}{}
 	}
-	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive}
+	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive, "is_for_sale": f.IsForSale}
+	if f.IsForSale && f.LatestSellRequest != nil {
+		out["latest_sell_request"] = sellRequestMap(f.LatestSellRequest)
+	}
 	if f.Properties != nil {
 		out["properties"] = propertyMap(f.Properties)
 	}
