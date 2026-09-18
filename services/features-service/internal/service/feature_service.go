@@ -10,6 +10,7 @@ import (
 	"metarang/features-service/internal/models"
 	"metarang/features-service/internal/repository"
 	pb "metarang/shared/pb/features"
+	"metarang/shared/pkg/helpers"
 )
 
 type FeatureService struct {
@@ -163,15 +164,30 @@ func isForSaleFromLatestSellRequest(req *models.SellFeatureRequest) int32 {
 	return 0
 }
 
-func (s *FeatureService) loadIsForSale(ctx context.Context, featureID uint64) int32 {
+func (s *FeatureService) fetchLatestSellRequest(ctx context.Context, featureID uint64) *models.SellFeatureRequest {
 	if s.sellRequestRepo == nil {
-		return 0
+		return nil
 	}
 	latest, err := s.sellRequestRepo.GetLatestByFeatureID(ctx, featureID)
 	if err != nil {
-		return 0
+		return nil
 	}
-	return isForSaleFromLatestSellRequest(latest)
+	return latest
+}
+
+func sellFeatureRequestToPB(req *models.SellFeatureRequest) *pb.SellRequestResponse {
+	if req == nil {
+		return nil
+	}
+	return &pb.SellRequestResponse{
+		Id:        req.ID,
+		SellerId:  req.SellerID,
+		FeatureId: req.FeatureID,
+		PricePsc:  strconv.FormatFloat(req.PricePSC, 'f', -1, 64),
+		PriceIrr:  strconv.FormatFloat(req.PriceIRR, 'f', -1, 64),
+		Status:    int32(req.Status),
+		CreatedAt: helpers.FormatJalaliDate(req.CreatedAt),
+	}
 }
 
 // GetFeature retrieves a single feature with all relations
@@ -310,7 +326,7 @@ func (s *FeatureService) GetMyFeatures(ctx context.Context, userID uint64) ([]*p
 }
 
 // ListMyFeatures retrieves paginated features owned by authenticated user (5 per page)
-// Only loads properties (images are empty on this endpoint) and latest sell-request is_for_sale
+// Only loads properties (images are empty on this endpoint), is-for-sale, and latest-sell-request
 // search matches feature_properties.id or address; filter matches karbari
 func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page int32, search, filter string) ([]*pb.Feature, error) {
 	if page < 1 {
@@ -326,12 +342,14 @@ func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page
 	result := make([]*pb.Feature, 0, len(features))
 	for i, feature := range features {
 		properties := propertiesList[i]
+		latestSell := s.fetchLatestSellRequest(ctx, feature.ID)
 		pbFeature := &pb.Feature{
-			Id:         feature.ID,
-			OwnerId:    feature.OwnerID,
-			Properties: models.PropertiesToPB(properties),
-			Images:     []*pb.Image{}, // Always empty on list endpoint
-			IsForSale:  s.loadIsForSale(ctx, feature.ID),
+			Id:                feature.ID,
+			OwnerId:           feature.OwnerID,
+			Properties:        models.PropertiesToPB(properties),
+			Images:            []*pb.Image{}, // Always empty on list endpoint
+			IsForSale:         isForSaleFromLatestSellRequest(latestSell),
+			LatestSellRequest: sellFeatureRequestToPB(latestSell),
 		}
 		result = append(result, pbFeature)
 	}

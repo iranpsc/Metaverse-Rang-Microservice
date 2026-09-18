@@ -88,6 +88,12 @@ func TestFeatureService_ListMyFeatures_IsForSaleFromLatestSellRequest(t *testing
 			require.NoError(t, err)
 			require.Len(t, list, 1)
 			assert.Equal(t, tt.want, list[0].IsForSale)
+			if tt.sellStatus != nil {
+				require.NotNil(t, list[0].LatestSellRequest)
+				assert.Equal(t, int32(*tt.sellStatus), list[0].LatestSellRequest.Status)
+			} else {
+				assert.Nil(t, list[0].LatestSellRequest)
+			}
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
@@ -120,5 +126,6 @@ func TestFeatureService_ListMyFeatures_IsForSaleWhenSellRequestLookupFails(t *te
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	assert.Equal(t, int32(0), list[0].IsForSale)
+	assert.Nil(t, list[0].LatestSellRequest)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

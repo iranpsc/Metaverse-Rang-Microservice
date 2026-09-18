@@ -189,7 +189,8 @@ message Feature {
   bool is_hourly_profit_active = 10;
   repeated Building building_models = 11; // Building models with pivot metadata
   // 1 when the latest sell request is open (status=0), otherwise 0 (status=1 or none).
-  int32 is_for_sale = 12;
+  int32 is_for_sale = 12 [json_name = "is-for-sale"];
+  SellRequestResponse latest_sell_request = 13 [json_name = "latest-sell-request"];
 }
 
 message Seller {

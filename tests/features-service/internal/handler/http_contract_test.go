@@ -543,7 +543,10 @@ func TestHTTPListMyFeatures_IncludesIsForSaleOnEachItem(t *testing.T) {
 		assert.Equal(t, uint64(42), req.UserId)
 		return &pb.ListMyFeaturesResponse{
 			Data: []*pb.Feature{
-				{Id: 9, IsForSale: 1, Properties: &pb.FeatureProperties{Id: "TO111"}},
+				{
+					Id: 9, IsForSale: 1, Properties: &pb.FeatureProperties{Id: "TO111"},
+					LatestSellRequest: &pb.SellRequestResponse{Id: 8, FeatureId: 9, SellerId: 42, Status: 0, PricePsc: "10", PriceIrr: "20"},
+				},
 				{Id: 10, IsForSale: 0, Properties: &pb.FeatureProperties{Id: "TO222"}},
 			},
 			Links: &pb.PaginationLinks{First: "/api/my-features?page=1"},
@@ -563,9 +566,12 @@ func TestHTTPListMyFeatures_IncludesIsForSaleOnEachItem(t *testing.T) {
 	first := data[0].(map[string]interface{})
 	second := data[1].(map[string]interface{})
 	assert.Equal(t, float64(9), first["id"])
-	assert.Equal(t, float64(1), first["is_for_sale"])
+	assert.Equal(t, float64(1), first["is-for-sale"])
+	latest := first["latest-sell-request"].(map[string]interface{})
+	assert.Equal(t, float64(8), latest["id"])
 	assert.Equal(t, float64(10), second["id"])
-	assert.Equal(t, float64(0), second["is_for_sale"])
+	assert.Equal(t, float64(0), second["is-for-sale"])
+	assert.Nil(t, second["latest-sell-request"])
 }
 
 func TestHTTPGetFeature_DoesNotIncludeIsForSale(t *testing.T) {
@@ -584,4 +590,7 @@ func TestHTTPGetFeature_DoesNotIncludeIsForSale(t *testing.T) {
 	data := body["data"].(map[string]interface{})
 	assert.Equal(t, float64(42), data["id"])
 	assert.NotContains(t, data, "is_for_sale")
+	assert.NotContains(t, data, "is-for-sale")
+	assert.NotContains(t, data, "latest_sell_request")
+	assert.NotContains(t, data, "latest-sell-request")
 }

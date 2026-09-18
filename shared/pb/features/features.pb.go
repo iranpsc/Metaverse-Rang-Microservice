@@ -1332,9 +1332,10 @@ type Feature struct {
 	IsHourlyProfitActive bool                   `protobuf:"varint,10,opt,name=is_hourly_profit_active,json=isHourlyProfitActive,proto3" json:"is_hourly_profit_active,omitempty"`
 	BuildingModels       []*Building            `protobuf:"bytes,11,rep,name=building_models,json=buildingModels,proto3" json:"building_models,omitempty"` // Building models with pivot metadata
 	// 1 when the latest sell request is open (status=0), otherwise 0 (status=1 or none).
-	IsForSale     int32 `protobuf:"varint,12,opt,name=is_for_sale,json=isForSale,proto3" json:"is_for_sale,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	IsForSale         int32                `protobuf:"varint,12,opt,name=is_for_sale,json=isForSale,proto3" json:"is-for-sale,omitempty"`
+	LatestSellRequest *SellRequestResponse `protobuf:"bytes,13,opt,name=latest_sell_request,json=latestSellRequest,proto3" json:"latest-sell-request,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Feature) Reset() {
@@ -1449,6 +1450,13 @@ func (x *Feature) GetIsForSale() int32 {
 		return x.IsForSale
 	}
 	return 0
+}
+
+func (x *Feature) GetLatestSellRequest() *SellRequestResponse {
+	if x != nil {
+		return x.LatestSellRequest
+	}
+	return nil
 }
 
 type Seller struct {
