@@ -528,7 +528,7 @@ func TestHTTPFeatureSellRequestsRoute_InvalidFeatureID(t *testing.T) {
 
 func TestHTTPGetFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 	feature := sampleHTTPFeature()
-	feature.IsForSale = true
+	feature.IsForSale = 1
 	feature.LatestSellRequest = &pb.SellRequestResponse{
 		Id: 8, FeatureId: 1, SellerId: 2, PricePsc: "12.5", PriceIrr: "450", Status: 0, CreatedAt: "1404/01/01",
 	}
@@ -543,7 +543,7 @@ func TestHTTPGetFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	data := body["data"].(map[string]interface{})
-	assert.Equal(t, true, data["is_for_sale"])
+	assert.Equal(t, float64(1), data["is_for_sale"])
 	latest := data["latest_sell_request"].(map[string]interface{})
 	assert.Equal(t, float64(8), latest["id"])
 	assert.Equal(t, "12.5", latest["price_psc"])
@@ -558,7 +558,7 @@ func TestHTTPGetFeature_OmitsLatestSellRequestWhenNotForSale(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	data := body["data"].(map[string]interface{})
-	assert.Equal(t, false, data["is_for_sale"])
+	assert.Equal(t, float64(0), data["is_for_sale"])
 	assert.NotContains(t, data, "latest_sell_request")
 }
 
@@ -567,7 +567,7 @@ func TestHTTPListMyFeatures_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 		return &pb.ListMyFeaturesResponse{
 			Data: []*pb.Feature{{
 				Id:        9,
-				IsForSale: true,
+				IsForSale: 1,
 				LatestSellRequest: &pb.SellRequestResponse{
 					Id: 8, FeatureId: 9, SellerId: 42, PricePsc: "1.25", PriceIrr: "250.5", Status: 0,
 				},
@@ -585,8 +585,8 @@ func TestHTTPListMyFeatures_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	item := body["data"].([]interface{})[0].(map[string]interface{})
-	assert.Equal(t, true, item["is_for_sale"])
-	latest := item["latest_sell_request"].(map[string]interface{})
+	assert.Equal(t, float64(1), item["is-for-sale"])
+	latest := item["latest-sell-request"].(map[string]interface{})
 	assert.Equal(t, float64(8), latest["id"])
 	assert.Equal(t, "1.25", latest["price_psc"])
 	assert.Equal(t, "250.5", latest["price_irr"])
@@ -640,7 +640,7 @@ func TestHTTPListMyFeatures_IncludesIsForSaleOnEachItem(t *testing.T) {
 	assert.Nil(t, second["latest-sell-request"])
 }
 
-func TestHTTPGetFeature_DoesNotIncludeIsForSale(t *testing.T) {
+func TestHTTPGetFeature_IncludesIsForSaleWithoutLatestSellRequest(t *testing.T) {
 	feature := &mockHTTPFeatureAPI{getFeature: func(_ context.Context, req *pb.GetFeatureRequest) (*pb.FeatureResponse, error) {
 		return &pb.FeatureResponse{Feature: &pb.Feature{Id: 42, OwnerId: 2, IsForSale: 1}}, nil
 	}}
@@ -655,8 +655,7 @@ func TestHTTPGetFeature_DoesNotIncludeIsForSale(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	data := body["data"].(map[string]interface{})
 	assert.Equal(t, float64(42), data["id"])
-	assert.NotContains(t, data, "is_for_sale")
-	assert.NotContains(t, data, "is-for-sale")
+	assert.Equal(t, float64(1), data["is_for_sale"])
 	assert.NotContains(t, data, "latest_sell_request")
 	assert.NotContains(t, data, "latest-sell-request")
 }
