@@ -119,7 +119,11 @@ func TestHTTPAuthHandler_SettingsKYCSearch(t *testing.T) {
 		if err := json.Unmarshal(rr.Body.Bytes(), &settingsPayload); err != nil {
 			t.Fatalf("decode settings: %v", err)
 		}
-		if _, ok := settingsPayload["available_reset_mobile_resets"]; !ok {
+		data, _ := settingsPayload["data"].(map[string]any)
+		if data == nil {
+			data = settingsPayload
+		}
+		if _, ok := data["available_reset_mobile_resets"]; !ok {
 			t.Fatalf("expected available_reset_mobile_resets in settings response, got %s", rr.Body.String())
 		}
 

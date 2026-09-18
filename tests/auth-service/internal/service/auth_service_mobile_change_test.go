@@ -67,6 +67,13 @@ func (h *mobileChangeHarness) assertNoChallenge(t *testing.T, userID uint64) {
 	}
 }
 
+func (h *mobileChangeHarness) assertNoSMS(t *testing.T) {
+	t.Helper()
+	if h.smsClient.lastRequest != nil {
+		t.Fatalf("expected no OTP dispatch, got %+v", h.smsClient.lastRequest)
+	}
+}
+
 func (h *mobileChangeHarness) assertNoReset(t *testing.T) {
 	t.Helper()
 	if len(h.resetRepo.resets) != 0 {
