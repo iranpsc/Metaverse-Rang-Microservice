@@ -59,8 +59,8 @@ func (m *mockHTTPFeatureAPI) AddMyFeatureImages(context.Context, *pb.AddMyFeatur
 func (m *mockHTTPFeatureAPI) RemoveMyFeatureImage(context.Context, *pb.RemoveMyFeatureImageRequest) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
-func (m *mockHTTPFeatureAPI) UpdateMyFeature(context.Context, *pb.UpdateMyFeatureRequest) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+func (m *mockHTTPFeatureAPI) UpdateMyFeature(context.Context, *pb.UpdateMyFeatureRequest) (*pb.UpdateMyFeatureResponse, error) {
+	return &pb.UpdateMyFeatureResponse{PricePsc: "12.5", PriceIrr: "450"}, nil
 }
 func (m *mockHTTPFeatureAPI) GetFeatureTradeHistory(ctx context.Context, req *pb.GetFeatureTradeHistoryRequest) (*pb.GetFeatureTradeHistoryResponse, error) {
 	if m.tradeHistory != nil {

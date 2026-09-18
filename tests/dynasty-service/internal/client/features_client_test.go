@@ -59,7 +59,7 @@ func (s *stubFeatureServiceClient) AddMyFeatureImages(context.Context, *pb.AddMy
 func (s *stubFeatureServiceClient) RemoveMyFeatureImage(context.Context, *pb.RemoveMyFeatureImageRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, nil
 }
-func (s *stubFeatureServiceClient) UpdateMyFeature(context.Context, *pb.UpdateMyFeatureRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+func (s *stubFeatureServiceClient) UpdateMyFeature(context.Context, *pb.UpdateMyFeatureRequest, ...grpc.CallOption) (*pb.UpdateMyFeatureResponse, error) {
 	return nil, nil
 }
 func (s *stubFeatureServiceClient) GetFeatureTradeHistory(context.Context, *pb.GetFeatureTradeHistoryRequest, ...grpc.CallOption) (*pb.GetFeatureTradeHistoryResponse, error) {

@@ -3,6 +3,7 @@ package handler_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -119,7 +120,13 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	assert.Equal(t, 200, serve(h.HandleSellRequestsRoutes, withUserJSON(http.MethodDelete, "/api/sell-requests/8", "")).Code)
 
 	assert.Equal(t, 200, serve(h.HandleMyFeaturesRoutes, withUserJSON(http.MethodGet, "/api/my-features/2/features/1", "")).Code)
-	assert.Equal(t, 204, serve(h.HandleMyFeaturesRoutes, withUserJSON(http.MethodPost, "/api/my-features/2/features/1", `{"minimum_price_percentage":90}`)).Code)
+	updateResp := serve(h.HandleMyFeaturesRoutes, withUserJSON(http.MethodPost, "/api/my-features/2/features/1", `{"minimum_price_percentage":90}`))
+	assert.Equal(t, 200, updateResp.Code)
+	var updateBody map[string]interface{}
+	require.NoError(t, json.Unmarshal(updateResp.Body.Bytes(), &updateBody))
+	updateData := updateBody["data"].(map[string]interface{})
+	assert.Equal(t, "12.5", updateData["price_psc"])
+	assert.Equal(t, "450", updateData["price_irr"])
 	assert.Equal(t, 200, serve(h.HandleMyFeaturesRoutes, withUserJSON(http.MethodPost, "/api/my-features/2/remove-image/1/image/4", "")).Code)
 
 	var buf bytes.Buffer
@@ -179,6 +186,42 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	assert.Equal(t, 422, serve(profit.Handle, withUserJSON(http.MethodPost, "/api/hourly-profits", `{}`)).Code)
 	assert.Equal(t, 422, serve(profit.Handle, withUserJSON(http.MethodPost, "/api/hourly-profits", `{"karbari":"z"}`)).Code)
 	assert.Equal(t, 400, serve(maps.Handle, httptest.NewRequest(http.MethodGet, "/api/maps/nope", nil)).Code)
+}
+
+func TestHTTPUpdateMyFeature_ReturnsPricesJSON(t *testing.T) {
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/my-features/2/features/1", strings.NewReader(`{"minimum_price_percentage":90}`)), 2)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer tok")
+	w := httptest.NewRecorder()
+	h.HandleMyFeaturesRoutes(w, req)
+	require.Equal(t, 200, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, "12.5", data["price_psc"])
+	assert.Equal(t, "450", data["price_irr"])
+}
+
+func TestHTTPUpdateMyFeature_MultipartMinimumReturnsPricesJSON(t *testing.T) {
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, mw.WriteField("minimum_price_percentage", "90"))
+	require.NoError(t, mw.Close())
+	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/my-features/2/features/1", &buf), 2)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer tok")
+	w := httptest.NewRecorder()
+	h.HandleMyFeaturesRoutes(w, req)
+	require.Equal(t, 200, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, "12.5", data["price_psc"])
+	assert.Equal(t, "450", data["price_irr"])
 }
 
 func TestHTTPProfitSingleWithProfit(t *testing.T) {
