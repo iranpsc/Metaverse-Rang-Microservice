@@ -79,17 +79,18 @@ func (k *KYC) Approved() bool {
 }
 
 type Settings struct {
-	ID                uint64          `db:"id"`
-	UserID            uint64          `db:"user_id"`
-	Status            bool            `db:"status"`
-	Level             bool            `db:"level"`
-	Details           bool            `db:"details"`
-	CheckoutDaysCount uint32          `db:"checkout_days_count"`
-	AutomaticLogout   int32           `db:"automatic_logout"`
-	Privacy           map[string]int  `db:"privacy"`       // JSON: key -> 0|1 (0=private, 1=public)
-	Notifications     map[string]bool `db:"notifications"` // JSON: channel -> bool
-	CreatedAt         time.Time       `db:"created_at"`
-	UpdatedAt         time.Time       `db:"updated_at"`
+	ID                         uint64          `db:"id"`
+	UserID                     uint64          `db:"user_id"`
+	Status                     bool            `db:"status"`
+	Level                      bool            `db:"level"`
+	Details                    bool            `db:"details"`
+	CheckoutDaysCount          uint32          `db:"checkout_days_count"`
+	AutomaticLogout            int32           `db:"automatic_logout"`
+	AvailableResetMobileResets int32           `json:"available_reset_mobile_resets"`
+	Privacy                    map[string]int  `db:"privacy"`       // JSON: key -> 0|1 (0=private, 1=public)
+	Notifications              map[string]bool `db:"notifications"` // JSON: channel -> bool
+	CreatedAt                  time.Time       `db:"created_at"`
+	UpdatedAt                  time.Time       `db:"updated_at"`
 }
 
 // DefaultPrivacySettings returns default privacy settings with all fields set to 1 (public) except contact fields

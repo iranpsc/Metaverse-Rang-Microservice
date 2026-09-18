@@ -35,18 +35,44 @@ type SettingsService interface {
 
 type settingsService struct {
 	settingsRepo repository.SettingsRepository
+	resetRepo    repository.ResetRepository
 }
 
 func NewSettingsService(settingsRepo repository.SettingsRepository) SettingsService {
+	return NewSettingsServiceWithResets(settingsRepo, nil)
+}
+
+func NewSettingsServiceWithResets(settingsRepo repository.SettingsRepository, resetRepo repository.ResetRepository) SettingsService {
 	return &settingsService{
 		settingsRepo: settingsRepo,
+		resetRepo:    resetRepo,
 	}
+}
+
+func availableResetMobileResets(verifiedCount int) int32 {
+	remaining := maxVerifiedMobileResets - verifiedCount
+	if remaining < 0 {
+		return 0
+	}
+	return int32(remaining)
 }
 
 func (s *settingsService) GetSettings(ctx context.Context, userID uint64) (*models.Settings, error) {
 	settings, err := s.settingsRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get settings: %w", err)
+	}
+	if settings == nil {
+		return nil, fmt.Errorf("failed to get settings: empty result")
+	}
+
+	settings.AvailableResetMobileResets = int32(maxVerifiedMobileResets)
+	if s.resetRepo != nil {
+		count, err := s.resetRepo.CountVerifiedByUserAndType(ctx, userID, models.ResetTypeMobile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to count mobile resets: %w", err)
+		}
+		settings.AvailableResetMobileResets = availableResetMobileResets(count)
 	}
 	return settings, nil
 }

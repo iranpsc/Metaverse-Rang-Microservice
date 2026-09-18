@@ -130,6 +130,7 @@ type MobileChangeChallenge struct {
 	CodeHash  string    `json:"code_hash"`
 	CreatedAt time.Time `json:"created_at"`
 	Attempts  int       `json:"attempts"`
+	ResetID   uint64    `json:"reset_id,omitempty"`
 }
 
 func mobileChangeSendSlotKey(userID uint64) string {

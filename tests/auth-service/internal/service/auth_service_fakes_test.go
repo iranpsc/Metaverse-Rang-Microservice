@@ -611,3 +611,80 @@ func (f *fakeSMSServiceClient) SendOTP(_ context.Context, req *notificationspb.S
 }
 
 var _ notificationspb.SMSServiceClient = (*fakeSMSServiceClient)(nil)
+
+type fakeResetRepository struct {
+	nextID    uint64
+	resets    map[uint64]*models.Reset
+	createErr error
+	countErr  error
+	markErr   error
+	deleteErr error
+}
+
+func newFakeResetRepository() *fakeResetRepository {
+	return &fakeResetRepository{
+		nextID: 1,
+		resets: make(map[uint64]*models.Reset),
+	}
+}
+
+func (f *fakeResetRepository) Create(_ context.Context, reset *models.Reset) error {
+	if f.createErr != nil {
+		return f.createErr
+	}
+	if reset == nil {
+		return fmt.Errorf("reset is required")
+	}
+	copied := *reset
+	copied.ID = f.nextID
+	f.nextID++
+	f.resets[copied.ID] = &copied
+	reset.ID = copied.ID
+	return nil
+}
+
+func (f *fakeResetRepository) MarkVerified(_ context.Context, id uint64) error {
+	if f.markErr != nil {
+		return f.markErr
+	}
+	reset, ok := f.resets[id]
+	if !ok {
+		return fmt.Errorf("reset %d not found", id)
+	}
+	reset.Verified = true
+	return nil
+}
+
+func (f *fakeResetRepository) CountVerifiedByUserAndType(_ context.Context, userID uint64, resetType string) (int, error) {
+	if f.countErr != nil {
+		return 0, f.countErr
+	}
+	count := 0
+	for _, reset := range f.resets {
+		if reset.UserID == userID && reset.Type == resetType && reset.Verified {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (f *fakeResetRepository) Delete(_ context.Context, id uint64) error {
+	if f.deleteErr != nil {
+		return f.deleteErr
+	}
+	delete(f.resets, id)
+	return nil
+}
+
+func (f *fakeResetRepository) seed(reset *models.Reset) {
+	copied := *reset
+	if copied.ID == 0 {
+		copied.ID = f.nextID
+		f.nextID++
+	} else if copied.ID >= f.nextID {
+		f.nextID = copied.ID + 1
+	}
+	f.resets[copied.ID] = &copied
+}
+
+var _ repository.ResetRepository = (*fakeResetRepository)(nil)

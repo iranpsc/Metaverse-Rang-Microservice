@@ -34,10 +34,11 @@ func (h *HTTPAuthHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Response format: { "checkout_days_count": ..., "automatic_logout": ... }
+	data := resp.GetData()
 	response := map[string]interface{}{
-		"checkout_days_count": resp.Data.CheckoutDaysCount,
-		"automatic_logout":    resp.Data.AutomaticLogout,
+		"checkout_days_count":           data.GetCheckoutDaysCount(),
+		"automatic_logout":              data.GetAutomaticLogout(),
+		"available_reset_mobile_resets": data.GetAvailableResetMobileResets(),
 	}
 
 	writeJSON(w, http.StatusOK, response)

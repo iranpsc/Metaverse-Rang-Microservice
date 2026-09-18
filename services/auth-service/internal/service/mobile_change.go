@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"metarang/auth-service/internal/models"
 	"metarang/auth-service/internal/repository"
 	notificationspb "metarang/shared/pb/notifications"
 	"metarang/shared/pkg/helpers"
@@ -17,6 +18,7 @@ const (
 	mobileChangeSendPeriod        = 2 * time.Minute
 	mobileChangeOTPTTL            = 120 * time.Second
 	mobileChangeMaxVerifyAttempts = 3
+	maxVerifiedMobileResets       = 3
 )
 
 func (s *authService) SendMobileChangeCode(ctx context.Context, userID uint64, mobile string) error {
@@ -33,14 +35,22 @@ func (s *authService) SendMobileChangeCode(ctx context.Context, userID uint64, m
 		return err
 	}
 
+	if err := s.enforceMobileResetLimit(ctx, userID); err != nil {
+		return err
+	}
+
 	if err := s.enforceMobileChangeSendRateLimit(ctx, userID); err != nil {
 		return err
 	}
 
+	var resetID uint64
 	rollback := true
 	defer func() {
 		if !rollback {
 			return
+		}
+		if resetID != 0 && s.resetRepo != nil {
+			_ = s.resetRepo.Delete(ctx, resetID)
 		}
 		if s.cacheRepo == nil {
 			return
@@ -48,6 +58,19 @@ func (s *authService) SendMobileChangeCode(ctx context.Context, userID uint64, m
 		_ = s.cacheRepo.ReleaseMobileChangeSendSlot(ctx, userID)
 		_ = s.cacheRepo.DeleteMobileChangeChallenge(ctx, userID)
 	}()
+
+	if s.resetRepo != nil {
+		reset := &models.Reset{
+			UserID:   userID,
+			Type:     models.ResetTypeMobile,
+			Value:    sanitizedMobile,
+			Verified: false,
+		}
+		if err := s.resetRepo.Create(ctx, reset); err != nil {
+			return fmt.Errorf("failed to create mobile reset: %w", err)
+		}
+		resetID = reset.ID
+	}
 
 	code, err := generateOtpCode()
 	if err != nil {
@@ -66,6 +89,7 @@ func (s *authService) SendMobileChangeCode(ctx context.Context, userID uint64, m
 		CodeHash:  string(hashed),
 		CreatedAt: time.Now(),
 		Attempts:  0,
+		ResetID:   resetID,
 	}
 	if err := s.cacheRepo.SaveMobileChangeChallenge(ctx, userID, challenge, mobileChangeOTPTTL); err != nil {
 		return fmt.Errorf("failed to persist mobile change challenge: %w", err)
@@ -137,10 +161,29 @@ func (s *authService) VerifyMobileChange(ctx context.Context, userID uint64, cod
 	if err := s.userRepo.MarkPhoneAsVerified(ctx, user.ID); err != nil {
 		return fmt.Errorf("failed to mark phone as verified: %w", err)
 	}
+	if s.resetRepo != nil && challenge.ResetID != 0 {
+		if err := s.resetRepo.MarkVerified(ctx, challenge.ResetID); err != nil {
+			return fmt.Errorf("failed to mark mobile reset verified: %w", err)
+		}
+	}
 	if err := s.cacheRepo.DeleteMobileChangeChallenge(ctx, userID); err != nil {
 		return fmt.Errorf("failed to delete mobile change challenge: %w", err)
 	}
 
+	return nil
+}
+
+func (s *authService) enforceMobileResetLimit(ctx context.Context, userID uint64) error {
+	if s.resetRepo == nil {
+		return nil
+	}
+	count, err := s.resetRepo.CountVerifiedByUserAndType(ctx, userID, models.ResetTypeMobile)
+	if err != nil {
+		return fmt.Errorf("failed to count mobile resets: %w", err)
+	}
+	if count >= maxVerifiedMobileResets {
+		return ErrMobileResetLimitExceeded
+	}
 	return nil
 }
 

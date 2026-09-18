@@ -5320,11 +5320,12 @@ func (x *GetSettingsResponse) GetData() *SettingsData {
 }
 
 type SettingsData struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	CheckoutDaysCount uint32                 `protobuf:"varint,1,opt,name=checkout_days_count,json=checkoutDaysCount,proto3" json:"checkout_days_count,omitempty"`
-	AutomaticLogout   int32                  `protobuf:"varint,2,opt,name=automatic_logout,json=automaticLogout,proto3" json:"automatic_logout,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state                      protoimpl.MessageState `protogen:"open.v1"`
+	CheckoutDaysCount          uint32                 `protobuf:"varint,1,opt,name=checkout_days_count,json=checkoutDaysCount,proto3" json:"checkout_days_count,omitempty"`
+	AutomaticLogout            int32                  `protobuf:"varint,2,opt,name=automatic_logout,json=automaticLogout,proto3" json:"automatic_logout,omitempty"`
+	AvailableResetMobileResets int32                  `protobuf:"varint,3,opt,name=available_reset_mobile_resets,json=availableResetMobileResets,proto3" json:"available_reset_mobile_resets,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *SettingsData) Reset() {
@@ -5367,6 +5368,13 @@ func (x *SettingsData) GetCheckoutDaysCount() uint32 {
 func (x *SettingsData) GetAutomaticLogout() int32 {
 	if x != nil {
 		return x.AutomaticLogout
+	}
+	return 0
+}
+
+func (x *SettingsData) GetAvailableResetMobileResets() int32 {
+	if x != nil {
+		return x.AvailableResetMobileResets
 	}
 	return 0
 }
@@ -9013,10 +9021,11 @@ const file_auth_proto_rawDesc = "" +
 	"\x12GetSettingsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\"=\n" +
 	"\x13GetSettingsResponse\x12&\n" +
-	"\x04data\x18\x01 \x01(\v2\x12.auth.SettingsDataR\x04data\"i\n" +
+	"\x04data\x18\x01 \x01(\v2\x12.auth.SettingsDataR\x04data\"\xac\x01\n" +
 	"\fSettingsData\x12.\n" +
 	"\x13checkout_days_count\x18\x01 \x01(\rR\x11checkoutDaysCount\x12)\n" +
-	"\x10automatic_logout\x18\x02 \x01(\x05R\x0fautomaticLogout\"\xbd\x01\n" +
+	"\x10automatic_logout\x18\x02 \x01(\x05R\x0fautomaticLogout\x12A\n" +
+	"\x1davailable_reset_mobile_resets\x18\x03 \x01(\x05R\x1aavailableResetMobileResets\"\xbd\x01\n" +
 	"\x15UpdateSettingsRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12.\n" +
 	"\x13checkout_days_count\x18\x02 \x01(\rR\x11checkoutDaysCount\x12)\n" +

@@ -660,6 +660,7 @@ message GetSettingsResponse {
 message SettingsData {
   uint32 checkout_days_count = 1;
   int32 automatic_logout = 2;
+  int32 available_reset_mobile_resets = 3;
 }
 
 message UpdateSettingsRequest {

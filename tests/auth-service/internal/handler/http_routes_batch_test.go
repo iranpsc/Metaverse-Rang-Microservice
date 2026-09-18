@@ -3,6 +3,7 @@ package handler_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -113,6 +114,13 @@ func TestHTTPAuthHandler_SettingsKYCSearch(t *testing.T) {
 		httpH.GetSettings(rr, r)
 		if rr.Code != http.StatusOK {
 			t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
+		}
+		var settingsPayload map[string]any
+		if err := json.Unmarshal(rr.Body.Bytes(), &settingsPayload); err != nil {
+			t.Fatalf("decode settings: %v", err)
+		}
+		if _, ok := settingsPayload["available_reset_mobile_resets"]; !ok {
+			t.Fatalf("expected available_reset_mobile_resets in settings response, got %s", rr.Body.String())
 		}
 
 		body := bytes.NewBufferString(`{"checkout_days_count":5,"automatic_logout":30}`)

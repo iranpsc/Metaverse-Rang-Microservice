@@ -330,6 +330,9 @@ func mapMobileChangeError(err error, locale string) error {
 	case errors.Is(err, service.ErrPhoneAlreadyTaken):
 		validationErrors["mobile"] = fmt.Sprintf(t.Unique, "mobile")
 		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
+	case errors.Is(err, service.ErrMobileResetLimitExceeded):
+		validationErrors["mobile"] = lang.T(locale, "mobile reset limit exceeded")
+		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
 	case errors.Is(err, service.ErrInvalidOTPCode):
 		validationErrors["code"] = fmt.Sprintf(t.Invalid, "code")
 		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))

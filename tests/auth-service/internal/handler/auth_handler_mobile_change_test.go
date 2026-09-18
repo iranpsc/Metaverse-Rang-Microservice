@@ -93,6 +93,21 @@ func TestAuthHandler_SendMobileChangeCode(t *testing.T) {
 			t.Fatalf("expected ResourceExhausted, got %v", err)
 		}
 	})
+
+	t.Run("mobile reset limit exceeded", func(t *testing.T) {
+		mockAuthService := &mockAuthService{}
+		mockAuthService.sendMobileChangeCodeFunc = func(context.Context, uint64, string) error {
+			return service.ErrMobileResetLimitExceeded
+		}
+		h := handler.NewAuthHandler(mockAuthService, &mockTokenRepository{}, nil, "en")
+		_, err := h.SendMobileChangeCode(ctx, &pb.SendMobileChangeCodeRequest{Mobile: "09121112233"})
+		if status.Code(err) != codes.InvalidArgument {
+			t.Fatalf("expected InvalidArgument, got %v", err)
+		}
+		if status.Code(err) == codes.ResourceExhausted {
+			t.Fatal("reset limit must not be mapped as rate limited")
+		}
+	})
 }
 
 func TestAuthHandler_VerifyMobileChange(t *testing.T) {
@@ -217,6 +232,23 @@ func TestHTTPAuthHandler_MobileChangeRoutes(t *testing.T) {
 		httpH.SendMobileChangeCode(rr, r)
 		if rr.Code == http.StatusTooManyRequests {
 			t.Fatal("uniqueness failure must not return 429")
+		}
+		if rr.Code != http.StatusUnprocessableEntity && rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected validation status, got %d body=%s", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("send reset limit is validation error not 429", func(t *testing.T) {
+		authSvc.sendMobileChangeCodeFunc = func(context.Context, uint64, string) error {
+			return service.ErrMobileResetLimitExceeded
+		}
+		body := bytes.NewBufferString(`{"mobile":"09121112233"}`)
+		r := withUser(httptest.NewRequest(http.MethodPost, "/api/mobile/send", body), 1)
+		r.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		httpH.SendMobileChangeCode(rr, r)
+		if rr.Code == http.StatusTooManyRequests {
+			t.Fatal("reset limit must not return 429")
 		}
 		if rr.Code != http.StatusUnprocessableEntity && rr.Code != http.StatusBadRequest {
 			t.Fatalf("expected validation status, got %d body=%s", rr.Code, rr.Body.String())

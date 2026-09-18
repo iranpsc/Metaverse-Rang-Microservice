@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ type mobileChangeHarness struct {
 	userRepo  *fakeUserRepository
 	cacheRepo *fakeCacheRepository
 	smsClient *fakeSMSServiceClient
+	resetRepo *fakeResetRepository
 	svc       service.AuthService
 }
 
@@ -28,11 +30,13 @@ func newMobileChangeHarness(users map[uint64]*models.User) *mobileChangeHarness 
 	cacheRepo := newFakeCacheRepository()
 	smsClient := &fakeSMSServiceClient{}
 	userRepo := newFakeUserRepository(users)
+	resetRepo := newFakeResetRepository()
 	return &mobileChangeHarness{
 		users:     users,
 		userRepo:  userRepo,
 		cacheRepo: cacheRepo,
 		smsClient: smsClient,
+		resetRepo: resetRepo,
 		svc: service.NewAuthService(
 			userRepo,
 			nil,
@@ -44,6 +48,7 @@ func newMobileChangeHarness(users map[uint64]*models.User) *mobileChangeHarness 
 			smsClient,
 			"", "", "", "", "",
 			false,
+			service.WithResetRepository(resetRepo),
 		),
 	}
 }
@@ -62,10 +67,10 @@ func (h *mobileChangeHarness) assertNoChallenge(t *testing.T, userID uint64) {
 	}
 }
 
-func (h *mobileChangeHarness) assertNoSMS(t *testing.T) {
+func (h *mobileChangeHarness) assertNoReset(t *testing.T) {
 	t.Helper()
-	if h.smsClient.lastRequest != nil {
-		t.Fatalf("expected no OTP dispatch, got %+v", h.smsClient.lastRequest)
+	if len(h.resetRepo.resets) != 0 {
+		t.Fatalf("expected no reset rows, got %+v", h.resetRepo.resets)
 	}
 }
 
@@ -113,6 +118,29 @@ func TestSendMobileChangeCodeSuccess(t *testing.T) {
 		t.Fatal("expected send rate-limit slot to be consumed after success")
 	}
 
+	if len(h.resetRepo.resets) != 1 {
+		t.Fatalf("expected one reset row, got %d", len(h.resetRepo.resets))
+	}
+	var reset *models.Reset
+	for _, item := range h.resetRepo.resets {
+		reset = item
+	}
+	if reset.UserID != 1 {
+		t.Errorf("expected reset user_id 1, got %d", reset.UserID)
+	}
+	if reset.Type != models.ResetTypeMobile {
+		t.Errorf("expected reset type mobile, got %q", reset.Type)
+	}
+	if reset.Value != "09121112233" {
+		t.Errorf("expected reset value 09121112233, got %q", reset.Value)
+	}
+	if reset.Verified {
+		t.Error("send must store unverified reset")
+	}
+	if h.cacheRepo.mobileChangeChallenges[1].ResetID != reset.ID {
+		t.Errorf("expected challenge ResetID %d, got %d", reset.ID, h.cacheRepo.mobileChangeChallenges[1].ResetID)
+	}
+
 	user := h.users[1]
 	if user.Phone.String != "09120000000" {
 		t.Errorf("send must not change the current phone, got %q", user.Phone.String)
@@ -134,6 +162,7 @@ func TestSendMobileChangeCodeValidationsDoNotConsumeRateLimit(t *testing.T) {
 		h.assertNoSendSlot(t, 1)
 		h.assertNoChallenge(t, 1)
 		h.assertNoSMS(t)
+		h.assertNoReset(t)
 	})
 
 	t.Run("whitespace mobile", func(t *testing.T) {
@@ -145,6 +174,7 @@ func TestSendMobileChangeCodeValidationsDoNotConsumeRateLimit(t *testing.T) {
 		h.assertNoSendSlot(t, 1)
 		h.assertNoChallenge(t, 1)
 		h.assertNoSMS(t)
+		h.assertNoReset(t)
 	})
 
 	t.Run("invalid iranian mobile", func(t *testing.T) {
@@ -156,6 +186,7 @@ func TestSendMobileChangeCodeValidationsDoNotConsumeRateLimit(t *testing.T) {
 		h.assertNoSendSlot(t, 1)
 		h.assertNoChallenge(t, 1)
 		h.assertNoSMS(t)
+		h.assertNoReset(t)
 	})
 
 	t.Run("taken by another user", func(t *testing.T) {
@@ -170,6 +201,7 @@ func TestSendMobileChangeCodeValidationsDoNotConsumeRateLimit(t *testing.T) {
 		h.assertNoSendSlot(t, 1)
 		h.assertNoChallenge(t, 1)
 		h.assertNoSMS(t)
+		h.assertNoReset(t)
 	})
 
 	t.Run("uniqueness check error", func(t *testing.T) {
@@ -187,6 +219,7 @@ func TestSendMobileChangeCodeValidationsDoNotConsumeRateLimit(t *testing.T) {
 		h.assertNoSendSlot(t, 1)
 		h.assertNoChallenge(t, 1)
 		h.assertNoSMS(t)
+		h.assertNoReset(t)
 	})
 
 	t.Run("user not found", func(t *testing.T) {
@@ -197,6 +230,7 @@ func TestSendMobileChangeCodeValidationsDoNotConsumeRateLimit(t *testing.T) {
 		}
 		h.assertNoSendSlot(t, 99)
 		h.assertNoSMS(t)
+		h.assertNoReset(t)
 	})
 
 	t.Run("sms failure releases rate limit slot", func(t *testing.T) {
@@ -208,10 +242,65 @@ func TestSendMobileChangeCodeValidationsDoNotConsumeRateLimit(t *testing.T) {
 		}
 		h.assertNoSendSlot(t, 1)
 		h.assertNoChallenge(t, 1)
+		if len(h.resetRepo.resets) != 0 {
+			t.Fatalf("sms failure must delete the unverified reset, got %+v", h.resetRepo.resets)
+		}
 
 		h.smsClient.err = nil
 		if err := h.svc.SendMobileChangeCode(ctx, 1, "09121112233"); err != nil {
 			t.Fatalf("retry after sms failure should succeed, got %v", err)
+		}
+	})
+
+	t.Run("reset limit does not consume rate limit", func(t *testing.T) {
+		h := newMobileChangeHarness(map[uint64]*models.User{1: {ID: 1}})
+		for i := 0; i < 3; i++ {
+			h.resetRepo.seed(&models.Reset{
+				UserID:   1,
+				Type:     models.ResetTypeMobile,
+				Value:    fmt.Sprintf("0912000000%d", i),
+				Verified: true,
+			})
+		}
+		err := h.svc.SendMobileChangeCode(ctx, 1, "09121112233")
+		if !errors.Is(err, service.ErrMobileResetLimitExceeded) {
+			t.Fatalf("expected ErrMobileResetLimitExceeded, got %v", err)
+		}
+		h.assertNoSendSlot(t, 1)
+		h.assertNoChallenge(t, 1)
+		h.assertNoSMS(t)
+		if len(h.resetRepo.resets) != 3 {
+			t.Fatalf("limit rejection must not insert another reset, got %d", len(h.resetRepo.resets))
+		}
+	})
+
+	t.Run("unverified resets do not count toward limit", func(t *testing.T) {
+		h := newMobileChangeHarness(map[uint64]*models.User{1: {ID: 1}})
+		for i := 0; i < 3; i++ {
+			h.resetRepo.seed(&models.Reset{
+				UserID:   1,
+				Type:     models.ResetTypeMobile,
+				Value:    fmt.Sprintf("0912000001%d", i),
+				Verified: false,
+			})
+		}
+		if err := h.svc.SendMobileChangeCode(ctx, 1, "09121112233"); err != nil {
+			t.Fatalf("unverified resets must not block send: %v", err)
+		}
+	})
+
+	t.Run("email resets do not count toward mobile limit", func(t *testing.T) {
+		h := newMobileChangeHarness(map[uint64]*models.User{1: {ID: 1}})
+		for i := 0; i < 3; i++ {
+			h.resetRepo.seed(&models.Reset{
+				UserID:   1,
+				Type:     "email",
+				Value:    fmt.Sprintf("user%d@example.com", i),
+				Verified: true,
+			})
+		}
+		if err := h.svc.SendMobileChangeCode(ctx, 1, "09121112233"); err != nil {
+			t.Fatalf("email resets must not block mobile send: %v", err)
 		}
 	})
 }
@@ -276,6 +365,16 @@ func TestVerifyMobileChangeSuccess(t *testing.T) {
 	}
 	if _, ok := h.cacheRepo.mobileChangeChallenges[1]; ok {
 		t.Fatal("expected challenge to be deleted after success")
+	}
+
+	var verifiedCount int
+	for _, reset := range h.resetRepo.resets {
+		if reset.Verified {
+			verifiedCount++
+		}
+	}
+	if verifiedCount != 1 {
+		t.Fatalf("expected one verified reset after success, got %d (%+v)", verifiedCount, h.resetRepo.resets)
 	}
 }
 

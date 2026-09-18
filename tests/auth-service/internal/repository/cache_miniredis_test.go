@@ -59,13 +59,14 @@ func TestCacheRepository_Miniredis(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	challenge := &repository.MobileChangeChallenge{Phone: "09121112233", CodeHash: "hash", CreatedAt: time.Now(), Attempts: 1}
+	challenge := &repository.MobileChangeChallenge{Phone: "09121112233", CodeHash: "hash", CreatedAt: time.Now(), Attempts: 1, ResetID: 42}
 	require.NoError(t, repo.SaveMobileChangeChallenge(ctx, 9, challenge, 2*time.Minute))
 	got, err := repo.GetMobileChangeChallenge(ctx, 9)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.Equal(t, "09121112233", got.Phone)
 	require.Equal(t, 1, got.Attempts)
+	require.Equal(t, uint64(42), got.ResetID)
 	require.NoError(t, repo.DeleteMobileChangeChallenge(ctx, 9))
 	got, err = repo.GetMobileChangeChallenge(ctx, 9)
 	require.NoError(t, err)

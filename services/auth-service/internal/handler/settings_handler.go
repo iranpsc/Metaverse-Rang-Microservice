@@ -38,8 +38,9 @@ func (h *settingsHandler) GetSettings(ctx context.Context, req *pb.GetSettingsRe
 
 	return &pb.GetSettingsResponse{
 		Data: &pb.SettingsData{
-			CheckoutDaysCount: settings.CheckoutDaysCount,
-			AutomaticLogout:   settings.AutomaticLogout,
+			CheckoutDaysCount:          settings.CheckoutDaysCount,
+			AutomaticLogout:            settings.AutomaticLogout,
+			AvailableResetMobileResets: settings.AvailableResetMobileResets,
 		},
 	}, nil
 }

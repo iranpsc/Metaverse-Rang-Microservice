@@ -52,6 +52,7 @@ type authService struct {
 	observerService               ObserverService
 	helperService                 HelperService
 	notificationsClient           notificationspb.SMSServiceClient
+	resetRepo                     repository.ResetRepository
 	oauthServerURL                string
 	oauthClientID                 string
 	oauthClientSecret             string
@@ -107,6 +108,7 @@ var (
 	ErrOTPNotFound                    = errors.New("verification code not found")
 	ErrOTPExpired                     = errors.New("verification code expired")
 	ErrVerificationAttemptRateLimited = errors.New("verification attempt rate limit exceeded")
+	ErrMobileResetLimitExceeded       = errors.New("mobile reset limit exceeded")
 )
 
 const accountSecurityVerificationRequestPeriod = time.Minute
@@ -115,6 +117,16 @@ var (
 	iranMobileRegex = regexp.MustCompile(`^09\d{9}$`)
 	otpCodeRegex    = regexp.MustCompile(`^\d{6}$`)
 )
+
+// AuthServiceOption configures optional dependencies on AuthService.
+type AuthServiceOption func(*authService)
+
+// WithResetRepository wires the resets table used by mobile-number change.
+func WithResetRepository(repo repository.ResetRepository) AuthServiceOption {
+	return func(s *authService) {
+		s.resetRepo = repo
+	}
+}
 
 func NewAuthService(
 	userRepo repository.UserRepository,
@@ -127,6 +139,7 @@ func NewAuthService(
 	notificationsClient notificationspb.SMSServiceClient,
 	oauthServerURL, oauthClientID, oauthClientSecret, appURL, frontEndURL string,
 	rateLimitVerificationRequests bool,
+	opts ...AuthServiceOption,
 ) AuthService {
 	// Validate OAuth configuration
 	if oauthServerURL == "" {
@@ -139,7 +152,7 @@ func NewAuthService(
 		log.Printf("Warning: OAUTH_CLIENT_SECRET is not set - this will cause OAuth token exchange to fail")
 	}
 
-	return &authService{
+	svc := &authService{
 		userRepo:                      userRepo,
 		tokenRepo:                     tokenRepo,
 		cacheRepo:                     cacheRepo,
@@ -156,6 +169,12 @@ func NewAuthService(
 		rateLimitVerificationRequests: rateLimitVerificationRequests,
 		httpClient:                    &http.Client{Timeout: 30 * time.Second},
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(svc)
+		}
+	}
+	return svc
 }
 
 // IsProductionEnv reports whether APP_ENV is a production value.
