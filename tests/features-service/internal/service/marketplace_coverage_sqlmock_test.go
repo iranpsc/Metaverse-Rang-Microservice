@@ -53,6 +53,16 @@ func TestMarketplaceService_ListAndGetHelpers(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, sells, 1)
 
+	mock.ExpectQuery("WHERE feature_id = \\?").
+		WithArgs(uint64(10)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "seller_id", "feature_id", "price_psc", "price_irr", "limit", "status", "created_at", "updated_at",
+		}).AddRow(2, 3, 10, 15.0, 25.0, 100, 0, now, now).AddRow(1, 3, 10, 10.0, 20.0, 90, 0, now.Add(-time.Hour), now.Add(-time.Hour)))
+	featureSells, err := svc.ListFeatureSellRequests(context.Background(), 10)
+	require.NoError(t, err)
+	require.Len(t, featureSells, 2)
+	assert.Equal(t, uint64(2), featureSells[0].ID)
+
 	mock.ExpectQuery("FROM buy_feature_requests").
 		WithArgs(uint64(9)).
 		WillReturnRows(buyRequestFindRows(3, 2, 0))

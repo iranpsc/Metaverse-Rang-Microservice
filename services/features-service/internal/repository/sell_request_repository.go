@@ -144,6 +144,38 @@ func (r *SellRequestRepository) ListBySellerID(ctx context.Context, sellerID uin
 	return requests, nil
 }
 
+// ListByFeatureID retrieves all sell requests for a feature, newest first.
+// Implements GET /api/features/{feature}/sell-requests
+func (r *SellRequestRepository) ListByFeatureID(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error) {
+	query := `
+		SELECT id, seller_id, feature_id, price_psc, price_irr, ` + "`limit`" + `, status, created_at, updated_at
+		FROM sell_feature_requests
+		WHERE feature_id = ?
+		ORDER BY created_at DESC, id DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, featureID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	requests := []*models.SellFeatureRequest{}
+	for rows.Next() {
+		req := &models.SellFeatureRequest{}
+		if err := rows.Scan(
+			&req.ID, &req.SellerID, &req.FeatureID,
+			&req.PricePSC, &req.PriceIRR, &req.Limit, &req.Status,
+			&req.CreatedAt, &req.UpdatedAt,
+		); err != nil {
+			continue
+		}
+		requests = append(requests, req)
+	}
+
+	return requests, nil
+}
+
 // FindByID retrieves a sell request by ID
 // Implements DELETE /api/sell-requests/{sellRequest} - authorization check
 func (r *SellRequestRepository) FindByID(ctx context.Context, id uint64) (*models.SellFeatureRequest, error) {

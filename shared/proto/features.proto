@@ -31,6 +31,7 @@ service FeatureMarketplaceService {
   rpc AcceptBuyRequest(AcceptBuyRequestRequest) returns (BuyRequestResponse);
   rpc CreateSellRequest(CreateSellRequestRequest) returns (SellRequestResponse);
   rpc ListSellRequests(ListSellRequestsRequest) returns (SellRequestsResponse);
+  rpc ListFeatureSellRequests(ListFeatureSellRequestsRequest) returns (SellRequestsResponse);
   rpc DeleteSellRequest(DeleteSellRequestRequest) returns (google.protobuf.Empty);
   rpc RequestGracePeriod(RequestGracePeriodRequest) returns (GracePeriodResponse);
   rpc ListBuyRequests(ListBuyRequestsRequest) returns (BuyRequestsResponse);
@@ -322,6 +323,10 @@ message CreateSellRequestRequest {
 
 message ListSellRequestsRequest {
   uint64 seller_id = 1; // Required - authenticated seller
+}
+
+message ListFeatureSellRequestsRequest {
+  uint64 feature_id = 1; // Required - feature whose sell requests to list
 }
 
 message DeleteSellRequestRequest {

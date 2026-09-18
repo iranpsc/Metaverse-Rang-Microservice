@@ -98,6 +98,7 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/build/package", "")).Code)
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodPost, "/api/features/1/build/m1", `{"launched_satisfaction":"1","rotation":"0","position":"1,2"}`)).Code)
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/build/buildings", "")).Code)
+	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/sell-requests", "")).Code)
 
 	assert.Equal(t, 200, serve(h.HandleBuyRequestsRoutes, withUserJSON(http.MethodGet, "/api/buy-requests", "")).Code)
 	assert.Equal(t, 200, serve(h.HandleBuyRequestsRoutes, withUserJSON(http.MethodGet, "/api/buy-requests/recieved", "")).Code)

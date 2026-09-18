@@ -34,6 +34,7 @@ type MarketplaceServicePort interface {
 	AcceptBuyRequest(ctx context.Context, requestID, sellerID uint64) (*models.BuyFeatureRequest, error)
 	CreateSellRequest(ctx context.Context, req *pb.CreateSellRequestRequest) (*models.SellFeatureRequest, error)
 	ListSellRequests(ctx context.Context, sellerID uint64) ([]*models.SellFeatureRequest, error)
+	ListFeatureSellRequests(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error)
 	DeleteSellRequest(ctx context.Context, sellRequestID, sellerID uint64) error
 	RequestGracePeriod(ctx context.Context, requestID, sellerID uint64, gracePeriod string) error
 	ListBuyRequests(ctx context.Context, buyerID uint64) ([]*models.BuyFeatureRequest, error)

@@ -2325,6 +2325,36 @@ paths:
             summary: Get feature trade history
             tags:
                 - Features
+    /api/features/{feature}/sell-requests:
+        get:
+            operationId: get_features_feature_sell-requests
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            summary: List sell requests for a feature (newest first)
+            tags:
+                - Features
     /api/features/{id}:
         get:
             operationId: get_features_id

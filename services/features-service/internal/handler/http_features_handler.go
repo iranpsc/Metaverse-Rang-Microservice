@@ -36,6 +36,7 @@ type marketplaceHTTPAPI interface {
 	ListReceivedBuyRequests(context.Context, *featurespb.ListReceivedBuyRequestsRequest) (*featurespb.BuyRequestsResponse, error)
 	CreateSellRequest(context.Context, *featurespb.CreateSellRequestRequest) (*featurespb.SellRequestResponse, error)
 	ListSellRequests(context.Context, *featurespb.ListSellRequestsRequest) (*featurespb.SellRequestsResponse, error)
+	ListFeatureSellRequests(context.Context, *featurespb.ListFeatureSellRequestsRequest) (*featurespb.SellRequestsResponse, error)
 	DeleteSellRequest(context.Context, *featurespb.DeleteSellRequestRequest) (*emptypb.Empty, error)
 	UpdateGracePeriod(context.Context, *featurespb.UpdateGracePeriodRequest) (*emptypb.Empty, error)
 }
@@ -111,6 +112,10 @@ func (h *HTTPFeaturesHandler) HandleFeaturesRoutes(w http.ResponseWriter, r *htt
 	}
 	if isFeatureTradeHistoryPath(path) {
 		h.TradeHistory(w, r)
+		return
+	}
+	if isFeatureSellRequestsPath(path) {
+		h.FeatureSellRequests(w, r)
 		return
 	}
 	if strings.Contains(path, "/build/package") {
@@ -306,6 +311,28 @@ func (h *HTTPFeaturesHandler) TradeHistory(w http.ResponseWriter, r *http.Reques
 		data = append(data, row)
 	}
 	writeJSON(w, 200, paginated(data, resp.Links, resp.Meta))
+}
+
+func (h *HTTPFeaturesHandler) FeatureSellRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	id, err := featureIDFromSellRequestsRequest(r)
+	if err != nil || id == 0 {
+		writeError(w, 400, "invalid feature ID")
+		return
+	}
+	resp, err := h.market.ListFeatureSellRequests(r.Context(), &featurespb.ListFeatureSellRequestsRequest{FeatureId: id})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	out := []map[string]interface{}{}
+	for _, x := range resp.SellRequests {
+		out = append(out, sellRequestMap(x))
+	}
+	writeJSON(w, 200, out)
 }
 
 func (h *HTTPFeaturesHandler) HandleBuyRequestsRoutes(w http.ResponseWriter, r *http.Request) {
@@ -804,7 +831,24 @@ func isFeatureTradeHistoryPath(path string) bool {
 	return false
 }
 
+func isFeatureSellRequestsPath(path string) bool {
+	path = strings.Trim(path, "/")
+	if i := strings.Index(path, "/"); i >= 0 {
+		return path[i+1:] == "sell-requests"
+	}
+	return false
+}
+
 func featureIDFromTradeHistoryRequest(r *http.Request) (uint64, error) {
+	if v := r.PathValue("feature"); v != "" {
+		return strconv.ParseUint(v, 10, 64)
+	}
+	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/")
+	idPart := strings.Split(path, "/")[0]
+	return strconv.ParseUint(idPart, 10, 64)
+}
+
+func featureIDFromSellRequestsRequest(r *http.Request) (uint64, error) {
 	if v := r.PathValue("feature"); v != "" {
 		return strconv.ParseUint(v, 10, 64)
 	}

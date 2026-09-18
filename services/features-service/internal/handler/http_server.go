@@ -71,6 +71,7 @@ func newPublicHTTPHandler(
 	mux.Handle("GET /api/features", optionalAuth(http.HandlerFunc(handlers.Features.ListFeatures)))
 	mux.Handle("GET /api/features/buildings/completed", optionalAuth(http.HandlerFunc(handlers.Features.ListCompletedBuildings)))
 	mux.Handle("GET /api/features/{feature}/trade-history", http.HandlerFunc(handlers.Features.TradeHistory))
+	mux.Handle("GET /api/features/{feature}/sell-requests", http.HandlerFunc(handlers.Features.FeatureSellRequests))
 	mux.Handle("/api/features/", optionalAuth(accountSecurity(http.HandlerFunc(handlers.Features.HandleFeaturesRoutes))))
 	mux.Handle("/api/my-features", secureAuth(http.HandlerFunc(handlers.Features.ListMyFeatures)))
 	mux.Handle("/api/my-features/", secureAuth(http.HandlerFunc(handlers.Features.HandleMyFeaturesRoutes)))

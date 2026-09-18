@@ -1128,6 +1128,16 @@ func (s *MarketplaceService) ListSellRequests(ctx context.Context, sellerID uint
 	return requests, nil
 }
 
+// ListFeatureSellRequests lists all sell requests for a feature, newest first.
+// Implements GET /api/features/{feature}/sell-requests
+func (s *MarketplaceService) ListFeatureSellRequests(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error) {
+	requests, err := s.sellRequestRepo.ListByFeatureID(ctx, featureID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list feature sell requests: %w", err)
+	}
+	return requests, nil
+}
+
 // DeleteSellRequest deletes a sell request and reverts feature status
 // Implements DELETE /api/sell-requests/{sellRequest}
 func (s *MarketplaceService) DeleteSellRequest(ctx context.Context, sellRequestID, sellerID uint64) error {

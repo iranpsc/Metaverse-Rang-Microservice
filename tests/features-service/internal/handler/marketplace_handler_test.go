@@ -22,6 +22,7 @@ type mockMarketplace struct {
 	acceptBuyRequest        func(ctx context.Context, requestID, sellerID uint64) (*models.BuyFeatureRequest, error)
 	createSellRequest       func(ctx context.Context, req *pb.CreateSellRequestRequest) (*models.SellFeatureRequest, error)
 	listSellRequests        func(ctx context.Context, sellerID uint64) ([]*models.SellFeatureRequest, error)
+	listFeatureSellRequests func(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error)
 	deleteSellRequest       func(ctx context.Context, sellRequestID, sellerID uint64) error
 	requestGracePeriod      func(ctx context.Context, requestID, sellerID uint64, grace string) error
 	listBuyRequests         func(ctx context.Context, buyerID uint64) ([]*models.BuyFeatureRequest, error)
@@ -65,6 +66,13 @@ func (m *mockMarketplace) CreateSellRequest(ctx context.Context, req *pb.CreateS
 func (m *mockMarketplace) ListSellRequests(ctx context.Context, sellerID uint64) ([]*models.SellFeatureRequest, error) {
 	if m.listSellRequests != nil {
 		return m.listSellRequests(ctx, sellerID)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockMarketplace) ListFeatureSellRequests(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error) {
+	if m.listFeatureSellRequests != nil {
+		return m.listFeatureSellRequests(ctx, featureID)
 	}
 	return nil, errors.New("not implemented")
 }
@@ -664,4 +672,55 @@ func TestMarketplaceHandler_ListSellRequests_WithRows(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resp.SellRequests, 1)
 	assert.Equal(t, uint64(50), resp.SellRequests[0].FeatureId)
+}
+
+func TestMarketplaceHandler_ListFeatureSellRequests_Validation(t *testing.T) {
+	h := newTestMarketplaceHandler(&mockMarketplace{})
+	_, err := h.ListFeatureSellRequests(context.Background(), &pb.ListFeatureSellRequestsRequest{FeatureId: 0})
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+func TestMarketplaceHandler_ListFeatureSellRequests_Empty(t *testing.T) {
+	m := &mockMarketplace{}
+	m.listFeatureSellRequests = func(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error) {
+		assert.Equal(t, uint64(10), featureID)
+		return []*models.SellFeatureRequest{}, nil
+	}
+	h := newTestMarketplaceHandler(m)
+	resp, err := h.ListFeatureSellRequests(context.Background(), &pb.ListFeatureSellRequestsRequest{FeatureId: 10})
+	require.NoError(t, err)
+	assert.Len(t, resp.SellRequests, 0)
+}
+
+func TestMarketplaceHandler_ListFeatureSellRequests_NewestFirst(t *testing.T) {
+	ctx := context.Background()
+	m := &mockMarketplace{}
+	newer := time.Now()
+	older := newer.Add(-time.Hour)
+	m.listFeatureSellRequests = func(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error) {
+		assert.Equal(t, uint64(10), featureID)
+		return []*models.SellFeatureRequest{
+			{ID: 2, SellerID: 3, FeatureID: 10, PricePSC: 15, PriceIRR: 25, CreatedAt: newer, UpdatedAt: newer},
+			{ID: 1, SellerID: 3, FeatureID: 10, PricePSC: 10, PriceIRR: 20, CreatedAt: older, UpdatedAt: older},
+		}, nil
+	}
+	h := newTestMarketplaceHandler(m)
+	resp, err := h.ListFeatureSellRequests(ctx, &pb.ListFeatureSellRequestsRequest{FeatureId: 10})
+	require.NoError(t, err)
+	require.Len(t, resp.SellRequests, 2)
+	assert.Equal(t, uint64(2), resp.SellRequests[0].Id)
+	assert.Equal(t, uint64(1), resp.SellRequests[1].Id)
+	assert.Equal(t, uint64(10), resp.SellRequests[0].FeatureId)
+}
+
+func TestMarketplaceHandler_ListFeatureSellRequests_ServiceError(t *testing.T) {
+	m := &mockMarketplace{}
+	m.listFeatureSellRequests = func(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error) {
+		return nil, errors.New("db down")
+	}
+	h := newTestMarketplaceHandler(m)
+	_, err := h.ListFeatureSellRequests(context.Background(), &pb.ListFeatureSellRequestsRequest{FeatureId: 10})
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.Internal, st.Code())
 }
