@@ -191,7 +191,7 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 func TestHTTPGetMyFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 	api := &mockHTTPFeatureAPI{getMyFeature: func(_ context.Context, _ *pb.GetMyFeatureRequest) (*pb.FeatureResponse, error) {
 		feat := sampleHTTPFeature()
-		feat.IsForSale = true
+		feat.IsForSale = 1
 		feat.LatestSellRequest = &pb.SellRequestResponse{
 			Id: 8, FeatureId: 1, SellerId: 2, PricePsc: "12.5", PriceIrr: "450", Status: 0, CreatedAt: "1404/01/01",
 		}
