@@ -585,8 +585,8 @@ func TestHTTPListMyFeatures_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	item := body["data"].([]interface{})[0].(map[string]interface{})
-	assert.Equal(t, true, item["is_for_sale"])
-	latest := item["latest_sell_request"].(map[string]interface{})
+	assert.Equal(t, float64(1), item["is-for-sale"])
+	latest := item["latest-sell-request"].(map[string]interface{})
 	assert.Equal(t, float64(8), latest["id"])
 	assert.Equal(t, "1.25", latest["price_psc"])
 	assert.Equal(t, "250.5", latest["price_irr"])
