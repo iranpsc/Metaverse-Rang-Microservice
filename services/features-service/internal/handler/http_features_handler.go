@@ -590,9 +590,11 @@ func (h *HTTPFeaturesHandler) ListMyFeatures(w http.ResponseWriter, r *http.Requ
 	}
 	data := []map[string]interface{}{}
 	for _, x := range resp.Data {
-		row := map[string]interface{}{"id": x.Id, "images": []interface{}{}, "is_for_sale": x.IsForSale}
-		if x.IsForSale && x.LatestSellRequest != nil {
-			row["latest_sell_request"] = sellRequestMap(x.LatestSellRequest)
+		row := map[string]interface{}{"id": x.Id, "images": []interface{}{}, "is-for-sale": x.IsForSale}
+		if x.LatestSellRequest != nil {
+			row["latest-sell-request"] = sellRequestMap(x.LatestSellRequest)
+		} else {
+			row["latest-sell-request"] = nil
 		}
 		if x.Properties != nil {
 			row["properties"] = map[string]interface{}{

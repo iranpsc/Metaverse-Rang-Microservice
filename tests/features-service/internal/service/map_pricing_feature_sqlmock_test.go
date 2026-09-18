@@ -313,7 +313,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 			"p1", 1, "m", "d", "o", "l", "addr",
 			10.0, 1, 10.0, "0", "0", 80, now, now,
 		))
-	expectNoOpenSellRequestsIn(mock, 1)
+	expectLatestSellRequest(mock, nil)
 	list, err := svc.ListMyFeatures(context.Background(), 2, 0, "", "")
 	require.NoError(t, err)
 	require.Len(t, list, 1)

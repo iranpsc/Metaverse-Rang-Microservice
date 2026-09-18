@@ -1382,11 +1382,12 @@ type Feature struct {
 	IsOwnedByAuthUser    bool                   `protobuf:"varint,8,opt,name=is_owned_by_auth_user,json=isOwnedByAuthUser,proto3" json:"is_owned_by_auth_user,omitempty"`
 	Seller               *Seller                `protobuf:"bytes,9,opt,name=seller,proto3" json:"seller,omitempty"` // Latest seller from trade
 	IsHourlyProfitActive bool                   `protobuf:"varint,10,opt,name=is_hourly_profit_active,json=isHourlyProfitActive,proto3" json:"is_hourly_profit_active,omitempty"`
-	BuildingModels       []*Building            `protobuf:"bytes,11,rep,name=building_models,json=buildingModels,proto3" json:"building_models,omitempty"`            // Building models with pivot metadata
-	IsForSale            bool                   `protobuf:"varint,12,opt,name=is_for_sale,json=isForSale,proto3" json:"is_for_sale,omitempty"`                        // True when the feature has an open sell request
-	LatestSellRequest    *SellRequestResponse   `protobuf:"bytes,13,opt,name=latest_sell_request,json=latestSellRequest,proto3" json:"latest_sell_request,omitempty"` // Present when is_for_sale is true
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	BuildingModels       []*Building            `protobuf:"bytes,11,rep,name=building_models,json=buildingModels,proto3" json:"building_models,omitempty"` // Building models with pivot metadata
+	// 1 when the latest sell request is open (status=0), otherwise 0 (status=1 or none).
+	IsForSale         int32                `protobuf:"varint,12,opt,name=is_for_sale,json=isForSale,proto3" json:"is-for-sale,omitempty"`
+	LatestSellRequest *SellRequestResponse `protobuf:"bytes,13,opt,name=latest_sell_request,json=latestSellRequest,proto3" json:"latest-sell-request,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Feature) Reset() {
@@ -1496,11 +1497,11 @@ func (x *Feature) GetBuildingModels() []*Building {
 	return nil
 }
 
-func (x *Feature) GetIsForSale() bool {
+func (x *Feature) GetIsForSale() int32 {
 	if x != nil {
 		return x.IsForSale
 	}
-	return false
+	return 0
 }
 
 func (x *Feature) GetLatestSellRequest() *SellRequestResponse {
@@ -6956,7 +6957,7 @@ const file_features_proto_rawDesc = "" +
 	"\x14SimplePaginationMeta\x12!\n" +
 	"\fcurrent_page\x18\x01 \x01(\x05R\vcurrentPage\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x19\n" +
-	"\bper_page\x18\x03 \x01(\x05R\aperPage\"\xb4\x04\n" +
+	"\bper_page\x18\x03 \x01(\x05R\aperPage\"\xe5\x03\n" +
 	"\aFeature\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x15\n" +
 	"\x06map_id\x18\x02 \x01(\x04R\x05mapId\x12\x19\n" +
@@ -6972,8 +6973,7 @@ const file_features_proto_rawDesc = "" +
 	"\x17is_hourly_profit_active\x18\n" +
 	" \x01(\bR\x14isHourlyProfitActive\x12;\n" +
 	"\x0fbuilding_models\x18\v \x03(\v2\x12.features.BuildingR\x0ebuildingModels\x12\x1e\n" +
-	"\vis_for_sale\x18\f \x01(\bR\tisForSale\x12M\n" +
-	"\x13latest_sell_request\x18\r \x01(\v2\x1d.features.SellRequestResponseR\x11latestSellRequest\"@\n" +
+	"\vis_for_sale\x18\f \x01(\x05R\tisForSale\"@\n" +
 	"\x06Seller\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +

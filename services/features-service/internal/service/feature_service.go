@@ -21,6 +21,7 @@ type FeatureService struct {
 	buildingRepo     *repository.BuildingRepository
 	tradeRepo        *repository.TradeRepository
 	hourlyProfitRepo *repository.HourlyProfitRepository
+	sellRequestRepo  *repository.SellRequestRepository
 	pricingService   *FeaturePricingService
 	fileStorage      FileStorage
 	apiGatewayURL    string
@@ -48,6 +49,7 @@ func NewFeatureService(
 		buildingRepo:     buildingRepo,
 		tradeRepo:        tradeRepo,
 		hourlyProfitRepo: hourlyProfitRepo,
+		sellRequestRepo:  repository.NewSellRequestRepository(db),
 		pricingService:   pricingService,
 		fileStorage:      fileStorage,
 		apiGatewayURL:    apiGatewayURL,
@@ -151,6 +153,41 @@ func (s *FeatureService) ListFeatures(ctx context.Context, points []string, load
 	}
 
 	return result, nil
+}
+
+// isForSaleFromLatestSellRequest maps the latest sell-request status to the
+// my-features is_for_sale flag: open (0) => 1, completed (1) or missing => 0.
+func isForSaleFromLatestSellRequest(req *models.SellFeatureRequest) int32 {
+	if req != nil && req.Status == 0 {
+		return 1
+	}
+	return 0
+}
+
+func (s *FeatureService) fetchLatestSellRequest(ctx context.Context, featureID uint64) *models.SellFeatureRequest {
+	if s.sellRequestRepo == nil {
+		return nil
+	}
+	latest, err := s.sellRequestRepo.GetLatestByFeatureID(ctx, featureID)
+	if err != nil {
+		return nil
+	}
+	return latest
+}
+
+func sellFeatureRequestToPB(req *models.SellFeatureRequest) *pb.SellRequestResponse {
+	if req == nil {
+		return nil
+	}
+	return &pb.SellRequestResponse{
+		Id:        req.ID,
+		SellerId:  req.SellerID,
+		FeatureId: req.FeatureID,
+		PricePsc:  strconv.FormatFloat(req.PricePSC, 'f', -1, 64),
+		PriceIrr:  strconv.FormatFloat(req.PriceIRR, 'f', -1, 64),
+		Status:    int32(req.Status),
+		CreatedAt: helpers.FormatJalaliDate(req.CreatedAt),
+	}
 }
 
 // GetFeature retrieves a single feature with all relations
@@ -290,7 +327,7 @@ func (s *FeatureService) GetMyFeatures(ctx context.Context, userID uint64) ([]*p
 }
 
 // ListMyFeatures retrieves paginated features owned by authenticated user (5 per page)
-// Only loads properties (images are empty on this endpoint)
+// Only loads properties (images are empty on this endpoint), is-for-sale, and latest-sell-request
 // search matches feature_properties.id or address; filter matches karbari
 func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page int32, search, filter string) ([]*pb.Feature, error) {
 	if page < 1 {
@@ -306,11 +343,14 @@ func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page
 	result := make([]*pb.Feature, 0, len(features))
 	for i, feature := range features {
 		properties := propertiesList[i]
+		latestSell := s.fetchLatestSellRequest(ctx, feature.ID)
 		pbFeature := &pb.Feature{
-			Id:         feature.ID,
-			OwnerId:    feature.OwnerID,
-			Properties: models.PropertiesToPB(properties),
-			Images:     []*pb.Image{}, // Always empty on list endpoint
+			Id:                feature.ID,
+			OwnerId:           feature.OwnerID,
+			Properties:        models.PropertiesToPB(properties),
+			Images:            []*pb.Image{}, // Always empty on list endpoint
+			IsForSale:         isForSaleFromLatestSellRequest(latestSell),
+			LatestSellRequest: sellFeatureRequestToPB(latestSell),
 		}
 		result = append(result, pbFeature)
 	}
