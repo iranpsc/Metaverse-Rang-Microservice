@@ -279,7 +279,6 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 			"model_id", "model_model_id", "model_name", "model_sku", "model_images",
 			"model_attributes", "model_file", "model_required_satisfaction",
 		}))
-	expectLatestSellRequest(mock, nil)
 
 	feat, err := svc.GetFeature(context.Background(), 1)
 	require.NoError(t, err)
@@ -295,6 +294,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 			"p1", 1, "m", "d", "o", "l", "addr",
 			10.0, 1, 10.0, "0", "0", 80, now, now,
 		))
+	expectLatestSellRequest(mock, nil)
 	list, err := svc.ListMyFeatures(context.Background(), 2, 0, "", "")
 	require.NoError(t, err)
 	require.Len(t, list, 1)
@@ -345,7 +345,6 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 	mock.ExpectQuery("FROM buildings").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrConnDone)
-	expectLatestSellRequest(mock, nil)
 	updated, err := svc.UpdateFeature(context.Background(), 1, &pb.FeatureProperties{
 		Karbari: "m", Rgb: "d", Owner: "o", Label: "l", PricePsc: "1", PriceIrr: "2", MinimumPricePercentage: 90,
 	})
@@ -368,7 +367,6 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 	mock.ExpectQuery("FROM buildings").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrConnDone)
-	expectLatestSellRequest(mock, nil)
 	added, err := svc.AddFeatureImages(context.Background(), 1, []string{"https://x"})
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), added.Id)

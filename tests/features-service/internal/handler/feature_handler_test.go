@@ -138,13 +138,12 @@ func TestFeatureHandler_GetFeature(t *testing.T) {
 	ctx := context.Background()
 	m := &mockFeaturePort{}
 	m.getFeature = func(ctx context.Context, featureID uint64) (*pb.Feature, error) {
-		return &pb.Feature{Id: featureID, IsForSale: 1}, nil
+		return &pb.Feature{Id: featureID}, nil
 	}
 	h := handler.NewFeatureHandler(m, nil)
 	resp, err := h.GetFeature(ctx, &pb.GetFeatureRequest{FeatureId: 42})
 	require.NoError(t, err)
 	assert.Equal(t, uint64(42), resp.Feature.Id)
-	assert.Equal(t, int32(1), resp.Feature.IsForSale)
 }
 
 func TestFeatureHandler_GetFeature_MissingId(t *testing.T) {

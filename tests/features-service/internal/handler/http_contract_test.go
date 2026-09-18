@@ -538,34 +538,50 @@ func (m *mockHTTPMarketplaceAPIWithFeatureSells) ListFeatureSellRequests(ctx con
 	return m.mockHTTPMarketplaceAPI.ListFeatureSellRequests(ctx, req)
 }
 
-func TestHTTPGetFeature_IncludesIsForSale(t *testing.T) {
-	tests := []struct {
-		name      string
-		isForSale int32
-		want      float64
-	}{
-		{name: "open listing", isForSale: 1, want: 1},
-		{name: "not for sale", isForSale: 0, want: 0},
-	}
+func TestHTTPListMyFeatures_IncludesIsForSaleOnEachItem(t *testing.T) {
+	feature := &mockHTTPFeatureAPI{listMyFeatures: func(_ context.Context, req *pb.ListMyFeaturesRequest) (*pb.ListMyFeaturesResponse, error) {
+		assert.Equal(t, uint64(42), req.UserId)
+		return &pb.ListMyFeaturesResponse{
+			Data: []*pb.Feature{
+				{Id: 9, IsForSale: 1, Properties: &pb.FeatureProperties{Id: "TO111"}},
+				{Id: 10, IsForSale: 0, Properties: &pb.FeatureProperties{Id: "TO222"}},
+			},
+			Links: &pb.PaginationLinks{First: "/api/my-features?page=1"},
+			Meta:  &pb.SimplePaginationMeta{CurrentPage: 1, Path: "/api/my-features", PerPage: 5},
+		}, nil
+	}}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			feature := &mockHTTPFeatureAPI{getFeature: func(_ context.Context, req *pb.GetFeatureRequest) (*pb.FeatureResponse, error) {
-				assert.Equal(t, uint64(42), req.FeatureId)
-				return &pb.FeatureResponse{Feature: &pb.Feature{Id: 42, OwnerId: 2, IsForSale: tt.isForSale}}, nil
-			}}
-			w := httptest.NewRecorder()
-			newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).HandleFeaturesRoutes(
-				w,
-				httptest.NewRequest(http.MethodGet, "/api/features/42", nil),
-			)
-			require.Equal(t, http.StatusOK, w.Code)
+	w := httptest.NewRecorder()
+	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features?page=1", nil), 42)
+	newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).ListMyFeatures(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
 
-			var body map[string]interface{}
-			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-			data := body["data"].(map[string]interface{})
-			assert.Equal(t, float64(42), data["id"])
-			assert.Equal(t, tt.want, data["is_for_sale"])
-		})
-	}
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].([]interface{})
+	require.Len(t, data, 2)
+	first := data[0].(map[string]interface{})
+	second := data[1].(map[string]interface{})
+	assert.Equal(t, float64(9), first["id"])
+	assert.Equal(t, float64(1), first["is_for_sale"])
+	assert.Equal(t, float64(10), second["id"])
+	assert.Equal(t, float64(0), second["is_for_sale"])
+}
+
+func TestHTTPGetFeature_DoesNotIncludeIsForSale(t *testing.T) {
+	feature := &mockHTTPFeatureAPI{getFeature: func(_ context.Context, req *pb.GetFeatureRequest) (*pb.FeatureResponse, error) {
+		return &pb.FeatureResponse{Feature: &pb.Feature{Id: 42, OwnerId: 2, IsForSale: 1}}, nil
+	}}
+	w := httptest.NewRecorder()
+	newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).HandleFeaturesRoutes(
+		w,
+		httptest.NewRequest(http.MethodGet, "/api/features/42", nil),
+	)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, float64(42), data["id"])
+	assert.NotContains(t, data, "is_for_sale")
 }

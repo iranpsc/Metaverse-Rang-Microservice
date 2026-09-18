@@ -155,7 +155,7 @@ func (s *FeatureService) ListFeatures(ctx context.Context, points []string, load
 }
 
 // isForSaleFromLatestSellRequest maps the latest sell-request status to the
-// feature-details is_for_sale flag: open (0) => 1, completed (1) or missing => 0.
+// my-features is_for_sale flag: open (0) => 1, completed (1) or missing => 0.
 func isForSaleFromLatestSellRequest(req *models.SellFeatureRequest) int32 {
 	if req != nil && req.Status == 0 {
 		return 1
@@ -175,7 +175,7 @@ func (s *FeatureService) loadIsForSale(ctx context.Context, featureID uint64) in
 }
 
 // GetFeature retrieves a single feature with all relations
-// Loads: properties, images, latestTraded.seller, hourlyProfit, buildingModels, latest sell-request (is_for_sale)
+// Loads: properties, images, latestTraded.seller, hourlyProfit, buildingModels
 func (s *FeatureService) GetFeature(ctx context.Context, featureID uint64) (*pb.Feature, error) {
 	feature, properties, err := s.featureRepo.FindByID(ctx, featureID)
 	if err != nil {
@@ -258,7 +258,6 @@ func (s *FeatureService) GetFeature(ctx context.Context, featureID uint64) (*pb.
 		Seller:               pbSeller,
 		IsHourlyProfitActive: isHourlyProfitActive,
 		BuildingModels:       buildings,
-		IsForSale:            s.loadIsForSale(ctx, featureID),
 	}
 
 	return pbFeature, nil
@@ -311,7 +310,7 @@ func (s *FeatureService) GetMyFeatures(ctx context.Context, userID uint64) ([]*p
 }
 
 // ListMyFeatures retrieves paginated features owned by authenticated user (5 per page)
-// Only loads properties (images are empty on this endpoint)
+// Only loads properties (images are empty on this endpoint) and latest sell-request is_for_sale
 // search matches feature_properties.id or address; filter matches karbari
 func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page int32, search, filter string) ([]*pb.Feature, error) {
 	if page < 1 {
@@ -332,6 +331,7 @@ func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page
 			OwnerId:    feature.OwnerID,
 			Properties: models.PropertiesToPB(properties),
 			Images:     []*pb.Image{}, // Always empty on list endpoint
+			IsForSale:  s.loadIsForSale(ctx, feature.ID),
 		}
 		result = append(result, pbFeature)
 	}

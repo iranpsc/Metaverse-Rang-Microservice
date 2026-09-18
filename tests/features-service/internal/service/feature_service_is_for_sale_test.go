@@ -31,40 +31,41 @@ func newFeatureServiceSQLMock(t *testing.T) (*service.FeatureService, sqlmock.Sq
 	return svc, mock
 }
 
-func expectGetFeatureRelations(mock sqlmock.Sqlmock) {
-	mock.ExpectQuery("FROM geometries g").
-		WithArgs(uint64(1)).
-		WillReturnError(sql.ErrNoRows)
-	mock.ExpectQuery("FROM images").
-		WithArgs(uint64(1)).
-		WillReturnError(sql.ErrConnDone)
-	mock.ExpectQuery("LEFT JOIN users").
-		WithArgs(uint64(1)).
-		WillReturnError(sql.ErrNoRows)
-	mock.ExpectQuery("FROM feature_hourly_profits").
-		WithArgs(uint64(1), uint64(2)).
-		WillReturnError(sql.ErrNoRows)
-	mock.ExpectQuery("FROM buildings").
-		WithArgs(uint64(1)).
-		WillReturnError(sql.ErrConnDone)
+func expectLatestSellRequest(mock sqlmock.Sqlmock, status *int) {
+	expectLatestSellRequestForFeature(mock, 1, status)
 }
 
-func expectLatestSellRequest(mock sqlmock.Sqlmock, status *int) {
+func expectLatestSellRequestForFeature(mock sqlmock.Sqlmock, featureID uint64, status *int) {
 	cols := []string{"id", "seller_id", "feature_id", "price_psc", "price_irr", "limit", "status", "created_at", "updated_at"}
 	if status == nil {
 		mock.ExpectQuery("FROM sell_feature_requests").
-			WithArgs(uint64(1)).
+			WithArgs(featureID).
 			WillReturnRows(sqlmock.NewRows(cols))
 		return
 	}
 	now := time.Now()
 	mock.ExpectQuery("FROM sell_feature_requests").
-		WithArgs(uint64(1)).
+		WithArgs(featureID).
 		WillReturnRows(sqlmock.NewRows(cols).
-			AddRow(8, 2, 1, 10.0, 20.0, 100, *status, now, now))
+			AddRow(8, 2, featureID, 10.0, 20.0, 100, *status, now, now))
 }
 
-func TestFeatureService_GetFeature_IsForSaleFromLatestSellRequest(t *testing.T) {
+func expectListMyFeaturesOwnerPage(mock sqlmock.Sqlmock, ownerID uint64, featureIDs ...uint64) {
+	now := time.Now()
+	rows := sqlmock.NewRows(featureFindCols())
+	for _, featureID := range featureIDs {
+		rows.AddRow(
+			featureID, ownerID, 1, "polygon", now, now,
+			"p1", featureID, "m", "d", "o", "l", "addr",
+			10.0, 1, 10.0, "0", "0", 80, now, now,
+		)
+	}
+	mock.ExpectQuery("LIMIT").
+		WithArgs(ownerID, 5, 0).
+		WillReturnRows(rows)
+}
+
+func TestFeatureService_ListMyFeatures_IsForSaleFromLatestSellRequest(t *testing.T) {
 	open := 0
 	completed := 1
 	tests := []struct {
@@ -80,29 +81,44 @@ func TestFeatureService_GetFeature_IsForSaleFromLatestSellRequest(t *testing.T) 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, mock := newFeatureServiceSQLMock(t)
-			expectFeatureFindByID(mock, 2, "m", 10, 80)
-			expectGetFeatureRelations(mock)
+			expectListMyFeaturesOwnerPage(mock, 2, 1)
 			expectLatestSellRequest(mock, tt.sellStatus)
 
-			feat, err := svc.GetFeature(context.Background(), 1)
+			list, err := svc.ListMyFeatures(context.Background(), 2, 1, "", "")
 			require.NoError(t, err)
-			require.NotNil(t, feat)
-			assert.Equal(t, tt.want, feat.IsForSale)
+			require.Len(t, list, 1)
+			assert.Equal(t, tt.want, list[0].IsForSale)
 			require.NoError(t, mock.ExpectationsWereMet())
 		})
 	}
 }
 
-func TestFeatureService_GetFeature_IsForSaleWhenSellRequestLookupFails(t *testing.T) {
+func TestFeatureService_ListMyFeatures_SetsIsForSaleOnEachItem(t *testing.T) {
 	svc, mock := newFeatureServiceSQLMock(t)
-	expectFeatureFindByID(mock, 2, "m", 10, 80)
-	expectGetFeatureRelations(mock)
+	open := 0
+	completed := 1
+	expectListMyFeaturesOwnerPage(mock, 2, 1, 2)
+	expectLatestSellRequestForFeature(mock, 1, &open)
+	expectLatestSellRequestForFeature(mock, 2, &completed)
+
+	list, err := svc.ListMyFeatures(context.Background(), 2, 1, "", "")
+	require.NoError(t, err)
+	require.Len(t, list, 2)
+	assert.Equal(t, int32(1), list[0].IsForSale)
+	assert.Equal(t, int32(0), list[1].IsForSale)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestFeatureService_ListMyFeatures_IsForSaleWhenSellRequestLookupFails(t *testing.T) {
+	svc, mock := newFeatureServiceSQLMock(t)
+	expectListMyFeaturesOwnerPage(mock, 2, 1)
 	mock.ExpectQuery("FROM sell_feature_requests").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrConnDone)
 
-	feat, err := svc.GetFeature(context.Background(), 1)
+	list, err := svc.ListMyFeatures(context.Background(), 2, 1, "", "")
 	require.NoError(t, err)
-	assert.Equal(t, int32(0), feat.IsForSale)
+	require.Len(t, list, 1)
+	assert.Equal(t, int32(0), list[0].IsForSale)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
