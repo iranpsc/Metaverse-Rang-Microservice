@@ -23,7 +23,7 @@ type featureHTTPAPI interface {
 	GetMyFeature(context.Context, *featurespb.GetMyFeatureRequest) (*featurespb.FeatureResponse, error)
 	AddMyFeatureImages(context.Context, *featurespb.AddMyFeatureImagesRequest) (*featurespb.FeatureResponse, error)
 	RemoveMyFeatureImage(context.Context, *featurespb.RemoveMyFeatureImageRequest) (*emptypb.Empty, error)
-	UpdateMyFeature(context.Context, *featurespb.UpdateMyFeatureRequest) (*emptypb.Empty, error)
+	UpdateMyFeature(context.Context, *featurespb.UpdateMyFeatureRequest) (*featurespb.UpdateMyFeatureResponse, error)
 	GetFeatureTradeHistory(context.Context, *featurespb.GetFeatureTradeHistoryRequest) (*featurespb.GetFeatureTradeHistoryResponse, error)
 }
 type marketplaceHTTPAPI interface {
@@ -777,14 +777,14 @@ func (h *HTTPFeaturesHandler) UpdateMyFeature(w http.ResponseWriter, r *http.Req
 				writeValidationError(w, "minimum_price_percentage must be at least 80")
 				return
 			}
-			_, err = h.feature.UpdateMyFeature(r.Context(), &featurespb.UpdateMyFeatureRequest{
+			resp, err := h.feature.UpdateMyFeature(r.Context(), &featurespb.UpdateMyFeatureRequest{
 				UserId: ids[0], FeatureId: ids[1], MinimumPricePercentage: int32(minimum),
 			})
 			if err != nil {
 				writeGRPCError(w, err)
 				return
 			}
-			w.WriteHeader(204)
+			writeUpdateMyFeatureJSON(w, resp)
 			return
 		}
 		writeError(w, 400, "request body is required")
@@ -801,12 +801,26 @@ func (h *HTTPFeaturesHandler) UpdateMyFeature(w http.ResponseWriter, r *http.Req
 		writeValidationError(w, "minimum_price_percentage must be at least 80")
 		return
 	}
-	_, err := h.feature.UpdateMyFeature(r.Context(), &featurespb.UpdateMyFeatureRequest{UserId: ids[0], FeatureId: ids[1], MinimumPricePercentage: body.Minimum})
+	resp, err := h.feature.UpdateMyFeature(r.Context(), &featurespb.UpdateMyFeatureRequest{UserId: ids[0], FeatureId: ids[1], MinimumPricePercentage: body.Minimum})
 	if err != nil {
 		writeGRPCError(w, err)
 		return
 	}
-	w.WriteHeader(204)
+	writeUpdateMyFeatureJSON(w, resp)
+}
+
+func writeUpdateMyFeatureJSON(w http.ResponseWriter, resp *featurespb.UpdateMyFeatureResponse) {
+	pricePSC, priceIRR := "", ""
+	if resp != nil {
+		pricePSC = resp.PricePsc
+		priceIRR = resp.PriceIrr
+	}
+	writeJSON(w, 200, map[string]interface{}{
+		"data": map[string]interface{}{
+			"price_psc": pricePSC,
+			"price_irr": priceIRR,
+		},
+	})
 }
 
 func (h *HTTPFeaturesHandler) user(w http.ResponseWriter, r *http.Request) (*middlewareUser, bool) {
@@ -899,7 +913,10 @@ func featureMap(f *featurespb.Feature) map[string]interface{} {
 	if f == nil {
 		return map[string]interface{}{}
 	}
-	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive}
+	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive, "is_for_sale": f.IsForSale}
+	if f.IsForSale && f.LatestSellRequest != nil {
+		out["latest_sell_request"] = sellRequestMap(f.LatestSellRequest)
+	}
 	if f.Properties != nil {
 		out["properties"] = propertyMap(f.Properties)
 	}

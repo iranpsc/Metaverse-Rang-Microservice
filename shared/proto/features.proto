@@ -19,7 +19,7 @@ service FeatureService {
   rpc GetMyFeature(GetMyFeatureRequest) returns (FeatureResponse);
   rpc AddMyFeatureImages(AddMyFeatureImagesRequest) returns (FeatureResponse);
   rpc RemoveMyFeatureImage(RemoveMyFeatureImageRequest) returns (google.protobuf.Empty);
-  rpc UpdateMyFeature(UpdateMyFeatureRequest) returns (google.protobuf.Empty);
+  rpc UpdateMyFeature(UpdateMyFeatureRequest) returns (UpdateMyFeatureResponse);
   // Trade history for a feature (owner-only)
   rpc GetFeatureTradeHistory(GetFeatureTradeHistoryRequest) returns (GetFeatureTradeHistoryResponse);
 }
@@ -112,6 +112,11 @@ message UpdateMyFeatureRequest {
   uint64 user_id = 1; // User ID from path (for scoped binding)
   uint64 feature_id = 2; // Feature ID (must belong to user_id)
   int32 minimum_price_percentage = 3; // Required, min:80 (min:110 if user is under 18)
+}
+
+message UpdateMyFeatureResponse {
+  string price_psc = 1; // Recalculated PSC price after applying minimum_price_percentage
+  string price_irr = 2; // Recalculated IRR price after applying minimum_price_percentage
 }
 
 // Feature trade history (GET /api/features/{feature}/trade-history)

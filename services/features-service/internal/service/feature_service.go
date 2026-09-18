@@ -275,6 +275,7 @@ func (s *FeatureService) GetFeature(ctx context.Context, featureID uint64) (*pb.
 		IsHourlyProfitActive: isHourlyProfitActive,
 		BuildingModels:       buildings,
 	}
+	s.applyLatestSellRequest(ctx, pbFeature)
 
 	return pbFeature, nil
 }
@@ -353,6 +354,7 @@ func (s *FeatureService) ListMyFeatures(ctx context.Context, userID uint64, page
 		}
 		result = append(result, pbFeature)
 	}
+	s.applyLatestSellRequests(ctx, result)
 
 	return result, nil
 }
@@ -431,6 +433,7 @@ func (s *FeatureService) GetMyFeature(ctx context.Context, userID, featureID uin
 		Images:     pbImages,
 		Seller:     pbSeller,
 	}
+	s.applyLatestSellRequest(ctx, pbFeature)
 
 	return pbFeature, nil
 }
@@ -520,27 +523,87 @@ func (s *FeatureService) RemoveMyFeatureImage(ctx context.Context, userID, featu
 
 // UpdateMyFeature updates the minimum price percentage for a feature
 // Verifies ownership and calculates new pricing based on stability and rates
-func (s *FeatureService) UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error {
+func (s *FeatureService) UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
 	// Verify ownership
 	feature, _, err := s.featureRepo.FindByOwnerAndFeatureID(ctx, userID, featureID)
 	if err != nil {
-		return fmt.Errorf("failed to find feature: %w", err)
+		return nil, fmt.Errorf("failed to find feature: %w", err)
 	}
 	if feature == nil {
-		return fmt.Errorf("feature not found or does not belong to user")
+		return nil, fmt.Errorf("feature not found or does not belong to user")
 	}
 
 	// Use pricing service to update (handles validation and calculation)
 	if s.pricingService == nil {
-		return fmt.Errorf("pricing service not initialized")
+		return nil, fmt.Errorf("pricing service not initialized")
 	}
 
-	err = s.pricingService.UpdateFeaturePricing(ctx, featureID, userID, int(minimumPricePercentage))
+	pricing, err := s.pricingService.UpdateFeaturePricing(ctx, featureID, userID, int(minimumPricePercentage))
 	if err != nil {
-		return fmt.Errorf("failed to update feature pricing: %w", err)
+		return nil, fmt.Errorf("failed to update feature pricing: %w", err)
+	}
+	if pricing == nil {
+		return &pb.UpdateMyFeatureResponse{}, nil
 	}
 
-	return nil
+	return &pb.UpdateMyFeatureResponse{
+		PricePsc: pricing.PricePSC,
+		PriceIrr: pricing.PriceIRR,
+	}, nil
+}
+
+func (s *FeatureService) applyLatestSellRequest(ctx context.Context, feature *pb.Feature) {
+	if feature == nil || s.db == nil {
+		return
+	}
+	req, err := repository.NewSellRequestRepository(s.db).GetLatestOpenByFeatureID(ctx, feature.Id)
+	if err != nil || req == nil {
+		return
+	}
+	feature.IsForSale = true
+	feature.LatestSellRequest = sellRequestToPB(req)
+}
+
+func (s *FeatureService) applyLatestSellRequests(ctx context.Context, features []*pb.Feature) {
+	if s.db == nil || len(features) == 0 {
+		return
+	}
+	ids := make([]uint64, 0, len(features))
+	for _, feature := range features {
+		if feature != nil {
+			ids = append(ids, feature.Id)
+		}
+	}
+	latest, err := repository.NewSellRequestRepository(s.db).GetLatestOpenByFeatureIDs(ctx, ids)
+	if err != nil {
+		return
+	}
+	for _, feature := range features {
+		if feature == nil {
+			continue
+		}
+		req := latest[feature.Id]
+		if req == nil {
+			continue
+		}
+		feature.IsForSale = true
+		feature.LatestSellRequest = sellRequestToPB(req)
+	}
+}
+
+func sellRequestToPB(req *models.SellFeatureRequest) *pb.SellRequestResponse {
+	if req == nil {
+		return nil
+	}
+	return &pb.SellRequestResponse{
+		Id:        req.ID,
+		SellerId:  req.SellerID,
+		FeatureId: req.FeatureID,
+		PricePsc:  fmt.Sprintf("%.10f", req.PricePSC),
+		PriceIrr:  fmt.Sprintf("%.10f", req.PriceIRR),
+		Status:    int32(req.Status),
+		CreatedAt: helpers.FormatJalaliDate(req.CreatedAt),
+	}
 }
 
 func formatCoordValue(v float64) string {

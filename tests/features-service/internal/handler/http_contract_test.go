@@ -59,8 +59,8 @@ func (m *mockHTTPFeatureAPI) AddMyFeatureImages(context.Context, *pb.AddMyFeatur
 func (m *mockHTTPFeatureAPI) RemoveMyFeatureImage(context.Context, *pb.RemoveMyFeatureImageRequest) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
 }
-func (m *mockHTTPFeatureAPI) UpdateMyFeature(context.Context, *pb.UpdateMyFeatureRequest) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+func (m *mockHTTPFeatureAPI) UpdateMyFeature(context.Context, *pb.UpdateMyFeatureRequest) (*pb.UpdateMyFeatureResponse, error) {
+	return &pb.UpdateMyFeatureResponse{PricePsc: "12.5", PriceIrr: "450"}, nil
 }
 func (m *mockHTTPFeatureAPI) GetFeatureTradeHistory(ctx context.Context, req *pb.GetFeatureTradeHistoryRequest) (*pb.GetFeatureTradeHistoryResponse, error) {
 	if m.tradeHistory != nil {
@@ -524,6 +524,72 @@ func TestHTTPFeatureSellRequestsRoute_InvalidFeatureID(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.HandleFeaturesRoutes(w, httptest.NewRequest(http.MethodGet, "/api/features/abc/sell-requests", nil))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHTTPGetFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
+	feature := sampleHTTPFeature()
+	feature.IsForSale = true
+	feature.LatestSellRequest = &pb.SellRequestResponse{
+		Id: 8, FeatureId: 1, SellerId: 2, PricePsc: "12.5", PriceIrr: "450", Status: 0, CreatedAt: "1404/01/01",
+	}
+	api := &mockHTTPFeatureAPI{getFeature: func(_ context.Context, req *pb.GetFeatureRequest) (*pb.FeatureResponse, error) {
+		assert.Equal(t, uint64(1), req.FeatureId)
+		return &pb.FeatureResponse{Feature: feature}, nil
+	}}
+	w := httptest.NewRecorder()
+	newHTTPFeaturesHandler(api, &mockHTTPBuildingAPI{}).GetFeature(w, httptest.NewRequest(http.MethodGet, "/api/features/1", nil))
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, true, data["is_for_sale"])
+	latest := data["latest_sell_request"].(map[string]interface{})
+	assert.Equal(t, float64(8), latest["id"])
+	assert.Equal(t, "12.5", latest["price_psc"])
+	assert.Equal(t, "450", latest["price_irr"])
+}
+
+func TestHTTPGetFeature_OmitsLatestSellRequestWhenNotForSale(t *testing.T) {
+	w := httptest.NewRecorder()
+	newHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPBuildingAPI{}).GetFeature(w, httptest.NewRequest(http.MethodGet, "/api/features/1", nil))
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, false, data["is_for_sale"])
+	assert.NotContains(t, data, "latest_sell_request")
+}
+
+func TestHTTPListMyFeatures_IncludesLatestSellRequestWhenForSale(t *testing.T) {
+	api := &mockHTTPFeatureAPI{listMyFeatures: func(_ context.Context, _ *pb.ListMyFeaturesRequest) (*pb.ListMyFeaturesResponse, error) {
+		return &pb.ListMyFeaturesResponse{
+			Data: []*pb.Feature{{
+				Id:        9,
+				IsForSale: true,
+				LatestSellRequest: &pb.SellRequestResponse{
+					Id: 8, FeatureId: 9, SellerId: 42, PricePsc: "1.25", PriceIrr: "250.5", Status: 0,
+				},
+				Properties: &pb.FeatureProperties{Id: "TO111", PricePsc: "1.25", PriceIrr: "250.5"},
+			}},
+			Links: &pb.PaginationLinks{First: "/api/my-features?page=1"},
+			Meta:  &pb.SimplePaginationMeta{CurrentPage: 1, Path: "/api/my-features", PerPage: 5},
+		}, nil
+	}}
+	w := httptest.NewRecorder()
+	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features", nil), 42)
+	newHTTPFeaturesHandler(api, &mockHTTPBuildingAPI{}).ListMyFeatures(w, req)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	item := body["data"].([]interface{})[0].(map[string]interface{})
+	assert.Equal(t, true, item["is_for_sale"])
+	latest := item["latest_sell_request"].(map[string]interface{})
+	assert.Equal(t, float64(8), latest["id"])
+	assert.Equal(t, "1.25", latest["price_psc"])
+	assert.Equal(t, "250.5", latest["price_irr"])
 }
 
 type mockHTTPMarketplaceAPIWithFeatureSells struct {

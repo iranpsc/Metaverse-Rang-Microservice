@@ -225,6 +225,26 @@ func TestSellRequestRepository_FindListDeleteSQLMock(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(8), latest.ID)
 
+	mock.ExpectQuery("feature_id = \\? AND status = 0").
+		WithArgs(uint64(5)).
+		WillReturnRows(sqlmock.NewRows(sellRequestCols()).
+			AddRow(9, 3, 5, 11.0, 21.0, 100, 0, now, now))
+	open, err := repo.GetLatestOpenByFeatureID(context.Background(), 5)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(9), open.ID)
+
+	mock.ExpectQuery("WHERE feature_id IN").
+		WithArgs(uint64(5), uint64(6)).
+		WillReturnRows(sqlmock.NewRows(sellRequestCols()).
+			AddRow(9, 3, 5, 11.0, 21.0, 100, 0, now, now).
+			AddRow(4, 3, 5, 1.0, 2.0, 90, 0, now.Add(-time.Hour), now).
+			AddRow(10, 3, 6, 12.0, 22.0, 100, 0, now, now))
+	byIDs, err := repo.GetLatestOpenByFeatureIDs(context.Background(), []uint64{5, 6})
+	require.NoError(t, err)
+	require.Len(t, byIDs, 2)
+	assert.Equal(t, uint64(9), byIDs[5].ID)
+	assert.Equal(t, uint64(10), byIDs[6].ID)
+
 	mock.ExpectExec("DELETE FROM sell_feature_requests").
 		WithArgs(uint64(8)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
