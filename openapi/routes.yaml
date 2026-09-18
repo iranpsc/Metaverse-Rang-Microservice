@@ -46,6 +46,18 @@ routes:
     summary: Verify account security code
     security: bearer
 
+  # --- Mobile ---
+  - path: /api/mobile/send
+    methods: [post]
+    tag: Mobile
+    summary: Send verification code to change mobile number
+    security: bearer
+  - path: /api/mobile/verify
+    methods: [post]
+    tag: Mobile
+    summary: Verify code and change mobile number
+    security: bearer
+
   # --- Wallet (Web3) ---
   - path: /api/wallet/link/nonce
     methods: [get]

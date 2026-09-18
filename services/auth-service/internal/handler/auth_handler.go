@@ -259,6 +259,97 @@ func (h *authHandler) VerifyAccountSecurity(ctx context.Context, req *pb.VerifyA
 	return &emptypb.Empty{}, nil
 }
 
+func (h *authHandler) SendMobileChangeCode(ctx context.Context, req *pb.SendMobileChangeCodeRequest) (*emptypb.Empty, error) {
+	userID, err := authenticatedUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	mobile := strings.TrimSpace(helpers.NormalizePersianNumbers(req.GetMobile()))
+	if mobile == "" {
+		t := helpers.GetLocaleTranslations(h.locale)
+		encodedError := helpers.EncodeValidationError(map[string]string{
+			"mobile": fmt.Sprintf(t.Required, "mobile"),
+		})
+		return nil, status.Error(codes.InvalidArgument, encodedError)
+	}
+
+	if err := h.authService.SendMobileChangeCode(ctx, userID, mobile); err != nil {
+		return nil, mapMobileChangeError(err, h.locale)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func (h *authHandler) VerifyMobileChange(ctx context.Context, req *pb.VerifyMobileChangeRequest) (*emptypb.Empty, error) {
+	userID, err := authenticatedUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	code := strings.TrimSpace(helpers.NormalizePersianNumbers(req.GetCode()))
+	validationErrors := make(map[string]string)
+	t := helpers.GetLocaleTranslations(h.locale)
+	switch {
+	case code == "":
+		validationErrors["code"] = fmt.Sprintf(t.Required, "code")
+	case len(code) != 6:
+		validationErrors["code"] = fmt.Sprintf(t.Len, "code", "6")
+	default:
+		allDigits := true
+		for _, char := range code {
+			if char < '0' || char > '9' {
+				allDigits = false
+				break
+			}
+		}
+		if !allDigits {
+			validationErrors["code"] = fmt.Sprintf(t.Invalid, "code")
+		}
+	}
+	if len(validationErrors) > 0 {
+		return nil, status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
+	}
+
+	if err := h.authService.VerifyMobileChange(ctx, userID, code, req.GetIp(), req.GetUserAgent()); err != nil {
+		return nil, mapMobileChangeError(err, h.locale)
+	}
+	return &emptypb.Empty{}, nil
+}
+
+func mapMobileChangeError(err error, locale string) error {
+	validationErrors := make(map[string]string)
+	t := helpers.GetLocaleTranslations(locale)
+
+	switch {
+	case errors.Is(err, service.ErrPhoneRequired):
+		validationErrors["mobile"] = fmt.Sprintf(t.Required, "mobile")
+		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
+	case errors.Is(err, service.ErrInvalidPhoneFormat):
+		validationErrors["mobile"] = fmt.Sprintf(t.IranianMobile, "mobile")
+		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
+	case errors.Is(err, service.ErrPhoneAlreadyTaken):
+		validationErrors["mobile"] = fmt.Sprintf(t.Unique, "mobile")
+		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
+	case errors.Is(err, service.ErrMobileResetLimitExceeded):
+		validationErrors["mobile"] = lang.T(locale, "mobile reset limit exceeded")
+		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
+	case errors.Is(err, service.ErrInvalidOTPCode):
+		validationErrors["code"] = fmt.Sprintf(t.Invalid, "code")
+		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
+	case errors.Is(err, service.ErrOTPExpired):
+		validationErrors["code"] = fmt.Sprintf(t.Invalid, "code")
+		return status.Error(codes.InvalidArgument, helpers.EncodeValidationError(validationErrors))
+	case errors.Is(err, service.ErrOTPNotFound):
+		return status.Errorf(codes.InvalidArgument, "%v", err)
+	case errors.Is(err, service.ErrUserNotFound):
+		return status.Errorf(codes.NotFound, "%v", err)
+	case errors.Is(err, service.ErrVerificationRequestRateLimited), errors.Is(err, service.ErrVerificationAttemptRateLimited):
+		return status.Errorf(codes.ResourceExhausted, "%v", err)
+	default:
+		return status.Errorf(codes.Internal, "%s", lang.Tf(locale, "mobile change operation failed: %v", err))
+	}
+}
+
 func mapAccountSecurityErrorWithFields(err error, locale string) error {
 	validationErrors := make(map[string]string)
 

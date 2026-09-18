@@ -54,6 +54,12 @@ func (m *mockAuthServiceClient) CheckAccountSecurity(ctx context.Context, req *p
 	}
 	return &pb.CheckAccountSecurityResponse{Unlocked: true}, nil
 }
+func (m *mockAuthServiceClient) SendMobileChangeCode(context.Context, *pb.SendMobileChangeCodeRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (m *mockAuthServiceClient) VerifyMobileChange(context.Context, *pb.VerifyMobileChangeRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
 
 var _ pb.AuthServiceClient = (*mockAuthServiceClient)(nil)
 

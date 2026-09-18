@@ -74,6 +74,21 @@ func TestSettingsHandler_Real(t *testing.T) {
 		}
 	})
 
+	t.Run("get settings includes available mobile resets", func(t *testing.T) {
+		h := handler.RegisterSettingsHandler(grpc.NewServer(), &settingsSvcMock{
+			getSettingsFunc: func(context.Context, uint64) (*models.Settings, error) {
+				return &models.Settings{CheckoutDaysCount: 3, AutomaticLogout: 55, AvailableResetMobileResets: 2}, nil
+			},
+		})
+		resp, err := h.GetSettings(ctx, &pb.GetSettingsRequest{})
+		if err != nil {
+			t.Fatalf("GetSettings failed: %v", err)
+		}
+		if resp.Data.AvailableResetMobileResets != 2 {
+			t.Fatalf("expected available_reset_mobile_resets 2, got %d", resp.Data.AvailableResetMobileResets)
+		}
+	})
+
 	t.Run("update settings", func(t *testing.T) {
 		_, err := h.UpdateSettings(ctx, &pb.UpdateSettingsRequest{CheckoutDaysCount: 5})
 		st, _ := status.FromError(err)

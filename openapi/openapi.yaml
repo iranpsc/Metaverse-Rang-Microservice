@@ -26,6 +26,7 @@ tags:
     - name: KYC
     - name: Levels
     - name: Maps
+    - name: Mobile
     - name: Notifications
     - name: Personal Info
     - name: Profile
@@ -2289,6 +2290,36 @@ paths:
             summary: Update building construction or destroy building
             tags:
                 - Features
+    /api/features/{feature}/sell-requests:
+        get:
+            operationId: get_features_feature_sell-requests
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            summary: List sell requests for a feature (newest first)
+            tags:
+                - Features
     /api/features/{feature}/trade-history:
         get:
             operationId: get_features_feature_trade-history
@@ -2323,36 +2354,6 @@ paths:
                                 $ref: '#/components/schemas/ValidationError'
                     description: Validation error
             summary: Get feature trade history
-            tags:
-                - Features
-    /api/features/{feature}/sell-requests:
-        get:
-            operationId: get_features_feature_sell-requests
-            parameters:
-                - description: Feature ID
-                  in: path
-                  name: feature
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            summary: List sell requests for a feature (newest first)
             tags:
                 - Features
     /api/features/{id}:
@@ -2910,6 +2911,68 @@ paths:
             summary: Get map border
             tags:
                 - Maps
+    /api/mobile/send:
+        post:
+            operationId: post_mobile_send
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Send verification code to change mobile number
+            tags:
+                - Mobile
+    /api/mobile/verify:
+        post:
+            operationId: post_mobile_verify
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Verify code and change mobile number
+            tags:
+                - Mobile
     /api/my-features:
         get:
             operationId: get_my-features

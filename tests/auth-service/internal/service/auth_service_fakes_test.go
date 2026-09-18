@@ -14,21 +14,22 @@ import (
 )
 
 type fakeUserRepository struct {
-	users                       map[uint64]*models.User
-	updateFunc                  func(context.Context, *models.User) error
-	listUsersFunc               func(context.Context, string, string, int32, int32) ([]*repository.UserWithRelations, int32, error)
-	getUsersLevelsForListFunc   func(context.Context, []uint64) (map[uint64]*repository.UserListLevels, error)
-	getUserLatestLevelFunc      func(context.Context, uint64) (*repository.UserLevel, error)
-	getLevelsBelowScoreFunc     func(context.Context, int32) ([]*repository.UserLevel, error)
-	getNextLevelScoreFunc       func(context.Context, int32) (int32, error)
-	getFollowersCountFunc       func(context.Context, uint64) (int32, error)
-	getFollowingCountFunc       func(context.Context, uint64) (int32, error)
-	getAllProfilePhotoURLsFunc  func(context.Context, uint64) ([]string, error)
-	getFeatureCountsFunc        func(context.Context, uint64) (int32, int32, int32, error)
-	getSettingsFunc                func(context.Context, uint64) (*models.Settings, error)
-	getKYCFunc                     func(context.Context, uint64) (*models.KYC, error)
+	users                           map[uint64]*models.User
+	updateFunc                      func(context.Context, *models.User) error
+	listUsersFunc                   func(context.Context, string, string, int32, int32) ([]*repository.UserWithRelations, int32, error)
+	getUsersLevelsForListFunc       func(context.Context, []uint64) (map[uint64]*repository.UserListLevels, error)
+	getUserLatestLevelFunc          func(context.Context, uint64) (*repository.UserLevel, error)
+	getLevelsBelowScoreFunc         func(context.Context, int32) ([]*repository.UserLevel, error)
+	getNextLevelScoreFunc           func(context.Context, int32) (int32, error)
+	getFollowersCountFunc           func(context.Context, uint64) (int32, error)
+	getFollowingCountFunc           func(context.Context, uint64) (int32, error)
+	getAllProfilePhotoURLsFunc      func(context.Context, uint64) ([]string, error)
+	getFeatureCountsFunc            func(context.Context, uint64) (int32, int32, int32, error)
+	getSettingsFunc                 func(context.Context, uint64) (*models.Settings, error)
+	getKYCFunc                      func(context.Context, uint64) (*models.KYC, error)
 	getUnreadNotificationsCountFunc func(context.Context, uint64) (int32, error)
-	getLatestProfilePhotoURLFunc   func(context.Context, uint64) (string, error)
+	getLatestProfilePhotoURLFunc    func(context.Context, uint64) (string, error)
+	isPhoneTakenFunc                func(context.Context, string, uint64) (bool, error)
 }
 
 func newFakeUserRepository(users map[uint64]*models.User) *fakeUserRepository {
@@ -138,7 +139,10 @@ func (f *fakeUserRepository) LinkWalletAddress(context.Context, uint64, string) 
 	panic("unexpected call to LinkWalletAddress")
 }
 
-func (f *fakeUserRepository) IsPhoneTaken(_ context.Context, phone string, excludeUserID uint64) (bool, error) {
+func (f *fakeUserRepository) IsPhoneTaken(ctx context.Context, phone string, excludeUserID uint64) (bool, error) {
+	if f.isPhoneTakenFunc != nil {
+		return f.isPhoneTakenFunc(ctx, phone, excludeUserID)
+	}
 	for id, user := range f.users {
 		if id == excludeUserID {
 			continue
@@ -459,6 +463,8 @@ type fakeCacheRepository struct {
 	ttl                      map[string]time.Duration
 	setTime                  map[string]time.Time
 	verificationRequestSlots map[uint64]time.Time
+	mobileChangeSendSlots    map[uint64]time.Time
+	mobileChangeChallenges   map[uint64]*repository.MobileChangeChallenge
 }
 
 func newFakeCacheRepository() *fakeCacheRepository {
@@ -469,6 +475,8 @@ func newFakeCacheRepository() *fakeCacheRepository {
 		ttl:                      make(map[string]time.Duration),
 		setTime:                  make(map[string]time.Time),
 		verificationRequestSlots: make(map[uint64]time.Time),
+		mobileChangeSendSlots:    make(map[uint64]time.Time),
+		mobileChangeChallenges:   make(map[uint64]*repository.MobileChangeChallenge),
 	}
 }
 
@@ -534,6 +542,39 @@ func (f *fakeCacheRepository) TryAcquireAccountSecurityVerificationSlot(_ contex
 	return true, nil
 }
 
+func (f *fakeCacheRepository) TryAcquireMobileChangeSendSlot(_ context.Context, userID uint64, period time.Duration) (bool, error) {
+	if until, exists := f.mobileChangeSendSlots[userID]; exists && time.Now().Before(until) {
+		return false, nil
+	}
+	f.mobileChangeSendSlots[userID] = time.Now().Add(period)
+	return true, nil
+}
+
+func (f *fakeCacheRepository) ReleaseMobileChangeSendSlot(_ context.Context, userID uint64) error {
+	delete(f.mobileChangeSendSlots, userID)
+	return nil
+}
+
+func (f *fakeCacheRepository) SaveMobileChangeChallenge(_ context.Context, userID uint64, challenge *repository.MobileChangeChallenge, _ time.Duration) error {
+	copied := *challenge
+	f.mobileChangeChallenges[userID] = &copied
+	return nil
+}
+
+func (f *fakeCacheRepository) GetMobileChangeChallenge(_ context.Context, userID uint64) (*repository.MobileChangeChallenge, error) {
+	challenge, ok := f.mobileChangeChallenges[userID]
+	if !ok || challenge == nil {
+		return nil, nil
+	}
+	copied := *challenge
+	return &copied, nil
+}
+
+func (f *fakeCacheRepository) DeleteMobileChangeChallenge(_ context.Context, userID uint64) error {
+	delete(f.mobileChangeChallenges, userID)
+	return nil
+}
+
 func (f *fakeCacheRepository) SetWeb3LinkNonce(context.Context, uint64, string, string, time.Duration) error {
 	return nil
 }
@@ -570,3 +611,80 @@ func (f *fakeSMSServiceClient) SendOTP(_ context.Context, req *notificationspb.S
 }
 
 var _ notificationspb.SMSServiceClient = (*fakeSMSServiceClient)(nil)
+
+type fakeResetRepository struct {
+	nextID    uint64
+	resets    map[uint64]*models.Reset
+	createErr error
+	countErr  error
+	markErr   error
+	deleteErr error
+}
+
+func newFakeResetRepository() *fakeResetRepository {
+	return &fakeResetRepository{
+		nextID: 1,
+		resets: make(map[uint64]*models.Reset),
+	}
+}
+
+func (f *fakeResetRepository) Create(_ context.Context, reset *models.Reset) error {
+	if f.createErr != nil {
+		return f.createErr
+	}
+	if reset == nil {
+		return fmt.Errorf("reset is required")
+	}
+	copied := *reset
+	copied.ID = f.nextID
+	f.nextID++
+	f.resets[copied.ID] = &copied
+	reset.ID = copied.ID
+	return nil
+}
+
+func (f *fakeResetRepository) MarkVerified(_ context.Context, id uint64) error {
+	if f.markErr != nil {
+		return f.markErr
+	}
+	reset, ok := f.resets[id]
+	if !ok {
+		return fmt.Errorf("reset %d not found", id)
+	}
+	reset.Verified = true
+	return nil
+}
+
+func (f *fakeResetRepository) CountVerifiedByUserAndType(_ context.Context, userID uint64, resetType string) (int, error) {
+	if f.countErr != nil {
+		return 0, f.countErr
+	}
+	count := 0
+	for _, reset := range f.resets {
+		if reset.UserID == userID && reset.Type == resetType && reset.Verified {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (f *fakeResetRepository) Delete(_ context.Context, id uint64) error {
+	if f.deleteErr != nil {
+		return f.deleteErr
+	}
+	delete(f.resets, id)
+	return nil
+}
+
+func (f *fakeResetRepository) seed(reset *models.Reset) {
+	copied := *reset
+	if copied.ID == 0 {
+		copied.ID = f.nextID
+		f.nextID++
+	} else if copied.ID >= f.nextID {
+		f.nextID = copied.ID + 1
+	}
+	f.resets[copied.ID] = &copied
+}
+
+var _ repository.ResetRepository = (*fakeResetRepository)(nil)

@@ -81,6 +81,9 @@ func TestSettingsService_GetSettings(t *testing.T) {
 		if settings.UserID != 1 {
 			t.Errorf("expected userID 1, got %d", settings.UserID)
 		}
+		if settings.AvailableResetMobileResets != 3 {
+			t.Errorf("expected 3 available mobile resets when reset repo is unset, got %d", settings.AvailableResetMobileResets)
+		}
 	})
 
 	t.Run("handles repository error", func(t *testing.T) {
@@ -90,6 +93,64 @@ func TestSettingsService_GetSettings(t *testing.T) {
 		_, err := svc.GetSettings(ctx, 1)
 		if err == nil {
 			t.Fatal("expected error, got nil")
+		}
+	})
+}
+
+func TestSettingsService_GetSettingsAvailableMobileResets(t *testing.T) {
+	ctx := context.Background()
+	mockRepo := &mockSettingsRepository{}
+	resetRepo := newFakeResetRepository()
+	svc := service.NewSettingsServiceWithResets(mockRepo, resetRepo)
+
+	t.Run("no verified resets yields 3", func(t *testing.T) {
+		settings, err := svc.GetSettings(ctx, 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if settings.AvailableResetMobileResets != 3 {
+			t.Errorf("expected 3, got %d", settings.AvailableResetMobileResets)
+		}
+	})
+
+	t.Run("subtracts verified mobile resets from 3", func(t *testing.T) {
+		resetRepo.seed(&models.Reset{UserID: 1, Type: models.ResetTypeMobile, Value: "09120000001", Verified: true})
+		resetRepo.seed(&models.Reset{UserID: 1, Type: models.ResetTypeMobile, Value: "09120000002", Verified: true})
+		resetRepo.seed(&models.Reset{UserID: 1, Type: models.ResetTypeMobile, Value: "09120000003", Verified: false})
+		resetRepo.seed(&models.Reset{UserID: 1, Type: "email", Value: "a@b.c", Verified: true})
+		resetRepo.seed(&models.Reset{UserID: 2, Type: models.ResetTypeMobile, Value: "09120000009", Verified: true})
+
+		settings, err := svc.GetSettings(ctx, 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if settings.AvailableResetMobileResets != 1 {
+			t.Errorf("expected 1 available reset, got %d", settings.AvailableResetMobileResets)
+		}
+	})
+
+	t.Run("clamps at zero when over limit", func(t *testing.T) {
+		resetRepo := newFakeResetRepository()
+		for i := 0; i < 5; i++ {
+			resetRepo.seed(&models.Reset{UserID: 1, Type: models.ResetTypeMobile, Verified: true})
+		}
+		svc := service.NewSettingsServiceWithResets(mockRepo, resetRepo)
+		settings, err := svc.GetSettings(ctx, 1)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if settings.AvailableResetMobileResets != 0 {
+			t.Errorf("expected 0, got %d", settings.AvailableResetMobileResets)
+		}
+	})
+
+	t.Run("count error is returned", func(t *testing.T) {
+		resetRepo := newFakeResetRepository()
+		resetRepo.countErr = errors.New("db down")
+		svc := service.NewSettingsServiceWithResets(mockRepo, resetRepo)
+		_, err := svc.GetSettings(ctx, 1)
+		if err == nil {
+			t.Fatal("expected count error")
 		}
 	})
 }

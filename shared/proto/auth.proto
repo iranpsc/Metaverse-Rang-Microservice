@@ -19,6 +19,8 @@ service AuthService {
   rpc VerifyAccountSecurity(VerifyAccountSecurityRequest) returns (google.protobuf.Empty);
   // CheckAccountSecurity reports whether the user's account security window is currently unlocked.
   rpc CheckAccountSecurity(CheckAccountSecurityRequest) returns (CheckAccountSecurityResponse);
+  rpc SendMobileChangeCode(SendMobileChangeCodeRequest) returns (google.protobuf.Empty);
+  rpc VerifyMobileChange(VerifyMobileChangeRequest) returns (google.protobuf.Empty);
 }
 
 // User Service - handles user profile and settings
@@ -262,6 +264,18 @@ message CheckAccountSecurityRequest {
 message CheckAccountSecurityResponse {
   // unlocked is true when no security record exists, or when the unlock window is still valid.
   bool unlocked = 1;
+}
+
+message SendMobileChangeCodeRequest {
+  uint64 user_id = 1;
+  string mobile = 2;
+}
+
+message VerifyMobileChangeRequest {
+  uint64 user_id = 1;
+  string code = 2;
+  string ip = 3;
+  string user_agent = 4;
 }
 
 message GetUserRequest {
@@ -646,6 +660,7 @@ message GetSettingsResponse {
 message SettingsData {
   uint32 checkout_days_count = 1;
   int32 automatic_logout = 2;
+  int32 available_reset_mobile_resets = 3;
 }
 
 message UpdateSettingsRequest {

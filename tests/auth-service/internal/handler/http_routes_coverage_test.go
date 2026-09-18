@@ -226,6 +226,25 @@ func TestHTTPAuthHandler_CoverageBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("mobile change", func(t *testing.T) {
+		body := bytes.NewBufferString(`{"mobile":"09121112233"}`)
+		r := withUser(httptest.NewRequest(http.MethodPost, "/api/mobile/send", body), 1)
+		r.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+		httpH.SendMobileChangeCode(rr, r)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("send code=%d body=%s", rr.Code, rr.Body.String())
+		}
+		body = bytes.NewBufferString(`{"code":"123456"}`)
+		r = withUser(httptest.NewRequest(http.MethodPost, "/api/mobile/verify", body), 1)
+		r.Header.Set("Content-Type", "application/json")
+		rr = httptest.NewRecorder()
+		httpH.VerifyMobileChange(rr, r)
+		if rr.Code != http.StatusOK && rr.Code != http.StatusNoContent {
+			t.Fatalf("verify code=%d body=%s", rr.Code, rr.Body.String())
+		}
+	})
+
 	t.Run("bank accounts crud", func(t *testing.T) {
 		body := bytes.NewBufferString(`{"bank_name":"Tejarat","shaba_num":"` + testShebaNum + `","card_num":"` + testCardNum + `"}`)
 		r := withUser(httptest.NewRequest(http.MethodPost, "/api/bank-accounts", body), 1)
