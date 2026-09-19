@@ -1,5 +1,5 @@
 # Health Check Service Dockerfile
-FROM docker.arvancloud.ir/golang:1.25-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 ENV CGO_ENABLED=0
 
@@ -13,7 +13,7 @@ RUN go mod download
 COPY services/health-check-service/main.go .
 RUN go build -trimpath -ldflags="-s -w" -o health-check-service main.go
 
-FROM docker.arvancloud.ir/alpine:3.21
+FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata wget && \
     addgroup -g 1000 appuser && \

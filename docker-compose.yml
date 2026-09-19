@@ -49,7 +49,7 @@ services:
   # Populates the grpc_certs volume from ./certs/grpc on the host, or generates
   # new certificates when GRPC_TLS_ENABLED=true and none are present.
   grpc-certs-init:
-    image: docker.arvancloud.ir/alpine:3.21
+    image: alpine:3.21
     environment:
       GRPC_TLS_ENABLED: ${GRPC_TLS_ENABLED:-false}
     volumes:
@@ -63,7 +63,7 @@ services:
   
   # MySQL Database (shared with the Laravel admin panel via metarang-shared)
   mysql:
-    image: docker.arvancloud.ir/mysql:8.0.43
+    image: mysql:8.0.43
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-metarang_db}
@@ -97,7 +97,7 @@ services:
 
   # Redis (for pub/sub and caching). Keep off metarang-shared — the admin panel has its own Redis.
   redis:
-    image: docker.arvancloud.ir/redis:7.4-alpine
+    image: redis:7.4-alpine
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     networks:
@@ -752,7 +752,7 @@ services:
 
   # Swagger UI - OpenAPI documentation browser
   swagger-ui:
-    image: docker.arvancloud.ir/swaggerapi/swagger-ui:v5.18.2
+    image: swaggerapi/swagger-ui:v5.18.2
     environment:
       APP_URL: ${APP_URL:-http://localhost:8000}
     entrypoint: ["/bin/sh", "/entrypoint.sh"]
@@ -774,7 +774,7 @@ services:
 
   # Kong API Gateway
   kong:
-    image: docker.arvancloud.ir/kong:3.9.3
+    image: kong:3.9.3
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
@@ -831,7 +831,7 @@ services:
 
   # Prometheus - Metrics Collection
   prometheus:
-    image: docker.arvancloud.ir/prom/prometheus:v2.53.5
+    image: prom/prometheus:v2.53.5
     ports:
       - "9090:9090"
     volumes:
@@ -855,7 +855,7 @@ services:
 
   # Grafana - Visualization & Dashboards
   grafana:
-    image: docker.arvancloud.ir/grafana/grafana:11.6.16
+    image: grafana/grafana:11.6.16
     ports:
       - "3001:3001"
     environment:
@@ -884,7 +884,7 @@ services:
 
   # Node Exporter - Host-level infrastructure metrics (CPU, Memory, Disk, Network)
   node-exporter:
-    image: docker.arvancloud.ir/prom/node-exporter:v1.11.1
+    image: prom/node-exporter:v1.11.1
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'

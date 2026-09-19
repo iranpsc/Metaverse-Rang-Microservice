@@ -1,5 +1,5 @@
 # One-shot Laravel-style SQL migrator (shared/cmd/migrate).
-FROM docker.arvancloud.ir/golang:1.25-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 ENV CGO_ENABLED=0
 WORKDIR /src
@@ -12,7 +12,7 @@ COPY shared/cmd/migrate ./cmd/migrate
 
 RUN go build -trimpath -ldflags="-s -w" -o /migrate ./cmd/migrate
 
-FROM docker.arvancloud.ir/alpine:3.21
+FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata busybox-extras
 
