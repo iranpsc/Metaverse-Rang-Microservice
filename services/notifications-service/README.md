@@ -42,6 +42,8 @@ Key variables consumed by the service:
 - `REDIS_*`: Optional Redis connection for rate limiting and delivery tracking.
 - `SMS_*`: SMS provider configuration (Kavenegar by default).
 - `SMTP_*`: SMTP server credentials for email delivery.
+  - Local `make dev` / `make dev-up` starts [Mailpit](https://mailpit.axllent.org/) and overrides SMTP to `mailpit:1025`.
+  - Inspect captured mail at http://localhost:8025.
 
 ## Next Steps
 - Implement the repository layer to match the existing notification persistence schema.
@@ -73,10 +75,10 @@ Each template expects the caller to provide:
 | `email/sell_feature` | `email/sell_feature/content` | `SellerName`, `SellerCode`, `BuyerCode`, `FeatureID`, `FeatureArea`, `FeatureApplication`, `PriceIRR`, `PricePSC`, optional `TransactionId`, `TransactionDate`, `TransactionTime`, `DisputeURL`, `SecurityURL`, `ContactURL` |
 | `email/sell_request` | `email/sell_request/content` | `SellerName`, `SellerCode`, `RequesterCode`, `FeatureID`, `FeatureTitle`, optional `OfferIRR`, `OfferPSC`, `CreatedDate`, `CreatedTime`, `ManageURL`, `DeclineURL`, `ContactURL`, `SecurityURL` |
 | `email/login_alert` | `email/login_alert/content` | `RecipientName`, `UserCode`, optional `LoginDate`, `LoginTime`, `IPAddress`, `UserAgent`, `Location`, `SecurityURL`, `SupportURL` |
-| `email/dynasty/join_request_sent` | `email/dynasty/join_request_sent/content` | `RequesterName`, `RequesterCode`, `DynastyName`, `DynastyCode`, optional `Message`, `SubmittedDate`, `SubmittedTime`, `ManageURL`, `CancelURL` |
-| `email/dynasty/join_request_received` | `email/dynasty/join_request_received/content` | `OwnerName`, `DynastyName`, `RequesterName`, `RequesterCode`, optional `Message`, `SubmittedDate`, `SubmittedTime`, `ManageURL`, `SecurityURL` |
-| `email/dynasty/join_request_accepted` | `email/dynasty/join_request_accepted/content` | `RecipientName`, `DynastyName`, `DynastyCode`, optional `Role`, `AcceptedBy`, `AcceptedAt`, `DashboardURL`, `GuidelineURL` |
-| `email/dynasty/join_request_rejected` | `email/dynasty/join_request_rejected/content` | `RecipientName`, `DynastyName`, `DynastyCode`, optional `RejectionReason`, `RejectedAt`, `ExploreURL`, `ProfileURL` |
+| `email/dynasty/join_request_sent` | `email/dynasty/join_request_sent/content` | `RecipientName`/`RequesterName`, `ReceiverName`, `ReceiverCode`, `DynastyName`, `DynastyCode`, optional `Role`, `Message`, `SubmittedDate`, `SubmittedTime`, `ManageURL`, `CancelURL` |
+| `email/dynasty/join_request_received` | `email/dynasty/join_request_received/content` | `RecipientName`/`OwnerName`, `DynastyName`, `RequesterName`, `RequesterCode`, optional `Role`, `Message`, `SubmittedDate`, `SubmittedTime`, `ManageURL`, `SecurityURL` |
+| `email/dynasty/join_request_accepted` | `email/dynasty/join_request_accepted/content` | `side` (`requester`/`receiver`), `RecipientName`, `DynastyName`, `DynastyCode`, optional `Role`, `AcceptedBy`, `AcceptedAt`, `DashboardURL`, `GuidelineURL` |
+| `email/dynasty/join_request_rejected` | `email/dynasty/join_request_rejected/content` | `side` (`requester`/`receiver`), `RecipientName`, `DynastyName`, `DynastyCode`, optional `RejectionReason`, `RejectedAt`, `ExploreURL`, `ProfileURL` |
 
 To render a template:
 

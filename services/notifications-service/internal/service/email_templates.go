@@ -59,7 +59,10 @@ type EmailView struct {
 	DeclineURL         string
 
 	// Dynasty
+	Side            string
 	RequesterName   string
+	ReceiverName    string
+	ReceiverCode    string
 	DynastyName     string
 	DynastyCode     string
 	Message         string
@@ -282,7 +285,10 @@ func buildEmailView(root, subject string, data map[string]string, recipientName 
 		ManageURL:          get("ManageURL", "manage_url"),
 		DeclineURL:         get("DeclineURL", "decline_url"),
 
+		Side:            get("side", "Side", "email_side"),
 		RequesterName:   get("RequesterName", "requester_name"),
+		ReceiverName:    get("ReceiverName", "receiver_name", "reciever_name"),
+		ReceiverCode:    get("ReceiverCode", "receiver_code", "reciever_code"),
 		DynastyName:     get("DynastyName", "dynasty_name"),
 		DynastyCode:     get("DynastyCode", "dynasty_code"),
 		Message:         get("Message", "message"),

@@ -148,6 +148,11 @@ func TestLoadEmailChannelConfig(t *testing.T) {
 	if cfg.Host != "smtp.example.com" || cfg.Port != "465" || cfg.Username != "mailer" || cfg.FromEmail != "noreply@example.com" {
 		t.Fatalf("cfg=%+v", cfg)
 	}
+	logEmailConfig(cfg)
+
+	t.Setenv("SMTP_HOST", "")
+	t.Setenv("SMTP_FROM_EMAIL", "")
+	logEmailConfig(loadEmailChannelConfig())
 }
 
 func TestConfigureDBPool(t *testing.T) {

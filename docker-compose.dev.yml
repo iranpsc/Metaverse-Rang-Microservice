@@ -1,0 +1,47 @@
+# Development-only Compose overlay (Mailpit + local SMTP).
+# Used by: make dev / make dev-up (not by make up / production Dokploy).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  # Mailpit — local SMTP catcher + web UI for inspecting outbound email
+  mailpit:
+    image: axllent/mailpit:v1.31.0
+    ports:
+      # Web UI
+      - "127.0.0.1:${MAILPIT_UI_HOST_PORT:-8025}:8025"
+      # SMTP
+      - "127.0.0.1:${MAILPIT_SMTP_HOST_PORT:-1025}:1025"
+    environment:
+      MP_MAX_MESSAGES: ${MAILPIT_MAX_MESSAGES:-5000}
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    volumes:
+      - mailpit_data:/data
+    networks:
+      - metarang-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Point notifications-service at Mailpit for local email delivery.
+  notifications-service:
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-metarang Notifications}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@metarang.local}
+    depends_on:
+      mailpit:
+        condition: service_healthy
+
+volumes:
+  mailpit_data:
+    driver: local

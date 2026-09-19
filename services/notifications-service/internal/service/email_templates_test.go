@@ -85,19 +85,77 @@ func TestRenderNotificationEmail_FeaturePurchaseRGBColorAsset(t *testing.T) {
 func TestRenderNotificationEmail_DynastyJoinReceived(t *testing.T) {
 	html, err := RenderNotificationEmail("dynasty_join_request", "درخواست پیوستن جدید", map[string]string{
 		"side":          "received",
-		"OwnerName":     "مالک",
+		"RecipientName": "گیرنده",
+		"OwnerName":     "گیرنده",
 		"DynastyName":   "خاندان نمونه",
 		"RequesterName": "درخواست\u200cکننده",
 		"RequesterCode": "HM-9",
-	}, "مالک")
+		"Role":          "برادر",
+	}, "گیرنده")
 	if err != nil {
 		t.Fatalf("RenderNotificationEmail: %v", err)
 	}
 	if !strings.Contains(html, "درخواست پیوستن جدید") {
 		t.Fatalf("missing title content: %s", html)
 	}
-	if !strings.Contains(html, "خاندان نمونه") || !strings.Contains(html, "HM-9") {
-		t.Fatalf("missing dynasty placeholders: %s", html)
+	for _, want := range []string{"گیرنده", "خاندان نمونه", "HM-9", "درخواست\u200cکننده", "برادر"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("rendered HTML missing %q: %s", want, html)
+		}
+	}
+	if strings.Contains(html, "سلام درخواست") {
+		t.Fatalf("received email must greet the recipient, not the requester: %s", html)
+	}
+}
+
+func TestRenderNotificationEmail_DynastyJoinSent(t *testing.T) {
+	html, err := RenderNotificationEmail("dynasty_join_request", "درخواست پیوستن ارسال شد", map[string]string{
+		"side":          "sent",
+		"RecipientName": "فرستنده",
+		"RequesterName": "فرستنده",
+		"ReceiverName":  "گیرنده",
+		"ReceiverCode":  "R-20",
+		"DynastyName":   "خاندان فرستنده",
+		"Role":          "خواهر",
+	}, "فرستنده")
+	if err != nil {
+		t.Fatalf("RenderNotificationEmail: %v", err)
+	}
+	for _, want := range []string{"فرستنده", "گیرنده", "R-20", "خاندان فرستنده", "خواهر"} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("rendered HTML missing %q: %s", want, html)
+		}
+	}
+}
+
+func TestRenderNotificationEmail_DynastyJoinAcceptedSides(t *testing.T) {
+	requesterHTML, err := RenderNotificationEmail("dynasty_join_request_accept", "پیوستن به خاندان تأیید شد", map[string]string{
+		"side":          "requester",
+		"RecipientName": "درخواست‌کننده",
+		"DynastyName":   "خاندان A",
+		"AcceptedBy":    "پذیرنده",
+	}, "درخواست‌کننده")
+	if err != nil {
+		t.Fatalf("requester render: %v", err)
+	}
+	if !strings.Contains(requesterHTML, "پذیرنده") || !strings.Contains(requesterHTML, "تأیید توسط") {
+		t.Fatalf("requester accept email missing AcceptedBy label: %s", requesterHTML)
+	}
+
+	receiverHTML, err := RenderNotificationEmail("dynasty_join_request_accept", "پیوستن به خاندان تأیید شد", map[string]string{
+		"side":          "receiver",
+		"RecipientName": "پذیرنده",
+		"DynastyName":   "خاندان A",
+		"AcceptedBy":    "درخواست‌کننده",
+	}, "پذیرنده")
+	if err != nil {
+		t.Fatalf("receiver render: %v", err)
+	}
+	if !strings.Contains(receiverHTML, "پیوستن تو به خاندان") {
+		t.Fatalf("receiver accept email should use receiver wording: %s", receiverHTML)
+	}
+	if !strings.Contains(receiverHTML, "سرپرست خاندان") {
+		t.Fatalf("receiver accept email missing dynasty owner label: %s", receiverHTML)
 	}
 }
 

@@ -94,10 +94,11 @@ func main() {
 	// Notification service client (for sending notifications)
 	notificationServiceAddr := getEnv("NOTIFICATION_SERVICE_ADDR", "localhost:50058")
 	var notificationPort service.NotificationPort
-	if notif, err := client.NewNotificationClient(notificationServiceAddr); err != nil {
+	if notif, err := dialNotificationClient(notificationServiceAddr); err != nil {
 		log.Printf("Warning: notification service unavailable (%v); dynasty join-request notifications disabled", err)
 	} else {
 		notificationPort = notif
+		log.Printf("Connected to notification service at %s", notificationServiceAddr)
 		defer func() {
 			if err := notif.Close(); err != nil {
 				log.Printf("notification client close: %v", err)
@@ -232,4 +233,24 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func dialNotificationClient(address string) (*client.NotificationClient, error) {
+	const attempts = 3
+	var lastErr error
+	for i := 1; i <= attempts; i++ {
+		notif, err := client.NewNotificationClient(address)
+		if err == nil {
+			if i > 1 {
+				log.Printf("Connected to notification service at %s after %d attempts", address, i)
+			}
+			return notif, nil
+		}
+		lastErr = err
+		if i < attempts {
+			log.Printf("Warning: notification service unavailable (attempt %d/%d): %v", i, attempts, err)
+			time.Sleep(time.Duration(i) * 2 * time.Second)
+		}
+	}
+	return nil, lastErr
 }

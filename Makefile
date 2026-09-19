@@ -21,6 +21,8 @@ DOCKER_COMPOSE := docker compose
 else
 DOCKER_COMPOSE := $(shell command -v docker-compose 2> /dev/null || echo "docker compose")
 endif
+# Development overlay adds Mailpit and points notifications-service SMTP at it.
+DOCKER_COMPOSE_DEV := $(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
 help:
 	@echo "Metarang microservices — available targets"
@@ -68,7 +70,7 @@ help:
 	@echo "Docker Compose:"
 	@echo "  ensure-networks  - Create dokploy-network and metarang-shared if missing"
 	@echo "  wait-mysql       - Block until Compose MySQL is healthy"
-	@echo "  dev              - Start complete development environment (migrates if $(MYSQL_DATABASE) exists)"
+	@echo "  dev              - Start complete development environment (migrates if $(MYSQL_DATABASE) exists; includes Mailpit)"
 	@echo "  up               - Start all services (migrates if $(MYSQL_DATABASE) exists, then apps)"
 	@echo "  down             - Stop all services"
 	@echo "  restart          - Run migrate if $(MYSQL_DATABASE) exists, then restart all services"
@@ -81,12 +83,13 @@ help:
 	@echo "  kong-reload      - Restart Kong (required after kong/kong.yml changes in DB-less mode)"
 	@echo ""
 	@echo "Docker Compose Watch:"
-	@echo "  dev-up           - Start with watch mode (auto-rebuild/restart)"
-	@echo "  dev-down         - Stop development services"
+	@echo "  dev-up           - Start with watch mode (auto-rebuild/restart; includes Mailpit)"
+	@echo "  dev-down         - Stop development services (including Mailpit)"
 	@echo "  dev-build        - Build development images"
 	@echo "  dev-logs         - View logs from dev services"
 	@echo "  dev-restart      - Restart development services"
 	@echo "  dev-ps           - Show development service status"
+	@echo "  Mailpit UI:      http://localhost:8025  (SMTP :1025, via make dev / make dev-up)"
 	@echo ""
 	@echo "Database:"
 	@echo "  import-schema         - Import database schema only (schema.sql), then baseline migrations"
@@ -810,8 +813,9 @@ migrate-make:
 dev: ensure-networks
 	@echo "🚀 Starting development environment..."
 	@echo "ℹ️  Each service uses its own config.env (copy from config.env.sample)"
+	@echo "ℹ️  Mailpit SMTP catcher enabled (UI http://localhost:8025)"
 	@echo "Starting MySQL and Redis..."
-	$(DOCKER_COMPOSE) up -d mysql redis
+	$(DOCKER_COMPOSE_DEV) up -d mysql redis
 	@$(MAKE) wait-mysql
 	@echo "Checking if schema needs to be imported..."
 ifeq ($(OS),Windows_NT)
@@ -825,11 +829,12 @@ else
 		echo "✅ Database already initialized ($$TABLE_COUNT tables)"; \
 	fi
 endif
-	@echo "Starting migrate job and all services..."
+	@echo "Starting migrate job and all services (with Mailpit)..."
 	@$(MAKE) start-migrate-job
-	$(DOCKER_COMPOSE) up -d
+	$(DOCKER_COMPOSE_DEV) up -d
 	@echo ""
 	@echo "✅ Development environment ready!"
+	@echo "  Mailpit UI: http://localhost:8025  (SMTP host mailpit:1025 inside Compose)"
 	@make ps
 
 stop-service:
@@ -860,37 +865,38 @@ logs-service:
 dev-up: init-storage-uploads ensure-networks
 	@echo "🚀 Starting development environment with Docker Compose Watch..."
 	@echo "ℹ️  File changes will automatically trigger rebuilds (Go services)"
+	@echo "ℹ️  Mailpit SMTP catcher enabled (UI http://localhost:8025)"
 	@echo ""
 	@echo "Starting MySQL, Redis, and migrate job..."
-	$(DOCKER_COMPOSE) up -d mysql
+	$(DOCKER_COMPOSE_DEV) up -d mysql
 	@$(MAKE) start-migrate-job
-	$(DOCKER_COMPOSE) up --watch
+	$(DOCKER_COMPOSE_DEV) up --watch
 	@echo "✅ Development services started with watch mode!"
 
 dev-down:
 	@echo "🛑 Stopping development services..."
-	$(DOCKER_COMPOSE) down
+	$(DOCKER_COMPOSE_DEV) down
 	@echo "✅ Development services stopped"
 
 dev-build:
 	@echo "🔨 Building development images..."
-	$(DOCKER_COMPOSE) build
+	$(DOCKER_COMPOSE_DEV) build
 	@echo "✅ Development images built successfully"
 
 dev-logs:
 	@echo "📝 Following development service logs (Ctrl+C to stop)..."
-	$(DOCKER_COMPOSE) logs -f
+	$(DOCKER_COMPOSE_DEV) logs -f
 
 dev-restart:
 	@echo "🔄 Restarting development services..."
 	@$(MAKE) auto-migrate
-	$(DOCKER_COMPOSE) restart
+	$(DOCKER_COMPOSE_DEV) restart
 	@echo "✅ Development services restarted"
 
 dev-ps:
 	@echo "📊 Development Service Status:"
 	@echo ""
-	$(DOCKER_COMPOSE) ps
+	$(DOCKER_COMPOSE_DEV) ps
 	@echo ""
 	@echo "Healthy services:"
 	@docker ps --filter "health=healthy" --format "  ✅ {{.Names}}"

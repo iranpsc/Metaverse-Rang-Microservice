@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -98,6 +99,17 @@ func loadEmailChannelConfig() service.EmailChannelConfig {
 		FromName:  getEnv("SMTP_FROM_NAME", "metarang Notifications"),
 		FromEmail: getEnv("SMTP_FROM_EMAIL", ""),
 	}
+}
+
+func logEmailConfig(cfg service.EmailChannelConfig) {
+	if strings.TrimSpace(cfg.Host) == "" || strings.TrimSpace(cfg.FromEmail) == "" {
+		log.Printf("WARNING: email not fully configured (SMTP_HOST set=%v, SMTP_FROM_EMAIL set=%v). Email delivery will use noop and report success.",
+			strings.TrimSpace(cfg.Host) != "", strings.TrimSpace(cfg.FromEmail) != "")
+		log.Printf("Set SMTP_HOST and SMTP_FROM_EMAIL in services/notifications-service/config.env.")
+		return
+	}
+	log.Printf("Email configured: host=%s port=%s from=%s username_set=%v",
+		cfg.Host, cfg.Port, cfg.FromEmail, strings.TrimSpace(cfg.Username) != "")
 }
 
 func grpcListenAddr(port string) string {

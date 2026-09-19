@@ -90,6 +90,8 @@ make dev
 make ps
 curl http://localhost:8000
 curl http://localhost:3002/health
+# Mailpit (dev email UI) — started by make dev / make dev-up
+curl http://localhost:8025
 ```
 
 ## Configuration
@@ -100,15 +102,17 @@ Each service loads from `config.env` in its directory. Copy `config.env.sample` 
 - **Timezone**: `TZ` (default `Asia/Tehran` in Docker Compose so MySQL `NOW()` / `created_at` match local time)
 - **OAuth** (auth-service): `OAUTH_SERVER_URL`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`
 - **SMS** (auth, notifications): `KAVENEGAR_API_KEY`
+- **Email** (notifications): local `make dev` uses Mailpit (`http://localhost:8025`); production needs real `SMTP_*`
 - **Parsian** (commercial, financial): `PARSIAN_MERCHANT_ID`, `PARSIAN_PIN`, etc.
 - **FTP** (storage): `FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`, `FTP_BASE_URL`
 
 Docker Compose injects `config.env` via `env_file`; the `environment` section overrides DB_HOST/DB_PORT for container networking.
+`make dev` / `make dev-up` also load `docker-compose.dev.yml` (Mailpit + SMTP overrides for notifications-service).
 
 ## Common Commands
 
 ```bash
-make dev              # Start full dev environment (Compose migrate job)
+make dev              # Start full dev environment (Compose migrate job + Mailpit)
 make up               # Start stack (force-recreate migrate, then apps)
 make restart          # migrate → restart
 make migrate          # docker compose run --rm migrate
