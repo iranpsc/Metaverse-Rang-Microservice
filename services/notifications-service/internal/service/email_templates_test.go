@@ -131,10 +131,10 @@ func TestRenderNotificationEmail_DynastyJoinSent(t *testing.T) {
 func TestRenderNotificationEmail_DynastyJoinAcceptedSides(t *testing.T) {
 	requesterHTML, err := RenderNotificationEmail("dynasty_join_request_accept", "پیوستن به خاندان تأیید شد", map[string]string{
 		"side":          "requester",
-		"RecipientName": "درخواست‌کننده",
+		"RecipientName": "درخواست\u200cکننده",
 		"DynastyName":   "خاندان A",
 		"AcceptedBy":    "پذیرنده",
-	}, "درخواست‌کننده")
+	}, "درخواست\u200cکننده")
 	if err != nil {
 		t.Fatalf("requester render: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestRenderNotificationEmail_DynastyJoinAcceptedSides(t *testing.T) {
 		"side":          "receiver",
 		"RecipientName": "پذیرنده",
 		"DynastyName":   "خاندان A",
-		"AcceptedBy":    "درخواست‌کننده",
+		"AcceptedBy":    "درخواست\u200cکننده",
 	}, "پذیرنده")
 	if err != nil {
 		t.Fatalf("receiver render: %v", err)
