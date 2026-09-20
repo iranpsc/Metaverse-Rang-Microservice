@@ -36,7 +36,6 @@ tags:
     - name: Social
     - name: Storage
     - name: Support
-    - name: Tickets
     - name: Training
     - name: Users
     - name: Wallet
@@ -4343,249 +4342,6 @@ paths:
             summary: Get report
             tags:
                 - Support
-    /api/support/tickets:
-        get:
-            operationId: get_support_tickets
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: List or create support tickets
-            tags:
-                - Support
-        post:
-            operationId: post_support_tickets
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: List or create support tickets
-            tags:
-                - Support
-    /api/support/tickets/{id}:
-        get:
-            operationId: get_support_tickets_id
-            parameters:
-                - description: Resource ID
-                  in: path
-                  name: id
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: Get or update support ticket
-            tags:
-                - Support
-        patch:
-            operationId: patch_support_tickets_id
-            parameters:
-                - description: Resource ID
-                  in: path
-                  name: id
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: Get or update support ticket
-            tags:
-                - Support
-        put:
-            operationId: put_support_tickets_id
-            parameters:
-                - description: Resource ID
-                  in: path
-                  name: id
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: Get or update support ticket
-            tags:
-                - Support
-    /api/support/tickets/{id}/close:
-        post:
-            operationId: post_support_tickets_id_close
-            parameters:
-                - description: Resource ID
-                  in: path
-                  name: id
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: Close support ticket
-            tags:
-                - Support
-    /api/support/tickets/{id}/response:
-        post:
-            operationId: post_support_tickets_id_response
-            parameters:
-                - description: Resource ID
-                  in: path
-                  name: id
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-            requestBody:
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                    multipart/form-data:
-                        schema:
-                            type: object
-            responses:
-                "200":
-                    description: Successful response
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: Add ticket response
-            tags:
-                - Support
     /api/tickets:
         get:
             operationId: get_tickets
@@ -4625,7 +4381,7 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: List or create tickets (alias)
+            summary: List or create tickets
             tags:
                 - Support
         post:
@@ -4655,7 +4411,7 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: List or create tickets (alias)
+            summary: List or create tickets
             tags:
                 - Support
     /api/tickets/{id}:
@@ -4687,9 +4443,9 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: GetTicket
+            summary: Get or update ticket
             tags:
-                - Tickets
+                - Support
         patch:
             operationId: patch_tickets_id
             parameters:
@@ -4726,9 +4482,9 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: UpdateTicket
+            summary: Get or update ticket
             tags:
-                - Tickets
+                - Support
         put:
             operationId: put_tickets_id
             parameters:
@@ -4765,9 +4521,9 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: UpdateTicket
+            summary: Get or update ticket
             tags:
-                - Tickets
+                - Support
     /api/tickets/close/{id}:
         get:
             operationId: get_tickets_close_id
@@ -4797,9 +4553,9 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: CloseTicket
+            summary: Close ticket
             tags:
-                - Tickets
+                - Support
     /api/tickets/response/{id}:
         post:
             operationId: post_tickets_response_id
@@ -4843,9 +4599,9 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: AddTicketResponse
+            summary: Add ticket response
             tags:
-                - Tickets
+                - Support
     /api/tutorials:
         get:
             operationId: get_tutorials

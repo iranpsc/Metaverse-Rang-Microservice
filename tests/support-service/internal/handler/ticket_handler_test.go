@@ -77,6 +77,9 @@ func TestTicketHandler_CreateTicket_Success(t *testing.T) {
 	if err != nil || resp.Id != 77 {
 		t.Fatalf("err=%v resp=%+v", err, resp)
 	}
+	if len(resp.Messages) != 1 || resp.Messages[0].Kind != models.TicketMessageKindOpening || !resp.Messages[0].IsMine {
+		t.Fatalf("create thread=%+v", resp.Messages)
+	}
 }
 
 func TestTicketHandler_GetTicket_PermissionDenied(t *testing.T) {
@@ -123,6 +126,9 @@ func TestTicketHandler_GetTickets_WithReceived(t *testing.T) {
 	if err != nil || len(resp.Tickets) != 1 {
 		t.Fatalf("err=%v tickets=%d", err, len(resp.Tickets))
 	}
+	if len(resp.Tickets[0].Messages) != 0 {
+		t.Fatalf("list payload should omit chat thread, got %d messages", len(resp.Tickets[0].Messages))
+	}
 }
 
 func TestTicketHandler_GetTicket_Success(t *testing.T) {
@@ -140,10 +146,10 @@ func TestTicketHandler_GetTicket_Success(t *testing.T) {
 			tr.ReceiverName = &rname
 			tr.ReceiverCode = &rcode
 			tr.ReceiverProfilePhoto = &rphoto
-			tr.Responses = []models.TicketResponse{{
-				ID: 1, TicketID: ticketID, Response: "hi", ResponserName: "Bob", ResponserID: 5,
-				CreatedAt: time.Now(), UpdatedAt: time.Now(),
-			}}
+			tr.Responses = []models.TicketResponse{
+				{ID: 1, TicketID: ticketID, Response: "hi", ResponserName: "Bob", ResponserID: 5, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+				{ID: 2, TicketID: ticketID, Response: "ack", ResponserName: "Recv", ResponserID: 8, CreatedAt: time.Now(), UpdatedAt: time.Now()},
+			}
 			return tr, nil
 		},
 	}
@@ -154,8 +160,28 @@ func TestTicketHandler_GetTicket_Success(t *testing.T) {
 	defer cleanup()
 	client := pb.NewTicketServiceClient(conn)
 	resp, err := client.GetTicket(context.Background(), &pb.GetTicketRequest{TicketId: 3, UserId: 5})
-	if err != nil || resp.Id != 3 || len(resp.Responses) != 1 || resp.Receiver == nil {
+	if err != nil || resp.Id != 3 || len(resp.Responses) != 2 || resp.Receiver == nil {
 		t.Fatalf("err=%v resp=%+v", err, resp)
+	}
+	if resp.CurrentUserId != 5 || len(resp.Messages) != 3 {
+		t.Fatalf("viewer=%d messages=%d", resp.CurrentUserId, len(resp.Messages))
+	}
+	if resp.Messages[0].Kind != models.TicketMessageKindOpening || !resp.Messages[0].IsMine {
+		t.Fatalf("opening=%+v", resp.Messages[0])
+	}
+	if !resp.Messages[1].IsMine || resp.Messages[1].Role != models.TicketMessageRoleSender {
+		t.Fatalf("sender reply=%+v", resp.Messages[1])
+	}
+	if resp.Messages[2].IsMine || resp.Messages[2].Role != models.TicketMessageRoleReceiver || resp.Messages[2].Author.Id != 8 {
+		t.Fatalf("receiver reply=%+v", resp.Messages[2])
+	}
+
+	asReceiver, err := client.GetTicket(context.Background(), &pb.GetTicketRequest{TicketId: 3, UserId: 8})
+	if err != nil || asReceiver.CurrentUserId != 8 {
+		t.Fatalf("receiver err=%v viewer=%d", err, asReceiver.GetCurrentUserId())
+	}
+	if asReceiver.Messages[0].IsMine || asReceiver.Messages[1].IsMine || !asReceiver.Messages[2].IsMine {
+		t.Fatalf("receiver-side is_mine=[%v %v %v]", asReceiver.Messages[0].IsMine, asReceiver.Messages[1].IsMine, asReceiver.Messages[2].IsMine)
 	}
 }
 

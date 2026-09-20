@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"metarang/support-service/internal/models"
@@ -61,9 +62,8 @@ func (s *ticketService) CreateTicket(ctx context.Context, userID uint64, title, 
 		return nil, fmt.Errorf("failed to get created ticket: %w", err)
 	}
 
-	// Send notification to receiver if present
 	if receiverID != nil {
-		go s.sendTicketNotification(*receiverID, fullTicket)
+		go s.sendTicketNotification(*receiverID, fullTicket, fullTicket.SenderName, senderImage(fullTicket))
 	}
 
 	return fullTicket, nil
@@ -134,7 +134,8 @@ func (s *ticketService) AddResponse(ctx context.Context, ticketID, userID uint64
 		return nil, fmt.Errorf("cannot respond to closed ticket")
 	}
 
-	// Create response
+	userName = responderDisplayName(ticket, userID, userName)
+
 	ticketResponse := &models.TicketResponse{
 		TicketID:      ticketID,
 		Response:      response,
@@ -148,19 +149,23 @@ func (s *ticketService) AddResponse(ctx context.Context, ticketID, userID uint64
 		return nil, fmt.Errorf("failed to create response: %w", err)
 	}
 
-	err = s.ticketRepo.UpdateStatus(ctx, ticketID, models.TicketStatusAnswered)
+	status := ticket.Status
+	if userID != ticket.UserID {
+		status = models.TicketStatusAnswered
+	}
+	err = s.ticketRepo.UpdateStatus(ctx, ticketID, status)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update ticket status: %w", err)
 	}
 
-	// Get updated ticket
 	updatedTicket, err := s.ticketRepo.GetByID(ctx, ticketID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get updated ticket: %w", err)
 	}
 
-	// Send notification to sender
-	go s.sendTicketNotification(ticket.UserID, updatedTicket)
+	if otherID := ticket.OtherParticipantID(userID); otherID != 0 {
+		go s.sendTicketNotification(otherID, updatedTicket, userName, actorImage(ticket, userID))
+	}
 
 	return updatedTicket, nil
 }
@@ -220,8 +225,37 @@ func (s *ticketService) CheckAuthorization(ctx context.Context, ticketID, userID
 	return nil
 }
 
-func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.TicketWithRelations) {
-	// Connect to notification service
+func responderDisplayName(ticket *models.TicketWithRelations, userID uint64, fallback string) string {
+	if userID == ticket.UserID && ticket.SenderName != "" {
+		return ticket.SenderName
+	}
+	if ticket.ReceiverID != nil && *ticket.ReceiverID == userID && ticket.ReceiverName != nil && *ticket.ReceiverName != "" {
+		return *ticket.ReceiverName
+	}
+	if name := strings.TrimSpace(fallback); name != "" {
+		return name
+	}
+	return "User"
+}
+
+func senderImage(ticket *models.TicketWithRelations) string {
+	if ticket != nil && ticket.SenderProfilePhoto != nil && *ticket.SenderProfilePhoto != "" {
+		return *ticket.SenderProfilePhoto
+	}
+	return "uploads/img/logo.png"
+}
+
+func actorImage(ticket *models.TicketWithRelations, userID uint64) string {
+	if ticket.UserID == userID {
+		return senderImage(ticket)
+	}
+	if ticket.ReceiverProfilePhoto != nil && *ticket.ReceiverProfilePhoto != "" {
+		return *ticket.ReceiverProfilePhoto
+	}
+	return "uploads/img/logo.png"
+}
+
+func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.TicketWithRelations, actorName, actorImage string) {
 	conn, err := grpcutil.NewClient(s.notificationServiceAddr)
 	if err != nil {
 		fmt.Printf("Failed to connect to notification service: %v\n", err)
@@ -234,11 +268,14 @@ func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.Tic
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	message := fmt.Sprintf("تیکتی از طرف %s دریافت شده است", ticket.SenderName)
-	senderImage := "uploads/img/logo.png"
-	if ticket.SenderProfilePhoto != nil {
-		senderImage = *ticket.SenderProfilePhoto
+	if actorName == "" {
+		actorName = ticket.SenderName
 	}
+	if actorImage == "" {
+		actorImage = senderImage(ticket)
+	}
+
+	message := fmt.Sprintf("تیکتی از طرف %s دریافت شده است", actorName)
 
 	_, err = client.SendNotification(ctx, &pbNotification.SendNotificationRequest{
 		UserId:  userID,
@@ -247,8 +284,8 @@ func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.Tic
 		Message: message,
 		Data: map[string]string{
 			"related-to":   "tickets",
-			"sender-image": senderImage,
-			"sender-name":  ticket.SenderName,
+			"sender-image": actorImage,
+			"sender-name":  actorName,
 			"ticket-id":    fmt.Sprintf("%d", ticket.ID),
 		},
 	})

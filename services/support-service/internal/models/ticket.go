@@ -22,6 +22,15 @@ const (
 	DeptZTB              = "ztb"
 )
 
+const (
+	TicketMessageKindOpening = "opening"
+	TicketMessageKindReply   = "reply"
+
+	TicketMessageRoleSender   = "sender"
+	TicketMessageRoleReceiver = "receiver"
+	TicketMessageRoleStaff    = "staff"
+)
+
 // Ticket represents a support ticket
 type Ticket struct {
 	ID         uint64    `db:"id"`
@@ -70,6 +79,29 @@ func (t *Ticket) IsClosed() bool {
 // IsOpen checks if the ticket is open
 func (t *Ticket) IsOpen() bool {
 	return t.Status != TicketStatusClosed
+}
+
+// ParticipantRole returns sender, receiver, or staff for the given user.
+func (t *Ticket) ParticipantRole(userID uint64) string {
+	if t.UserID == userID {
+		return TicketMessageRoleSender
+	}
+	if t.ReceiverID != nil && *t.ReceiverID == userID {
+		return TicketMessageRoleReceiver
+	}
+	return TicketMessageRoleStaff
+}
+
+// OtherParticipantID returns the opposite party for a two-sided ticket.
+// Department-only tickets have no person receiver, so sender replies yield 0.
+func (t *Ticket) OtherParticipantID(userID uint64) uint64 {
+	if userID == t.UserID {
+		if t.ReceiverID != nil {
+			return *t.ReceiverID
+		}
+		return 0
+	}
+	return t.UserID
 }
 
 func GetDepartmentTitle(dept string) string {

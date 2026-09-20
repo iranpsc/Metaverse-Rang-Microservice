@@ -888,26 +888,6 @@ routes:
     security: bearer
 
   # --- Support ---
-  - path: /api/support/tickets
-    methods: [get, post]
-    tag: Support
-    summary: List or create support tickets
-    security: bearer
-  - path: /api/support/tickets/{id}
-    methods: [get, put, patch]
-    tag: Support
-    summary: Get or update support ticket
-    security: bearer
-  - path: /api/support/tickets/{id}/response
-    methods: [post]
-    tag: Support
-    summary: Add ticket response
-    security: bearer
-  - path: /api/support/tickets/{id}/close
-    methods: [post]
-    tag: Support
-    summary: Close support ticket
-    security: bearer
   - path: /api/support/reports
     methods: [get, post]
     tag: Support
@@ -921,7 +901,22 @@ routes:
   - path: /api/tickets
     methods: [get, post]
     tag: Support
-    summary: List or create tickets (alias)
+    summary: List or create tickets
+    security: bearer
+  - path: /api/tickets/{id}
+    methods: [get, put, patch]
+    tag: Support
+    summary: Get or update ticket
+    security: bearer
+  - path: /api/tickets/response/{id}
+    methods: [post]
+    tag: Support
+    summary: Add ticket response
+    security: bearer
+  - path: /api/tickets/close/{id}
+    methods: [get]
+    tag: Support
+    summary: Close ticket
     security: bearer
   - path: /api/reports
     methods: [get, post]
