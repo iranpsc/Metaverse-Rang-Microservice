@@ -1048,6 +1048,11 @@ func propertyMap(p *featurespb.FeatureProperties) map[string]interface{} {
 }
 func buyRequestMap(x *featurespb.BuyRequestResponse) map[string]interface{} {
 	out := map[string]interface{}{"id": x.Id, "feature_id": x.FeatureId, "status": x.Status, "note": x.Note, "price_psc": x.PricePsc, "price_irr": x.PriceIrr, "created_at": x.CreatedAt}
+	if x.RequestedGracePeriod != "" {
+		out["requested_grace_period"] = x.RequestedGracePeriod
+	} else {
+		out["requested_grace_period"] = nil
+	}
 	if x.Buyer != nil {
 		out["buyer"] = map[string]interface{}{"id": x.Buyer.Id, "code": x.Buyer.Code, "profile_photo": x.Buyer.ProfilePhoto}
 	}
