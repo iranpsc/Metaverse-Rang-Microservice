@@ -237,7 +237,7 @@ func TestAddInteraction_Remove(t *testing.T) {
 	}
 }
 
-func TestIncrementView_NewIP(t *testing.T) {
+func TestIncrementView_InsertsRow(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatal(err)
@@ -245,37 +245,10 @@ func TestIncrementView_NewIP(t *testing.T) {
 	defer db.Close()
 
 	morph := "App\\Models\\Calendar"
-	mock.ExpectQuery(regexp.QuoteMeta(
-		"SELECT COUNT(*) FROM views WHERE viewable_type = ? AND viewable_id = ? AND ip_address = ?",
-	)).WithArgs(morph, uint64(5), "192.168.1.1").
-		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(0))
-
 	mock.ExpectExec(regexp.QuoteMeta(
 		"INSERT INTO views (viewable_type, viewable_id, ip_address, created_at, updated_at)",
-	)).WillReturnResult(sqlmock.NewResult(1, 1))
-
-	r := repository.NewCalendarRepository(db)
-	err = r.IncrementView(context.Background(), 5, "192.168.1.1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestIncrementView_DuplicateIP(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-
-	morph := "App\\Models\\Calendar"
-	mock.ExpectQuery(regexp.QuoteMeta(
-		"SELECT COUNT(*) FROM views WHERE viewable_type = ? AND viewable_id = ? AND ip_address = ?",
 	)).WithArgs(morph, uint64(5), "192.168.1.1").
-		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	r := repository.NewCalendarRepository(db)
 	err = r.IncrementView(context.Background(), 5, "192.168.1.1")
