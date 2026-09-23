@@ -63,15 +63,24 @@ func amountInRials(amount int32, rate float64) int64 {
 	return int64(float64(amount) * rate)
 }
 
+// sadadFailureMessage returns the exact ResCode and Description from Sadad IPG.
+// Does not substitute local/custom messages when Description is empty.
 func sadadFailureMessage(response *sadad.RequestResponse) string {
-	msg := response.Description
-	if msg == "" {
-		msg = response.Error().Message()
+	if response == nil {
+		return "empty IPG response"
 	}
-	if response.ResCode != "" {
-		return fmt.Sprintf("%s (ResCode=%s)", msg, response.ResCode)
+	code := strings.TrimSpace(response.ResCode)
+	msg := strings.TrimSpace(response.Description)
+	switch {
+	case code != "" && msg != "":
+		return fmt.Sprintf("ResCode=%s Description=%s", code, msg)
+	case code != "":
+		return fmt.Sprintf("ResCode=%s", code)
+	case msg != "":
+		return fmt.Sprintf("Description=%s", msg)
+	default:
+		return "empty ResCode and Description from IPG"
 	}
-	return msg
 }
 
 func (s *orderService) storeTransactionToken(ctx context.Context, transaction *models.Transaction, token string) {
