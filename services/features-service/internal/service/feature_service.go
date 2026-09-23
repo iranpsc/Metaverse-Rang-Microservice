@@ -560,7 +560,7 @@ func (s *FeatureService) applyLatestSellRequest(ctx context.Context, feature *pb
 	if err != nil || req == nil {
 		return
 	}
-	feature.IsForSale = 1
+	feature.IsForSale = isForSaleFromLatestSellRequest(req)
 	feature.LatestSellRequest = sellRequestToPB(req)
 }
 
@@ -586,7 +586,7 @@ func (s *FeatureService) applyLatestSellRequests(ctx context.Context, features [
 		if req == nil {
 			continue
 		}
-		feature.IsForSale = 1
+		feature.IsForSale = isForSaleFromLatestSellRequest(req)
 		feature.LatestSellRequest = sellRequestToPB(req)
 	}
 }

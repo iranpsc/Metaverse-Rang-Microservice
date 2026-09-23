@@ -913,7 +913,7 @@ func featureMap(f *featurespb.Feature) map[string]interface{} {
 	if f == nil {
 		return map[string]interface{}{}
 	}
-	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive, "is_for_sale": f.IsForSale}
+	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive, "is_for_sale": f.IsForSale != 0}
 	if f.IsForSale != 0 && f.LatestSellRequest != nil {
 		out["latest_sell_request"] = sellRequestMap(f.LatestSellRequest)
 	}
