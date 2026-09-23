@@ -376,7 +376,7 @@ func (h *HTTPFeaturesHandler) ListBuyRequests(w http.ResponseWriter, r *http.Req
 	}
 	out := []map[string]interface{}{}
 	for _, x := range resp.BuyRequests {
-		out = append(out, buyRequestMap(x))
+		out = append(out, buyRequestListMap(x))
 	}
 	writeJSON(w, 200, out)
 }
@@ -392,7 +392,7 @@ func (h *HTTPFeaturesHandler) ListReceivedBuyRequests(w http.ResponseWriter, r *
 	}
 	out := []map[string]interface{}{}
 	for _, x := range resp.BuyRequests {
-		out = append(out, buyRequestMap(x))
+		out = append(out, buyRequestListMap(x))
 	}
 	writeJSON(w, 200, out)
 }
@@ -1047,6 +1047,14 @@ func propertyMap(p *featurespb.FeatureProperties) map[string]interface{} {
 	return map[string]interface{}{"id": p.Id, "address": p.Address, "density": p.Density, "stability": p.Stability, "price_psc": p.PricePsc, "price_irr": p.PriceIrr, "minimum_price_percentage": p.MinimumPricePercentage, "rgb": p.Rgb, "karbari": p.Karbari, "owner": p.Owner, "label": p.Label, "area": p.Area}
 }
 func buyRequestMap(x *featurespb.BuyRequestResponse) map[string]interface{} {
+	return buyRequestJSON(x, false)
+}
+
+func buyRequestListMap(x *featurespb.BuyRequestResponse) map[string]interface{} {
+	return buyRequestJSON(x, true)
+}
+
+func buyRequestJSON(x *featurespb.BuyRequestResponse, includeCoordinates bool) map[string]interface{} {
 	out := map[string]interface{}{"id": x.Id, "feature_id": x.FeatureId, "status": x.Status, "note": x.Note, "price_psc": x.PricePsc, "price_irr": x.PriceIrr, "created_at": x.CreatedAt}
 	if x.RequestedGracePeriod != "" {
 		out["requested_grace_period"] = x.RequestedGracePeriod
@@ -1061,6 +1069,16 @@ func buyRequestMap(x *featurespb.BuyRequestResponse) map[string]interface{} {
 	}
 	if x.FeatureProperties != nil {
 		out["feature_properties"] = propertyMap(x.FeatureProperties)
+	}
+	if includeCoordinates {
+		coords := make([]map[string]interface{}, 0, len(x.FeatureCoordinates))
+		for _, c := range x.FeatureCoordinates {
+			if c == nil {
+				continue
+			}
+			coords = append(coords, map[string]interface{}{"id": c.Id, "geometry_id": c.GeometryId, "x": c.X, "y": c.Y})
+		}
+		out["feature_coordinates"] = coords
 	}
 	return out
 }
