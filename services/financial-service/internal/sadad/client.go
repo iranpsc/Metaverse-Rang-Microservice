@@ -135,12 +135,16 @@ type VerificationParams struct {
 }
 
 // VerificationResponse is the response from Sadad verification.
+// Fields match the documented Verify output (VPG Help v1.10, section 6.6).
 type VerificationResponse struct {
-	ResCode          string
-	SystemTraceNo    string
-	RetrivalRefNo    string
-	CardNumberMasked string
-	Description      string
+	ResCode            string
+	Amount             int64
+	SystemTraceNo      string
+	RetrivalRefNo      string
+	Description        string
+	OrderId            int64
+	TransactionDate    string
+	CardHolderFullName string
 }
 
 type multiplexedPaymentRequestBody struct {
@@ -175,12 +179,16 @@ type verifyRequestBody struct {
 	SignData string `json:"SignData"`
 }
 
+// verifyAPIResponse mirrors the documented Verify JSON response (VPG Help v1.10, section 6.6).
 type verifyAPIResponse struct {
-	ResCode          json.RawMessage `json:"ResCode"`
-	SystemTraceNo    string          `json:"SystemTraceNo"`
-	RetrivalRefNo    string          `json:"RetrivalRefNo"`
-	CardNumberMasked string          `json:"CardNumberMasked"`
-	Description      string          `json:"Description"`
+	ResCode            json.RawMessage `json:"ResCode"`
+	Amount             int64           `json:"Amount"`
+	SystemTraceNo      string          `json:"SystemTraceNo"`
+	RetrivalRefNo      string          `json:"RetrivalRefNo"`
+	Description        string          `json:"Description"`
+	OrderId            int64           `json:"OrderId"`
+	TransactionDate    string          `json:"TransactionDate"`
+	CardHolderFullName string          `json:"CardHolderFullName"`
 }
 
 // RequestPayment initiates a payment request and returns a token.
@@ -306,6 +314,12 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 	if err != nil {
 		return nil, fmt.Errorf("failed to read verification response: %w", err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("sadad verify returned HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+	if len(respBody) == 0 {
+		return nil, fmt.Errorf("sadad verify returned empty response body")
+	}
 
 	var apiResp verifyAPIResponse
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {
@@ -313,11 +327,14 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 	}
 
 	return &VerificationResponse{
-		ResCode:          parseResCode(apiResp.ResCode),
-		SystemTraceNo:    apiResp.SystemTraceNo,
-		RetrivalRefNo:    apiResp.RetrivalRefNo,
-		CardNumberMasked: apiResp.CardNumberMasked,
-		Description:      apiResp.Description,
+		ResCode:            parseResCode(apiResp.ResCode),
+		Amount:             apiResp.Amount,
+		SystemTraceNo:      apiResp.SystemTraceNo,
+		RetrivalRefNo:      apiResp.RetrivalRefNo,
+		Description:        apiResp.Description,
+		OrderId:            apiResp.OrderId,
+		TransactionDate:    apiResp.TransactionDate,
+		CardHolderFullName: apiResp.CardHolderFullName,
 	}, nil
 }
 
@@ -340,8 +357,11 @@ func (r *RequestResponse) Error() *SadadError {
 }
 
 // Success checks if the verification response indicates success.
+// Per Sadad VPG Help v1.10 section 7.2 (Verify ResCode table):
+//   - ResCode "0"  → transaction successful  → final success
+//   - ResCode "10" → duplicate request (already registered successfully) → also final success
 func (v *VerificationResponse) Success() bool {
-	return isSuccessResCode(v.ResCode) && v.RetrivalRefNo != ""
+	return v.ResCode == "0" || v.ResCode == "10"
 }
 
 // Error returns error information for the verification.

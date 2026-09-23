@@ -20,10 +20,16 @@ func logPaymentWarning(format string, args ...interface{}) {
 }
 
 func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset string, rate float64) (string, string, error) {
-	returnURL, err := s.sadadCallbackReturnURL()
+	baseReturnURL, err := s.sadadCallbackReturnURL()
 	if err != nil {
 		return "", "", err
 	}
+
+	// Embed order_id in the ReturnUrl query string so the callback handler can
+	// identify the order directly from the URL — even if Sadad's POST body is
+	// missing or malformed. Sadad also echoes OrderId in its POST body (section
+	// 6.5 of VPG Help v1.10), giving us two independent identification sources.
+	returnURL := sadadReturnURLWithOrderID(baseReturnURL, orderID)
 
 	amountRials := amountInRials(amount, rate)
 	multiplexingData, err := s.buildMultiplexingData(asset, amountRials)
@@ -338,16 +344,16 @@ func (s *orderService) processReferral(ctx context.Context, order *models.Order)
 	}
 }
 
-func cardPanFromCallback(additionalParams map[string]string, verifyResponse *sadad.VerificationResponse) string {
+// cardPanFromCallback extracts the masked card number (PAN) from the Sadad callback POST.
+// Per VPG Help v1.10 section 6.5, Sadad sends PrimaryAccNo (masked PAN) in the callback body.
+// The Verify response does not include a card number field per the documented output.
+func cardPanFromCallback(additionalParams map[string]string, _ *sadad.VerificationResponse) string {
 	for _, key := range []string{"PrimaryAccNo", "CardMaskPan", "card_pan"} {
 		if cardPan := additionalParams[key]; cardPan != "" {
 			return cardPan
 		}
 	}
-	if verifyResponse.CardNumberMasked != "" {
-		return verifyResponse.CardNumberMasked
-	}
-	return "card-hash"
+	return ""
 }
 
 func (s *orderService) markOrderAndTransactionFailed(ctx context.Context, order *models.Order, transaction *models.Transaction, resCode string) error {
@@ -394,6 +400,21 @@ func (s *orderService) sadadCallbackReturnURL() (string, error) {
 	}
 
 	return normalized, nil
+}
+
+// sadadReturnURLWithOrderID appends ?order_id=<id> to the callback base URL.
+// This lets the HandleCallback handler identify the order from the URL query
+// string — independent of Sadad's POST body — providing two sources of truth.
+func sadadReturnURLWithOrderID(base string, orderID uint64) string {
+	u, err := url.Parse(base)
+	if err != nil {
+		// base is already validated by NormalizePaymentCallbackURL; this should never happen.
+		return fmt.Sprintf("%s?order_id=%d", base, orderID)
+	}
+	q := u.Query()
+	q.Set("order_id", fmt.Sprintf("%d", orderID))
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func (s *orderService) buildPaymentVerifyRedirectURL(orderID uint64, resCode string) (string, error) {

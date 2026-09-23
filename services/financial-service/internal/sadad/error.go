@@ -110,9 +110,9 @@ func (e *SadadError) Message() string {
 		return "اطلاعات تسهیم صحیح نیست"
 	case "1105":
 		return "تراکنش بازگشت داده شده است"
-	// Legacy short codes kept for older clients/tests.
+	// Verify-specific codes (VPG Help v1.10, section 7.2).
 	case "101":
-		return "پذیرنده نامعتبر است"
+		return "مهلت ارسال تراکنش به پایان رسیده است"
 	case "102":
 		return "ترمینال نامعتبر است"
 	case "103":
