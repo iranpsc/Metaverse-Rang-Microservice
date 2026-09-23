@@ -94,6 +94,9 @@ func sampleBuyRequest() *pb.BuyRequestResponse {
 		Buyer:             &pb.BuyerInfo{Id: 2, Code: "hm-2", ProfilePhoto: "p"},
 		Seller:            &pb.SellerInfo{Id: 3, Code: "hm-3"},
 		FeatureProperties: &pb.FeatureProperties{Id: "p1", Karbari: "m"},
+		FeatureCoordinates: []*pb.Coordinate{
+			{Id: 1, GeometryId: 4, X: "51.389000", Y: "35.689200"},
+		},
 	}
 }
 
