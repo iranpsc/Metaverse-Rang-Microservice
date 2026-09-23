@@ -172,7 +172,7 @@ CREATE TABLE `buy_feature_requests` (
   `note` text DEFAULT NULL,
   `price_psc` decimal(8,2) NOT NULL DEFAULT 0.00,
   `price_irr` bigint(20) NOT NULL DEFAULT 0,
-  `requested_grace_period` timestamp NULL DEFAULT NULL,
+  `requested_grace_period` varchar(191) DEFAULT NULL,
   `deleted_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
