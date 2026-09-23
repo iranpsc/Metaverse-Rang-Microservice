@@ -243,7 +243,7 @@ func TestCreateOrder_additionalBranches(t *testing.T) {
 
 func TestHandleCallback_additionalBranches(t *testing.T) {
 	ctx := context.Background()
-	verifyOK := &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "111", CardNumberMasked: "****1111"}
+	verifyOK := &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "111"}
 
 	t.Run("order lookup error", func(t *testing.T) {
 		svc := service.NewOrderService(nil, &mockOrderRepo{findWithUserErr: errors.New("db")}, &mockTransactionRepo{},
@@ -335,23 +335,22 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("card pan from CardMaskPan then card_pan then masked then default", func(t *testing.T) {
+	t.Run("card pan from PrimaryAccNo then CardMaskPan then card_pan", func(t *testing.T) {
 		cases := []struct {
 			name   string
 			params map[string]string
-			masked string
 		}{
-			{"CardMaskPan", map[string]string{"CardMaskPan": "mask-a"}, ""},
-			{"card_pan", map[string]string{"card_pan": "mask-b"}, ""},
-			{"verify masked", map[string]string{}, "mask-c"},
-			{"default", map[string]string{}, ""},
+			{"PrimaryAccNo", map[string]string{"PrimaryAccNo": "mask-primary"}},
+			{"CardMaskPan", map[string]string{"CardMaskPan": "mask-a"}},
+			{"card_pan", map[string]string{"card_pan": "mask-b"}},
+			{"default", map[string]string{}},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				orderRepo, txRepo, order := seedCallbackOrder(t, "psc", 10, 1)
 				svc := service.NewOrderService(nil, orderRepo, txRepo, &mockPaymentRepo{},
 					&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
-					&mockSadadClient{verifyResponse: &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "9", CardNumberMasked: tc.masked}},
+					&mockSadadClient{verifyResponse: &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "9"}},
 					&mockOrderPolicy{}, &mockJalaliConverter{},
 					&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, defaultOrderConfig())
 				if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", tc.params); err != nil {
