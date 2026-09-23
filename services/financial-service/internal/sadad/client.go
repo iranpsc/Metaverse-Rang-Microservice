@@ -142,7 +142,7 @@ type VerificationResponse struct {
 	SystemTraceNo      string
 	RetrivalRefNo      string
 	Description        string
-	OrderId            int64
+	OrderID            int64
 	TransactionDate    string
 	CardHolderFullName string
 }
@@ -186,7 +186,7 @@ type verifyAPIResponse struct {
 	SystemTraceNo      string          `json:"SystemTraceNo"`
 	RetrivalRefNo      string          `json:"RetrivalRefNo"`
 	Description        string          `json:"Description"`
-	OrderId            int64           `json:"OrderId"`
+	OrderID            int64           `json:"OrderId"`
 	TransactionDate    string          `json:"TransactionDate"`
 	CardHolderFullName string          `json:"CardHolderFullName"`
 }
@@ -332,7 +332,7 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 		SystemTraceNo:      apiResp.SystemTraceNo,
 		RetrivalRefNo:      apiResp.RetrivalRefNo,
 		Description:        apiResp.Description,
-		OrderId:            apiResp.OrderId,
+		OrderID:            apiResp.OrderID,
 		TransactionDate:    apiResp.TransactionDate,
 		CardHolderFullName: apiResp.CardHolderFullName,
 	}, nil

@@ -459,9 +459,8 @@ func TestOrderService_HandleCallback(t *testing.T) {
 	walletClient := &mockWalletClient{}
 	sadadClient := &mockSadadClient{
 		verifyResponse: &sadad.VerificationResponse{
-			ResCode:          "0",
-			RetrivalRefNo:    "99887766",
-			CardNumberMasked: "1234****5678",
+			ResCode:       "0",
+			RetrivalRefNo: "99887766",
 		},
 	}
 

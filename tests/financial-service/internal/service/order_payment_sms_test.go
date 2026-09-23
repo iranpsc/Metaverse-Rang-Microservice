@@ -71,9 +71,8 @@ func TestOrderService_HandleCallback_sendsTransactionSMSAfterSuccessfulPayment(t
 		&mockFirstOrderRepo{},
 		&mockSadadClient{
 			verifyResponse: &sadad.VerificationResponse{
-				ResCode:          "0",
-				RetrivalRefNo:    "99887766",
-				CardNumberMasked: "1234****5678",
+				ResCode:       "0",
+				RetrivalRefNo: "99887766",
 			},
 		},
 		&mockOrderPolicy{canBuy: true, canGetBonus: false},
