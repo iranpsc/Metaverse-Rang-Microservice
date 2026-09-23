@@ -105,3 +105,59 @@ func TestBuyRequestRepository_FindByID_NoRows(t *testing.T) {
 	assert.Nil(t, req)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestBuyRequestRepository_ListKeepsRowsWithVarcharGracePeriod(t *testing.T) {
+	now := time.Now()
+	grace := []byte("2026-09-30 17:42:00")
+
+	t.Run("buyer", func(t *testing.T) {
+		db, mock := testutil.NewSQLMock(t)
+		repo := repository.NewBuyRequestRepository(db)
+		mock.ExpectQuery("WHERE buyer_id = \\? AND deleted_at IS NULL").
+			WithArgs(uint64(2)).
+			WillReturnRows(sqlmock.NewRows(buyRequestCols()).
+				AddRow(1, 2, 3, 5, "n", 10.0, 20.0, 0, grace, now, now))
+
+		list, err := repo.ListByBuyerID(context.Background(), 2)
+		require.NoError(t, err)
+		require.Len(t, list, 1)
+		assert.Equal(t, uint64(1), list[0].ID)
+		require.True(t, list[0].RequestedGracePeriod.Valid)
+		assert.Equal(t, 2026, list[0].RequestedGracePeriod.Time.Year())
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("seller", func(t *testing.T) {
+		db, mock := testutil.NewSQLMock(t)
+		repo := repository.NewBuyRequestRepository(db)
+		mock.ExpectQuery("WHERE seller_id = \\? AND deleted_at IS NULL").
+			WithArgs(uint64(3)).
+			WillReturnRows(sqlmock.NewRows(buyRequestCols()).
+				AddRow(1, 2, 3, 5, "n", 10.0, 20.0, 0, grace, now, now))
+
+		list, err := repo.ListBySellerID(context.Background(), 3)
+		require.NoError(t, err)
+		require.Len(t, list, 1)
+		assert.Equal(t, uint64(1), list[0].ID)
+		require.True(t, list[0].RequestedGracePeriod.Valid)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestBuyRequestRepository_FindByID_VarcharGracePeriod(t *testing.T) {
+	db, mock := testutil.NewSQLMock(t)
+	repo := repository.NewBuyRequestRepository(db)
+	now := time.Now()
+
+	mock.ExpectQuery("FROM buy_feature_requests").
+		WithArgs(uint64(9)).
+		WillReturnRows(sqlmock.NewRows(buyRequestCols()).
+			AddRow(9, 2, 3, 5, "n", 10.0, 20.0, 0, []byte("2026-09-30 17:42:00"), now, now))
+
+	req, err := repo.FindByID(context.Background(), 9)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	require.True(t, req.RequestedGracePeriod.Valid)
+	assert.Equal(t, 30, req.RequestedGracePeriod.Time.Day())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
