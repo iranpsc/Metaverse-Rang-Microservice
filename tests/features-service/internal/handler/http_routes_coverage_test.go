@@ -281,10 +281,23 @@ func TestHTTPBuyRequestListsIncludeFeatureCoordinates(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer tok")
 		return req
 	}
-	decode := func(t *testing.T, w *httptest.ResponseRecorder, dest interface{}) {
+	decodeList := func(t *testing.T, w *httptest.ResponseRecorder) []map[string]interface{} {
 		t.Helper()
 		require.Equal(t, 200, w.Code, w.Body.String())
-		require.NoError(t, json.Unmarshal(w.Body.Bytes(), dest))
+		var wrapped struct {
+			Data []map[string]interface{} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapped))
+		return wrapped.Data
+	}
+	decodeObject := func(t *testing.T, w *httptest.ResponseRecorder) map[string]interface{} {
+		t.Helper()
+		require.Equal(t, 200, w.Code, w.Body.String())
+		var wrapped struct {
+			Data map[string]interface{} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapped))
+		return wrapped.Data
 	}
 	assertListCoords := func(t *testing.T, body []map[string]interface{}) {
 		t.Helper()
@@ -301,27 +314,19 @@ func TestHTTPBuyRequestListsIncludeFeatureCoordinates(t *testing.T) {
 
 	sent := httptest.NewRecorder()
 	h.HandleBuyRequestsRoutes(sent, withUserJSON(http.MethodGet, "/api/buy-requests", ""))
-	var sentBody []map[string]interface{}
-	decode(t, sent, &sentBody)
-	assertListCoords(t, sentBody)
+	assertListCoords(t, decodeList(t, sent))
 
 	received := httptest.NewRecorder()
 	h.HandleBuyRequestsRoutes(received, withUserJSON(http.MethodGet, "/api/buy-requests/recieved", ""))
-	var receivedBody []map[string]interface{}
-	decode(t, received, &receivedBody)
-	assertListCoords(t, receivedBody)
+	assertListCoords(t, decodeList(t, received))
 
 	store := httptest.NewRecorder()
 	h.HandleBuyRequestsRoutes(store, withUserJSON(http.MethodPost, "/api/buy-requests/store/1", `{"note":"n","price_psc":10,"price_irr":20}`))
-	var storeBody map[string]interface{}
-	decode(t, store, &storeBody)
-	_, hasCoords := storeBody["feature_coordinates"]
+	_, hasCoords := decodeObject(t, store)["feature_coordinates"]
 	assert.False(t, hasCoords)
 
 	accept := httptest.NewRecorder()
 	h.HandleBuyRequestsRoutes(accept, withUserJSON(http.MethodPost, "/api/buy-requests/accept/9", ""))
-	var acceptBody map[string]interface{}
-	decode(t, accept, &acceptBody)
-	_, hasCoords = acceptBody["feature_coordinates"]
+	_, hasCoords = decodeObject(t, accept)["feature_coordinates"]
 	assert.False(t, hasCoords)
 }
