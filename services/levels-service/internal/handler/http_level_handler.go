@@ -172,7 +172,7 @@ func (h *HTTPLevelHandler) GetLevelGeneralInfo(w http.ResponseWriter, r *http.Re
 			"model_designer": resp.GeneralInfo.ModelDesigner,
 			"creation_date":  resp.GeneralInfo.CreationDate,
 			"png_file":       h.prefixImageURL(resp.GeneralInfo.PngFile),
-			"fbx_file":       h.prefixImageURL(resp.GeneralInfo.FbxFile),
+			"fbx_file":       resp.GeneralInfo.FbxFile,
 			"gif_file":       h.prefixImageURL(resp.GeneralInfo.GifFile),
 		}
 	}
@@ -214,7 +214,7 @@ func (h *HTTPLevelHandler) GetLevelGem(w http.ResponseWriter, r *http.Request) {
 			"has_animation": resp.Gem.HasAnimation,
 			"lines":         resp.Gem.Lines,
 			"png_file":      h.prefixImageURL(resp.Gem.PngFile),
-			"fbx_file":      h.prefixImageURL(resp.Gem.FbxFile),
+			"fbx_file":      resp.Gem.FbxFile,
 			"encryption":    resp.Gem.Encryption,
 			"designer":      resp.Gem.Designer,
 		}
@@ -263,7 +263,7 @@ func (h *HTTPLevelHandler) GetLevelGift(w http.ResponseWriter, r *http.Request) 
 			"three_d_model_lines":       resp.Gift.ThreeDModelLines,
 			"has_animation":             resp.Gift.HasAnimation,
 			"png_file":                  h.prefixImageURL(resp.Gift.PngFile),
-			"fbx_file":                  h.prefixImageURL(resp.Gift.FbxFile),
+			"fbx_file":                  resp.Gift.FbxFile,
 			"gif_file":                  h.prefixImageURL(resp.Gift.GifFile),
 			"rent":                      resp.Gift.Rent,
 			"vod_count":                 resp.Gift.VodCount,
@@ -384,7 +384,7 @@ func (h *HTTPLevelHandler) formatLevelResponse(level *levelspb.Level) map[string
 			"score":       level.GeneralInfo.Score,
 			"rank":        level.GeneralInfo.Rank,
 			"png_file":    h.prefixImageURL(level.GeneralInfo.PngFile),
-			"fbx_file":    h.prefixImageURL(level.GeneralInfo.FbxFile),
+			"fbx_file":    level.GeneralInfo.FbxFile,
 			"gif_file":    h.prefixImageURL(level.GeneralInfo.GifFile),
 			"description": level.GeneralInfo.Description,
 		}

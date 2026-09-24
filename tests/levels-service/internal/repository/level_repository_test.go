@@ -120,7 +120,7 @@ func TestLevelRepository_GetLevelGeneralInfo_FileURLs(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, info)
 		assert.Equal(t, "https://admin.example.com/uploads/png.png", info.PngFile)
-		assert.Equal(t, "https://admin.example.com/uploads/fbx.fbx", info.FbxFile)
+		assert.Equal(t, "fbx.fbx", info.FbxFile)
 		assert.Equal(t, "https://admin.example.com/uploads/gif.gif", info.GifFile)
 	})
 
