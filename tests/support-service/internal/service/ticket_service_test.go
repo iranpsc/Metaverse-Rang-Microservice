@@ -155,6 +155,43 @@ func TestTicketService_AddResponseOK(t *testing.T) {
 	}
 }
 
+func TestTicketService_AddResponse_SenderKeepsStatusAndUsesNames(t *testing.T) {
+	rid := uint64(2)
+	rname := "Support"
+	tk := ticketFull(8, 1, models.TicketStatusNew)
+	tk.ReceiverID = &rid
+	tk.ReceiverName = &rname
+	var storedName string
+	var storedStatus int32
+	repo := &testutil.MockTicketRepo{
+		GetTicketSenderReceiverFunc: func(ctx context.Context, ticketID uint64) (uint64, uint64, error) {
+			return 1, 2, nil
+		},
+		GetByIDFunc: func(ctx context.Context, ticketID uint64) (*models.TicketWithRelations, error) {
+			return tk, nil
+		},
+		CreateResponseFunc: func(ctx context.Context, response *models.TicketResponse) (*models.TicketResponse, error) {
+			storedName = response.ResponserName
+			return response, nil
+		},
+		UpdateStatusFunc: func(ctx context.Context, ticketID uint64, status int32) error {
+			storedStatus = status
+			tk.Status = status
+			return nil
+		},
+	}
+	svc := service.NewTicketService(repo, "127.0.0.1:1")
+	out, err := svc.AddResponse(context.Background(), 8, 1, "follow-up", "", "")
+	if err != nil || out.Status != models.TicketStatusNew || storedStatus != models.TicketStatusNew || storedName != "Alice" {
+		t.Fatalf("sender reply err=%v st=%d stored=%d name=%q", err, out.Status, storedStatus, storedName)
+	}
+
+	out, err = svc.AddResponse(context.Background(), 8, 2, "reply", "", "Ignored")
+	if err != nil || out.Status != models.TicketStatusAnswered || storedName != "Support" {
+		t.Fatalf("receiver reply err=%v st=%d name=%q", err, out.Status, storedName)
+	}
+}
+
 func TestTicketService_CloseTicketOK(t *testing.T) {
 	tk := ticketFull(6, 9, models.TicketStatusNew)
 	repo := &testutil.MockTicketRepo{

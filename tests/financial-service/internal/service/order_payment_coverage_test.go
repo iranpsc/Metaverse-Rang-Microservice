@@ -83,7 +83,7 @@ func TestCreateOrder_additionalBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("irr multiplexing 100 percent rial", func(t *testing.T) {
+	t.Run("irr multiplexing amount to rial iban", func(t *testing.T) {
 		sadadClient := &mockSadadClient{requestResponse: &sadad.RequestResponse{ResCode: "0", Token: "99"}}
 		svc := service.NewOrderService(nil, &mockOrderRepo{}, &mockTransactionRepo{}, &mockPaymentRepo{},
 			&mockVariableRepo{rates: map[string]float64{"irr": 1}}, &mockFirstOrderRepo{},
@@ -92,8 +92,28 @@ func TestCreateOrder_additionalBranches(t *testing.T) {
 			t.Fatal(err)
 		}
 		mux := sadadClient.lastRequest.MultiplexingData
-		if mux.MultiplexingRows[0].Value != 100 || mux.MultiplexingRows[1].Value != 0 {
-			t.Fatalf("unexpected irr split %+v", mux.MultiplexingRows)
+		if mux == nil || mux.Type != "Amount" || len(mux.MultiplexingRows) != 1 {
+			t.Fatalf("expected Amount multiplexing with 1 row, got %+v", mux)
+		}
+		if mux.MultiplexingRows[0].IbanNumber != "IRRIAL" || mux.MultiplexingRows[0].Value != 5 {
+			t.Fatalf("unexpected irr multiplexing row %+v", mux.MultiplexingRows[0])
+		}
+	})
+
+	t.Run("non-irr multiplexing amount to non-rial iban", func(t *testing.T) {
+		sadadClient := &mockSadadClient{requestResponse: &sadad.RequestResponse{ResCode: "0", Token: "99"}}
+		svc := service.NewOrderService(nil, &mockOrderRepo{}, &mockTransactionRepo{}, &mockPaymentRepo{},
+			&mockVariableRepo{rates: map[string]float64{"psc": 1000}}, &mockFirstOrderRepo{},
+			sadadClient, &mockOrderPolicy{canBuy: true}, &mockJalaliConverter{}, nil, nil, nil, defaultOrderConfig())
+		if _, err := svc.CreateOrder(ctx, 1, 5, "psc"); err != nil {
+			t.Fatal(err)
+		}
+		mux := sadadClient.lastRequest.MultiplexingData
+		if mux == nil || mux.Type != "Amount" || len(mux.MultiplexingRows) != 1 {
+			t.Fatalf("expected Amount multiplexing with 1 row, got %+v", mux)
+		}
+		if mux.MultiplexingRows[0].IbanNumber != "IRNON" || mux.MultiplexingRows[0].Value != 5000 {
+			t.Fatalf("unexpected non-irr multiplexing row %+v", mux.MultiplexingRows[0])
 		}
 	})
 
@@ -223,7 +243,7 @@ func TestCreateOrder_additionalBranches(t *testing.T) {
 
 func TestHandleCallback_additionalBranches(t *testing.T) {
 	ctx := context.Background()
-	verifyOK := &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "111", CardNumberMasked: "****1111"}
+	verifyOK := &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "111"}
 
 	t.Run("order lookup error", func(t *testing.T) {
 		svc := service.NewOrderService(nil, &mockOrderRepo{findWithUserErr: errors.New("db")}, &mockTransactionRepo{},
@@ -315,23 +335,22 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 		}
 	})
 
-	t.Run("card pan from CardMaskPan then card_pan then masked then default", func(t *testing.T) {
+	t.Run("card pan from PrimaryAccNo then CardMaskPan then card_pan", func(t *testing.T) {
 		cases := []struct {
 			name   string
 			params map[string]string
-			masked string
 		}{
-			{"CardMaskPan", map[string]string{"CardMaskPan": "mask-a"}, ""},
-			{"card_pan", map[string]string{"card_pan": "mask-b"}, ""},
-			{"verify masked", map[string]string{}, "mask-c"},
-			{"default", map[string]string{}, ""},
+			{"PrimaryAccNo", map[string]string{"PrimaryAccNo": "mask-primary"}},
+			{"CardMaskPan", map[string]string{"CardMaskPan": "mask-a"}},
+			{"card_pan", map[string]string{"card_pan": "mask-b"}},
+			{"default", map[string]string{}},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				orderRepo, txRepo, order := seedCallbackOrder(t, "psc", 10, 1)
 				svc := service.NewOrderService(nil, orderRepo, txRepo, &mockPaymentRepo{},
 					&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
-					&mockSadadClient{verifyResponse: &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "9", CardNumberMasked: tc.masked}},
+					&mockSadadClient{verifyResponse: &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "9"}},
 					&mockOrderPolicy{}, &mockJalaliConverter{},
 					&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, defaultOrderConfig())
 				if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", tc.params); err != nil {

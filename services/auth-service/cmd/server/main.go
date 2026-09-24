@@ -103,6 +103,7 @@ func main() {
 	profilePhotoRepo := repository.NewProfilePhotoRepository(db)
 	settingsRepo := repository.NewSettingsRepository(db)
 	searchRepo := repository.NewSearchRepository(db)
+	resetRepo := repository.NewResetRepository(db)
 
 	var smsClient notificationspb.SMSServiceClient
 	var notificationClient notificationspb.NotificationServiceClient
@@ -153,6 +154,7 @@ func main() {
 		cfgRuntime.AppURL,
 		cfgRuntime.FrontEndURL,
 		service.IsProductionEnv(cfgRuntime.AppEnv),
+		service.WithResetRepository(resetRepo),
 	)
 	userService := service.NewUserServiceWithDependencies(
 		userRepo,
@@ -169,7 +171,7 @@ func main() {
 	personalInfoService := service.NewPersonalInfoService(personalInfoRepo)
 	profileLimitationRepo := repository.NewProfileLimitationRepository(db)
 	profileLimitationService := service.NewProfileLimitationService(profileLimitationRepo, userRepo)
-	settingsService := service.NewSettingsService(settingsRepo)
+	settingsService := service.NewSettingsServiceWithResets(settingsRepo, resetRepo)
 
 	apiGatewayURL := resolveAPIGatewayURL()
 	log.Printf("Profile photo service using API Gateway URL: %s", apiGatewayURL)
@@ -247,7 +249,10 @@ func main() {
 
 	httpAuthHandler := handler.NewHTTPAuthHandler(localClients, levelClient, projectLocale)
 	httpWalletHandler := handler.NewHTTPWalletHandler(localClients.WalletConnection, projectLocale)
-	authMiddleware := middleware.AuthMiddleware(tokenValidator)
+	authMiddleware := middleware.WithLastSeen(
+		middleware.AuthMiddleware(tokenValidator),
+		middleware.LastSeenMiddleware(userRepo, redisPublisher),
+	)
 	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(tokenValidator)
 	guestMiddleware := middleware.GuestMiddleware(tokenValidator)
 

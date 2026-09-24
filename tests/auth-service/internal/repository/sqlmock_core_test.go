@@ -39,6 +39,21 @@ func TestAccountSecurityRepository_SQLMock(t *testing.T) {
 		require.Equal(t, uint64(5), sec.ID)
 	})
 
+	t.Run("get success with null timestamps", func(t *testing.T) {
+		rows := sqlmock.NewRows([]string{"id", "user_id", "unlocked", "until", "length", "last_activity", "created_at", "updated_at"}).
+			AddRow(uint64(6), uint64(2), false, nil, int64(900), nil, nil, nil)
+		mock.ExpectQuery("FROM account_securities").WithArgs(uint64(2)).WillReturnRows(rows)
+		sec, err := repo.GetByUserID(ctx, 2)
+		require.NoError(t, err)
+		require.NotNil(t, sec)
+		require.Equal(t, uint64(6), sec.ID)
+		require.False(t, sec.Unlocked)
+		require.False(t, sec.Until.Valid)
+		require.False(t, sec.LastActivity.Valid)
+		require.True(t, sec.CreatedAt.IsZero())
+		require.True(t, sec.UpdatedAt.IsZero())
+	})
+
 	t.Run("create update delete otp upsert", func(t *testing.T) {
 		mock.ExpectExec("INSERT INTO account_securities").
 			WillReturnResult(sqlmock.NewResult(5, 1))
@@ -68,6 +83,18 @@ func TestAccountSecurityRepository_SQLMock(t *testing.T) {
 			WillReturnResult(sqlmock.NewResult(0, 1))
 		otp2 := &models.Otp{UserID: 1, VerifiableID: 5, Code: "654321"}
 		require.NoError(t, repo.UpsertOtp(ctx, otp2))
+
+		nullOtpRows := sqlmock.NewRows([]string{"id", "user_id", "verifiable_type", "verifiable_id", "code", "created_at", "updated_at"}).
+			AddRow(uint64(10), uint64(1), "App\\Models\\AccountSecurity", uint64(5), "222222", nil, nil)
+		mock.ExpectQuery("FROM otps").
+			WithArgs("App\\Models\\AccountSecurity", uint64(5)).
+			WillReturnRows(nullOtpRows)
+		otpWithNullTS, err := repo.GetOtpByAccountSecurity(ctx, 5)
+		require.NoError(t, err)
+		require.NotNil(t, otpWithNullTS)
+		require.Equal(t, uint64(10), otpWithNullTS.ID)
+		require.True(t, otpWithNullTS.CreatedAt.IsZero())
+		require.True(t, otpWithNullTS.UpdatedAt.IsZero())
 
 		mock.ExpectExec("DELETE FROM otps").
 			WithArgs(uint64(9)).

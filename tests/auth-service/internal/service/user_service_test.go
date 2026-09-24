@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"metarang/auth-service/internal/models"
@@ -78,6 +79,10 @@ func TestUserService_Core(t *testing.T) {
 		u, err = svc.UpdateProfile(ctx, 1, "Bob", "b@x.com", "0912")
 		if err != nil || u.Name != "Bob" || !u.Phone.Valid {
 			t.Fatalf("%+v err=%v", u, err)
+		}
+		_, err = svc.UpdateProfile(ctx, 1, "Bob", "evil@example.com\nCc: attacker@evil.com", "0912")
+		if !errors.Is(err, service.ErrInvalidEmailFormat) {
+			t.Fatalf("expected invalid email format, got %v", err)
 		}
 	})
 

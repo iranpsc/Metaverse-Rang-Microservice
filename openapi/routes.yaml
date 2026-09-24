@@ -46,6 +46,18 @@ routes:
     summary: Verify account security code
     security: bearer
 
+  # --- Mobile ---
+  - path: /api/mobile/send
+    methods: [post]
+    tag: Mobile
+    summary: Send verification code to change mobile number
+    security: bearer
+  - path: /api/mobile/verify
+    methods: [post]
+    tag: Mobile
+    summary: Verify code and change mobile number
+    security: bearer
+
   # --- Wallet (Web3) ---
   - path: /api/wallet/link/nonce
     methods: [get]
@@ -569,6 +581,18 @@ routes:
         in: query
         type: integer
         description: Page number for pagination
+  - path: /api/features/{feature}/sell-requests
+    methods: [get]
+    tag: Features
+    summary: List sell requests for a feature (newest first)
+    security: none
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
   - path: /api/features/{feature}/build/buildings
     methods: [get]
     tag: Features
@@ -864,26 +888,6 @@ routes:
     security: bearer
 
   # --- Support ---
-  - path: /api/support/tickets
-    methods: [get, post]
-    tag: Support
-    summary: List or create support tickets
-    security: bearer
-  - path: /api/support/tickets/{id}
-    methods: [get, put, patch]
-    tag: Support
-    summary: Get or update support ticket
-    security: bearer
-  - path: /api/support/tickets/{id}/response
-    methods: [post]
-    tag: Support
-    summary: Add ticket response
-    security: bearer
-  - path: /api/support/tickets/{id}/close
-    methods: [post]
-    tag: Support
-    summary: Close support ticket
-    security: bearer
   - path: /api/support/reports
     methods: [get, post]
     tag: Support
@@ -897,7 +901,22 @@ routes:
   - path: /api/tickets
     methods: [get, post]
     tag: Support
-    summary: List or create tickets (alias)
+    summary: List or create tickets
+    security: bearer
+  - path: /api/tickets/{id}
+    methods: [get, put, patch]
+    tag: Support
+    summary: Get or update ticket
+    security: bearer
+  - path: /api/tickets/response/{id}
+    methods: [post]
+    tag: Support
+    summary: Add ticket response
+    security: bearer
+  - path: /api/tickets/close/{id}
+    methods: [get]
+    tag: Support
+    summary: Close ticket
     security: bearer
   - path: /api/reports
     methods: [get, post]
@@ -921,11 +940,17 @@ routes:
     tag: Notifications
     summary: List notifications
     security: bearer
-  - path: /api/notifications/{id}
-    methods: [get]
+  - path: /api/notifications/read/{id}
+    methods: [post]
     tag: Notifications
-    summary: Get notification
+    summary: Mark notification as read
     security: bearer
+    params:
+      - name: id
+        in: path
+        type: string
+        description: Notification ID
+        example: 550e8400-e29b-41d4-a716-446655440000
   - path: /api/notifications/read/all
     methods: [post]
     tag: Notifications

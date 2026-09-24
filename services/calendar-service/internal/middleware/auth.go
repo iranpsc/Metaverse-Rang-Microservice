@@ -31,11 +31,7 @@ func AuthMiddleware(authClient pb.AuthServiceClient) func(http.Handler) http.Han
 				return
 			}
 
-			userCtx := &authpkg.UserContext{
-				UserID: validateResp.UserId,
-				Email:  validateResp.Email,
-				Token:  token,
-			}
+			userCtx := authpkg.UserContextFromValidateToken(validateResp, token)
 			ctx := context.WithValue(r.Context(), authpkg.UserContextKey{}, userCtx)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -55,11 +51,7 @@ func OptionalAuthMiddleware(authClient pb.AuthServiceClient) func(http.Handler) 
 			if token != "" {
 				validateResp, err := authClient.ValidateToken(r.Context(), &pb.ValidateTokenRequest{Token: token})
 				if err == nil && validateResp.Valid {
-					userCtx := &authpkg.UserContext{
-						UserID: validateResp.UserId,
-						Email:  validateResp.Email,
-						Token:  token,
-					}
+					userCtx := authpkg.UserContextFromValidateToken(validateResp, token)
 					ctx := context.WithValue(r.Context(), authpkg.UserContextKey{}, userCtx)
 					r = r.WithContext(ctx)
 				}

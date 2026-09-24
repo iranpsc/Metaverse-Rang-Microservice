@@ -4,10 +4,17 @@
 
 {{define "email/dynasty/join_request_accepted/content"}}
   <h1>پیوستن به خاندان تأیید شد</h1>
+  {{if or (eq .Side "receiver") (eq .Side "received")}}
   <p>
     {{with .RecipientName}}سلام {{.}}،{{else}}سلام شهروند عزیز،{{end}}
-    درخواستت برای پیوستن به خاندان {{with .DynastyName}}{{.}}{{else}}منتخب{{end}} پذیرفته شد. از این لحظه می‌توانی فعالیت‌های خانوادگی را دنبال کنی.
+    پیوستن تو به خاندان {{with .DynastyName}}{{.}}{{else}}منتخب{{end}} تأیید شد. از این لحظه می‌توانی فعالیت‌های خانوادگی را دنبال کنی.
   </p>
+  {{else}}
+  <p>
+    {{with .RecipientName}}سلام {{.}}،{{else}}سلام شهروند عزیز،{{end}}
+    درخواست پیوستن به خاندان {{with .DynastyName}}{{.}}{{else}}تو{{end}} پذیرفته شد. عضو جدید به خاندان اضافه شد.
+  </p>
+  {{end}}
 
   <table class="details-table" role="presentation">
     <tbody>
@@ -29,7 +36,7 @@
       {{end}}
       {{with .AcceptedBy}}
       <tr>
-        <th>تأیید توسط</th>
+        <th>{{if or (eq $.Side "receiver") (eq $.Side "received")}}سرپرست خاندان{{else}}تأیید توسط{{end}}</th>
         <td>{{.}}</td>
       </tr>
       {{end}}
@@ -59,5 +66,3 @@
     از همراهی تو در حاکمیت موازی متارنگ خوشحالیم.
   </p>
 {{end}}
-
-

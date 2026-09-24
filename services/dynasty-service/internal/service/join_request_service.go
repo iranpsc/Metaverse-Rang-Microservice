@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"time"
 
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/repository"
+	"metarang/dynasty-service/internal/validation"
+	"metarang/shared/pkg/helpers"
 )
 
 type NotificationPort interface {
@@ -19,6 +23,7 @@ type JoinRequestService struct {
 	dynastyRepo             *repository.DynastyRepository
 	familyRepo              *repository.FamilyRepository
 	prizeRepo               *repository.PrizeRepository
+	familyValidator         *validation.FamilyValidator
 	notificationClient      NotificationPort
 	notificationServiceAddr string
 }
@@ -28,6 +33,7 @@ func NewJoinRequestService(
 	dynastyRepo *repository.DynastyRepository,
 	familyRepo *repository.FamilyRepository,
 	prizeRepo *repository.PrizeRepository,
+	familyValidator *validation.FamilyValidator,
 	notificationClient NotificationPort,
 	notificationServiceAddr string,
 ) *JoinRequestService {
@@ -36,6 +42,7 @@ func NewJoinRequestService(
 		dynastyRepo:             dynastyRepo,
 		familyRepo:              familyRepo,
 		prizeRepo:               prizeRepo,
+		familyValidator:         familyValidator,
 		notificationClient:      notificationClient,
 		notificationServiceAddr: notificationServiceAddr,
 	}
@@ -43,7 +50,11 @@ func NewJoinRequestService(
 
 // SendJoinRequest creates and sends a join request
 func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, toUserID uint64, relationship string, message *string, permissions *models.ChildPermission) (*models.JoinRequest, error) {
-	// Validate relationship is offering (not spring) and user age for permissions
+	if err := s.validateSendJoinRequest(ctx, fromUserID, toUserID, relationship); err != nil {
+		return nil, err
+	}
+
+	// Offspring permissions may only be set for users under 18.
 	if relationship == "offspring" && permissions != nil {
 		isUnder18, err := s.joinRequestRepo.CheckUserAge(ctx, toUserID)
 		if err != nil {
@@ -54,19 +65,26 @@ func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, to
 		}
 	}
 
-	// Get dynasty message for receiver
-	messageTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "receiver_message")
+	messageTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "reciever_message")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dynasty message: %w", err)
 	}
 
-	// Create join request
+	senderInfo, senderErr := s.joinRequestRepo.GetUserBasicInfo(ctx, fromUserID)
+	receiverInfo, receiverErr := s.joinRequestRepo.GetUserBasicInfo(ctx, toUserID)
+
+	now := time.Now()
+	if filled := s.fillDynastyTemplate(messageTemplate, senderInfo, receiverInfo, relationship, now); filled != "" {
+		message = &filled
+	}
+
 	joinRequest := &models.JoinRequest{
 		FromUser:     fromUserID,
 		ToUser:       toUserID,
 		Status:       0, // 0=pending (per API spec)
 		Relationship: relationship,
 		Message:      message,
+		CreatedAt:    now,
 	}
 
 	if err := s.joinRequestRepo.CreateJoinRequest(ctx, joinRequest); err != nil {
@@ -81,10 +99,51 @@ func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, to
 		}
 	}
 
-	// Send notifications (best effort, non-blocking for main flow)
-	s.notifyJoinRequestCreated(ctx, fromUserID, toUserID, relationship, messageTemplate)
+	if senderErr == nil && receiverErr == nil {
+		s.notifyJoinRequestCreated(ctx, senderInfo, receiverInfo, relationship, messageTemplate)
+	}
 
 	return joinRequest, nil
+}
+
+func (s *JoinRequestService) validateSendJoinRequest(ctx context.Context, fromUserID, toUserID uint64, relationship string) error {
+	if s.familyValidator == nil {
+		return fmt.Errorf("family validator not initialized")
+	}
+
+	if err := s.familyValidator.ValidateRelationship(relationship); err != nil {
+		return err
+	}
+
+	senderUnder18, err := s.joinRequestRepo.CheckUserAge(ctx, fromUserID)
+	if err != nil {
+		return fmt.Errorf("failed to check user age: %w", err)
+	}
+
+	if err := s.familyValidator.ValidateAddFamilyMember(ctx, fromUserID, toUserID, relationship, senderUnder18); err != nil {
+		return err
+	}
+
+	dynasty, err := s.dynastyRepo.GetDynastyByUserID(ctx, fromUserID)
+	if err != nil {
+		return fmt.Errorf("failed to get dynasty: %w", err)
+	}
+	if dynasty == nil {
+		return &validation.ValidationError{
+			Message: "شما هیچ سلسله ای تاسیس نکرده اید.",
+			Code:    403,
+		}
+	}
+
+	family, err := s.familyRepo.GetFamilyByDynastyID(ctx, dynasty.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get family: %w", err)
+	}
+	if family == nil {
+		return fmt.Errorf("family not found")
+	}
+
+	return s.familyValidator.ValidateRelationshipLimits(ctx, family.ID, relationship)
 }
 
 // GetSentRequests retrieves sent join requests for a user
@@ -284,6 +343,12 @@ func (s *JoinRequestService) fillDynastyTemplate(template string, sender, receiv
 	if template == "" {
 		return ""
 	}
+	if sender == nil {
+		sender = &models.UserBasic{}
+	}
+	if receiver == nil {
+		receiver = &models.UserBasic{}
+	}
 	relationshipTitle := s.getRelationshipTitle(relationship)
 	result := template
 	result = strings.ReplaceAll(result, "[sender-code]", sender.Code)
@@ -291,7 +356,7 @@ func (s *JoinRequestService) fillDynastyTemplate(template string, sender, receiv
 	result = strings.ReplaceAll(result, "[sender-name]", sender.Name)
 	result = strings.ReplaceAll(result, "[reciever-name]", receiver.Name)
 	result = strings.ReplaceAll(result, "[relationship]", relationshipTitle)
-	result = strings.ReplaceAll(result, "[created_at]", when.Format("2006/01/02"))
+	result = strings.ReplaceAll(result, "[created_at]", helpers.FormatJalaliDate(when))
 	return result
 }
 
@@ -312,69 +377,208 @@ func (s *JoinRequestService) getRelationshipTitle(relationship string) string {
 	return relationship
 }
 
-func (s *JoinRequestService) notifyJoinRequestCreated(ctx context.Context, senderID, receiverID uint64, relationship, receiverTemplate string) {
+const joinNotificationTimeout = 20 * time.Second
+
+func (s *JoinRequestService) notifyContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	// SMTP/SMS can outlive the inbound request deadline; keep delivery independent of client cancel.
+	return context.WithTimeout(context.WithoutCancel(ctx), joinNotificationTimeout)
+}
+
+func (s *JoinRequestService) sendJoinNotification(ctx context.Context, userID uint64, notificationType, title, message string, data map[string]string, sendSMS, sendEmail bool) {
 	if s.notificationClient == nil {
 		return
 	}
-	senderInfo, err := s.joinRequestRepo.GetUserBasicInfo(ctx, senderID)
-	if err != nil || senderInfo == nil {
+	message = firstNonEmpty(message, title)
+	if message == "" {
 		return
 	}
-	receiverInfo, err := s.joinRequestRepo.GetUserBasicInfo(ctx, receiverID)
-	if err != nil || receiverInfo == nil {
+	if err := s.notificationClient.SendNotification(ctx, userID, notificationType, title, message, data, sendSMS, sendEmail); err != nil {
+		log.Printf("Warning: failed to send %s notification to user %d (sms=%t email=%t): %v", notificationType, userID, sendSMS, sendEmail, err)
+	}
+}
+
+func (s *JoinRequestService) notifyJoinRequestCreated(ctx context.Context, senderInfo, receiverInfo *models.UserBasic, relationship, receiverTemplate string) {
+	if s.notificationClient == nil || senderInfo == nil || receiverInfo == nil {
 		return
 	}
-	requesterTemplate, _ := s.dynastyRepo.GetDynastyMessage(ctx, "requester_confirmation_message")
+	ctx, cancel := s.notifyContext(ctx)
+	defer cancel()
+
+	requesterTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "requester_confirmation_message")
+	if err != nil {
+		log.Printf("Warning: failed to load requester_confirmation_message: %v", err)
+	}
+	if requesterTemplate == "" {
+		requesterTemplate = "درخواست پیوستن شما به سلسله برای کاربر [reciever-code] با نقش [relationship] ارسال شد."
+	}
+	if receiverTemplate == "" {
+		receiverTemplate = "درخواست پیوستن به سلسله از طرف [sender-code] با نقش [relationship] برای شما ارسال شد."
+	}
 	now := time.Now()
 	senderMsg := s.fillDynastyTemplate(requesterTemplate, senderInfo, receiverInfo, relationship, now)
 	receiverMsg := s.fillDynastyTemplate(receiverTemplate, senderInfo, receiverInfo, relationship, now)
-	if senderMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, senderID, "dynasty_join_request", "Dynasty", senderMsg, map[string]string{"relationship": relationship}, false, false)
+	senderSMS, senderEmail := s.joinRequestNotifyChannels(ctx, senderInfo.ID)
+	receiverSMS, receiverEmail := s.joinRequestNotifyChannels(ctx, receiverInfo.ID)
+
+	dynastyName := firstNonEmpty(senderInfo.Name, "خاندان "+senderInfo.Code)
+	dynastyCode := firstNonEmpty(senderInfo.Code, fmt.Sprintf("%d", senderInfo.ID))
+	submittedDate := helpers.FormatJalaliDate(now)
+	submittedTime := helpers.FormatJalaliTime(now)
+	relationshipTitle := s.getRelationshipTitle(relationship)
+	baseURL := dynastyAppBaseURL()
+
+	senderData := map[string]string{
+		"side":          "sent",
+		"relationship":  relationship,
+		"Role":          relationshipTitle,
+		"RequesterName": senderInfo.Name,
+		"RequesterCode": senderInfo.Code,
+		"ReceiverName":  receiverInfo.Name,
+		"ReceiverCode":  receiverInfo.Code,
+		"RecipientName": senderInfo.Name,
+		"DynastyName":   dynastyName,
+		"DynastyCode":   dynastyCode,
+		"Message":       firstNonEmpty(senderMsg, relationshipTitle),
+		"SubmittedDate": submittedDate,
+		"SubmittedTime": submittedTime,
+		"ManageURL":     baseURL + "/api/dynasty",
+		"CancelURL":     baseURL + "/api/dynasty",
 	}
-	if receiverMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, receiverID, "dynasty_join_request", "Dynasty", receiverMsg, map[string]string{"relationship": relationship}, false, false)
+	receiverData := map[string]string{
+		"side":          "received",
+		"relationship":  relationship,
+		"Role":          relationshipTitle,
+		"OwnerName":     receiverInfo.Name,
+		"RequesterName": senderInfo.Name,
+		"RequesterCode": senderInfo.Code,
+		"ReceiverName":  receiverInfo.Name,
+		"ReceiverCode":  receiverInfo.Code,
+		"RecipientName": receiverInfo.Name,
+		"DynastyName":   dynastyName,
+		"DynastyCode":   dynastyCode,
+		"Message":       firstNonEmpty(receiverMsg, relationshipTitle),
+		"SubmittedDate": submittedDate,
+		"SubmittedTime": submittedTime,
+		"ManageURL":     baseURL + "/api/dynasty",
+		"SecurityURL":   "https://rgb.irpsc.com/fa/security",
 	}
+
+	s.sendJoinNotification(ctx, senderInfo.ID, "dynasty_join_request", "درخواست پیوستن ارسال شد", senderMsg, senderData, senderSMS, senderEmail)
+	s.sendJoinNotification(ctx, receiverInfo.ID, "dynasty_join_request", "درخواست پیوستن جدید", receiverMsg, receiverData, receiverSMS, receiverEmail)
+}
+
+func (s *JoinRequestService) joinRequestNotifyChannels(ctx context.Context, userID uint64) (sendSMS, sendEmail bool) {
+	if s.joinRequestRepo == nil {
+		return false, false
+	}
+	return s.joinRequestRepo.GetUserNotificationChannels(ctx, userID)
 }
 
 func (s *JoinRequestService) notifyJoinRequestAccepted(ctx context.Context, requesterID, receiverID uint64, relationship string) {
 	if s.notificationClient == nil {
 		return
 	}
+	ctx, cancel := s.notifyContext(ctx)
+	defer cancel()
+
 	requesterInfo, err := s.joinRequestRepo.GetUserBasicInfo(ctx, requesterID)
 	if err != nil || requesterInfo == nil {
+		log.Printf("Warning: skip join-request accept notification; requester %d lookup failed: %v", requesterID, err)
 		return
 	}
 	receiverInfo, err := s.joinRequestRepo.GetUserBasicInfo(ctx, receiverID)
 	if err != nil || receiverInfo == nil {
+		log.Printf("Warning: skip join-request accept notification; receiver %d lookup failed: %v", receiverID, err)
 		return
 	}
-	requesterTemplate, _ := s.dynastyRepo.GetDynastyMessage(ctx, "requester_accept_message")
-	receiverTemplate, _ := s.dynastyRepo.GetDynastyMessage(ctx, "reciever_accept_message")
+	requesterTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "requester_accept_message")
+	if err != nil {
+		log.Printf("Warning: failed to load requester_accept_message: %v", err)
+	}
+	receiverTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "reciever_accept_message")
+	if err != nil {
+		log.Printf("Warning: failed to load reciever_accept_message: %v", err)
+	}
+	if requesterTemplate == "" {
+		requesterTemplate = "درخواست پیوستن شما به سلسله توسط کاربر [reciever-code] تأیید شد."
+	}
+	if receiverTemplate == "" {
+		receiverTemplate = "درخواست پیوستن به سلسله از طرف [sender-code] توسط شما تأیید شد."
+	}
 	now := time.Now()
 	requesterMsg := s.fillDynastyTemplate(requesterTemplate, requesterInfo, receiverInfo, relationship, now)
 	receiverMsg := s.fillDynastyTemplate(receiverTemplate, requesterInfo, receiverInfo, relationship, now)
-	if requesterMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, requesterID, "dynasty_join_request_accept", "Dynasty", requesterMsg, map[string]string{"relationship": relationship}, false, false)
+	requesterSMS, requesterEmail := s.joinRequestNotifyChannels(ctx, requesterID)
+	receiverSMS, receiverEmail := s.joinRequestNotifyChannels(ctx, receiverID)
+
+	dynastyName := firstNonEmpty(requesterInfo.Name, "خاندان "+requesterInfo.Code)
+	dynastyCode := firstNonEmpty(requesterInfo.Code, fmt.Sprintf("%d", requesterInfo.ID))
+	acceptedAt := helpers.FormatJalaliDateTime(now)
+	relationshipTitle := s.getRelationshipTitle(relationship)
+	baseURL := dynastyAppBaseURL()
+
+	requesterData := map[string]string{
+		"side":          "requester",
+		"relationship":  relationship,
+		"Role":          relationshipTitle,
+		"RecipientName": requesterInfo.Name,
+		"RequesterName": requesterInfo.Name,
+		"RequesterCode": requesterInfo.Code,
+		"ReceiverName":  receiverInfo.Name,
+		"ReceiverCode":  receiverInfo.Code,
+		"DynastyName":   dynastyName,
+		"DynastyCode":   dynastyCode,
+		"AcceptedBy":    receiverInfo.Name,
+		"AcceptedAt":    acceptedAt,
+		"DashboardURL":  baseURL + "/api/dynasty",
+		"GuidelineURL":  baseURL + "/api/dynasty",
 	}
-	if receiverMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, receiverID, "dynasty_join_request_accept", "Dynasty", receiverMsg, map[string]string{"relationship": relationship}, false, false)
+	receiverData := map[string]string{
+		"side":          "receiver",
+		"relationship":  relationship,
+		"Role":          relationshipTitle,
+		"RecipientName": receiverInfo.Name,
+		"RequesterName": requesterInfo.Name,
+		"RequesterCode": requesterInfo.Code,
+		"ReceiverName":  receiverInfo.Name,
+		"ReceiverCode":  receiverInfo.Code,
+		"DynastyName":   dynastyName,
+		"DynastyCode":   dynastyCode,
+		"AcceptedBy":    requesterInfo.Name,
+		"AcceptedAt":    acceptedAt,
+		"DashboardURL":  baseURL + "/api/dynasty",
+		"GuidelineURL":  baseURL + "/api/dynasty",
 	}
+
+	s.sendJoinNotification(ctx, requesterID, "dynasty_join_request_accept", "پیوستن به خاندان تأیید شد", requesterMsg, requesterData, requesterSMS, requesterEmail)
+	s.sendJoinNotification(ctx, receiverID, "dynasty_join_request_accept", "پیوستن به خاندان تأیید شد", receiverMsg, receiverData, receiverSMS, receiverEmail)
 }
 
 func (s *JoinRequestService) notifyJoinRequestRejected(ctx context.Context, requesterID, receiverID uint64) {
 	if s.notificationClient == nil {
 		return
 	}
+	ctx, cancel := s.notifyContext(ctx)
+	defer cancel()
+
 	requesterInfo, err := s.joinRequestRepo.GetUserBasicInfo(ctx, requesterID)
 	if err != nil || requesterInfo == nil {
+		log.Printf("Warning: skip join-request reject notification; requester %d lookup failed: %v", requesterID, err)
 		return
 	}
 	receiverInfo, err := s.joinRequestRepo.GetUserBasicInfo(ctx, receiverID)
 	if err != nil || receiverInfo == nil {
+		log.Printf("Warning: skip join-request reject notification; receiver %d lookup failed: %v", receiverID, err)
 		return
 	}
-	requesterTemplate, _ := s.dynastyRepo.GetDynastyMessage(ctx, "requester_reject_message")
-	receiverTemplate, _ := s.dynastyRepo.GetDynastyMessage(ctx, "reciever_reject_message")
+	requesterTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "requester_reject_message")
+	if err != nil {
+		log.Printf("Warning: failed to load requester_reject_message: %v", err)
+	}
+	receiverTemplate, err := s.dynastyRepo.GetDynastyMessage(ctx, "reciever_reject_message")
+	if err != nil {
+		log.Printf("Warning: failed to load reciever_reject_message: %v", err)
+	}
 	if requesterTemplate == "" {
 		requesterTemplate = "درخواست پیوستن به سلسله شما توسط کاربر [reciever-code] رد شد!"
 	}
@@ -384,12 +588,62 @@ func (s *JoinRequestService) notifyJoinRequestRejected(ctx context.Context, requ
 	now := time.Now()
 	requesterMsg := s.fillDynastyTemplate(requesterTemplate, requesterInfo, receiverInfo, "", now)
 	receiverMsg := s.fillDynastyTemplate(receiverTemplate, requesterInfo, receiverInfo, "", now)
-	if requesterMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, requesterID, "dynasty_join_request_reject", "Dynasty", requesterMsg, nil, false, false)
+	requesterSMS, requesterEmail := s.joinRequestNotifyChannels(ctx, requesterID)
+	receiverSMS, receiverEmail := s.joinRequestNotifyChannels(ctx, receiverID)
+
+	dynastyName := firstNonEmpty(requesterInfo.Name, "خاندان "+requesterInfo.Code)
+	dynastyCode := firstNonEmpty(requesterInfo.Code, fmt.Sprintf("%d", requesterInfo.ID))
+	rejectedAt := helpers.FormatJalaliDateTime(now)
+	baseURL := dynastyAppBaseURL()
+
+	requesterData := map[string]string{
+		"side":            "requester",
+		"RecipientName":   requesterInfo.Name,
+		"RequesterName":   requesterInfo.Name,
+		"RequesterCode":   requesterInfo.Code,
+		"ReceiverName":    receiverInfo.Name,
+		"ReceiverCode":    receiverInfo.Code,
+		"DynastyName":     dynastyName,
+		"DynastyCode":     dynastyCode,
+		"RejectedAt":      rejectedAt,
+		"RejectionReason": firstNonEmpty(requesterMsg, "درخواست رد شد"),
+		"ExploreURL":      baseURL + "/api/dynasty",
+		"ProfileURL":      baseURL + "/api/user/profile",
 	}
-	if receiverMsg != "" {
-		_ = s.notificationClient.SendNotification(ctx, receiverID, "dynasty_join_request_reject", "Dynasty", receiverMsg, nil, false, false)
+	receiverData := map[string]string{
+		"side":            "receiver",
+		"RecipientName":   receiverInfo.Name,
+		"RequesterName":   requesterInfo.Name,
+		"RequesterCode":   requesterInfo.Code,
+		"ReceiverName":    receiverInfo.Name,
+		"ReceiverCode":    receiverInfo.Code,
+		"DynastyName":     dynastyName,
+		"DynastyCode":     dynastyCode,
+		"RejectedAt":      rejectedAt,
+		"RejectionReason": firstNonEmpty(receiverMsg, "درخواست رد شد"),
+		"ExploreURL":      baseURL + "/api/dynasty",
+		"ProfileURL":      baseURL + "/api/user/profile",
 	}
+
+	s.sendJoinNotification(ctx, requesterID, "dynasty_join_request_reject", "درخواست پیوستن رد شد", requesterMsg, requesterData, requesterSMS, requesterEmail)
+	s.sendJoinNotification(ctx, receiverID, "dynasty_join_request_reject", "درخواست پیوستن رد شد", receiverMsg, receiverData, receiverSMS, receiverEmail)
+}
+
+func dynastyAppBaseURL() string {
+	base := strings.TrimSuffix(os.Getenv("APP_URL"), "/")
+	if base == "" {
+		return "https://rgb.irpsc.com"
+	}
+	return base
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // GetPrizeByRelationship retrieves dynasty prize by relationship type

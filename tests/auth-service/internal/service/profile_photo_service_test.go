@@ -155,8 +155,18 @@ func TestProfilePhotoService_UploadProfilePhoto(t *testing.T) {
 		}
 	})
 
+	t.Run("file at max size", func(t *testing.T) {
+		photo, err := svc.UploadProfilePhoto(ctx, 1, make([]byte, 2*1024*1024), "test.jpg", "image/jpeg")
+		if err != nil {
+			t.Fatalf("UploadProfilePhoto failed: %v", err)
+		}
+		if photo.ID == 0 {
+			t.Error("Expected photo ID to be set")
+		}
+	})
+
 	t.Run("file too large", func(t *testing.T) {
-		_, err := svc.UploadProfilePhoto(ctx, 1, make([]byte, 2*1024*1024), "test.jpg", "image/jpeg")
+		_, err := svc.UploadProfilePhoto(ctx, 1, make([]byte, 2*1024*1024+1), "test.jpg", "image/jpeg")
 		if err != service.ErrInvalidImage {
 			t.Errorf("Expected service.ErrInvalidImage, got %v", err)
 		}
@@ -178,6 +188,46 @@ func TestProfilePhotoService_UploadProfilePhoto(t *testing.T) {
 
 	t.Run("PNG file upload", func(t *testing.T) {
 		photo, err := svc.UploadProfilePhoto(ctx, 1, make([]byte, 100), "test.png", "image/png")
+		if err != nil {
+			t.Fatalf("UploadProfilePhoto failed: %v", err)
+		}
+		if photo.ID == 0 {
+			t.Error("Expected photo ID to be set")
+		}
+	})
+
+	t.Run("PNG with empty content type", func(t *testing.T) {
+		photo, err := svc.UploadProfilePhoto(ctx, 1, make([]byte, 100), "avatar.png", "")
+		if err != nil {
+			t.Fatalf("UploadProfilePhoto failed: %v", err)
+		}
+		if photo.ID == 0 {
+			t.Error("Expected photo ID to be set")
+		}
+	})
+
+	t.Run("JPEG with octet-stream content type", func(t *testing.T) {
+		photo, err := svc.UploadProfilePhoto(ctx, 1, make([]byte, 100), "avatar.jpeg", "application/octet-stream")
+		if err != nil {
+			t.Fatalf("UploadProfilePhoto failed: %v", err)
+		}
+		if photo.ID == 0 {
+			t.Error("Expected photo ID to be set")
+		}
+	})
+
+	t.Run("PNG with content type parameters", func(t *testing.T) {
+		photo, err := svc.UploadProfilePhoto(ctx, 1, make([]byte, 100), "avatar.png", "image/png; charset=binary")
+		if err != nil {
+			t.Fatalf("UploadProfilePhoto failed: %v", err)
+		}
+		if photo.ID == 0 {
+			t.Error("Expected photo ID to be set")
+		}
+	})
+
+	t.Run("JPG mime type alias", func(t *testing.T) {
+		photo, err := svc.UploadProfilePhoto(ctx, 1, make([]byte, 100), "avatar.jpg", "image/jpg")
 		if err != nil {
 			t.Fatalf("UploadProfilePhoto failed: %v", err)
 		}

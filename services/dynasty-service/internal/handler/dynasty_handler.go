@@ -61,7 +61,7 @@ func (h *DynastyHandler) CreateDynasty(ctx context.Context, req *dynastypb.Creat
 		CreatedAt:      formatJalaliDate(dynasty.CreatedAt),
 		ProfileImage:   stringOrEmpty(profilePhoto),
 		DynastyFeature: buildDynastyFeature(featureDetails, memberCount, dynasty.UpdatedAt),
-		Features:       withSelectedFeature(availableFeatureFromDetails(featureDetails), buildAvailableFeatures(userFeatures)),
+		Features:       buildAvailableFeatures(userFeatures),
 	}
 
 	return response, nil
@@ -110,7 +110,8 @@ func (h *DynastyHandler) GetUserDynasty(ctx context.Context, req *dynastypb.GetU
 		CreatedAt:      formatJalaliDate(dynasty.CreatedAt),
 		ProfileImage:   stringOrEmpty(profilePhoto),
 		DynastyFeature: buildDynastyFeature(featureDetails, memberCount, dynasty.UpdatedAt),
-		Features:       withSelectedFeature(availableFeatureFromDetails(featureDetails), buildAvailableFeatures(userFeatures)),
+		// All user maskoni features except the current dynasty feature
+		Features: buildAvailableFeatures(userFeatures),
 	}
 
 	return response, nil
@@ -146,7 +147,7 @@ func (h *DynastyHandler) GetDynasty(ctx context.Context, req *dynastypb.GetDynas
 		CreatedAt:      formatJalaliDate(dynasty.CreatedAt),
 		ProfileImage:   stringOrEmpty(profilePhoto),
 		DynastyFeature: buildDynastyFeature(featureDetails, memberCount, dynasty.UpdatedAt),
-		Features:       withSelectedFeature(availableFeatureFromDetails(featureDetails), buildAvailableFeatures(userFeatures)),
+		Features:       buildAvailableFeatures(userFeatures),
 	}
 
 	return response, nil

@@ -174,7 +174,7 @@ func sampleTicket() *pbSupport.TicketResponse {
 }
 
 func TestHTTPContract_HealthMethodNotAllowedAndUnauthenticated(t *testing.T) {
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://localhost:8000")
 	mux := newSupportMux(h, identityMW)
 
 	rr := doJSON(mux, http.MethodGet, "/health", "")
@@ -211,7 +211,7 @@ func TestHTTPContract_HealthMethodNotAllowedAndUnauthenticated(t *testing.T) {
 	}
 }
 
-func TestHTTPContract_TicketCRUDPaginationAndAliases(t *testing.T) {
+func TestHTTPContract_TicketCRUDPagination(t *testing.T) {
 	var listed *pbSupport.GetTicketsRequest
 	tickets := &mockTicketAPI{
 		GetTicketsFunc: func(_ context.Context, req *pbSupport.GetTicketsRequest) (*pbSupport.TicketsResponse, error) {
@@ -253,7 +253,7 @@ func TestHTTPContract_TicketCRUDPaginationAndAliases(t *testing.T) {
 			return out, nil
 		},
 	}
-	h := handler.NewHTTPSupportHandler(tickets, &mockReportAPI{}, &mockNoteAPI{}, "", "http://app.test")
+	h := handler.NewHTTPSupportHandler(tickets, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://app.test")
 	mux := newSupportMux(h, withUser(7))
 
 	rr := doJSON(mux, http.MethodGet, "/api/tickets?page=2&per_page=2&recieved=true", "")
@@ -266,15 +266,21 @@ func TestHTTPContract_TicketCRUDPaginationAndAliases(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), `"next_page_url"`) {
 		t.Fatalf("expected next_page_url %s", rr.Body.String())
 	}
+	if strings.Contains(rr.Body.String(), `"messages"`) {
+		t.Fatalf("list should omit chat thread %s", rr.Body.String())
+	}
 
 	rr = doJSON(mux, http.MethodPost, "/api/tickets", `{"title":"Title","content":"Body","reciever":9}`)
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create code=%d body=%s", rr.Code, rr.Body.String())
 	}
 
-	rr = doJSON(mux, http.MethodGet, "/api/support/tickets/5", "")
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"responses"`) {
+	rr = doJSON(mux, http.MethodGet, "/api/tickets/5", "")
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"responses"`) || !strings.Contains(rr.Body.String(), `"messages"`) {
 		t.Fatalf("get code=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), `"is_mine"`) || !strings.Contains(rr.Body.String(), `"kind":"opening"`) {
+		t.Fatalf("expected chat thread fields %s", rr.Body.String())
 	}
 
 	rr = doJSON(mux, http.MethodPut, "/api/tickets/5", `{"title":"nt","content":"nc","attachment":"x.png"}`)
@@ -288,11 +294,11 @@ func TestHTTPContract_TicketCRUDPaginationAndAliases(t *testing.T) {
 	}
 
 	rr = doJSON(mux, http.MethodPost, "/api/tickets/response/5", `{"response":"reply"}`)
-	if rr.Code != http.StatusOK {
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"messages"`) {
 		t.Fatalf("add response code=%d body=%s", rr.Code, rr.Body.String())
 	}
 
-	rr = doJSON(mux, http.MethodGet, "/api/support/tickets/close/5", "")
+	rr = doJSON(mux, http.MethodGet, "/api/tickets/close/5", "")
 	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"status":5`) {
 		t.Fatalf("close code=%d body=%s", rr.Code, rr.Body.String())
 	}
@@ -316,7 +322,7 @@ func TestHTTPContract_TicketValidationAndGRPCMapping(t *testing.T) {
 			return nil, status.Error(codes.AlreadyExists, "exists")
 		},
 	}
-	h := handler.NewHTTPSupportHandler(tickets, &mockReportAPI{}, &mockNoteAPI{}, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(tickets, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(7))
 
 	if doJSON(mux, http.MethodPost, "/api/tickets", `{`).Code != http.StatusBadRequest {
@@ -383,7 +389,7 @@ func TestHTTPContract_ReportsCRUDAndErrors(t *testing.T) {
 			return &pbSupport.ReportResponse{Id: 9, Reason: "t", ReportableType: "displayError", Description: "d", Url: "https://x"}, nil
 		},
 	}
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, reports, &mockNoteAPI{}, "", "http://app.test/")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, reports, &mockNoteAPI{}, nil, "http://app.test/")
 	mux := newSupportMux(h, withUser(3))
 
 	rr := doJSON(mux, http.MethodGet, "/api/support/reports?page=2&per_page=2", "")
@@ -442,7 +448,7 @@ func TestHTTPContract_NotesCRUDAndMethodSpoof(t *testing.T) {
 			return &pbCommon.Empty{}, nil
 		},
 	}
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(4))
 
 	rr := doJSON(mux, http.MethodGet, "/api/notes", "")

@@ -1,5 +1,5 @@
 # Multi-stage build for Dynasty Service
-FROM docker.arvancloud.ir/golang:1.25-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 ENV CGO_ENABLED=0
 
@@ -35,7 +35,7 @@ RUN sed -i 's|replace metarang/shared => ../../shared|replace metarang/shared =>
 ENV GOWORK=/workspace/go.work
 RUN go build -trimpath -ldflags="-s -w" -o /app/dynasty-service ./cmd/server
 
-FROM docker.arvancloud.ir/alpine:3.21
+FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata wget && \
     addgroup -g 1000 appuser && \

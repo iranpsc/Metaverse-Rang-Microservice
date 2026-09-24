@@ -1,4 +1,4 @@
-.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test test-unit test-services test-database test-all up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads openapi docs docs-up kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install ensure-networks
+.PHONY: proto clean-proto gen-auth gen-commercial gen-features gen-levels gen-dynasty gen-support gen-training gen-notifications gen-calendar gen-storage gen-financial gen-all help build-all deploy-all test test-unit test-services test-database test-all lint lint-fix ensure-golangci-lint up down restart logs ps build clean clean-runtime dev dev-up dev-down link-uploads init-storage-uploads init-storage-uploads openapi docs docs-up kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install ensure-networks wait-mysql start-migrate-job auto-migrate
 
 # Proto generation
 PROTO_DIR=shared/proto
@@ -21,6 +21,8 @@ DOCKER_COMPOSE := docker compose
 else
 DOCKER_COMPOSE := $(shell command -v docker-compose 2> /dev/null || echo "docker compose")
 endif
+# Development overlay adds Mailpit and points notifications-service SMTP at it.
+DOCKER_COMPOSE_DEV := $(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
 
 help:
 	@echo "Metarang microservices — available targets"
@@ -56,16 +58,22 @@ help:
 	@echo "  test-coverage-financial - financial-service internal coverage ≥70%"
 	@echo "  test-coverage-social    - social-service internal coverage ≥70%"
 	@echo ""
+	@echo "Linting:"
+	@echo "  lint             - Check Go lint issues (golangci-lint, matches CI)"
+	@echo "  lint-fix        - Check and auto-fix Go lint/format issues"
+	@echo "  DIR=shared       - Optional: limit lint/lint-fix to one module path"
+	@echo ""
 	@echo "Local uploads:"
 	@echo "  link-uploads           - Symlink ./uploads -> $(UPLOADS_SRC)"
 	@echo "  init-storage-uploads   - Create local storage-service uploads directory"
 	@echo ""
 	@echo "Docker Compose:"
 	@echo "  ensure-networks  - Create dokploy-network and metarang-shared if missing"
-	@echo "  dev              - Start complete development environment"
-	@echo "  up               - Start all services"
+	@echo "  wait-mysql       - Block until Compose MySQL is healthy"
+	@echo "  dev              - Start complete development environment (migrates if $(MYSQL_DATABASE) exists; includes Mailpit)"
+	@echo "  up               - Start all services (migrates if $(MYSQL_DATABASE) exists, then apps)"
 	@echo "  down             - Stop all services"
-	@echo "  restart          - Restart all services"
+	@echo "  restart          - Run migrate if $(MYSQL_DATABASE) exists, then restart all services"
 	@echo "  ps               - Show service status"
 	@echo "  logs             - Follow all service logs"
 	@echo "  build            - Build all services"
@@ -75,23 +83,27 @@ help:
 	@echo "  kong-reload      - Restart Kong (required after kong/kong.yml changes in DB-less mode)"
 	@echo ""
 	@echo "Docker Compose Watch:"
-	@echo "  dev-up           - Start with watch mode (auto-rebuild/restart)"
-	@echo "  dev-down         - Stop development services"
+	@echo "  dev-up           - Start with watch mode (auto-rebuild/restart; includes Mailpit)"
+	@echo "  dev-down         - Stop development services (including Mailpit)"
 	@echo "  dev-build        - Build development images"
 	@echo "  dev-logs         - View logs from dev services"
 	@echo "  dev-restart      - Restart development services"
 	@echo "  dev-ps           - Show development service status"
+	@echo "  Mailpit UI:      http://localhost:8025  (SMTP :1025, via make dev / make dev-up)"
 	@echo ""
 	@echo "Database:"
 	@echo "  import-schema         - Import database schema only (schema.sql), then baseline migrations"
 	@echo "  import-database       - Import database with data (metarang_db.sql)"
-	@echo "  migrate               - Run pending SQL migrations (Laravel-style)"
+	@echo "  migrate               - Run pending SQL migrations (Compose migrate service)"
 	@echo "  migrate-rollback      - Roll back the last migration batch (STEP=N optional)"
 	@echo "  migrate-status        - Show ran / pending migrations"
 	@echo "  migrate-reset         - Roll back all migrations"
 	@echo "  migrate-refresh       - Reset, then migrate"
 	@echo "  migrate-baseline      - Mark pending files as ran without executing SQL"
 	@echo "  migrate-make          - Create a migration stub (NAME=add_foo_to_bar)"
+	@echo "  AUTO_MIGRATE=0        - Skip migrate on up/dev/dev-up/restart (sets SKIP_MIGRATE=1)"
+	@echo "  Auto-migrate also skips when database $(MYSQL_DATABASE) does not exist"
+	@echo "  USE_HOST_MIGRATE=1    - Use go run ./shared/cmd/migrate instead of Compose"
 	@echo ""
 	@echo "Service-specific (set SERVICE=service-name):"
 	@echo "  build-service    - Build specific service"
@@ -146,13 +158,13 @@ test-unit:
 	@echo "✅ All unit tests passed"
 
 # Dedicated service test modules under tests/ (excludes database)
-SERVICE_TEST_MODULES=auth-service calendar-service commercial-service dynasty-service features-service financial-service notifications-service social-service storage-service support-service
+SERVICE_TEST_MODULES=auth-service calendar-service commercial-service dynasty-service features-service financial-service notifications-service social-service storage-service support-service websocket-gateway
 
 test-services:
 	@echo "🧪 Running dedicated service test modules..."
 ifeq ($(OS),Windows_NT)
 	@powershell -NoProfile -Command "$$ErrorActionPreference='Stop'; \
-		@('auth-service','calendar-service','commercial-service','dynasty-service','features-service','financial-service','notifications-service','social-service','storage-service','support-service') | ForEach-Object { \
+		@('auth-service','calendar-service','commercial-service','dynasty-service','features-service','financial-service','notifications-service','social-service','storage-service','support-service','websocket-gateway') | ForEach-Object { \
 			Write-Host ('Testing ' + $$_ + '...'); \
 			Set-Location ('tests/' + $$_); \
 			$$env:GOWORK='off'; \
@@ -271,6 +283,171 @@ test-all: test-unit test-services test-database
 test: test-all
 
 # =============================================================================
+# Linting (golangci-lint; config: .golangci.yml)
+# =============================================================================
+
+# Keep in sync with .github/workflows/service-ci.yml GOLANGCI_LINT_VERSION.
+# Prefer official release binaries: they are built with a Go version that can
+# type-check the host toolchain. `go install` may produce a binary built with
+# an older Go and panic with "file requires newer Go version".
+GOLANGCI_LINT_VERSION ?= v2.9.0
+
+ensure-golangci-lint:
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$ErrorActionPreference='Stop'; \
+		$$want = '$(GOLANGCI_LINT_VERSION)'.TrimStart('v'); \
+		$$needInstall = $$true; \
+		$$cmd = Get-Command golangci-lint -ErrorAction SilentlyContinue; \
+		if ($$cmd) { \
+			$$verOut = (& golangci-lint version 2>&1 | Out-String); \
+			if ($$verOut -match ('version\s+' + [regex]::Escape($$want) + '\b') -and $$verOut -match 'built with go([\d.]+)') { \
+				$$builtGo = [version]$$Matches[1]; \
+				$$hostGo = [version]((go version) -replace '.*go([\d.]+).*','$$1'); \
+				$$hostMM = [version](\"$$($$hostGo.Major).$$($$hostGo.Minor)\"); \
+				$$builtMM = [version](\"$$($$builtGo.Major).$$($$builtGo.Minor)\"); \
+				if ($$builtMM -ge $$hostMM) { $$needInstall = $$false } \
+				else { Write-Host (\"golangci-lint built with go$$builtGo is older than host go$$hostGo; reinstalling official binary...\") } \
+			} else { Write-Host 'golangci-lint version mismatch or unreadable; reinstalling official binary...' } \
+		}; \
+		if (-not $$needInstall) { exit 0 }; \
+		Write-Host 'Installing golangci-lint $(GOLANGCI_LINT_VERSION) (official binary)...'; \
+		$$gopath = (go env GOPATH).Trim(); \
+		$$binDir = Join-Path $$gopath 'bin'; \
+		New-Item -ItemType Directory -Force -Path $$binDir | Out-Null; \
+		$$zip = \"golangci-lint-$$want-windows-amd64.zip\"; \
+		$$url = \"https://github.com/golangci/golangci-lint/releases/download/v$$want/$$zip\"; \
+		$$tmpZip = Join-Path $$env:TEMP $$zip; \
+		$$tmpDir = Join-Path $$env:TEMP \"golangci-lint-$$want\"; \
+		Invoke-WebRequest -Uri $$url -OutFile $$tmpZip; \
+		if (Test-Path $$tmpDir) { Remove-Item -Recurse -Force $$tmpDir }; \
+		Expand-Archive -Path $$tmpZip -DestinationPath $$tmpDir -Force; \
+		$$exe = Get-ChildItem $$tmpDir -Recurse -Filter golangci-lint.exe | Select-Object -First 1; \
+		if (-not $$exe) { throw 'golangci-lint.exe not found in release archive' }; \
+		Copy-Item -Path $$exe.FullName -Destination (Join-Path $$binDir 'golangci-lint.exe') -Force; \
+		& (Join-Path $$binDir 'golangci-lint.exe') version"
+else
+	@need_install=1; \
+	if command -v golangci-lint >/dev/null 2>&1; then \
+		ver_out=$$(golangci-lint version 2>&1 || true); \
+		want=$${$(GOLANGCI_LINT_VERSION)#v}; \
+		built=$$(printf '%s\n' "$$ver_out" | sed -n 's/.*built with go\([0-9.]*\).*/\1/p' | head -1); \
+		host=$$(go version | sed -n 's/.*go\([0-9.]*\).*/\1/p'); \
+		host_mm=$${host%.*}; \
+		built_mm=$${built%.*}; \
+		case "$$ver_out" in \
+			*"version $$want"*|*"version v$$want"*) \
+				if [ -n "$$built_mm" ] && [ -n "$$host_mm" ]; then \
+					lowest=$$(printf '%s\n%s\n' "$$built_mm" "$$host_mm" | sort -V | head -1); \
+					if [ "$$lowest" = "$$host_mm" ] || [ "$$built_mm" = "$$host_mm" ]; then need_install=0; fi; \
+				fi; \
+				;; \
+		esac; \
+		if [ "$$need_install" = 1 ] && [ -n "$$built" ]; then \
+			echo "golangci-lint built with go$$built may be older than host go$$host; reinstalling official binary..."; \
+		fi; \
+	fi; \
+	if [ "$$need_install" = 0 ]; then exit 0; fi; \
+	echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION) (official binary)..."; \
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$$(go env GOPATH)/bin" $(GOLANGCI_LINT_VERSION); \
+	golangci-lint version
+endif
+
+# Check lint issues. Optional: DIR=shared or DIR=services/auth-service
+lint: ensure-golangci-lint
+	@echo "🔍 Checking Go lint issues..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$failed = @(); \
+		$$dirs = @(); \
+		if ('$(DIR)' -ne '') { $$dirs = @('$(DIR)') } \
+		else { $$dirs = @('shared') + @(Get-ChildItem -Directory services | ForEach-Object { 'services/' + $$_.Name }) }; \
+		foreach ($$dir in $$dirs) { \
+			if (-not (Test-Path (Join-Path $$dir 'go.mod'))) { continue }; \
+			Write-Host ('Linting ' + $$dir + '...'); \
+			Push-Location $$dir; \
+			try { \
+				& go mod download 2>$$null | Out-Null; \
+				& golangci-lint run --timeout=5m; \
+				if ($$LASTEXITCODE -ne 0) { $$failed += $$dir } \
+			} finally { Pop-Location } \
+		}; \
+		if ($$failed.Count -gt 0) { \
+			Write-Host ('❌ Lint failed in: ' + ($$failed -join ', ')); \
+			exit 1 \
+		}; \
+		Write-Host '✅ Lint passed'"
+else
+	@failed=""; \
+	if [ -n "$(DIR)" ]; then \
+		dirs="$(DIR)"; \
+	else \
+		dirs="shared $$(ls -d services/*/ 2>/dev/null)"; \
+	fi; \
+	for dir in $$dirs; do \
+		dir=$${dir%/}; \
+		[ -f "$$dir/go.mod" ] || continue; \
+		echo "Linting $$dir..."; \
+		if ! (cd $$dir && go mod download >/dev/null 2>&1; golangci-lint run --timeout=5m); then \
+			failed="$$failed $$dir"; \
+		fi; \
+	done; \
+	if [ -n "$$failed" ]; then \
+		echo "❌ Lint failed in:$$failed"; \
+		exit 1; \
+	fi; \
+	echo "✅ Lint passed"
+endif
+
+# Check and auto-fix issues (gofmt/goimports + supported linter fixes).
+# Continues across modules so one failure does not skip the rest.
+# Optional: DIR=shared or DIR=services/auth-service
+lint-fix: ensure-golangci-lint
+	@echo "🔧 Checking and auto-fixing Go lint issues..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$failed = @(); \
+		$$dirs = @(); \
+		if ('$(DIR)' -ne '') { $$dirs = @('$(DIR)') } \
+		else { $$dirs = @('shared') + @(Get-ChildItem -Directory services | ForEach-Object { 'services/' + $$_.Name }) }; \
+		foreach ($$dir in $$dirs) { \
+			if (-not (Test-Path (Join-Path $$dir 'go.mod'))) { continue }; \
+			Write-Host ('Lint-fix ' + $$dir + '...'); \
+			Push-Location $$dir; \
+			try { \
+				& go mod download 2>$$null | Out-Null; \
+				& golangci-lint run --fix --timeout=5m; \
+				if ($$LASTEXITCODE -ne 0) { $$failed += $$dir } \
+			} finally { Pop-Location } \
+		}; \
+		if ($$failed.Count -gt 0) { \
+			Write-Host ('❌ Lint-fix finished with issues in: ' + ($$failed -join ', ')); \
+			exit 1 \
+		}; \
+		Write-Host '✅ Lint-fix complete'"
+else
+	@failed=""; \
+	if [ -n "$(DIR)" ]; then \
+		dirs="$(DIR)"; \
+	else \
+		dirs="shared $$(ls -d services/*/ 2>/dev/null)"; \
+	fi; \
+	for dir in $$dirs; do \
+		dir=$${dir%/}; \
+		[ -f "$$dir/go.mod" ] || continue; \
+		echo "Lint-fix $$dir..."; \
+		if ! (cd $$dir && go mod download >/dev/null 2>&1; golangci-lint run --fix --timeout=5m); then \
+			failed="$$failed $$dir"; \
+		fi; \
+	done; \
+	if [ -n "$$failed" ]; then \
+		echo "❌ Lint-fix finished with issues in:$$failed"; \
+		exit 1; \
+	fi; \
+	echo "✅ Lint-fix complete"
+endif
+
+# =============================================================================
 # Local uploads symlink
 # =============================================================================
 
@@ -323,7 +500,12 @@ endif
 # Docker Compose Management
 # =============================================================================
 
-.PHONY: up down restart logs ps build clean import-schema import-database dev-up dev-down dev-build dev-logs dev-restart dev-ps kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install
+.PHONY: up down restart logs ps build clean import-schema import-database dev-up dev-down dev-build dev-logs dev-restart dev-ps kong-validate kong-reload migrate migrate-rollback migrate-status migrate-reset migrate-refresh migrate-baseline migrate-make migrate-install wait-mysql start-migrate-job auto-migrate
+
+# When 1 (default), make up/dev/dev-up/restart run migrations if $(MYSQL_DATABASE) exists.
+AUTO_MIGRATE ?= 1
+# When 1, run migrations via go run on the host instead of the Compose migrate service.
+USE_HOST_MIGRATE ?= 0
 
 kong-validate:
 	@echo "🔍 Validating Kong declarative config..."
@@ -346,6 +528,9 @@ endif
 
 up: init-storage-uploads ensure-networks
 	@echo "🚀 Starting all microservices..."
+	@echo "Starting MySQL, Redis, and migrate job..."
+	$(DOCKER_COMPOSE) up -d mysql
+	@$(MAKE) start-migrate-job
 	$(DOCKER_COMPOSE) up -d
 	@echo "✅ All services started!"
 	@echo ""
@@ -366,6 +551,7 @@ down:
 
 restart:
 	@echo "🔄 Restarting all microservices..."
+	@$(MAKE) auto-migrate
 	$(DOCKER_COMPOSE) restart
 	@echo "✅ All services restarted"
 
@@ -426,11 +612,117 @@ DB_DATABASE ?= metarang_db
 MIGRATIONS_PATH ?= scripts/migrations
 STEP ?=
 PRETEND ?=
+MYSQL_WAIT_SECONDS ?= 90
 
+# Host go-run migrator (USE_HOST_MIGRATE=1).
 ifeq ($(OS),Windows_NT)
-run_migrate = powershell -NoProfile -Command "$$ErrorActionPreference='Stop'; $$env:DB_HOST='$(DB_HOST)'; $$env:DB_PORT='$(DB_PORT)'; $$env:DB_USER='$(DB_USER)'; $$env:DB_PASSWORD='$(DB_PASSWORD)'; $$env:DB_DATABASE='$(DB_DATABASE)'; go run ./shared/cmd/migrate $(1) -path=$(MIGRATIONS_PATH) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)"
+run_host_migrate = powershell -NoProfile -Command "$$ErrorActionPreference='Stop'; $$env:DB_HOST='$(DB_HOST)'; $$env:DB_PORT='$(DB_PORT)'; $$env:DB_USER='$(DB_USER)'; $$env:DB_PASSWORD='$(DB_PASSWORD)'; $$env:DB_DATABASE='$(DB_DATABASE)'; go run ./shared/cmd/migrate $(1) -path=$(MIGRATIONS_PATH) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)"
 else
-run_migrate = DB_HOST=$(DB_HOST) DB_PORT=$(DB_PORT) DB_USER=$(DB_USER) DB_PASSWORD=$(DB_PASSWORD) DB_DATABASE=$(DB_DATABASE) go run ./shared/cmd/migrate $(1) -path=$(MIGRATIONS_PATH) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)
+run_host_migrate = DB_HOST=$(DB_HOST) DB_PORT=$(DB_PORT) DB_USER=$(DB_USER) DB_PASSWORD=$(DB_PASSWORD) DB_DATABASE=$(DB_DATABASE) go run ./shared/cmd/migrate $(1) -path=$(MIGRATIONS_PATH) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)
+endif
+
+# Compose one-shot migrator (default). Ensures MySQL is up, then run --rm migrate.
+define run_compose_migrate
+	$(DOCKER_COMPOSE) up -d mysql
+	$(DOCKER_COMPOSE) run --rm migrate $(1) $(if $(STEP),-step=$(STEP),) $(if $(PRETEND),-pretend,)
+endef
+
+ifeq ($(USE_HOST_MIGRATE),1)
+run_migrate = $(run_host_migrate)
+else
+run_migrate = $(run_compose_migrate)
+endif
+
+# Block until the Compose MySQL service accepts connections (required before migrate).
+wait-mysql:
+	@echo "⏳ Waiting for MySQL to be ready..."
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$deadline = (Get-Date).AddSeconds($(MYSQL_WAIT_SECONDS)); \
+		while ($$true) { \
+			cmd /c 'docker compose exec -T mysql mysqladmin ping -h localhost -uroot -p$(MYSQL_ROOT_PASSWORD) --silent >nul 2>&1'; \
+			if ($$LASTEXITCODE -eq 0) { Write-Host '✅ MySQL is ready'; exit 0 }; \
+			if ((Get-Date) -gt $$deadline) { Write-Error 'MySQL did not become ready within $(MYSQL_WAIT_SECONDS)s'; exit 1 }; \
+			Start-Sleep -Seconds 2 \
+		}"
+else
+	@deadline=$$(( $$(date +%s) + $(MYSQL_WAIT_SECONDS) )); \
+	while true; do \
+		if $(DOCKER_COMPOSE) exec -T mysql mysqladmin ping -h localhost -uroot -p$(MYSQL_ROOT_PASSWORD) --silent 2>/dev/null; then \
+			echo "✅ MySQL is ready"; \
+			exit 0; \
+		fi; \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then \
+			echo "❌ MySQL did not become ready within $(MYSQL_WAIT_SECONDS)s"; \
+			exit 1; \
+		fi; \
+		sleep 2; \
+	done
+endif
+
+# Recreate the Compose migrate job. Skips SQL when AUTO_MIGRATE=0 or MYSQL_DATABASE is missing.
+# The container still runs (no-op) so DB-backed services can wait on service_completed_successfully.
+start-migrate-job:
+	@$(MAKE) wait-mysql
+ifeq ($(AUTO_MIGRATE),1)
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "\
+		$$ErrorActionPreference='Continue'; \
+		$$count = (docker compose exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) -Nse \"SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$(MYSQL_DATABASE)';\" 2>$$null | Select-Object -Last 1).Trim(); \
+		if ($$count -ne '1') { \
+			Write-Host '⏭️  Skipping migrations: database $(MYSQL_DATABASE) does not exist'; \
+			$$env:SKIP_MIGRATE='1'; \
+		} else { \
+			Write-Host '📦 Database $(MYSQL_DATABASE) exists; running migrations...'; \
+			$$env:SKIP_MIGRATE='0'; \
+		}; \
+		$(DOCKER_COMPOSE) up -d --force-recreate migrate"
+else
+	@DB_COUNT=$$($(DOCKER_COMPOSE) exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) -Nse "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$(MYSQL_DATABASE)';" 2>/dev/null | tr -d '\r'); \
+	if [ "$$DB_COUNT" != "1" ]; then \
+		echo "⏭️  Skipping migrations: database $(MYSQL_DATABASE) does not exist"; \
+		SKIP_MIGRATE=1 $(DOCKER_COMPOSE) up -d --force-recreate migrate; \
+	else \
+		echo "📦 Database $(MYSQL_DATABASE) exists; running migrations..."; \
+		SKIP_MIGRATE=0 $(DOCKER_COMPOSE) up -d --force-recreate migrate; \
+	fi
+endif
+else
+	@echo "⏭️  Skipping migrations (AUTO_MIGRATE=$(AUTO_MIGRATE))"
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "$$env:SKIP_MIGRATE='1'; $(DOCKER_COMPOSE) up -d --force-recreate migrate"
+else
+	SKIP_MIGRATE=1 $(DOCKER_COMPOSE) up -d --force-recreate migrate
+endif
+endif
+
+# Explicit migrate (restart/dev-restart). Skips when AUTO_MIGRATE=0 or MYSQL_DATABASE is missing.
+auto-migrate:
+ifeq ($(AUTO_MIGRATE),1)
+	$(DOCKER_COMPOSE) up -d mysql
+	@$(MAKE) wait-mysql
+ifeq ($(OS),Windows_NT)
+	@powershell -NoProfile -Command "$$ErrorActionPreference='Continue'; \
+		$$count = (docker compose exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) -Nse \"SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$(MYSQL_DATABASE)';\" 2>$$null | Select-Object -Last 1).Trim(); \
+		if ($$count -ne '1') { \
+			Write-Host '⏭️  Skipping migrations: database $(MYSQL_DATABASE) does not exist'; \
+			exit 0; \
+		}; \
+		Write-Host '📦 Database $(MYSQL_DATABASE) exists; running migrations...'; \
+		$$ErrorActionPreference='Stop'; \
+		& make migrate; \
+		if ($$LASTEXITCODE -ne 0) { exit $$LASTEXITCODE }"
+else
+	@DB_COUNT=$$($(DOCKER_COMPOSE) exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) -Nse "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='$(MYSQL_DATABASE)';" 2>/dev/null | tr -d '\r'); \
+	if [ "$$DB_COUNT" != "1" ]; then \
+		echo "⏭️  Skipping migrations: database $(MYSQL_DATABASE) does not exist"; \
+	else \
+		echo "📦 Database $(MYSQL_DATABASE) exists; running migrations..."; \
+		$(MAKE) migrate; \
+	fi
+endif
+else
+	@echo "⏭️  Skipping migrations (AUTO_MIGRATE=$(AUTO_MIGRATE))"
 endif
 
 import-schema:
@@ -521,16 +813,14 @@ migrate-make:
 dev: ensure-networks
 	@echo "🚀 Starting development environment..."
 	@echo "ℹ️  Each service uses its own config.env (copy from config.env.sample)"
+	@echo "ℹ️  Mailpit SMTP catcher enabled (UI http://localhost:8025)"
 	@echo "Starting MySQL and Redis..."
-	$(DOCKER_COMPOSE) up -d mysql redis
-	@echo "Waiting for database to be ready..."
-ifeq ($(OS),Windows_NT)
-	@powershell -NoProfile -Command "Start-Sleep -Seconds 10"
+	$(DOCKER_COMPOSE_DEV) up -d mysql redis
+	@$(MAKE) wait-mysql
 	@echo "Checking if schema needs to be imported..."
+ifeq ($(OS),Windows_NT)
 	@powershell -NoProfile -Command "$$ErrorActionPreference='Continue'; $$tableCount = (docker compose exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) $(MYSQL_DATABASE) -e \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$(MYSQL_DATABASE)';\" 2>$$null | Select-Object -Last 1).Trim(); if ($$tableCount -eq '0') { Write-Host 'Importing schema...'; make import-schema } else { Write-Host (\"✅ Database already initialized ({0} tables)\" -f $$tableCount) }"
 else
-	@sleep 10
-	@echo "Checking if schema needs to be imported..."
 	@TABLE_COUNT=$$($(DOCKER_COMPOSE) exec -T mysql mysql -uroot -p$(MYSQL_ROOT_PASSWORD) $(MYSQL_DATABASE) -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$(MYSQL_DATABASE)';" 2>/dev/null | tail -1); \
 	if [ "$$TABLE_COUNT" = "0" ]; then \
 		echo "Importing schema..."; \
@@ -539,11 +829,12 @@ else
 		echo "✅ Database already initialized ($$TABLE_COUNT tables)"; \
 	fi
 endif
-	@echo ""
-	@echo "Starting all services..."
-	$(DOCKER_COMPOSE) up -d
+	@echo "Starting migrate job and all services (with Mailpit)..."
+	@$(MAKE) start-migrate-job
+	$(DOCKER_COMPOSE_DEV) up -d
 	@echo ""
 	@echo "✅ Development environment ready!"
+	@echo "  Mailpit UI: http://localhost:8025  (SMTP host mailpit:1025 inside Compose)"
 	@make ps
 
 stop-service:
@@ -567,15 +858,6 @@ logs-service:
 	fi
 	$(DOCKER_COMPOSE) logs -f $(SERVICE)
 
-# Ensure storage-service upload bind mount exists before Docker creates a root-owned dir
-.PHONY: init-storage-uploads
-init-storage-uploads:
-ifeq ($(OS),Windows_NT)
-	@powershell -NoProfile -Command "if (-not (Test-Path -LiteralPath '$(UPLOADS_SRC)')) { New-Item -ItemType Directory -Force -Path '$(UPLOADS_SRC)' | Out-Null }"
-else
-	@mkdir -p $(UPLOADS_SRC)
-endif
-
 # =============================================================================
 # Development with Hot Reloading
 # =============================================================================
@@ -583,33 +865,38 @@ endif
 dev-up: init-storage-uploads ensure-networks
 	@echo "🚀 Starting development environment with Docker Compose Watch..."
 	@echo "ℹ️  File changes will automatically trigger rebuilds (Go services)"
+	@echo "ℹ️  Mailpit SMTP catcher enabled (UI http://localhost:8025)"
 	@echo ""
-	$(DOCKER_COMPOSE) up --watch
+	@echo "Starting MySQL, Redis, and migrate job..."
+	$(DOCKER_COMPOSE_DEV) up -d mysql
+	@$(MAKE) start-migrate-job
+	$(DOCKER_COMPOSE_DEV) up --watch
 	@echo "✅ Development services started with watch mode!"
 
 dev-down:
 	@echo "🛑 Stopping development services..."
-	$(DOCKER_COMPOSE) down
+	$(DOCKER_COMPOSE_DEV) down
 	@echo "✅ Development services stopped"
 
 dev-build:
 	@echo "🔨 Building development images..."
-	$(DOCKER_COMPOSE) build
+	$(DOCKER_COMPOSE_DEV) build
 	@echo "✅ Development images built successfully"
 
 dev-logs:
 	@echo "📝 Following development service logs (Ctrl+C to stop)..."
-	$(DOCKER_COMPOSE) logs -f
+	$(DOCKER_COMPOSE_DEV) logs -f
 
 dev-restart:
 	@echo "🔄 Restarting development services..."
-	$(DOCKER_COMPOSE) restart
+	@$(MAKE) auto-migrate
+	$(DOCKER_COMPOSE_DEV) restart
 	@echo "✅ Development services restarted"
 
 dev-ps:
 	@echo "📊 Development Service Status:"
 	@echo ""
-	$(DOCKER_COMPOSE) ps
+	$(DOCKER_COMPOSE_DEV) ps
 	@echo ""
 	@echo "Healthy services:"
 	@docker ps --filter "health=healthy" --format "  ✅ {{.Names}}"

@@ -48,11 +48,10 @@ func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 
 func loadEnvFiles() bool {
 	configPaths := []string{
+		"services/auth-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/auth-service/config.env",
 	}
 	for _, configPath := range configPaths {
 		if err := godotenv.Load(configPath); err == nil {

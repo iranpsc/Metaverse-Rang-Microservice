@@ -131,7 +131,7 @@ See `scripts/schema.sql` for the complete schema.
 ### Interactions
 
 - Likes and dislikes use the `interactions` table with `liked` boolean (`true` = like, `false` = dislike)
-- Authenticated users see their current interaction via the `user_interaction` field in responses
+- Authenticated users see their current interaction via `user_interaction.liked` (`true` = like, `false` = dislike) when present
 - Video and comment interactions require authentication
 
 ### Comments & Replies

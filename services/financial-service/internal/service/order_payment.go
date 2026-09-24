@@ -20,17 +20,22 @@ func logPaymentWarning(format string, args ...interface{}) {
 }
 
 func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset string, rate float64) (string, string, error) {
-	multiplexingData, err := s.buildMultiplexingData(asset)
+	baseReturnURL, err := s.sadadCallbackReturnURL()
 	if err != nil {
 		return "", "", err
 	}
 
-	returnURL, err := s.sadadCallbackReturnURL()
-	if err != nil {
-		return "", "", err
-	}
+	// Embed order_id in the ReturnUrl query string so the callback handler can
+	// identify the order directly from the URL — even if Sadad's POST body is
+	// missing or malformed. Sadad also echoes OrderId in its POST body (section
+	// 6.5 of VPG Help v1.10), giving us two independent identification sources.
+	returnURL := sadadReturnURLWithOrderID(baseReturnURL, orderID)
 
 	amountRials := amountInRials(amount, rate)
+	multiplexingData, err := s.buildMultiplexingData(asset, amountRials)
+	if err != nil {
+		return "", "", err
+	}
 
 	response, err := s.sadadClient.RequestPayment(sadad.RequestParams{
 		MerchantID:       s.sadadConfig.SadadMerchantID,
@@ -45,6 +50,15 @@ func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset s
 		return "", "", fmt.Errorf("failed to request payment: %w", err)
 	}
 	if !response.Success() {
+		logPaymentWarning(
+			"Sadad PaymentRequest rejected order_id=%d amount_rials=%d return_url=%q multiplexing=%s res_code=%s description=%q",
+			orderID,
+			amountRials,
+			returnURL,
+			formatMultiplexingForLog(multiplexingData),
+			response.ResCode,
+			response.Description,
+		)
 		return "", "", fmt.Errorf("%w: %s", ErrPaymentFailed, sadadFailureMessage(response))
 	}
 
@@ -55,11 +69,24 @@ func amountInRials(amount int32, rate float64) int64 {
 	return int64(float64(amount) * rate)
 }
 
+// sadadFailureMessage returns the exact ResCode and Description from Sadad IPG.
+// Does not substitute local/custom messages when Description is empty.
 func sadadFailureMessage(response *sadad.RequestResponse) string {
-	if response.Description != "" {
-		return response.Description
+	if response == nil {
+		return "empty IPG response"
 	}
-	return response.Error().Message()
+	code := strings.TrimSpace(response.ResCode)
+	msg := strings.TrimSpace(response.Description)
+	switch {
+	case code != "" && msg != "":
+		return fmt.Sprintf("ResCode=%s Description=%s", code, msg)
+	case code != "":
+		return fmt.Sprintf("ResCode=%s", code)
+	case msg != "":
+		return fmt.Sprintf("Description=%s", msg)
+	default:
+		return "empty ResCode and Description from IPG"
+	}
 }
 
 func (s *orderService) storeTransactionToken(ctx context.Context, transaction *models.Transaction, token string) {
@@ -74,31 +101,55 @@ func (s *orderService) storeTransactionToken(ctx context.Context, transaction *m
 	}
 }
 
-func (s *orderService) buildMultiplexingData(asset string) (*sadad.MultiplexingData, error) {
+// buildMultiplexingData mirrors the production Laravel Sadad driver:
+// Type=Amount with a single IBAN row for the full payment amount.
+// Sadad rejects Percentage splits that include a zero-value row (common cause of
+// Description "عملیات ناموفق بود" / ResCode 1104).
+func (s *orderService) buildMultiplexingData(asset string, amountRials int64) (*sadad.MultiplexingData, error) {
 	if s.sadadConfig.SadadSandbox {
 		return nil, nil
 	}
+	if amountRials <= 0 {
+		return nil, fmt.Errorf("%w: invalid multiplexing amount", ErrPaymentFailed)
+	}
 
-	rialIban := s.sadadConfig.SadadPaymentIdentityRial
-	nonRialIban := s.sadadConfig.SadadPaymentIdentityNonRial
+	rialIban := strings.TrimSpace(s.sadadConfig.SadadPaymentIdentityRial)
+	nonRialIban := strings.TrimSpace(s.sadadConfig.SadadPaymentIdentityNonRial)
 	if rialIban == "" || nonRialIban == "" {
 		return nil, fmt.Errorf("%w: payment IBANs not configured for multiplexing", ErrPaymentFailed)
 	}
 
-	rialValue := 0
-	nonRialValue := 100
+	// IRR → loan/rial IBAN; all other assets → main/non-rial IBAN (same as Laravel MultiplexingData::forAsset).
+	iban := nonRialIban
 	if asset == "irr" {
-		rialValue = 100
-		nonRialValue = 0
+		iban = rialIban
 	}
 
 	return &sadad.MultiplexingData{
-		Type: "Percentage",
+		Type: "Amount",
 		MultiplexingRows: []sadad.MultiplexingRow{
-			{IbanNumber: rialIban, Value: rialValue},
-			{IbanNumber: nonRialIban, Value: nonRialValue},
+			{IbanNumber: iban, Value: amountRials},
 		},
 	}, nil
+}
+
+func formatMultiplexingForLog(data *sadad.MultiplexingData) string {
+	if data == nil {
+		return "none"
+	}
+	parts := make([]string, 0, len(data.MultiplexingRows))
+	for _, row := range data.MultiplexingRows {
+		parts = append(parts, fmt.Sprintf("%s=%d", maskIban(row.IbanNumber), row.Value))
+	}
+	return fmt.Sprintf("type=%s rows=[%s]", data.Type, strings.Join(parts, ","))
+}
+
+func maskIban(iban string) string {
+	iban = strings.TrimSpace(iban)
+	if len(iban) <= 8 {
+		return iban
+	}
+	return iban[:4] + "…" + iban[len(iban)-4:]
 }
 
 func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token string, resCode string, additionalParams map[string]string) (string, error) {
@@ -293,16 +344,16 @@ func (s *orderService) processReferral(ctx context.Context, order *models.Order)
 	}
 }
 
-func cardPanFromCallback(additionalParams map[string]string, verifyResponse *sadad.VerificationResponse) string {
+// cardPanFromCallback extracts the masked card number (PAN) from the Sadad callback POST.
+// Per VPG Help v1.10 section 6.5, Sadad sends PrimaryAccNo (masked PAN) in the callback body.
+// The Verify response does not include a card number field per the documented output.
+func cardPanFromCallback(additionalParams map[string]string, _ *sadad.VerificationResponse) string {
 	for _, key := range []string{"PrimaryAccNo", "CardMaskPan", "card_pan"} {
 		if cardPan := additionalParams[key]; cardPan != "" {
 			return cardPan
 		}
 	}
-	if verifyResponse.CardNumberMasked != "" {
-		return verifyResponse.CardNumberMasked
-	}
-	return "card-hash"
+	return ""
 }
 
 func (s *orderService) markOrderAndTransactionFailed(ctx context.Context, order *models.Order, transaction *models.Transaction, resCode string) error {
@@ -349,6 +400,21 @@ func (s *orderService) sadadCallbackReturnURL() (string, error) {
 	}
 
 	return normalized, nil
+}
+
+// sadadReturnURLWithOrderID appends ?order_id=<id> to the callback base URL.
+// This lets the HandleCallback handler identify the order from the URL query
+// string — independent of Sadad's POST body — providing two sources of truth.
+func sadadReturnURLWithOrderID(base string, orderID uint64) string {
+	u, err := url.Parse(base)
+	if err != nil {
+		// base is already validated by NormalizePaymentCallbackURL; this should never happen.
+		return fmt.Sprintf("%s?order_id=%d", base, orderID)
+	}
+	q := u.Query()
+	q.Set("order_id", fmt.Sprintf("%d", orderID))
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func (s *orderService) buildPaymentVerifyRedirectURL(orderID uint64, resCode string) (string, error) {

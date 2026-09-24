@@ -185,7 +185,7 @@ func (h *FeatureHandler) RemoveMyFeatureImage(ctx context.Context, req *pb.Remov
 
 // UpdateMyFeature handles POST /api/my-features/{user}/features/{feature}
 // Updates minimum price percentage and recalculates pricing
-func (h *FeatureHandler) UpdateMyFeature(ctx context.Context, req *pb.UpdateMyFeatureRequest) (*emptypb.Empty, error) {
+func (h *FeatureHandler) UpdateMyFeature(ctx context.Context, req *pb.UpdateMyFeatureRequest) (*pb.UpdateMyFeatureResponse, error) {
 	// Get authenticated user from context
 	user, err := auth.GetUserFromContext(ctx)
 	if err != nil {
@@ -202,7 +202,7 @@ func (h *FeatureHandler) UpdateMyFeature(ctx context.Context, req *pb.UpdateMyFe
 		return nil, status.Errorf(codes.InvalidArgument, "minimum_price_percentage must be at least 80")
 	}
 
-	err = h.service.UpdateMyFeature(ctx, req.UserId, req.FeatureId, req.MinimumPricePercentage)
+	result, err := h.service.UpdateMyFeature(ctx, req.UserId, req.FeatureId, req.MinimumPricePercentage)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, status.Errorf(codes.NotFound, "feature not found")
@@ -214,7 +214,10 @@ func (h *FeatureHandler) UpdateMyFeature(ctx context.Context, req *pb.UpdateMyFe
 		return nil, status.Errorf(codes.Internal, "failed to update feature: %v", err)
 	}
 
-	return &emptypb.Empty{}, nil
+	if result == nil {
+		result = &pb.UpdateMyFeatureResponse{}
+	}
+	return result, nil
 }
 
 func validateMyFeatureImage(data []byte, filename, contentType string) error {

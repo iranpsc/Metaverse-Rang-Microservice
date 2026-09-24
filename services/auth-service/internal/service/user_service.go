@@ -3,12 +3,16 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 
 	"metarang/auth-service/internal/models"
 	"metarang/auth-service/internal/repository"
 	"metarang/shared/pkg/helpers"
 )
+
+var ErrInvalidEmailFormat = errors.New("invalid email format")
 
 type UserService interface {
 	GetUser(ctx context.Context, userID uint64) (*models.User, error)
@@ -123,6 +127,14 @@ func (s *userService) UpdateProfile(ctx context.Context, userID uint64, name, em
 	}
 
 	user.Name = name
+	email = strings.TrimSpace(email)
+	if email != "" {
+		normalized, err := helpers.ParseEmailAddress(email)
+		if err != nil {
+			return nil, ErrInvalidEmailFormat
+		}
+		email = normalized
+	}
 	user.Email = email
 	user.Phone = sql.NullString{String: phone, Valid: phone != ""}
 

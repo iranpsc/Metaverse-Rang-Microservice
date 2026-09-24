@@ -121,6 +121,7 @@ func TestWriteErrorAndGRPCError(t *testing.T) {
 		{status.Error(codes.AlreadyExists, "a"), http.StatusConflict},
 		{status.Error(codes.FailedPrecondition, "f"), http.StatusPreconditionFailed},
 		{status.Error(codes.Unavailable, "x"), http.StatusServiceUnavailable},
+		{status.Error(codes.ResourceExhausted, "rate limited"), http.StatusTooManyRequests},
 		{status.Error(codes.Internal, "i"), http.StatusInternalServerError},
 		{status.Error(codes.InvalidArgument, "plain msg"), http.StatusUnprocessableEntity},
 		{status.Error(codes.InvalidArgument, helpers.EncodeValidationError(map[string]string{"f": "bad"})), http.StatusUnprocessableEntity},

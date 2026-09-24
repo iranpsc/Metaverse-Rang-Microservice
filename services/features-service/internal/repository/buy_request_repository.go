@@ -41,12 +41,7 @@ func (r *BuyRequestRepository) FindByID(ctx context.Context, id uint64) (*models
 		WHERE id = ? AND deleted_at IS NULL
 	`
 
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&request.ID, &request.BuyerID, &request.SellerID, &request.FeatureID,
-		&request.Note, &request.PricePSC, &request.PriceIRR, &request.Status,
-		&request.RequestedGracePeriod, &request.CreatedAt, &request.UpdatedAt,
-	)
-
+	err := scanBuyRequest(r.db.QueryRowContext(ctx, query, id), request)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -80,22 +75,7 @@ func (r *BuyRequestRepository) GetAllForFeature(ctx context.Context, featureID u
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-
-	requests := []*models.BuyFeatureRequest{}
-	for rows.Next() {
-		req := &models.BuyFeatureRequest{}
-		if err := rows.Scan(
-			&req.ID, &req.BuyerID, &req.SellerID, &req.FeatureID,
-			&req.Note, &req.PricePSC, &req.PriceIRR, &req.Status,
-			&req.RequestedGracePeriod, &req.CreatedAt, &req.UpdatedAt,
-		); err != nil {
-			continue
-		}
-		requests = append(requests, req)
-	}
-
-	return requests, nil
+	return collectBuyRequests(rows)
 }
 
 // UpdateStatus updates the status of a buy request
@@ -132,22 +112,7 @@ func (r *BuyRequestRepository) ListByBuyerID(ctx context.Context, buyerID uint64
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-
-	requests := []*models.BuyFeatureRequest{}
-	for rows.Next() {
-		req := &models.BuyFeatureRequest{}
-		if err := rows.Scan(
-			&req.ID, &req.BuyerID, &req.SellerID, &req.FeatureID,
-			&req.Note, &req.PricePSC, &req.PriceIRR, &req.Status,
-			&req.RequestedGracePeriod, &req.CreatedAt, &req.UpdatedAt,
-		); err != nil {
-			continue
-		}
-		requests = append(requests, req)
-	}
-
-	return requests, nil
+	return collectBuyRequests(rows)
 }
 
 // ListBySellerID retrieves all buy requests received by a seller (excluding soft-deleted)
@@ -163,22 +128,7 @@ func (r *BuyRequestRepository) ListBySellerID(ctx context.Context, sellerID uint
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rows.Close() }()
-
-	requests := []*models.BuyFeatureRequest{}
-	for rows.Next() {
-		req := &models.BuyFeatureRequest{}
-		if err := rows.Scan(
-			&req.ID, &req.BuyerID, &req.SellerID, &req.FeatureID,
-			&req.Note, &req.PricePSC, &req.PriceIRR, &req.Status,
-			&req.RequestedGracePeriod, &req.CreatedAt, &req.UpdatedAt,
-		); err != nil {
-			continue
-		}
-		requests = append(requests, req)
-	}
-
-	return requests, nil
+	return collectBuyRequests(rows)
 }
 
 // Delete hard deletes a buy request (used for reject/delete operations)
@@ -208,4 +158,33 @@ func (r *BuyRequestRepository) HasPendingRequest(ctx context.Context, buyerID, f
 		return false, err
 	}
 	return count > 0, nil
+}
+
+type buyRequestScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanBuyRequest(scanner buyRequestScanner, req *models.BuyFeatureRequest) error {
+	return scanner.Scan(
+		&req.ID, &req.BuyerID, &req.SellerID, &req.FeatureID,
+		&req.Note, &req.PricePSC, &req.PriceIRR, &req.Status,
+		&req.RequestedGracePeriod, &req.CreatedAt, &req.UpdatedAt,
+	)
+}
+
+func collectBuyRequests(rows *sql.Rows) ([]*models.BuyFeatureRequest, error) {
+	defer func() { _ = rows.Close() }()
+
+	requests := []*models.BuyFeatureRequest{}
+	for rows.Next() {
+		req := &models.BuyFeatureRequest{}
+		if err := scanBuyRequest(rows, req); err != nil {
+			return nil, err
+		}
+		requests = append(requests, req)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return requests, nil
 }

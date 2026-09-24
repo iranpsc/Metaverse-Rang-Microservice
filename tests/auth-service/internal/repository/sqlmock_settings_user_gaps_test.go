@@ -69,7 +69,7 @@ func TestSettingsAndUserRepoGaps_SQLMock(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), s.UserID)
 
-	mock.ExpectQuery("SELECT COUNT").WithArgs(uint64(1)).
+	mock.ExpectQuery("SELECT COUNT").WithArgs("App\\User", uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(int32(4)))
 	n, err := userRepo.GetUnreadNotificationsCount(ctx, 1)
 	require.NoError(t, err)

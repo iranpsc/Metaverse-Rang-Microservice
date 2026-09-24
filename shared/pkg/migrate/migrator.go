@@ -1,3 +1,4 @@
+// Package migrate runs Laravel-style SQL migrations against MySQL.
 package migrate
 
 import (
@@ -143,7 +144,7 @@ func (m *Migrator) runUnlocked(ctx context.Context, files []Migration, step int,
 		todo = todo[:step]
 	}
 	if len(todo) == 0 {
-		fmt.Fprintln(m.out(), "Nothing to migrate.")
+		_, _ = fmt.Fprintln(m.out(), "Nothing to migrate.")
 		return nil
 	}
 
@@ -157,11 +158,11 @@ func (m *Migrator) runUnlocked(ctx context.Context, files []Migration, step int,
 }
 
 func (m *Migrator) runUp(ctx context.Context, file Migration, batch int, pretend bool) error {
-	fmt.Fprintf(m.out(), "Migrating: %s\n", file.Name)
+	_, _ = fmt.Fprintf(m.out(), "Migrating: %s\n", file.Name)
 	start := m.now()
 	if pretend {
 		printStatements(m.out(), file.Up)
-		fmt.Fprintf(m.out(), "Migrated:  %s (pretend)\n", file.Name)
+		_, _ = fmt.Fprintf(m.out(), "Migrated:  %s (pretend)\n", file.Name)
 		return nil
 	}
 	if err := m.execScript(ctx, file.Up); err != nil {
@@ -170,7 +171,7 @@ func (m *Migrator) runUp(ctx context.Context, file Migration, batch int, pretend
 	if err := m.Store.Record(ctx, file.Name, batch); err != nil {
 		return err
 	}
-	fmt.Fprintf(m.out(), "Migrated:  %s (%s)\n", file.Name, m.now().Sub(start).Round(time.Millisecond))
+	_, _ = fmt.Fprintf(m.out(), "Migrated:  %s (%s)\n", file.Name, m.now().Sub(start).Round(time.Millisecond))
 	return nil
 }
 
@@ -190,7 +191,7 @@ func (m *Migrator) rollbackUnlocked(ctx context.Context, files []Migration, step
 		return err
 	}
 	if len(appliedRows) == 0 {
-		fmt.Fprintln(m.out(), "Nothing to rollback.")
+		_, _ = fmt.Fprintln(m.out(), "Nothing to rollback.")
 		return nil
 	}
 
@@ -201,7 +202,7 @@ func (m *Migrator) rollbackUnlocked(ctx context.Context, files []Migration, step
 		todo = lastBatch(appliedRows)
 	}
 	if len(todo) == 0 {
-		fmt.Fprintln(m.out(), "Nothing to rollback.")
+		_, _ = fmt.Fprintln(m.out(), "Nothing to rollback.")
 		return nil
 	}
 
@@ -250,11 +251,11 @@ func (m *Migrator) runDown(ctx context.Context, file Migration, pretend bool) er
 	if strings.TrimSpace(file.Down) == "" {
 		return fmt.Errorf("cannot rollback %s: missing -- migrate:down section", file.Name)
 	}
-	fmt.Fprintf(m.out(), "Rolling back: %s\n", file.Name)
+	_, _ = fmt.Fprintf(m.out(), "Rolling back: %s\n", file.Name)
 	start := m.now()
 	if pretend {
 		printStatements(m.out(), file.Down)
-		fmt.Fprintf(m.out(), "Rolled back:  %s (pretend)\n", file.Name)
+		_, _ = fmt.Fprintf(m.out(), "Rolled back:  %s (pretend)\n", file.Name)
 		return nil
 	}
 	if err := m.execScript(ctx, file.Down); err != nil {
@@ -263,7 +264,7 @@ func (m *Migrator) runDown(ctx context.Context, file Migration, pretend bool) er
 	if err := m.Store.Forget(ctx, file.Name); err != nil {
 		return err
 	}
-	fmt.Fprintf(m.out(), "Rolled back:  %s (%s)\n", file.Name, m.now().Sub(start).Round(time.Millisecond))
+	_, _ = fmt.Fprintf(m.out(), "Rolled back:  %s (%s)\n", file.Name, m.now().Sub(start).Round(time.Millisecond))
 	return nil
 }
 
@@ -308,7 +309,7 @@ func (m *Migrator) Baseline(ctx context.Context, files []Migration) error {
 		}
 		todo := pending(files, appliedSet(appliedRows))
 		if len(todo) == 0 {
-			fmt.Fprintln(m.out(), "Nothing to baseline.")
+			_, _ = fmt.Fprintln(m.out(), "Nothing to baseline.")
 			return nil
 		}
 		batch := nextBatch(appliedRows)
@@ -316,7 +317,7 @@ func (m *Migrator) Baseline(ctx context.Context, files []Migration) error {
 			if err := m.Store.Record(ctx, file.Name, batch); err != nil {
 				return err
 			}
-			fmt.Fprintf(m.out(), "Baselined: %s (batch %d)\n", file.Name, batch)
+			_, _ = fmt.Fprintf(m.out(), "Baselined: %s (batch %d)\n", file.Name, batch)
 		}
 		return nil
 	})
@@ -336,7 +337,7 @@ func (m *Migrator) execScript(ctx context.Context, script string) error {
 
 func printStatements(w io.Writer, script string) {
 	for _, stmt := range SplitStatements(script) {
-		fmt.Fprintf(w, "%s;\n", stmt)
+		_, _ = fmt.Fprintf(w, "%s;\n", stmt)
 	}
 }
 

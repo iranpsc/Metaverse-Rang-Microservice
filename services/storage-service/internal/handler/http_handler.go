@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -51,25 +52,61 @@ type ChunkUploadHTTPResponse struct {
 }
 
 // HandleChunkUpload handles the chunk upload HTTP endpoint
-// POST /upload
+// POST /upload — receive a chunk (legacy form fields or resumable.js fields)
+// GET  /upload — resumable.js chunk existence test (200 = exists, 204 = missing)
 func (h *HTTPHandler) HandleChunkUpload(w http.ResponseWriter, r *http.Request) {
-	// Set CORS headers
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	h.setUploadCORSHeaders(w)
+	w.Header().Set("Cache-Control", "no-store")
 
-	// Handle preflight
-	if r.Method == http.MethodOptions {
+	switch r.Method {
+	case http.MethodOptions:
+		w.WriteHeader(http.StatusOK)
+		return
+	case http.MethodGet:
+		h.handleChunkTest(w, r)
+		return
+	case http.MethodPost:
+		h.handleChunkPost(w, r)
+		return
+	default:
+		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
+}
+
+func (h *HTTPHandler) setUploadCORSHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Cache-Control, X-Requested-With")
+	w.Header().Set("Access-Control-Expose-Headers", "Content-Type")
+}
+
+// handleChunkTest answers resumable.js GET probes: 200 if chunk exists, 204 otherwise.
+func (h *HTTPHandler) handleChunkTest(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	uploadID := firstFormValue(r, "resumableIdentifier", "upload_id")
+	if uploadID == "" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	chunkIndex, ok := parseChunkIndex(r)
+	if !ok {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if h.storageService.HasUploadedChunk(uploadID, chunkIndex) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
 
-	// Only accept POST
-	if r.Method != http.MethodPost {
-		h.sendError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
+func (h *HTTPHandler) handleChunkPost(w http.ResponseWriter, r *http.Request) {
 	// Parse multipart form with max memory of 10MB for metadata
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("Failed to parse form: %v", err))
@@ -91,34 +128,33 @@ func (h *HTTPHandler) HandleChunkUpload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Parse metadata from form values
-	uploadID := r.FormValue("upload_id")
+	uploadID := firstFormValue(r, "resumableIdentifier", "upload_id")
 	if uploadID == "" {
 		// Generate upload ID if not provided
 		uploadID = fmt.Sprintf("upload_%d", fileHeader.Size)
 	}
 
-	chunkIndex, err := strconv.ParseInt(r.FormValue("chunk_index"), 10, 32)
-	if err != nil {
+	chunkIndex, ok := parseChunkIndex(r)
+	if !ok {
 		chunkIndex = 0 // Default to 0 if not provided (single chunk)
 	}
 
-	totalChunks, err := strconv.ParseInt(r.FormValue("total_chunks"), 10, 32)
+	totalChunks, err := strconv.ParseInt(firstFormValue(r, "resumableTotalChunks", "total_chunks"), 10, 32)
 	if err != nil {
 		totalChunks = 1 // Default to 1 if not provided (single chunk)
 	}
 
-	totalSize, err := strconv.ParseInt(r.FormValue("total_size"), 10, 64)
+	totalSize, err := strconv.ParseInt(firstFormValue(r, "resumableTotalSize", "total_size"), 10, 64)
 	if err != nil {
 		totalSize = fileHeader.Size // Use current chunk size if not provided
 	}
 
-	filename := r.FormValue("filename")
+	filename := firstFormValue(r, "resumableFilename", "filename")
 	if filename == "" {
 		filename = fileHeader.Filename
 	}
 
-	contentType := r.FormValue("content_type")
+	contentType := firstFormValue(r, "resumableType", "content_type")
 	if contentType == "" {
 		contentType = fileHeader.Header.Get("Content-Type")
 		if contentType == "" {
@@ -135,7 +171,7 @@ func (h *HTTPHandler) HandleChunkUpload(w http.ResponseWriter, r *http.Request) 
 		filename,
 		contentType,
 		chunkData,
-		int32(chunkIndex),
+		chunkIndex,
 		int32(totalChunks),
 		totalSize,
 		uploadPath,
@@ -163,6 +199,37 @@ func (h *HTTPHandler) HandleChunkUpload(w http.ResponseWriter, r *http.Request) 
 		}
 		_ = json.NewEncoder(w).Encode(response)
 	}
+}
+
+// firstFormValue returns the first non-empty form/query value among the given keys.
+func firstFormValue(r *http.Request, keys ...string) string {
+	for _, key := range keys {
+		if v := r.FormValue(key); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// parseChunkIndex reads resumable.js (1-based) or legacy (0-based) chunk index fields.
+func parseChunkIndex(r *http.Request) (int32, bool) {
+	if v := r.FormValue("resumableChunkNumber"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 32)
+		if err != nil || n < 1 {
+			return 0, false
+		}
+		return int32(n - 1), true
+	}
+
+	if v := r.FormValue("chunk_index"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 32)
+		if err != nil || n < 0 {
+			return 0, false
+		}
+		return int32(n), true
+	}
+
+	return 0, false
 }
 
 // HandleHealthCheck handles health check endpoint
@@ -208,6 +275,12 @@ func (h *HTTPHandler) ServeUploads(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filePath := filepath.Join(root, filepath.FromSlash(rel))
+	if info, err := os.Stat(filePath); err != nil || info.IsDir() {
+		legacy := filepath.Join(root, "uploads", filepath.FromSlash(rel))
+		if info, err := os.Stat(legacy); err == nil && !info.IsDir() {
+			filePath = legacy
+		}
+	}
 	http.ServeFile(w, r, filePath)
 }
 

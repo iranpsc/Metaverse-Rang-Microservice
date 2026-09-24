@@ -36,6 +36,7 @@ func (r *accountSecurityRepository) GetByUserID(ctx context.Context, userID uint
 	`
 
 	security := &models.AccountSecurity{}
+	var createdAt, updatedAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
 		&security.ID,
 		&security.UserID,
@@ -43,14 +44,22 @@ func (r *accountSecurityRepository) GetByUserID(ctx context.Context, userID uint
 		&security.Until,
 		&security.Length,
 		&security.LastActivity,
-		&security.CreatedAt,
-		&security.UpdatedAt,
+		&createdAt,
+		&updatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account security: %w", err)
+	}
+
+	// Schema allows NULL timestamps (legacy Laravel rows); map to zero time when absent.
+	if createdAt.Valid {
+		security.CreatedAt = createdAt.Time
+	}
+	if updatedAt.Valid {
+		security.UpdatedAt = updatedAt.Time
 	}
 
 	return security, nil
@@ -121,20 +130,28 @@ func (r *accountSecurityRepository) GetOtpByAccountSecurity(ctx context.Context,
 	`
 
 	otp := &models.Otp{}
+	var createdAt, updatedAt sql.NullTime
 	err := r.db.QueryRowContext(ctx, query, accountSecurityVerifiableType, accountSecurityID).Scan(
 		&otp.ID,
 		&otp.UserID,
 		&otp.VerifiableType,
 		&otp.VerifiableID,
 		&otp.Code,
-		&otp.CreatedAt,
-		&otp.UpdatedAt,
+		&createdAt,
+		&updatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get otp: %w", err)
+	}
+
+	if createdAt.Valid {
+		otp.CreatedAt = createdAt.Time
+	}
+	if updatedAt.Valid {
+		otp.UpdatedAt = updatedAt.Time
 	}
 
 	return otp, nil

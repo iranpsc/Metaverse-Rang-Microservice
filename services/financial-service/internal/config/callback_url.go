@@ -58,6 +58,17 @@ func applySadadCallbackPort(rawURL string) string {
 		return rawURL
 	}
 
+	// Injecting :8080 (or any port) into a public https ReturnUrl commonly breaks Sadad
+	// merchant URL validation. Only apply when explicitly testing a non-standard local port.
+	if parsed.Scheme == "https" && (port == 443 || port == 80 || port == 8080) {
+		log.Printf(
+			"Warning: ignoring SADAD_CALLBACK_PORT=%d for https ReturnUrl %q (use unset port for production Kong/Ingress callbacks)",
+			port,
+			rawURL,
+		)
+		return rawURL
+	}
+
 	parsed.Host = net.JoinHostPort(hostname, strconv.Itoa(port))
 	return strings.TrimSuffix(parsed.String(), "/")
 }

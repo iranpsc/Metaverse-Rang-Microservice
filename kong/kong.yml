@@ -161,7 +161,9 @@ routes:
       - HEAD
       - OPTIONS
 
-  # Public file upload — storage-service only
+  # Public file upload — storage-service only.
+  # Exempt from rate-limiting: chunked uploads send one request per chunk.
+  # GET is required for resumable.js chunk existence tests (testChunks).
   - name: storage-upload
     service: storage-uploads
     paths:
@@ -173,18 +175,9 @@ routes:
       - http
       - https
     methods:
+      - GET
       - POST
       - OPTIONS
-    plugins:
-      - name: rate-limiting
-        config:
-          minute: 30
-          policy: redis
-          redis:
-            host: redis
-            port: 6379
-            ssl: false
-            ssl_verify: false
 
   # Calendar API
   - name: calendar-api
@@ -452,6 +445,7 @@ routes:
     paths:
       - /api/auth
       - /api/account
+      - /api/mobile
       - /api/wallet
       - /api/wallets
       - /api/users

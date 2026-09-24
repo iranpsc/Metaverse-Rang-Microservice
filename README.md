@@ -90,6 +90,8 @@ make dev
 make ps
 curl http://localhost:8000
 curl http://localhost:3002/health
+# Mailpit (dev email UI) — started by make dev / make dev-up
+curl http://localhost:8025
 ```
 
 ## Configuration
@@ -97,17 +99,24 @@ curl http://localhost:3002/health
 Each service loads from `config.env` in its directory. Copy `config.env.sample` → `config.env` and set:
 
 - **Database**: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_DATABASE`
+- **Timezone**: `TZ` (default `Asia/Tehran` in Docker Compose so MySQL `NOW()` / `created_at` match local time)
 - **OAuth** (auth-service): `OAUTH_SERVER_URL`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`
 - **SMS** (auth, notifications): `KAVENEGAR_API_KEY`
+- **Email** (notifications): local `make dev` uses Mailpit (`http://localhost:8025`); production needs real `SMTP_*`
 - **Parsian** (commercial, financial): `PARSIAN_MERCHANT_ID`, `PARSIAN_PIN`, etc.
 - **FTP** (storage): `FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`, `FTP_BASE_URL`
 
 Docker Compose injects `config.env` via `env_file`; the `environment` section overrides DB_HOST/DB_PORT for container networking.
+`make dev` / `make dev-up` also load `docker-compose.dev.yml` (Mailpit + SMTP overrides for notifications-service).
 
 ## Common Commands
 
 ```bash
-make dev              # Start full dev environment
+make dev              # Start full dev environment (Compose migrate job + Mailpit)
+make up               # Start stack (force-recreate migrate, then apps)
+make restart          # migrate → restart
+make migrate          # docker compose run --rm migrate
+docker compose up -d  # apps wait for migrate service (no Make)
 make ps               # Check service status
 make logs             # View all logs
 make logs-service SERVICE=auth-service   # Service-specific logs
@@ -124,9 +133,10 @@ make kong-reload      # Reload Kong
 ## Local Development (Without Docker)
 
 1. **Database & Redis**: Start MySQL 8 and Redis locally
-2. **Schema**: `mysql -u root -p metarang_db < scripts/schema.sql`
-3. **Config**: Copy `config.env.sample` → `config.env` per service
-4. **Run services** in separate terminals:
+2. **Schema**: `mysql -u root -p metarang_db < scripts/schema.sql` then `make migrate-baseline` (or `make migrate` on an older DB)
+3. **Migrations**: `make migrate` after pulling new SQL files under `scripts/migrations`
+4. **Config**: Copy `config.env.sample` → `config.env` per service
+5. **Run services** in separate terminals:
 
 ```bash
 cd services/auth-service && go run cmd/server/main.go
@@ -173,6 +183,37 @@ Shared schema in `scripts/schema.sql`. Notes: `transactions.id` is VARCHAR; `fea
 
 Schema dumps and existing databases are updated with Laravel-style SQL files in `scripts/migrations`. Applied files are recorded in the `migrations` table (`migration` + `batch`), same as Laravel.
 
+#### Automatic (Docker Compose, no Make required)
+
+A one-shot `migrate` service runs pending SQL before any DB-backed app starts:
+
+```bash
+docker compose up -d --force-recreate migrate   # MySQL + migrate job
+docker compose up -d                            # apps wait until migrate exits 0
+```
+
+Or simply `docker compose up -d` on a fresh stack (migrate runs once). After pulling new migration files, recreate the job:
+
+```bash
+docker compose up -d --force-recreate --no-deps migrate
+# or
+docker compose run --rm migrate
+```
+
+Skip: `SKIP_MIGRATE=1 docker compose up -d --force-recreate migrate`  
+Production: set `APP_ENV=production` and `MIGRATE_FORCE=1` (or the entrypoint adds `-force` when `APP_ENV=production`).
+
+#### Make wrappers
+
+```bash
+make up          # force-recreate migrate → start stack
+make dev         # schema import if empty → migrate → start services
+make restart     # migrate → restart services
+make migrate     # docker compose run --rm migrate (or USE_HOST_MIGRATE=1)
+```
+
+Skip auto-migrate: `make up AUTO_MIGRATE=0`. Host CLI: `make migrate USE_HOST_MIGRATE=1`.
+
 ```bash
 make migrate-make NAME=add_foo_to_bar   # create stub
 make migrate                            # run pending files
@@ -183,7 +224,11 @@ make migrate-baseline                   # mark pending as ran without executing 
 
 Each file uses `-- migrate:up` / `-- migrate:down`. After `make import-schema`, pending files are baselined so historical ALTERs are not replayed on a dump that already contains those columns. For an older database, skip baseline and run `make migrate`.
 
-DB connection: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_DATABASE` (Make defaults match Docker MySQL). Or: `go run ./shared/cmd/migrate help`.
+DB connection: Compose migrate uses root (`MIGRATE_DB_USER` / `MIGRATE_DB_PASSWORD`, defaulting to `MYSQL_ROOT_PASSWORD`). Host mode uses `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_DATABASE`. Or: `go run ./shared/cmd/migrate help`.
+
+#### Production note
+
+Prefer the same migrate image as a release Job / pipeline step before rolling out services. Compose `depends_on: migrate` is for local/Dokploy Compose stacks; Kubernetes should use a Job (or Helm hook), not migrate-on-boot in every pod.
 
 ## API Compatibility
 

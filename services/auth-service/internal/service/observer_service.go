@@ -122,20 +122,31 @@ func (s *observerService) sendLoggedInNotification(ctx context.Context, user *mo
 	notifyCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	_, err := s.notificationClient.SendNotification(notifyCtx, &notificationspb.SendNotificationRequest{
+	now := time.Now()
+	req := &notificationspb.SendNotificationRequest{
 		UserId:  user.ID,
 		Type:    "login",
 		Title:   "ورود به حساب کاربری",
 		Message: "شما با موفقیت وارد حساب کاربری خود شدید.",
 		Data: map[string]string{
 			"ip":           ip,
+			"user_code":    user.Code,
+			"login_date":   FormatJalaliDate(now),
+			"login_time":   formatJalaliTime(now),
 			"related-to":   "events",
 			"sender-name":  "متارنگ",
 			"sender-image": "uploads/img/logo.png",
 		},
 		SendSms:   sendSMS,
 		SendEmail: sendEmail,
-	})
+	}
+	// Kavenegar verifyLookup('login', $ip) — plain Message.Send is not approved for this alert.
+	if sendSMS {
+		req.SmsTemplate = "login"
+		req.SmsTokens = map[string]string{"token": ip}
+	}
+
+	_, err := s.notificationClient.SendNotification(notifyCtx, req)
 	if err != nil {
 		return fmt.Errorf("notification service: %w", err)
 	}

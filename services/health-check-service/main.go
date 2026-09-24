@@ -180,11 +180,9 @@ var servicePortMap = map[string]string{
 
 func main() {
 	configPaths := []string{
+		"services/health-check-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
-		"../../config.env",
-		"services/health-check-service/config.env",
 	}
 	for _, p := range configPaths {
 		if err := godotenv.Load(p); err == nil {
@@ -247,7 +245,7 @@ func initDBConnection() {
 	dbPassword := getEnv("DB_PASSWORD", "metarang_password")
 	dbName := getEnv("DB_DATABASE", "metarang_db")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=2s",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=2s&loc=Local",
 		dbUser, dbPassword, dbHost, dbPort, dbName)
 
 	var err error
@@ -285,7 +283,7 @@ func initServiceDBConnections() {
 	}
 
 	for _, serviceName := range services {
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=2s&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=2s&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 			dbUser, dbPassword, dbHost, dbPort, dbName)
 
 		db, err := sql.Open("mysql", dsn)
@@ -600,7 +598,7 @@ func ensureServiceDBConnection(serviceName string) {
 	dbPassword := getEnv("DB_PASSWORD", "metarang_password")
 	dbName := getEnv("DB_DATABASE", "metarang_db")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=2s&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=2s&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 		dbUser, dbPassword, dbHost, dbPort, dbName)
 
 	db, err := sql.Open("mysql", dsn)

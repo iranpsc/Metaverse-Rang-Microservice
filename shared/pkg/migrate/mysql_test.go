@@ -84,7 +84,7 @@ func openTestMySQL(t *testing.T) *sql.DB {
 	user := getenv("DB_USER", "root")
 	pass := getenv("DB_PASSWORD", "root_password")
 	name := getenv("DB_DATABASE", "metarang_test")
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci", user, pass, host, port, name)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local", user, pass, host, port, name)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil

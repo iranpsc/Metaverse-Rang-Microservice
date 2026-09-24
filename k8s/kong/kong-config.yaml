@@ -10,6 +10,7 @@ services:
         paths:
           - /api/auth
           - /api/account
+          - /api/mobile
           - /api/wallet
           - /api/wallets
           - /api/users
@@ -168,16 +169,12 @@ services:
         paths:
           - /api/upload
         methods:
+          - GET
           - POST
           - OPTIONS
         strip_path: false
         plugins:
           - name: cors
-          - name: rate-limiting
-            config:
-              minute: 30
-              hour: 500
-              policy: local
 
   # Prometheus metrics (required for Grafana golden signals / API traffic dashboards)
   - name: prometheus

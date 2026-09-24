@@ -112,3 +112,33 @@ func TestTradeRepository_GetTimeRemaining(t *testing.T) {
 	assert.Equal(t, 23, h)
 	assert.GreaterOrEqual(t, m, 0)
 }
+
+func TestTradeRepository_ListByFeatureWithDetails(t *testing.T) {
+	db, mock := testutil.NewSQLMock(t)
+	repo := repository.NewTradeRepository(db)
+	now := time.Now()
+
+	mock.ExpectQuery("FROM trades t").
+		WithArgs(uint64(10)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "feature_id", "buyer_id", "seller_id", "irr_amount", "psc_amount",
+			"date", "created_at", "buyer_code", "buyer_name",
+		}).AddRow(287, 10, 491, 1, 0.0, 0.0, now, now, "hm-2000491", "Parsa"))
+
+	mock.ExpectQuery("FROM transactions").
+		WithArgs(`App\Models\Trade`, uint64(287)).
+		WillReturnRows(sqlmock.NewRows([]string{"payable_id", "asset", "amount", "action"}).
+			AddRow(287, "red", 1250.0, "withdraw"))
+
+	trades, err := repo.ListByFeatureWithDetails(context.Background(), 10)
+	require.NoError(t, err)
+	require.Len(t, trades, 1)
+	assert.Equal(t, uint64(287), trades[0].ID)
+	assert.Equal(t, "hm-2000491", trades[0].BuyerCode)
+	assert.Equal(t, "Parsa", trades[0].BuyerName)
+	require.Len(t, trades[0].Transactions, 1)
+	assert.Equal(t, "red", trades[0].Transactions[0].Asset)
+	assert.Equal(t, 1250.0, trades[0].Transactions[0].Amount)
+	assert.Equal(t, "withdraw", trades[0].Transactions[0].Action)
+	require.NoError(t, mock.ExpectationsWereMet())
+}

@@ -6,20 +6,29 @@ import (
 
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/repository"
+	levelspb "metarang/shared/pb/levels"
 )
 
 type FamilyService struct {
 	familyRepo  *repository.FamilyRepository
 	dynastyRepo *repository.DynastyRepository
+	levels      userLevelPort
+}
+
+// userLevelPort fetches a user's latest achieved level from levels-service.
+type userLevelPort interface {
+	GetUserLevel(ctx context.Context, userID uint64) (*levelspb.UserLevelResponse, error)
 }
 
 func NewFamilyService(
 	familyRepo *repository.FamilyRepository,
 	dynastyRepo *repository.DynastyRepository,
+	levels userLevelPort,
 ) *FamilyService {
 	return &FamilyService{
 		familyRepo:  familyRepo,
 		dynastyRepo: dynastyRepo,
+		levels:      levels,
 	}
 }
 
@@ -60,7 +69,23 @@ func (s *FamilyService) GetFamilyMembers(ctx context.Context, familyID uint64, p
 	return s.familyRepo.GetFamilyMembers(ctx, familyID, page, perPage)
 }
 
-// GetUserBasicInfo retrieves basic user information
+// GetUserBasicInfo retrieves basic user information, including the latest achieved level.
 func (s *FamilyService) GetUserBasicInfo(ctx context.Context, userID uint64) (*models.UserBasic, error) {
-	return s.familyRepo.GetUserBasicInfo(ctx, userID)
+	user, err := s.familyRepo.GetUserBasicInfo(ctx, userID)
+	if err != nil || user == nil {
+		return user, err
+	}
+	user.Level = s.latestLevelName(ctx, userID)
+	return user, nil
+}
+
+func (s *FamilyService) latestLevelName(ctx context.Context, userID uint64) string {
+	if s.levels == nil {
+		return ""
+	}
+	resp, err := s.levels.GetUserLevel(ctx, userID)
+	if err != nil || resp == nil || resp.LatestLevel == nil {
+		return ""
+	}
+	return resp.LatestLevel.Name
 }

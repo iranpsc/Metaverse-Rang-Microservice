@@ -22,10 +22,12 @@ var tehranLocation = func() *time.Location {
 
 const sadadHost = "https://sadad.shaparak.ir"
 
+// Production URLs match Sadad VPG Help v1.10 (no /VPG prefix).
+// BankTest sandbox still uses /VPG/ paths.
 const (
-	productionVerifyURL         = sadadHost + "/VPG/api/v0/Advice/Verify"
-	productionGatewayURL        = sadadHost + "/VPG/Purchase"
-	productionPaymentRequestURL = sadadHost + "/VPG/api/v0/Request/PaymentRequest"
+	productionVerifyURL         = sadadHost + "/api/v0/Advice/Verify"
+	productionGatewayURL        = sadadHost + "/Purchase"
+	productionPaymentRequestURL = sadadHost + "/api/v0/Request/PaymentRequest"
 )
 
 const banktestSandboxHost = "https://sandbox.banktest.ir/melli/sadad.shaparak.ir"
@@ -92,12 +94,15 @@ func NewClientWithEndpoints(endpoints Endpoints) *Client {
 }
 
 // MultiplexingRow is a single IBAN allocation in MultiplexingData.
+// IbanNumber is the registered Sheba (with IR) or Sadad account row index.
+// Value is a percentage (Type=Percentage) or amount in Rials (Type=Amount).
 type MultiplexingRow struct {
 	IbanNumber string `json:"IbanNumber"`
-	Value      int    `json:"Value"`
+	Value      int64  `json:"Value"`
 }
 
 // MultiplexingData routes settlement across IBANs (percentage or amount split).
+// Official Type values: "Percentage" | "Amount".
 type MultiplexingData struct {
 	Type             string            `json:"Type"`
 	MultiplexingRows []MultiplexingRow `json:"MultiplexingRows"`
@@ -130,12 +135,16 @@ type VerificationParams struct {
 }
 
 // VerificationResponse is the response from Sadad verification.
+// Fields match the documented Verify output (VPG Help v1.10, section 6.6).
 type VerificationResponse struct {
-	ResCode          string
-	SystemTraceNo    string
-	RetrivalRefNo    string
-	CardNumberMasked string
-	Description      string
+	ResCode            string
+	Amount             int64
+	SystemTraceNo      string
+	RetrivalRefNo      string
+	Description        string
+	OrderID            int64
+	TransactionDate    string
+	CardHolderFullName string
 }
 
 type multiplexedPaymentRequestBody struct {
@@ -170,12 +179,16 @@ type verifyRequestBody struct {
 	SignData string `json:"SignData"`
 }
 
+// verifyAPIResponse mirrors the documented Verify JSON response (VPG Help v1.10, section 6.6).
 type verifyAPIResponse struct {
-	ResCode          json.RawMessage `json:"ResCode"`
-	SystemTraceNo    string          `json:"SystemTraceNo"`
-	RetrivalRefNo    string          `json:"RetrivalRefNo"`
-	CardNumberMasked string          `json:"CardNumberMasked"`
-	Description      string          `json:"Description"`
+	ResCode            json.RawMessage `json:"ResCode"`
+	Amount             int64           `json:"Amount"`
+	SystemTraceNo      string          `json:"SystemTraceNo"`
+	RetrivalRefNo      string          `json:"RetrivalRefNo"`
+	Description        string          `json:"Description"`
+	OrderID            int64           `json:"OrderId"`
+	TransactionDate    string          `json:"TransactionDate"`
+	CardHolderFullName string          `json:"CardHolderFullName"`
 }
 
 // RequestPayment initiates a payment request and returns a token.
@@ -301,6 +314,12 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 	if err != nil {
 		return nil, fmt.Errorf("failed to read verification response: %w", err)
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("sadad verify returned HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+	if len(respBody) == 0 {
+		return nil, fmt.Errorf("sadad verify returned empty response body")
+	}
 
 	var apiResp verifyAPIResponse
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {
@@ -308,11 +327,14 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 	}
 
 	return &VerificationResponse{
-		ResCode:          parseResCode(apiResp.ResCode),
-		SystemTraceNo:    apiResp.SystemTraceNo,
-		RetrivalRefNo:    apiResp.RetrivalRefNo,
-		CardNumberMasked: apiResp.CardNumberMasked,
-		Description:      apiResp.Description,
+		ResCode:            parseResCode(apiResp.ResCode),
+		Amount:             apiResp.Amount,
+		SystemTraceNo:      apiResp.SystemTraceNo,
+		RetrivalRefNo:      apiResp.RetrivalRefNo,
+		Description:        apiResp.Description,
+		OrderID:            apiResp.OrderID,
+		TransactionDate:    apiResp.TransactionDate,
+		CardHolderFullName: apiResp.CardHolderFullName,
 	}, nil
 }
 
@@ -335,8 +357,11 @@ func (r *RequestResponse) Error() *SadadError {
 }
 
 // Success checks if the verification response indicates success.
+// Per Sadad VPG Help v1.10 section 7.2 (Verify ResCode table):
+//   - ResCode "0"  → transaction successful  → final success
+//   - ResCode "10" → duplicate request (already registered successfully) → also final success
 func (v *VerificationResponse) Success() bool {
-	return isSuccessResCode(v.ResCode) && v.RetrivalRefNo != ""
+	return v.ResCode == "0" || v.ResCode == "10"
 }
 
 // Error returns error information for the verification.
@@ -346,9 +371,9 @@ func (v *VerificationResponse) Error() *SadadError {
 
 // generateSignData encrypts request fields using 3DES per Sadad/Shaparak gateway specification.
 func generateSignData(data, base64Key string) (string, error) {
-	key, err := base64.StdEncoding.DecodeString(base64Key)
+	key, err := prepareTripleDESKey(base64Key)
 	if err != nil {
-		return "", fmt.Errorf("invalid transaction key: %w", err)
+		return "", err
 	}
 
 	// Sadad mandates Triple-DES for SignData; cannot substitute a different algorithm.
@@ -367,6 +392,26 @@ func generateSignData(data, base64Key string) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(encrypted), nil
+}
+
+// prepareTripleDESKey decodes the merchant key and expands 16-byte keys to 24 bytes
+// (K1||K2||K1), matching Sadad/OpenSSL DES-EDE3 and the Laravel Crypto::prepareKey.
+func prepareTripleDESKey(base64Key string) ([]byte, error) {
+	key, err := base64.StdEncoding.DecodeString(base64Key)
+	if err != nil {
+		return nil, fmt.Errorf("invalid transaction key: %w", err)
+	}
+	switch len(key) {
+	case 16:
+		expanded := make([]byte, 24)
+		copy(expanded, key)
+		copy(expanded[16:], key[:8])
+		return expanded, nil
+	case 24:
+		return key, nil
+	default:
+		return nil, fmt.Errorf("invalid transaction key length: got %d bytes, want 16 or 24", len(key))
+	}
 }
 
 func pkcs7Pad(data []byte, blockSize int) []byte {
@@ -398,22 +443,35 @@ func isSuccessResCode(code string) bool {
 }
 
 func validateMultiplexingData(data *MultiplexingData) error {
-	if data.Type == "" {
+	switch data.Type {
+	case "Percentage", "Amount":
+	case "":
 		return fmt.Errorf("multiplexing type is required")
+	default:
+		return fmt.Errorf("multiplexing type must be Percentage or Amount, got %q", data.Type)
 	}
 	if len(data.MultiplexingRows) == 0 {
 		return fmt.Errorf("multiplexing rows are required")
 	}
+
+	var sum int64
 	for i, row := range data.MultiplexingRows {
 		if row.IbanNumber == "" {
 			return fmt.Errorf("multiplexing row %d: iban number is required", i)
 		}
+		if row.Value <= 0 {
+			return fmt.Errorf("multiplexing row %d: value must be positive (zero rows are rejected by Sadad)", i)
+		}
+		sum += row.Value
+	}
+	if data.Type == "Percentage" && sum != 100 {
+		return fmt.Errorf("percentage multiplexing rows must sum to 100, got %d", sum)
 	}
 	return nil
 }
 
 // sadadLocalDateTime returns the timestamp Sadad expects (Iran local time).
-// Matches shetabit/multipay Sadad driver format: m/d/Y g:i:s a
+// Matches shetabit/multipay and Laravel format: m/d/Y g:i:s a (zero-padded month/day).
 func sadadLocalDateTime() string {
-	return time.Now().In(tehranLocation).Format("1/2/2006 3:04:05 pm")
+	return time.Now().In(tehranLocation).Format("01/02/2006 3:04:05 pm")
 }

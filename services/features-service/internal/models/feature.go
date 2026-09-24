@@ -50,18 +50,18 @@ type Trade struct {
 
 // BuyFeatureRequest represents buy_feature_requests table
 type BuyFeatureRequest struct {
-	ID                   uint64       `db:"id"`
-	BuyerID              uint64       `db:"buyer_id"`
-	SellerID             uint64       `db:"seller_id"`
-	FeatureID            uint64       `db:"feature_id"`
-	Note                 string       `db:"note"`
-	PricePSC             float64      `db:"price_psc"`
-	PriceIRR             float64      `db:"price_irr"`
-	Status               int          `db:"status"`
-	RequestedGracePeriod sql.NullTime `db:"requested_grace_period"`
-	DeletedAt            sql.NullTime `db:"deleted_at"` // Soft delete
-	CreatedAt            time.Time    `db:"created_at"`
-	UpdatedAt            time.Time    `db:"updated_at"`
+	ID                   uint64           `db:"id"`
+	BuyerID              uint64           `db:"buyer_id"`
+	SellerID             uint64           `db:"seller_id"`
+	FeatureID            uint64           `db:"feature_id"`
+	Note                 string           `db:"note"`
+	PricePSC             float64          `db:"price_psc"`
+	PriceIRR             float64          `db:"price_irr"`
+	Status               int              `db:"status"`
+	RequestedGracePeriod NullableDateTime `db:"requested_grace_period"`
+	DeletedAt            sql.NullTime     `db:"deleted_at"` // Soft delete
+	CreatedAt            time.Time        `db:"created_at"`
+	UpdatedAt            time.Time        `db:"updated_at"`
 }
 
 // SellFeatureRequest represents sell_feature_requests table
@@ -77,9 +77,10 @@ type SellFeatureRequest struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-// LockedAsset represents locked_wallets/locked_assets table
+// LockedAsset represents locked_assets table
 type LockedAsset struct {
 	ID                  uint64    `db:"id"`
+	UserID              uint64    `db:"user_id"`
 	BuyFeatureRequestID uint64    `db:"buy_feature_request_id"`
 	FeatureID           uint64    `db:"feature_id"`
 	PSC                 float64   `db:"psc"`

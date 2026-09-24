@@ -34,17 +34,23 @@ func NewFeaturePricingService(
 	}
 }
 
+// FeaturePricingUpdate holds the recalculated base prices after applying minimum_price_percentage.
+type FeaturePricingUpdate struct {
+	PricePSC string
+	PriceIRR string
+}
+
 // UpdateFeaturePricing updates feature pricing based on minimum_price_percentage
-func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featureID, userID uint64, minimumPricePercentage int) error {
+func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featureID, userID uint64, minimumPricePercentage int) (*FeaturePricingUpdate, error) {
 	// Load feature
 	feature, properties, err := s.featureRepo.FindByID(ctx, featureID)
 	if err != nil {
-		return fmt.Errorf("feature not found: %w", err)
+		return nil, fmt.Errorf("feature not found: %w", err)
 	}
 
 	// Verify ownership
 	if feature.OwnerID != userID {
-		return fmt.Errorf("unauthorized: not the owner")
+		return nil, fmt.Errorf("unauthorized: not the owner")
 	}
 
 	// Check if user is under 18
@@ -63,7 +69,7 @@ func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featur
 	}
 
 	if minimumPricePercentage < minAllowed {
-		return fmt.Errorf("حداقل درصد قیمت مجاز برای شما %d%% می\u200cباشد", minAllowed)
+		return nil, fmt.Errorf("حداقل درصد قیمت مجاز برای شما %d%% می\u200cباشد", minAllowed)
 	}
 
 	// Calculate pricing
@@ -87,7 +93,7 @@ func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featur
 
 	// Update properties
 	if err := s.propertiesRepo.UpdatePricing(ctx, featureID, pricePSCStr, priceIRRStr, minimumPricePercentage); err != nil {
-		return fmt.Errorf("failed to update pricing: %w", err)
+		return nil, fmt.Errorf("failed to update pricing: %w", err)
 	}
 
 	s.log.Info("Feature pricing updated",
@@ -97,7 +103,10 @@ func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featur
 		"price_irr", priceIRRStr,
 	)
 
-	return nil
+	return &FeaturePricingUpdate{
+		PricePSC: pricePSCStr,
+		PriceIRR: priceIRRStr,
+	}, nil
 }
 
 // UpdateFeatureLabel updates the label field of a feature

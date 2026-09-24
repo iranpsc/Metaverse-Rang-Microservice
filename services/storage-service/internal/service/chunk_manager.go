@@ -50,6 +50,26 @@ func NewChunkManager(baseTempDir string) (*ChunkManager, error) {
 	return cm, nil
 }
 
+// GetSession returns an existing upload session, if any.
+func (cm *ChunkManager) GetSession(uploadID string) (*ChunkSession, bool) {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	session, exists := cm.sessions[uploadID]
+	return session, exists
+}
+
+// HasChunk reports whether a chunk has already been received for the session.
+func (cm *ChunkManager) HasChunk(uploadID string, chunkIndex int32) bool {
+	session, exists := cm.GetSession(uploadID)
+	if !exists {
+		return false
+	}
+
+	session.mu.RLock()
+	defer session.mu.RUnlock()
+	return session.ReceivedChunks[chunkIndex]
+}
+
 // GetOrCreateSession gets an existing session or creates a new one
 func (cm *ChunkManager) GetOrCreateSession(uploadID, filename, contentType string, totalChunks int32, totalSize int64, uploadPath string) (*ChunkSession, error) {
 	cm.mu.Lock()
@@ -134,7 +154,7 @@ func (cm *ChunkManager) IsComplete(session *ChunkSession) bool {
 }
 
 // AssembleFile assembles all chunks into a single file
-// Returns: assembledData, relativePath (like "uploads/{mime}/{YYYY-MM-DD}/{filename}"), finalFilename, error
+// Returns: assembledData, relativePath (like "{mime}/{YYYY-MM-DD}/{filename}"), finalFilename, error
 func (cm *ChunkManager) AssembleFile(session *ChunkSession) ([]byte, string, string, error) {
 	session.mu.RLock()
 	defer session.mu.RUnlock()
@@ -172,8 +192,8 @@ func (cm *ChunkManager) AssembleFile(session *ChunkSession) ([]byte, string, str
 	if session.UploadPath != "" {
 		relativePath = filepath.Join(session.UploadPath, uniqueFilename)
 	} else {
-		// Format: uploads/{mime}/{YYYY-MM-DD}/{filename}
-		relativePath = filepath.Join("uploads", mimeDir, dateFolder, uniqueFilename)
+		// Disk layout under uploadBaseDir (already the uploads root): {mime}/{YYYY-MM-DD}/{filename}
+		relativePath = filepath.Join(mimeDir, dateFolder, uniqueFilename)
 	}
 
 	return assembledData, relativePath, uniqueFilename, nil

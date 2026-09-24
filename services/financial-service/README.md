@@ -34,7 +34,7 @@ Creates an order and returns a Sadad payment URL.
 **Response:**
 ```json
 {
-  "link": "https://sadad.shaparak.ir/VPG/Purchase?Token=..."
+  "link": "https://sadad.shaparak.ir/Purchase?Token=..."
 }
 ```
 

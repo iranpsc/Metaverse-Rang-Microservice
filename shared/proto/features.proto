@@ -19,7 +19,7 @@ service FeatureService {
   rpc GetMyFeature(GetMyFeatureRequest) returns (FeatureResponse);
   rpc AddMyFeatureImages(AddMyFeatureImagesRequest) returns (FeatureResponse);
   rpc RemoveMyFeatureImage(RemoveMyFeatureImageRequest) returns (google.protobuf.Empty);
-  rpc UpdateMyFeature(UpdateMyFeatureRequest) returns (google.protobuf.Empty);
+  rpc UpdateMyFeature(UpdateMyFeatureRequest) returns (UpdateMyFeatureResponse);
   // Trade history for a feature (owner-only)
   rpc GetFeatureTradeHistory(GetFeatureTradeHistoryRequest) returns (GetFeatureTradeHistoryResponse);
 }
@@ -31,6 +31,7 @@ service FeatureMarketplaceService {
   rpc AcceptBuyRequest(AcceptBuyRequestRequest) returns (BuyRequestResponse);
   rpc CreateSellRequest(CreateSellRequestRequest) returns (SellRequestResponse);
   rpc ListSellRequests(ListSellRequestsRequest) returns (SellRequestsResponse);
+  rpc ListFeatureSellRequests(ListFeatureSellRequestsRequest) returns (SellRequestsResponse);
   rpc DeleteSellRequest(DeleteSellRequestRequest) returns (google.protobuf.Empty);
   rpc RequestGracePeriod(RequestGracePeriodRequest) returns (GracePeriodResponse);
   rpc ListBuyRequests(ListBuyRequestsRequest) returns (BuyRequestsResponse);
@@ -113,6 +114,11 @@ message UpdateMyFeatureRequest {
   int32 minimum_price_percentage = 3; // Required, min:80 (min:110 if user is under 18)
 }
 
+message UpdateMyFeatureResponse {
+  string price_psc = 1; // Recalculated PSC price after applying minimum_price_percentage
+  string price_irr = 2; // Recalculated IRR price after applying minimum_price_percentage
+}
+
 // Feature trade history (GET /api/features/{feature}/trade-history)
 message GetFeatureTradeHistoryRequest {
   uint64 feature_id = 1;
@@ -187,6 +193,9 @@ message Feature {
   Seller seller = 9; // Latest seller from trade
   bool is_hourly_profit_active = 10;
   repeated Building building_models = 11; // Building models with pivot metadata
+  // 1 when the latest sell request is open (status=0), otherwise 0 (status=1 or none).
+  int32 is_for_sale = 12 [json_name = "is-for-sale"];
+  SellRequestResponse latest_sell_request = 13 [json_name = "latest-sell-request"];
 }
 
 message Seller {
@@ -322,6 +331,10 @@ message CreateSellRequestRequest {
 
 message ListSellRequestsRequest {
   uint64 seller_id = 1; // Required - authenticated seller
+}
+
+message ListFeatureSellRequestsRequest {
+  uint64 feature_id = 1; // Required - feature whose sell requests to list
 }
 
 message DeleteSellRequestRequest {

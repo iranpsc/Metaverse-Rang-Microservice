@@ -1,8 +1,7 @@
 package handler
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -10,7 +9,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// fileStorageUploader delegates binary uploads to storage-service.
+// Support-service must never persist attachment bytes locally.
+type fileStorageUploader interface {
+	UploadChunk(ctx context.Context, uploadID, uploadPath, filename, contentType string, data []byte) (relativePath string, err error)
+}
 
 const maxTicketAttachmentSize = 5 << 20
 
@@ -19,9 +25,9 @@ var allowedTicketAttachmentExts = map[string]bool{
 	".pdf": true, ".doc": true, ".docx": true,
 }
 
-// uploadTicketAttachment stores a ticket attachment via the storage service HTTP API.
-func uploadTicketAttachment(r *http.Request, storageAddr, appURL string) (string, error) {
-	if storageAddr == "" {
+// uploadTicketAttachment stores a ticket attachment via storage-service.
+func uploadTicketAttachment(r *http.Request, storage fileStorageUploader, appURL string) (string, error) {
+	if storage == nil {
 		return "", fmt.Errorf("storage service not configured")
 	}
 
@@ -56,72 +62,53 @@ func uploadTicketAttachment(r *http.Request, storageAddr, appURL string) (string
 		contentType = "application/octet-stream"
 	}
 
-	return uploadBytesToStorage(storageAddr, appURL, "tickets", header.Filename, contentType, data)
+	return uploadBytesToStorage(r.Context(), storage, appURL, "tickets", header.Filename, contentType, data)
 }
 
-func uploadBytesToStorage(storageAddr, appURL, uploadSubdir, filename, contentType string, data []byte) (string, error) {
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
+func prependPublicURL(appURL, path string) string {
+	if path == "" {
+		return path
+	}
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		return path
+	}
+	if appURL == "" {
+		return path
+	}
+	return strings.TrimRight(appURL, "/") + "/" + strings.TrimLeft(path, "/")
+}
 
-	part, err := writer.CreateFormFile("file", filename)
+// relativeDBPath strips a leading "uploads/" so report image rows store paths
+// like "reports/<hash>.png" (formatReportResponse prefixes APP_URL/uploads/).
+func relativeDBPath(storagePath string) string {
+	p := strings.ReplaceAll(storagePath, "\\", "/")
+	p = strings.TrimPrefix(p, "/")
+	p = strings.TrimPrefix(p, "uploads/")
+	return strings.TrimPrefix(p, "/")
+}
+
+func uploadBytesToStorage(ctx context.Context, storage fileStorageUploader, appURL, uploadSubdir, filename, contentType string, data []byte) (string, error) {
+	if storage == nil {
+		return "", fmt.Errorf("storage service not configured")
+	}
+	uploadID := fmt.Sprintf("support_%s_%d", uploadSubdir, time.Now().UnixNano())
+	path, err := storage.UploadChunk(ctx, uploadID, "/uploads/"+uploadSubdir, filename, contentType, data)
 	if err != nil {
 		return "", err
 	}
-	if _, err := part.Write(data); err != nil {
-		return "", err
-	}
+	return prependPublicURL(appURL, path), nil
+}
 
-	_ = writer.WriteField("upload_path", "/uploads/"+uploadSubdir)
-	_ = writer.WriteField("chunk_index", "0")
-	_ = writer.WriteField("total_chunks", "1")
-	_ = writer.WriteField("total_size", strconv.FormatInt(int64(len(data)), 10))
-	_ = writer.WriteField("filename", filename)
-	_ = writer.WriteField("content_type", contentType)
-	if err := writer.Close(); err != nil {
-		return "", err
+func uploadBytesToStorageWithRelativePath(ctx context.Context, storage fileStorageUploader, appURL, uploadSubdir, filename, contentType string, data []byte) (fullURL, relativePath string, err error) {
+	if storage == nil {
+		return "", "", fmt.Errorf("storage service not configured")
 	}
-
-	req, err := http.NewRequest(http.MethodPost, "http://"+storageAddr+"/api/upload", &body)
+	uploadID := fmt.Sprintf("support_%s_%d", uploadSubdir, time.Now().UnixNano())
+	path, err := storage.UploadChunk(ctx, uploadID, "/uploads/"+uploadSubdir, filename, contentType, data)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("storage upload failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("storage upload failed with status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var result struct {
-		Path    string  `json:"path"`
-		Name    string  `json:"name"`
-		Done    float64 `json:"done"`
-		Success bool    `json:"success"`
-		Error   string  `json:"error"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return "", fmt.Errorf("invalid storage response: %w", err)
-	}
-	if result.Name == "" {
-		return "", fmt.Errorf("storage upload did not return file path")
-	}
-
-	base := strings.TrimRight(appURL, "/")
-	dir := strings.TrimLeft(result.Path, "/")
-	if dir != "" && !strings.HasSuffix(dir, "/") {
-		dir += "/"
-	}
-	return base + "/" + dir + result.Name, nil
+	return prependPublicURL(appURL, path), relativeDBPath(path), nil
 }
 
 // parseTicketFormFields extracts ticket form fields from multipart or urlencoded bodies.
@@ -194,7 +181,7 @@ func parseNoteFormFields(r *http.Request) (title, content string, err error) {
 
 // resolveNoteAttachmentURL handles note file uploads from multipart form.
 // Returns attachmentURL, clearAttachment, and error.
-func resolveNoteAttachmentURL(r *http.Request, storageAddr, appURL string) (string, bool, error) {
+func resolveNoteAttachmentURL(r *http.Request, storage fileStorageUploader, appURL string) (string, bool, error) {
 	contentType := r.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
 		return "", false, nil
@@ -210,7 +197,10 @@ func resolveNoteAttachmentURL(r *http.Request, storageAddr, appURL string) (stri
 		if headers == nil {
 			continue
 		}
-		url, err := uploadMultipartFileHeader(storageAddr, appURL, "notes", headers)
+		if storage == nil {
+			return "", false, fmt.Errorf("storage service not configured")
+		}
+		url, err := uploadMultipartFileHeader(r.Context(), storage, appURL, "notes", headers)
 		if err != nil {
 			return "", false, err
 		}
@@ -219,7 +209,10 @@ func resolveNoteAttachmentURL(r *http.Request, storageAddr, appURL string) (stri
 
 	if file, header, err := r.FormFile("attachment"); err == nil && header != nil {
 		defer func() { _ = file.Close() }()
-		url, uploadErr := uploadOpenedFile(storageAddr, appURL, "notes", header.Filename, header.Header.Get("Content-Type"), file, header.Size, allowedNoteAttachmentExts, maxNoteAttachmentSize)
+		if storage == nil {
+			return "", false, fmt.Errorf("storage service not configured")
+		}
+		url, uploadErr := uploadOpenedFile(r.Context(), storage, appURL, "notes", header.Filename, header.Header.Get("Content-Type"), file, header.Size, allowedNoteAttachmentExts, maxNoteAttachmentSize)
 		if uploadErr != nil {
 			return "", false, uploadErr
 		}
@@ -245,7 +238,7 @@ func resolveNoteAttachmentURL(r *http.Request, storageAddr, appURL string) (stri
 	return "", false, nil
 }
 
-func uploadMultipartFileHeader(storageAddr, appURL, uploadSubdir string, header *multipart.FileHeader) (string, error) {
+func uploadMultipartFileHeader(ctx context.Context, storage fileStorageUploader, appURL, uploadSubdir string, header *multipart.FileHeader) (string, error) {
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !allowedNoteAttachmentExts[ext] {
 		return "", fmt.Errorf("invalid attachment type: only png, jpg, jpeg, pdf are allowed")
@@ -261,10 +254,10 @@ func uploadMultipartFileHeader(storageAddr, appURL, uploadSubdir string, header 
 	defer func() { _ = file.Close() }()
 
 	contentType := header.Header.Get("Content-Type")
-	return uploadOpenedFile(storageAddr, appURL, uploadSubdir, header.Filename, contentType, file, header.Size, allowedNoteAttachmentExts, maxNoteAttachmentSize)
+	return uploadOpenedFile(ctx, storage, appURL, uploadSubdir, header.Filename, contentType, file, header.Size, allowedNoteAttachmentExts, maxNoteAttachmentSize)
 }
 
-func uploadOpenedFile(storageAddr, appURL, uploadSubdir, filename, contentType string, file io.Reader, size int64, allowedExts map[string]bool, maxSize int64) (string, error) {
+func uploadOpenedFile(ctx context.Context, storage fileStorageUploader, appURL, uploadSubdir, filename, contentType string, file io.Reader, size int64, allowedExts map[string]bool, maxSize int64) (string, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	if !allowedExts[ext] {
 		return "", fmt.Errorf("invalid attachment type")
@@ -281,7 +274,7 @@ func uploadOpenedFile(storageAddr, appURL, uploadSubdir, filename, contentType s
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	return uploadBytesToStorage(storageAddr, appURL, uploadSubdir, filename, contentType, data)
+	return uploadBytesToStorage(ctx, storage, appURL, uploadSubdir, filename, contentType, data)
 }
 
 const maxReportAttachmentSize = 1 << 20
@@ -311,8 +304,10 @@ func parseReportFormFields(r *http.Request) (title, content, subject, url string
 	return "", "", "", "", nil
 }
 
-// uploadReportAttachments uploads report attachment files and returns relative DB paths.
-func uploadReportAttachments(r *http.Request, storageAddr, appURL string) ([]string, error) {
+// uploadReportAttachments uploads report attachment files via storage-service
+// and returns relative DB paths (e.g. "reports/<stored-name>"). ReportService
+// only wires these paths into image records — same pattern as notes.
+func uploadReportAttachments(r *http.Request, storage fileStorageUploader, appURL string) ([]string, error) {
 	contentType := r.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "multipart/form-data") {
 		return nil, nil
@@ -350,6 +345,12 @@ func uploadReportAttachments(r *http.Request, storageAddr, appURL string) ([]str
 		}
 	}
 
+	if len(headers) == 0 {
+		return nil, nil
+	}
+	if storage == nil {
+		return nil, fmt.Errorf("storage service not configured")
+	}
 	if len(headers) > 5 {
 		return nil, fmt.Errorf("attachments must not have more than 5 items")
 	}
@@ -359,7 +360,7 @@ func uploadReportAttachments(r *http.Request, storageAddr, appURL string) ([]str
 		if header == nil {
 			continue
 		}
-		relPath, err := uploadReportFileHeader(storageAddr, appURL, header)
+		relPath, err := uploadReportFileHeader(r.Context(), storage, appURL, header)
 		if err != nil {
 			return nil, err
 		}
@@ -368,7 +369,7 @@ func uploadReportAttachments(r *http.Request, storageAddr, appURL string) ([]str
 	return paths, nil
 }
 
-func uploadReportFileHeader(storageAddr, appURL string, header *multipart.FileHeader) (string, error) {
+func uploadReportFileHeader(ctx context.Context, storage fileStorageUploader, appURL string, header *multipart.FileHeader) (string, error) {
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !allowedReportAttachmentExts[ext] {
 		return "", fmt.Errorf("invalid attachment type: only png, jpg, jpeg, pdf are allowed")
@@ -396,15 +397,6 @@ func uploadReportFileHeader(storageAddr, appURL string, header *multipart.FileHe
 		contentType = "application/octet-stream"
 	}
 
-	_, relPath, err := uploadBytesToStorageWithRelativePath(storageAddr, appURL, "reports", header.Filename, contentType, data)
+	_, relPath, err := uploadBytesToStorageWithRelativePath(ctx, storage, appURL, "reports", header.Filename, contentType, data)
 	return relPath, err
-}
-
-func uploadBytesToStorageWithRelativePath(storageAddr, appURL, uploadSubdir, filename, contentType string, data []byte) (fullURL, relativePath string, err error) {
-	fullURL, err = uploadBytesToStorage(storageAddr, appURL, uploadSubdir, filename, contentType, data)
-	if err != nil {
-		return "", "", err
-	}
-	relativePath = uploadSubdir + "/" + filepath.Base(filename)
-	return fullURL, relativePath, nil
 }

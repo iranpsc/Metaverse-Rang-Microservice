@@ -52,7 +52,7 @@ func TestHTTPContract_GRPCStatusMappingAndEmptyPaths(t *testing.T) {
 			return nil, status.Error(codes.InvalidArgument, "bad")
 		},
 	}
-	h := handler.NewHTTPSupportHandler(tickets, reports, notes, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(tickets, reports, notes, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(1))
 
 	if doJSON(mux, http.MethodGet, "/api/tickets", "").Code != http.StatusUnauthorized {
@@ -85,7 +85,7 @@ func TestHTTPContract_GRPCStatusMappingAndEmptyPaths(t *testing.T) {
 }
 
 func TestHTTPContract_PathParsingAndJSONDecode(t *testing.T) {
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(1))
 
 	if doJSON(mux, http.MethodPut, "/api/tickets/abc", `{"title":"t","content":"c"}`).Code != http.StatusBadRequest {
@@ -131,7 +131,7 @@ func TestHTTPContract_PathParsingAndJSONDecode(t *testing.T) {
 func TestHTTPContract_URLEncodedCreateStillHitsJSONDecoder(t *testing.T) {
 	// Production parseTicketFormFields/parseNoteFormFields consume urlencoded bodies,
 	// then CreateTicket/CreateNote still JSON-decode the already-read body and return 400.
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(7))
 
 	form := url.Values{}
@@ -148,7 +148,7 @@ func TestHTTPContract_URLEncodedCreateStillHitsJSONDecoder(t *testing.T) {
 }
 
 func TestHTTPContract_MultipartCreateTicketStorageNotConfigured(t *testing.T) {
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, &mockNoteAPI{}, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(7))
 
 	var buf bytes.Buffer
@@ -176,7 +176,7 @@ func TestHTTPContract_NoteUpdateKeepsAttachmentsWhenMultipartHasNoFile(t *testin
 			return &pbSupport.NoteResponse{Id: req.NoteId, Title: req.Title, Content: req.Content, Attachments: req.Attachments}, nil
 		},
 	}
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, "", "http://localhost:8000")
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, nil, "http://localhost:8000")
 	mux := newSupportMux(h, withUser(4))
 
 	var buf bytes.Buffer

@@ -62,5 +62,8 @@ func handleEmailError(err error) error {
 	if errors.Is(err, errs.ErrNotImplemented) {
 		return status.Error(codes.Unimplemented, err.Error())
 	}
+	if service.IsInvalidEmailAddress(err) {
+		return status.Error(codes.InvalidArgument, "invalid email address")
+	}
 	return status.Errorf(codes.Internal, "email service error: %v", err)
 }

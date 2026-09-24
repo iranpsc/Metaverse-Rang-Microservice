@@ -93,6 +93,9 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 		if st.Code() != codes.InvalidArgument {
 			t.Errorf("Expected InvalidArgument error code, got %v", st.Code())
 		}
+		if st.Code() == codes.ResourceExhausted {
+			t.Fatal("phone required must not be mapped as rate limited")
+		}
 	})
 
 	t.Run("invalid phone format", func(t *testing.T) {
@@ -121,6 +124,9 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 		}
 		if st.Code() != codes.InvalidArgument {
 			t.Errorf("Expected InvalidArgument error code, got %v", st.Code())
+		}
+		if st.Code() == codes.ResourceExhausted {
+			t.Fatal("invalid phone format must not be mapped as rate limited")
 		}
 	})
 
@@ -151,6 +157,9 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 		if st.Code() != codes.InvalidArgument {
 			t.Errorf("Expected InvalidArgument error code, got %v", st.Code())
 		}
+		if st.Code() == codes.ResourceExhausted {
+			t.Fatal("phone already taken must not be mapped as rate limited")
+		}
 	})
 
 	t.Run("user not found", func(t *testing.T) {
@@ -179,6 +188,35 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 		}
 		if st.Code() != codes.NotFound {
 			t.Errorf("Expected NotFound error code, got %v", st.Code())
+		}
+	})
+
+	t.Run("verification request rate limited", func(t *testing.T) {
+		mockAuthService := &mockAuthService{}
+		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+			return service.ErrVerificationRequestRateLimited
+		}
+
+		tokenRepo := &mockTokenRepository{}
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+
+		req := &pb.RequestAccountSecurityRequest{
+			UserId:      1,
+			TimeMinutes: 15,
+			Phone:       "09123456789",
+		}
+
+		_, err := h.RequestAccountSecurity(ctx, req)
+		if err == nil {
+			t.Fatal("Expected error")
+		}
+
+		st, ok := status.FromError(err)
+		if !ok {
+			t.Fatal("Expected gRPC status error")
+		}
+		if st.Code() != codes.ResourceExhausted {
+			t.Errorf("Expected ResourceExhausted error code, got %v", st.Code())
 		}
 	})
 }

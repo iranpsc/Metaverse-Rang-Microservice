@@ -8,9 +8,23 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
-
-	"metarang/websocket-gateway/internal/hub"
 )
+
+// Broadcaster receives Redis pub/sub events and fans them out to Socket.IO rooms.
+type Broadcaster interface {
+	BroadcastUserStatus(data map[string]any)
+	BroadcastFeatureStatus(data map[string]any)
+	BroadcastNotification(data map[string]any)
+}
+
+// Channels the gateway listens on. Includes legacy publisher names for compatibility.
+var subscribedChannels = []string{
+	"user-status",
+	"user-status-changed",
+	"feature-status",
+	"feature-events",
+	"notifications",
+}
 
 // Subscriber listens to Redis pub/sub channels and forwards events to the hub.
 type Subscriber struct {
@@ -19,7 +33,7 @@ type Subscriber struct {
 }
 
 // NewSubscriber connects to Redis and starts forwarding events.
-func NewSubscriber(ctx context.Context, redisURL string, h *hub.Hub) (*Subscriber, error) {
+func NewSubscriber(ctx context.Context, redisURL string, h Broadcaster) (*Subscriber, error) {
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		return nil, err
@@ -29,14 +43,14 @@ func NewSubscriber(ctx context.Context, redisURL string, h *hub.Hub) (*Subscribe
 	}
 
 	client := redis.NewClient(opts)
-	pubsub := client.Subscribe(ctx, "user-status", "feature-status", "notifications")
+	pubsub := client.Subscribe(ctx, subscribedChannels...)
 
 	s := &Subscriber{client: client, pubsub: pubsub}
 	go s.forward(ctx, h)
 	return s, nil
 }
 
-func (s *Subscriber) forward(ctx context.Context, h *hub.Hub) {
+func (s *Subscriber) forward(ctx context.Context, h Broadcaster) {
 	ch := s.pubsub.Channel()
 	for {
 		select {
@@ -53,9 +67,9 @@ func (s *Subscriber) forward(ctx context.Context, h *hub.Hub) {
 			}
 
 			switch msg.Channel {
-			case "user-status":
+			case "user-status", "user-status-changed":
 				h.BroadcastUserStatus(data)
-			case "feature-status":
+			case "feature-status", "feature-events":
 				h.BroadcastFeatureStatus(data)
 			case "notifications":
 				h.BroadcastNotification(data)

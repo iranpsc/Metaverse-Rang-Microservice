@@ -3,6 +3,7 @@ package handler_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -44,6 +45,15 @@ func (routeAuthClient) RequestAccountSecurity(context.Context, *authpb.RequestAc
 	return nil, nil
 }
 func (routeAuthClient) VerifyAccountSecurity(context.Context, *authpb.VerifyAccountSecurityRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (routeAuthClient) CheckAccountSecurity(context.Context, *authpb.CheckAccountSecurityRequest, ...grpc.CallOption) (*authpb.CheckAccountSecurityResponse, error) {
+	return &authpb.CheckAccountSecurityResponse{Unlocked: true}, nil
+}
+func (routeAuthClient) SendMobileChangeCode(context.Context, *authpb.SendMobileChangeCodeRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, nil
+}
+func (routeAuthClient) VerifyMobileChange(context.Context, *authpb.VerifyMobileChangeRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, nil
 }
 
@@ -95,6 +105,7 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/build/package", "")).Code)
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodPost, "/api/features/1/build/m1", `{"launched_satisfaction":"1","rotation":"0","position":"1,2"}`)).Code)
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/build/buildings", "")).Code)
+	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/sell-requests", "")).Code)
 
 	assert.Equal(t, 200, serve(h.HandleBuyRequestsRoutes, withUserJSON(http.MethodGet, "/api/buy-requests", "")).Code)
 	assert.Equal(t, 200, serve(h.HandleBuyRequestsRoutes, withUserJSON(http.MethodGet, "/api/buy-requests/recieved", "")).Code)
@@ -109,7 +120,13 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	assert.Equal(t, 200, serve(h.HandleSellRequestsRoutes, withUserJSON(http.MethodDelete, "/api/sell-requests/8", "")).Code)
 
 	assert.Equal(t, 200, serve(h.HandleMyFeaturesRoutes, withUserJSON(http.MethodGet, "/api/my-features/2/features/1", "")).Code)
-	assert.Equal(t, 204, serve(h.HandleMyFeaturesRoutes, withUserJSON(http.MethodPost, "/api/my-features/2/features/1", `{"minimum_price_percentage":90}`)).Code)
+	updateResp := serve(h.HandleMyFeaturesRoutes, withUserJSON(http.MethodPost, "/api/my-features/2/features/1", `{"minimum_price_percentage":90}`))
+	assert.Equal(t, 200, updateResp.Code)
+	var updateBody map[string]interface{}
+	require.NoError(t, json.Unmarshal(updateResp.Body.Bytes(), &updateBody))
+	updateData := updateBody["data"].(map[string]interface{})
+	assert.Equal(t, "12.5", updateData["price_psc"])
+	assert.Equal(t, "450", updateData["price_irr"])
 	assert.Equal(t, 200, serve(h.HandleMyFeaturesRoutes, withUserJSON(http.MethodPost, "/api/my-features/2/remove-image/1/image/4", "")).Code)
 
 	var buf bytes.Buffer
@@ -127,6 +144,26 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.HandleMyFeaturesRoutes(w, req)
 	assert.Equal(t, 200, w.Code, w.Body.String())
+
+	// Updating feature images via the feature update URL (multipart) must not return
+	// "request body is required" — images are uploaded through storage-service.
+	var updateBuf bytes.Buffer
+	updateMW := multipart.NewWriter(&updateBuf)
+	updateHdr := make(textproto.MIMEHeader)
+	updateHdr.Set("Content-Disposition", `form-data; name="images[]"; filename="b.png"`)
+	// Browsers often omit part Content-Type; filename extension must be enough.
+	part2, err := updateMW.CreatePart(updateHdr)
+	require.NoError(t, err)
+	_, _ = part2.Write([]byte{4, 5, 6})
+	require.NoError(t, updateMW.Close())
+	updateReq := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/my-features/2/features/1", &updateBuf), 2)
+	updateReq.Header.Set("Content-Type", updateMW.FormDataContentType())
+	updateReq.Header.Set("Authorization", "Bearer tok")
+	updateReq.ContentLength = -1 // chunked / unset body length (Bruno and similar clients)
+	updateW := httptest.NewRecorder()
+	h.HandleMyFeaturesRoutes(updateW, updateReq)
+	assert.Equal(t, 200, updateW.Code, updateW.Body.String())
+	assert.NotContains(t, updateW.Body.String(), "request body is required")
 
 	profit := handler.NewHTTPProfitHandler(&mockHTTPProfitAPI{})
 	assert.Equal(t, 200, serve(profit.Handle, withUserJSON(http.MethodGet, "/api/hourly-profits?per_page=5", "")).Code)
@@ -151,6 +188,68 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 	assert.Equal(t, 400, serve(maps.Handle, httptest.NewRequest(http.MethodGet, "/api/maps/nope", nil)).Code)
 }
 
+func TestHTTPGetMyFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
+	api := &mockHTTPFeatureAPI{getMyFeature: func(_ context.Context, _ *pb.GetMyFeatureRequest) (*pb.FeatureResponse, error) {
+		feat := sampleHTTPFeature()
+		feat.IsForSale = 1
+		feat.LatestSellRequest = &pb.SellRequestResponse{
+			Id: 8, FeatureId: 1, SellerId: 2, PricePsc: "12.5", PriceIrr: "450", Status: 0, CreatedAt: "1404/01/01",
+		}
+		return &pb.FeatureResponse{Feature: feat}, nil
+	}}
+	h := handler.NewHTTPFeaturesHandler(api, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features/2/features/1", nil), 2)
+	req.Header.Set("Authorization", "Bearer tok")
+	w := httptest.NewRecorder()
+	h.HandleMyFeaturesRoutes(w, req)
+	require.Equal(t, 200, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, float64(1), data["is_for_sale"])
+	latest := data["latest_sell_request"].(map[string]interface{})
+	assert.Equal(t, float64(8), latest["id"])
+	assert.Equal(t, "12.5", latest["price_psc"])
+	assert.Equal(t, "450", latest["price_irr"])
+}
+
+func TestHTTPUpdateMyFeature_ReturnsPricesJSON(t *testing.T) {
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/my-features/2/features/1", strings.NewReader(`{"minimum_price_percentage":90}`)), 2)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer tok")
+	w := httptest.NewRecorder()
+	h.HandleMyFeaturesRoutes(w, req)
+	require.Equal(t, 200, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, "12.5", data["price_psc"])
+	assert.Equal(t, "450", data["price_irr"])
+}
+
+func TestHTTPUpdateMyFeature_MultipartMinimumReturnsPricesJSON(t *testing.T) {
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	require.NoError(t, mw.WriteField("minimum_price_percentage", "90"))
+	require.NoError(t, mw.Close())
+	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/my-features/2/features/1", &buf), 2)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer tok")
+	w := httptest.NewRecorder()
+	h.HandleMyFeaturesRoutes(w, req)
+	require.Equal(t, 200, w.Code, w.Body.String())
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, "12.5", data["price_psc"])
+	assert.Equal(t, "450", data["price_irr"])
+}
+
 func TestHTTPProfitSingleWithProfit(t *testing.T) {
 	profit := handler.NewHTTPProfitHandler(&mockHTTPProfitAPI{
 		single: func(_ context.Context, _ *pb.GetSingleProfitRequest) (*pb.HourlyProfitResponse, error) {
@@ -172,4 +271,62 @@ func TestHTTPProfitSingleWithProfit(t *testing.T) {
 	w = httptest.NewRecorder()
 	profit.Handle(w, req)
 	assert.Equal(t, 200, w.Code)
+}
+
+func TestHTTPBuyRequestListsIncludeFeatureCoordinates(t *testing.T) {
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	withUserJSON := func(method, target, body string) *http.Request {
+		req := requestWithUser(httptest.NewRequest(method, target, strings.NewReader(body)), 2)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer tok")
+		return req
+	}
+	decodeList := func(t *testing.T, w *httptest.ResponseRecorder) []map[string]interface{} {
+		t.Helper()
+		require.Equal(t, 200, w.Code, w.Body.String())
+		var wrapped struct {
+			Data []map[string]interface{} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapped))
+		return wrapped.Data
+	}
+	decodeObject := func(t *testing.T, w *httptest.ResponseRecorder) map[string]interface{} {
+		t.Helper()
+		require.Equal(t, 200, w.Code, w.Body.String())
+		var wrapped struct {
+			Data map[string]interface{} `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &wrapped))
+		return wrapped.Data
+	}
+	assertListCoords := func(t *testing.T, body []map[string]interface{}) {
+		t.Helper()
+		require.Len(t, body, 1)
+		coords, ok := body[0]["feature_coordinates"].([]interface{})
+		require.True(t, ok)
+		require.Len(t, coords, 1)
+		c := coords[0].(map[string]interface{})
+		assert.Equal(t, "51.389000", c["x"])
+		assert.Equal(t, "35.689200", c["y"])
+		assert.Equal(t, float64(1), c["id"])
+		assert.Equal(t, float64(4), c["geometry_id"])
+	}
+
+	sent := httptest.NewRecorder()
+	h.HandleBuyRequestsRoutes(sent, withUserJSON(http.MethodGet, "/api/buy-requests", ""))
+	assertListCoords(t, decodeList(t, sent))
+
+	received := httptest.NewRecorder()
+	h.HandleBuyRequestsRoutes(received, withUserJSON(http.MethodGet, "/api/buy-requests/recieved", ""))
+	assertListCoords(t, decodeList(t, received))
+
+	store := httptest.NewRecorder()
+	h.HandleBuyRequestsRoutes(store, withUserJSON(http.MethodPost, "/api/buy-requests/store/1", `{"note":"n","price_psc":10,"price_irr":20}`))
+	_, hasCoords := decodeObject(t, store)["feature_coordinates"]
+	assert.False(t, hasCoords)
+
+	accept := httptest.NewRecorder()
+	h.HandleBuyRequestsRoutes(accept, withUserJSON(http.MethodPost, "/api/buy-requests/accept/9", ""))
+	_, hasCoords = decodeObject(t, accept)["feature_coordinates"]
+	assert.False(t, hasCoords)
 }

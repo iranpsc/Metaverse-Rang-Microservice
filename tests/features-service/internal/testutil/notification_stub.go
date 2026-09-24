@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"sync"
+	"time"
 
 	commonpb "metarang/shared/pb/common"
 	pb "metarang/shared/pb/notifications"
@@ -12,11 +13,16 @@ import (
 
 // NotificationCall records a SendNotification RPC.
 type NotificationCall struct {
-	UserID  uint64
-	Type    string
-	Title   string
-	Message string
-	Data    map[string]string
+	UserID      uint64
+	Type        string
+	Title       string
+	Message     string
+	Data        map[string]string
+	SendSMS     bool
+	SendEmail   bool
+	SMSTemplate string
+	SMSTokens   map[string]string
+	Timeout     time.Duration
 }
 
 // NotificationStub is a configurable NotificationServiceClient for tests.
@@ -33,19 +39,32 @@ func NewNotificationStub() *NotificationStub {
 	return &NotificationStub{}
 }
 
-func (s *NotificationStub) SendNotification(_ context.Context, in *pb.SendNotificationRequest, _ ...grpc.CallOption) (*pb.NotificationResponse, error) {
+func (s *NotificationStub) SendNotification(ctx context.Context, in *pb.SendNotificationRequest, _ ...grpc.CallOption) (*pb.NotificationResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	data := map[string]string{}
 	for k, v := range in.GetData() {
 		data[k] = v
 	}
+	tokens := map[string]string{}
+	for k, v := range in.GetSmsTokens() {
+		tokens[k] = v
+	}
+	var timeout time.Duration
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = time.Until(deadline)
+	}
 	s.Calls = append(s.Calls, NotificationCall{
-		UserID:  in.GetUserId(),
-		Type:    in.GetType(),
-		Title:   in.GetTitle(),
-		Message: in.GetMessage(),
-		Data:    data,
+		UserID:      in.GetUserId(),
+		Type:        in.GetType(),
+		Title:       in.GetTitle(),
+		Message:     in.GetMessage(),
+		Data:        data,
+		SendSMS:     in.GetSendSms(),
+		SendEmail:   in.GetSendEmail(),
+		SMSTemplate: in.GetSmsTemplate(),
+		SMSTokens:   tokens,
+		Timeout:     timeout,
 	})
 	if s.Err != nil {
 		return nil, s.Err

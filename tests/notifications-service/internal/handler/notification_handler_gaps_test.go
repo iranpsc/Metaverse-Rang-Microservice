@@ -24,6 +24,9 @@ func TestNotificationHandler_SendNotification_ChannelFlags(t *testing.T) {
 			assert.True(t, input.SendSMS)
 			assert.True(t, input.SendEmail)
 			assert.Equal(t, map[string]string{"k": "v"}, input.Data)
+			assert.Equal(t, "buy-land-metarang", input.SMSTemplate)
+			assert.Equal(t, "p1", input.SMSTokens["token"])
+			assert.Equal(t, "buyer", input.SMSTokens["token20"])
 			return &models.NotificationResult{ID: 7, Sent: true}, nil
 		},
 	})
@@ -31,6 +34,8 @@ func TestNotificationHandler_SendNotification_ChannelFlags(t *testing.T) {
 	resp, err := h.SendNotification(context.Background(), &pb.SendNotificationRequest{
 		UserId: 1, Type: "system", Title: "T", Message: "M",
 		Data: map[string]string{"k": "v"}, SendSms: true, SendEmail: true,
+		SmsTemplate: "buy-land-metarang",
+		SmsTokens:   map[string]string{"token": "p1", "token20": "buyer"},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, uint64(7), resp.Id)

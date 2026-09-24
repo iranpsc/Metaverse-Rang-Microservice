@@ -53,3 +53,12 @@ type EmailPayload struct {
 	CC       []string
 	BCC      []string
 }
+
+// UserContact holds delivery addresses looked up when SendSMS/SendEmail are set
+// without an explicit payload.
+type UserContact struct {
+	Phone string
+	Email string
+	Name  string
+	Code  string
+}

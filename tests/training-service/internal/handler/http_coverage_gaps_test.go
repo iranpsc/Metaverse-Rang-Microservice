@@ -60,7 +60,7 @@ func TestHTTPContract_GetVideoSuccessAndFilters(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("get video code=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if !strings.Contains(rr.Body.String(), `"user_interaction":true`) {
+	if !strings.Contains(rr.Body.String(), `"user_interaction":{"liked":true}`) {
 		t.Fatalf("body=%s", rr.Body.String())
 	}
 

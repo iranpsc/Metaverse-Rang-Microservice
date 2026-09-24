@@ -31,11 +31,7 @@ func AuthMiddleware(authClient pb.AuthServiceClient) func(http.Handler) http.Han
 				return
 			}
 
-			userCtx := &authpkg.UserContext{
-				UserID: validateResp.UserId,
-				Email:  validateResp.Email,
-				Token:  token,
-			}
+			userCtx := authpkg.UserContextFromValidateToken(validateResp, token)
 			ctx := context.WithValue(r.Context(), authpkg.UserContextKey{}, userCtx)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

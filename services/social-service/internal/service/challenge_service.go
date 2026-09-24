@@ -16,7 +16,7 @@ import (
 	"metarang/social-service/internal/repository"
 )
 
-const challengePrizeAsset = "psc"
+const challengePrizeAsset = "red"
 
 var (
 	ErrQuestionNotFound      = errors.New("question not found")
@@ -256,7 +256,7 @@ func (s *challengeService) SubmitAnswer(ctx context.Context, userID, questionID,
 		fmt.Printf("failed to increment participants: %v\n", err)
 	}
 
-	// If answer is correct, credit PSC to user's wallet
+	// If answer is correct, credit red asset to user's wallet
 	if selectedAnswer.IsCorrect {
 		if s.commercialClient != nil {
 			prizeAmount := float64(question.Prize)

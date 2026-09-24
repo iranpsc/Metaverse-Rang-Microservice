@@ -376,6 +376,8 @@ func TestHTTPAuthErrorMatrix(t *testing.T) {
 		{"get event", httpH.GetUserEvent, httptest.NewRequest(http.MethodGet, "/api/events/1", nil)},
 		{"account security", httpH.RequestAccountSecurity, httptest.NewRequest(http.MethodPost, "/api/account/security", strings.NewReader(`{}`))},
 		{"verify security", httpH.VerifyAccountSecurity, httptest.NewRequest(http.MethodPost, "/api/account/security/verify", strings.NewReader(`{}`))},
+		{"send mobile", httpH.SendMobileChangeCode, httptest.NewRequest(http.MethodPost, "/api/mobile/send", strings.NewReader(`{}`))},
+		{"verify mobile", httpH.VerifyMobileChange, httptest.NewRequest(http.MethodPost, "/api/mobile/verify", strings.NewReader(`{}`))},
 		{"update pl", httpH.UpdateProfileLimitation, httptest.NewRequest(http.MethodPut, "/api/profile-limitations/1", strings.NewReader(`{}`))},
 		{"delete pl", httpH.DeleteProfileLimitation, httptest.NewRequest(http.MethodDelete, "/api/profile-limitations/1", nil)},
 	}
@@ -424,6 +426,10 @@ func TestHTTPAuthErrorMatrix(t *testing.T) {
 		{"send report empty", httpH.SendReportResponse, emptyJSON(http.MethodPost, "/api/events/report/response/1")},
 		{"account security empty", httpH.RequestAccountSecurity, emptyJSON(http.MethodPost, "/api/account/security")},
 		{"account security bad", httpH.RequestAccountSecurity, badJSON(http.MethodPost, "/api/account/security")},
+		{"send mobile empty", httpH.SendMobileChangeCode, emptyJSON(http.MethodPost, "/api/mobile/send")},
+		{"send mobile bad", httpH.SendMobileChangeCode, badJSON(http.MethodPost, "/api/mobile/send")},
+		{"verify mobile empty", httpH.VerifyMobileChange, emptyJSON(http.MethodPost, "/api/mobile/verify")},
+		{"verify mobile bad", httpH.VerifyMobileChange, badJSON(http.MethodPost, "/api/mobile/verify")},
 	}
 	for _, tc := range bodyCases {
 		t.Run("body_"+tc.name, func(t *testing.T) {

@@ -27,11 +27,7 @@ func AuthMiddleware(client authpb.AuthServiceClient) func(http.Handler) http.Han
 				writeError(w, http.StatusUnauthorized, "Unauthenticated")
 				return
 			}
-			ctx := context.WithValue(r.Context(), authpkg.UserContextKey{}, &authpkg.UserContext{
-				UserID: response.UserId,
-				Email:  response.Email,
-				Token:  token,
-			})
+			ctx := context.WithValue(r.Context(), authpkg.UserContextKey{}, authpkg.UserContextFromValidateToken(response, token))
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -44,11 +40,7 @@ func OptionalAuthMiddleware(client authpb.AuthServiceClient) func(http.Handler) 
 				token := ExtractToken(r)
 				if token != "" {
 					if response, err := client.ValidateToken(r.Context(), &authpb.ValidateTokenRequest{Token: token}); err == nil && response.Valid {
-						r = r.WithContext(context.WithValue(r.Context(), authpkg.UserContextKey{}, &authpkg.UserContext{
-							UserID: response.UserId,
-							Email:  response.Email,
-							Token:  token,
-						}))
+						r = r.WithContext(context.WithValue(r.Context(), authpkg.UserContextKey{}, authpkg.UserContextFromValidateToken(response, token)))
 					}
 				}
 			}

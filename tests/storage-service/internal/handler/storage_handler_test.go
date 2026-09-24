@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -206,8 +207,14 @@ func TestStorageHandler_ChunkUpload(t *testing.T) {
 	if !resp.Success || !resp.IsFinished || resp.PercentageDone != 100.0 {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
-	if resp.FinalFilename == "" || resp.FilePath == "" {
+	if resp.FinalFilename == "" || resp.FilePath == "" || resp.FileUrl == "" {
 		t.Fatalf("expected finished file metadata: %+v", resp)
+	}
+	if resp.FinalFilename != resp.FilePath {
+		t.Fatalf("FinalFilename should be the stored filename, got FinalFilename=%q FilePath=%q", resp.FinalFilename, resp.FilePath)
+	}
+	if strings.Contains(resp.FinalFilename, "/") {
+		t.Fatalf("FinalFilename should not be a MIME type, got %q", resp.FinalFilename)
 	}
 }
 

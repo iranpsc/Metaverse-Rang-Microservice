@@ -97,7 +97,7 @@
       </div>
       <div class="body">
         {{if .ContentTemplate}}
-          {{template .ContentTemplate .}}
+          {{exec .ContentTemplate .}}
         {{else}}
           <p>سلام {{.RecipientName}}</p>
           <p>این یک اعلان خودکار از متارنگ است.</p>

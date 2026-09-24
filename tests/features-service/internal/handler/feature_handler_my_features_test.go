@@ -350,20 +350,23 @@ func TestFeatureHandler_UpdateMyFeature_MinimumBelow80(t *testing.T) {
 
 func TestFeatureHandler_UpdateMyFeature_Success(t *testing.T) {
 	m := &mockFeaturePort{}
-	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error {
+	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
 		assert.Equal(t, int32(95), minimumPricePercentage)
-		return nil
+		return &pb.UpdateMyFeatureResponse{PricePsc: "12.5", PriceIrr: "450"}, nil
 	}
 	h := handler.NewFeatureHandler(m, nil)
 	ctx := withUserID(context.Background(), 12)
-	_, err := h.UpdateMyFeature(ctx, &pb.UpdateMyFeatureRequest{UserId: 12, FeatureId: 5, MinimumPricePercentage: 95})
+	resp, err := h.UpdateMyFeature(ctx, &pb.UpdateMyFeatureRequest{UserId: 12, FeatureId: 5, MinimumPricePercentage: 95})
 	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, "12.5", resp.PricePsc)
+	assert.Equal(t, "450", resp.PriceIrr)
 }
 
 func TestFeatureHandler_UpdateMyFeature_PersianValidationError(t *testing.T) {
 	m := &mockFeaturePort{}
-	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error {
-		return errors.New("حداقل درصد نامعتبر است")
+	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
+		return nil, errors.New("حداقل درصد نامعتبر است")
 	}
 	h := handler.NewFeatureHandler(m, nil)
 	ctx := withUserID(context.Background(), 12)
@@ -374,8 +377,8 @@ func TestFeatureHandler_UpdateMyFeature_PersianValidationError(t *testing.T) {
 
 func TestFeatureHandler_UpdateMyFeature_NotFound(t *testing.T) {
 	m := &mockFeaturePort{}
-	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error {
-		return errors.New("feature not found in DB")
+	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
+		return nil, errors.New("feature not found in DB")
 	}
 	h := handler.NewFeatureHandler(m, nil)
 	ctx := withUserID(context.Background(), 12)
@@ -384,14 +387,42 @@ func TestFeatureHandler_UpdateMyFeature_NotFound(t *testing.T) {
 	assert.Equal(t, codes.NotFound, st.Code())
 }
 
-func TestFeatureHandler_UpdateMyFeature_ReturnsEmpty(t *testing.T) {
+func TestFeatureHandler_UpdateMyFeature_ReturnsPrices(t *testing.T) {
 	m := &mockFeaturePort{}
-	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error {
-		return nil
+	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
+		return &pb.UpdateMyFeatureResponse{PricePsc: "1.25", PriceIrr: "250.5"}, nil
 	}
 	h := handler.NewFeatureHandler(m, nil)
 	ctx := withUserID(context.Background(), 12)
 	out, err := h.UpdateMyFeature(ctx, &pb.UpdateMyFeatureRequest{UserId: 12, FeatureId: 5, MinimumPricePercentage: 90})
 	require.NoError(t, err)
 	require.NotNil(t, out)
+	assert.Equal(t, "1.25", out.PricePsc)
+	assert.Equal(t, "250.5", out.PriceIrr)
+}
+
+func TestFeatureHandler_UpdateMyFeature_InternalError(t *testing.T) {
+	m := &mockFeaturePort{}
+	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
+		return nil, errors.New("db down")
+	}
+	h := handler.NewFeatureHandler(m, nil)
+	ctx := withUserID(context.Background(), 12)
+	_, err := h.UpdateMyFeature(ctx, &pb.UpdateMyFeatureRequest{UserId: 12, FeatureId: 5, MinimumPricePercentage: 90})
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.Internal, st.Code())
+}
+
+func TestFeatureHandler_UpdateMyFeature_NilResult(t *testing.T) {
+	m := &mockFeaturePort{}
+	m.updateMyFeature = func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
+		return nil, nil
+	}
+	h := handler.NewFeatureHandler(m, nil)
+	ctx := withUserID(context.Background(), 12)
+	out, err := h.UpdateMyFeature(ctx, &pb.UpdateMyFeatureRequest{UserId: 12, FeatureId: 5, MinimumPricePercentage: 90})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	assert.Empty(t, out.PricePsc)
+	assert.Empty(t, out.PriceIrr)
 }

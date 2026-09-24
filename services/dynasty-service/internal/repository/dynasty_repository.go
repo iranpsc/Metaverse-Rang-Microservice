@@ -147,7 +147,7 @@ func (r *DynastyRepository) GetUserFeatures(ctx context.Context, userID, exclude
 			fp.karbari
 		FROM features f
 		JOIN feature_properties fp ON f.id = fp.feature_id
-		WHERE f.user_id = ? AND f.id != ? AND fp.karbari = 'm'
+		WHERE f.owner_id = ? AND f.id != ? AND fp.karbari = 'm'
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, userID, excludeFeatureID)

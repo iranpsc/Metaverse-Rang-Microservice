@@ -50,7 +50,9 @@ func videoToJSON(video *trainingpb.VideoResponse) map[string]interface{} {
 	}
 
 	if video.UserInteraction != nil {
-		resp["user_interaction"] = *video.UserInteraction
+		resp["user_interaction"] = map[string]interface{}{
+			"liked": *video.UserInteraction,
+		}
 	}
 
 	return resp

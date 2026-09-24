@@ -5,8 +5,8 @@
 {{define "email/dynasty/join_request_received/content"}}
   <h1>درخواست پیوستن جدید</h1>
   <p>
-    {{with .OwnerName}}سلام {{.}}،{{else}}سلام سرپرست گرامی،{{end}}
-    یک درخواست جدید برای پیوستن به خاندان {{with .DynastyName}}{{.}}{{else}}شما{{end}} ثبت شده است. پیش از پذیرش یا رد، اطلاعات درخواست را بررسی کن.
+    {{with .RecipientName}}سلام {{.}}،{{else}}{{with .OwnerName}}سلام {{.}}،{{else}}سلام شهروند عزیز،{{end}}{{end}}
+    {{with .RequesterName}}{{.}}{{else}}یک کاربر{{end}} از تو دعوت کرده تا به خاندان {{with .DynastyName}}{{.}}{{else}}او{{end}} بپیوندی. پیش از پذیرش یا رد، اطلاعات درخواست را بررسی کن.
   </p>
 
   <table class="details-table" role="presentation">
@@ -24,6 +24,12 @@
       {{with .RequesterCode}}
       <tr>
         <th>شناسه درخواست‌کننده</th>
+        <td>{{.}}</td>
+      </tr>
+      {{end}}
+      {{with .Role}}
+      <tr>
+        <th>نقش پیشنهادی</th>
         <td>{{.}}</td>
       </tr>
       {{end}}
@@ -65,5 +71,3 @@
     تصمیم‌گیری نکرده‌ای؟ درخواست‌ها پس از یک مدت مشخص منقضی می‌شوند تا صف سامان‌دهی شود.
   </p>
 {{end}}
-
-

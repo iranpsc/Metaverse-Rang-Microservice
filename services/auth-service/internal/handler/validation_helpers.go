@@ -138,6 +138,11 @@ func mapServiceErrorToValidationFields(err error, locale string) (map[string]str
 	case errors.Is(err, service.ErrInvalidOptions):
 		validationErrors["options"] = fmt.Sprintf(t.Invalid, "options")
 		return validationErrors, true
+
+	// Profile errors
+	case errors.Is(err, service.ErrInvalidEmailFormat):
+		validationErrors["email"] = fmt.Sprintf(t.Invalid, "email")
+		return validationErrors, true
 	}
 
 	return nil, false

@@ -58,7 +58,7 @@ func (c *NotificationClient) SendNotification(ctx context.Context, userID uint64
 		SendEmail: sendEmail,
 	}
 
-	resp, err := c.notificationClient.SendNotification(ctx, req)
+	resp, err := c.notificationClient.SendNotification(ctx, req, grpc.WaitForReady(true))
 	if err != nil {
 		return fmt.Errorf("failed to send notification: %w", err)
 	}

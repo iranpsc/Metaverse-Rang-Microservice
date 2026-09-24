@@ -37,11 +37,10 @@ func main() {
 	// Load environment variables from config.env
 	// Try multiple possible paths for config.env
 	configPaths := []string{
+		"services/training-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/training-service/config.env",
 	}
 	var configLoaded bool
 	for _, configPath := range configPaths {

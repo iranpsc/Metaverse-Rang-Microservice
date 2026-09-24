@@ -7,6 +7,7 @@ import (
 
 	"metarang/features-service/internal/models"
 	"metarang/features-service/internal/repository"
+	"metarang/features-service/internal/service"
 )
 
 // Mock repositories for testing
@@ -95,14 +96,14 @@ func (m *mockTradeRepo) GetLatestForFeatureWithSeller(ctx context.Context, featu
 }
 
 type mockPricingService struct {
-	updateFeaturePricingFunc func(ctx context.Context, featureID, userID uint64, minimumPricePercentage int) error
+	updateFeaturePricingFunc func(ctx context.Context, featureID, userID uint64, minimumPricePercentage int) (*service.FeaturePricingUpdate, error)
 }
 
-func (m *mockPricingService) UpdateFeaturePricing(ctx context.Context, featureID, userID uint64, minimumPricePercentage int) error {
+func (m *mockPricingService) UpdateFeaturePricing(ctx context.Context, featureID, userID uint64, minimumPricePercentage int) (*service.FeaturePricingUpdate, error) {
 	if m.updateFeaturePricingFunc != nil {
 		return m.updateFeaturePricingFunc(ctx, featureID, userID, minimumPricePercentage)
 	}
-	return errors.New("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func TestFeatureService_ListMyFeatures(t *testing.T) {
@@ -376,8 +377,8 @@ func TestFeatureService_UpdateMyFeature(t *testing.T) {
 		}
 
 		mockPricingService := &mockPricingService{}
-		mockPricingService.updateFeaturePricingFunc = func(ctx context.Context, featureID, userID uint64, minimumPricePercentage int) error {
-			return nil
+		mockPricingService.updateFeaturePricingFunc = func(ctx context.Context, featureID, userID uint64, minimumPricePercentage int) (*service.FeaturePricingUpdate, error) {
+			return &service.FeaturePricingUpdate{PricePSC: "1", PriceIRR: "2"}, nil
 		}
 
 		// Note: FeatureService uses concrete repository types, not interfaces

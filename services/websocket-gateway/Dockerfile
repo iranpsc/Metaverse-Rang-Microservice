@@ -1,7 +1,10 @@
 # Multi-stage build for WebSocket Gateway (Go)
-FROM docker.arvancloud.ir/golang:1.25-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 ENV CGO_ENABLED=0
+# proxy.golang.org is often blocked; goproxy.io is a public non-Iranian fallback.
+ENV GOPROXY=https://goproxy.io,direct
+ENV GOSUMDB=off
 
 RUN apk add --no-cache git make protoc protobuf-dev
 
@@ -35,7 +38,7 @@ RUN sed -i 's|replace metarang/shared => ../../shared|replace metarang/shared =>
 ENV GOWORK=/workspace/go.work
 RUN go build -trimpath -ldflags="-s -w" -o /app/websocket-gateway ./cmd/server
 
-FROM docker.arvancloud.ir/alpine:3.21
+FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata wget && \
     addgroup -g 1000 appuser && \

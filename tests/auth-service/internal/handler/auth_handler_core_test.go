@@ -12,6 +12,7 @@ import (
 
 	"metarang/auth-service/internal/handler"
 	"metarang/auth-service/internal/models"
+	"metarang/auth-service/internal/repository"
 	"metarang/auth-service/internal/service"
 	pb "metarang/shared/pb/auth"
 )
@@ -200,20 +201,23 @@ func TestAuthHandler_RegisterRedirectCallbackGetMeLogoutValidate(t *testing.T) {
 	})
 
 	t.Run("validate token", func(t *testing.T) {
-		m := &mockAuthService{}
-		m.validateTokenFunc = func(context.Context, string) (*models.User, error) {
+		tokenRepo := &mockTokenRepository{}
+		tokenRepo.validateTokenSessionFunc = func(context.Context, string) (*repository.ValidatedToken, error) {
 			return nil, errors.New("bad")
 		}
-		h := handler.NewAuthHandler(m, tokenRepo, photo, "en")
+		h := handler.NewAuthHandler(&mockAuthService{}, tokenRepo, photo, "en")
 		resp, err := h.ValidateToken(context.Background(), &pb.ValidateTokenRequest{Token: "x"})
 		if err != nil || resp.Valid {
 			t.Fatalf("resp=%v err=%v", resp, err)
 		}
-		m.validateTokenFunc = func(context.Context, string) (*models.User, error) {
-			return &models.User{ID: 5, Email: "e@x.com"}, nil
+		tokenRepo.validateTokenSessionFunc = func(context.Context, string) (*repository.ValidatedToken, error) {
+			return &repository.ValidatedToken{
+				User:        &models.User{ID: 5, Email: "e@x.com"},
+				WalletLogin: true,
+			}, nil
 		}
 		resp, err = h.ValidateToken(context.Background(), &pb.ValidateTokenRequest{Token: "x"})
-		if err != nil || !resp.Valid || resp.UserId != 5 {
+		if err != nil || !resp.Valid || resp.UserId != 5 || !resp.WalletLogin {
 			t.Fatalf("resp=%v err=%v", resp, err)
 		}
 	})

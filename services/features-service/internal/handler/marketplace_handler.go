@@ -204,6 +204,32 @@ func (h *MarketplaceHandler) ListSellRequests(ctx context.Context, req *pb.ListS
 	}, nil
 }
 
+// ListFeatureSellRequests lists sell requests for a feature, newest first.
+// Implements GET /api/features/{feature}/sell-requests
+func (h *MarketplaceHandler) ListFeatureSellRequests(ctx context.Context, req *pb.ListFeatureSellRequestsRequest) (*pb.SellRequestsResponse, error) {
+	if req.FeatureId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "feature_id is required")
+	}
+
+	requests, err := h.service.ListFeatureSellRequests(ctx, req.FeatureId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list feature sell requests: %v", err)
+	}
+
+	responses := make([]*pb.SellRequestResponse, 0, len(requests))
+	for _, sellReq := range requests {
+		resp, err := h.buildSellRequestResponse(ctx, sellReq)
+		if err != nil {
+			continue
+		}
+		responses = append(responses, resp)
+	}
+
+	return &pb.SellRequestsResponse{
+		SellRequests: responses,
+	}, nil
+}
+
 // DeleteSellRequest deletes a sell request
 // Implements DELETE /api/sell-requests/{sellRequest}
 func (h *MarketplaceHandler) DeleteSellRequest(ctx context.Context, req *pb.DeleteSellRequestRequest) (*emptypb.Empty, error) {

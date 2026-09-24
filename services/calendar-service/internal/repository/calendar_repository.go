@@ -266,15 +266,6 @@ func (r *CalendarRepository) AddInteraction(ctx context.Context, eventID, userID
 }
 
 func (r *CalendarRepository) IncrementView(ctx context.Context, eventID uint64, ipAddress string) error {
-	checkQuery := "SELECT COUNT(*) FROM views WHERE viewable_type = ? AND viewable_id = ? AND ip_address = ?"
-	var count int
-	if err := r.db.QueryRowContext(ctx, checkQuery, calendarMorphType, eventID, ipAddress).Scan(&count); err != nil {
-		return fmt.Errorf("failed to check existing view: %w", err)
-	}
-	if count > 0 {
-		return nil
-	}
-
 	query := "INSERT INTO views (viewable_type, viewable_id, ip_address, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())"
 	_, err := r.db.ExecContext(ctx, query, calendarMorphType, eventID, ipAddress)
 	if err != nil {

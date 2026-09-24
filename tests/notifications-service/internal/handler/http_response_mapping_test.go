@@ -19,7 +19,6 @@ import (
 
 type mockNotificationAPI struct {
 	GetNotificationsFunc func(context.Context, *pb.GetNotificationsRequest) (*pb.NotificationsResponse, error)
-	GetNotificationFunc  func(context.Context, *pb.GetNotificationRequest) (*pb.Notification, error)
 	MarkAsReadFunc       func(context.Context, *pb.MarkAsReadRequest) (*pbCommon.Empty, error)
 	MarkAllAsReadFunc    func(context.Context, *pb.MarkAllAsReadRequest) (*pbCommon.Empty, error)
 }
@@ -29,13 +28,6 @@ func (m *mockNotificationAPI) GetNotifications(ctx context.Context, req *pb.GetN
 		return m.GetNotificationsFunc(ctx, req)
 	}
 	return &pb.NotificationsResponse{}, nil
-}
-
-func (m *mockNotificationAPI) GetNotification(ctx context.Context, req *pb.GetNotificationRequest) (*pb.Notification, error) {
-	if m.GetNotificationFunc != nil {
-		return m.GetNotificationFunc(ctx, req)
-	}
-	return &pb.Notification{Id: req.NotificationId}, nil
 }
 
 func (m *mockNotificationAPI) MarkAsRead(ctx context.Context, req *pb.MarkAsReadRequest) (*pbCommon.Empty, error) {
@@ -125,12 +117,63 @@ func TestHTTP_HandlerErrorStatusMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mux := muxWithAPI(&mockNotificationAPI{
-				GetNotificationFunc: func(context.Context, *pb.GetNotificationRequest) (*pb.Notification, error) {
+				GetNotificationsFunc: func(context.Context, *pb.GetNotificationsRequest) (*pb.NotificationsResponse, error) {
 					return nil, tt.err
 				},
 			}, 42)
 
-			rr := serveRequest(mux, http.MethodGet, "/api/notifications/n1", 42)
+			rr := serveRequest(mux, http.MethodGet, "/api/notifications", 42)
+			assert.Equal(t, tt.wantStatus, rr.Code)
+
+			var body map[string]string
+			require.NoError(t, json.NewDecoder(rr.Body).Decode(&body))
+			assert.Equal(t, tt.wantMsg, body["error"])
+		})
+	}
+}
+
+func TestHTTP_MarkAsRead_ErrorStatusMapping(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantStatus int
+		wantMsg    string
+	}{
+		{
+			name:       "not found",
+			err:        status.Error(codes.NotFound, "notification not found"),
+			wantStatus: http.StatusNotFound,
+			wantMsg:    "notification not found",
+		},
+		{
+			name:       "invalid argument",
+			err:        status.Error(codes.InvalidArgument, "bad id"),
+			wantStatus: http.StatusBadRequest,
+			wantMsg:    "bad id",
+		},
+		{
+			name:       "permission denied",
+			err:        status.Error(codes.PermissionDenied, "forbidden"),
+			wantStatus: http.StatusForbidden,
+			wantMsg:    "forbidden",
+		},
+		{
+			name:       "plain error",
+			err:        errors.New("mark failed"),
+			wantStatus: http.StatusInternalServerError,
+			wantMsg:    "internal server error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := muxWithAPI(&mockNotificationAPI{
+				MarkAsReadFunc: func(context.Context, *pb.MarkAsReadRequest) (*pbCommon.Empty, error) {
+					return nil, tt.err
+				},
+			}, 42)
+
+			rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/notif-1", 42)
 			assert.Equal(t, tt.wantStatus, rr.Code)
 
 			var body map[string]string

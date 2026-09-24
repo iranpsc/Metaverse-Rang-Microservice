@@ -49,7 +49,7 @@ func TestBuyRequestService_SendBuyRequest(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1.0))
 	mock.ExpectExec("INSERT INTO buy_feature_requests").
 		WillReturnResult(sqlmock.NewResult(9, 1))
-	mock.ExpectExec("INSERT INTO locked_wallets").
+	mock.ExpectExec("INSERT INTO locked_assets").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	id, err := svc.SendBuyRequest(context.Background(), 2, 1, 500, 500, "note")
@@ -127,7 +127,7 @@ func TestBuyRequestService_RejectDeleteGraceList(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "buy_feature_request_id", "feature_id", "psc", "irr", "created_at", "updated_at",
 		}).AddRow(7, 9, 1, 10.0, 20.0, now, now))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("DELETE FROM buy_feature_requests").
@@ -149,7 +149,7 @@ func TestBuyRequestService_RejectDeleteGraceList(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "buy_feature_request_id", "feature_id", "psc", "irr", "created_at", "updated_at",
 		}).AddRow(7, 9, 1, 10.0, 20.0, now, now))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("DELETE FROM buy_feature_requests").
@@ -288,7 +288,7 @@ func TestBuyRequestService_AcceptBuyRequest_HappyPath(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("SET deleted_at").
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("WHERE feature_id = \\? AND deleted_at IS NULL").
 		WithArgs(uint64(1)).
@@ -308,7 +308,7 @@ func TestBuyRequestService_AcceptBuyRequest_HappyPath(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "buy_feature_request_id", "feature_id", "psc", "irr", "created_at", "updated_at",
 		}).AddRow(8, 10, 1, 5.0, 5.0, now, now))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(10)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("SET deleted_at").

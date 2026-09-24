@@ -72,11 +72,14 @@ func TestWriteHandlerError_Mappings(t *testing.T) {
 }
 
 func TestExtractIDFromPathAndSplitJalaliDateTime(t *testing.T) {
-	if got := handler.ExportExtractIDFromPath("/api/tickets/12", "/api/tickets/", "/api/support/tickets/"); got != "12" {
+	if got := handler.ExportExtractIDFromPath("/api/tickets/12", "/api/tickets/"); got != "12" {
 		t.Fatalf("got=%q", got)
 	}
-	if got := handler.ExportExtractIDFromPath("/api/support/tickets/12/extra", "/api/tickets/", "/api/support/tickets/"); got != "12" {
+	if got := handler.ExportExtractIDFromPath("/api/tickets/12/extra", "/api/tickets/"); got != "12" {
 		t.Fatalf("got=%q", got)
+	}
+	if got := handler.ExportExtractIDFromPath("/api/support/tickets/12", "/api/tickets/"); got != "" {
+		t.Fatalf("support alias must not match, got=%q", got)
 	}
 	if got := handler.ExportExtractIDFromPath("/nope/1", "/api/tickets/"); got != "" {
 		t.Fatalf("got=%q", got)

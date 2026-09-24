@@ -103,6 +103,9 @@ jobs:
             training-service:
               - 'services/training-service/**'
               - 'tests/training-service/**'
+            websocket-gateway:
+              - 'services/websocket-gateway/**'
+              - 'tests/websocket-gateway/**'
 
       - name: Build service list
         id: services
@@ -111,7 +114,7 @@ jobs:
           DISPATCH_INPUT: ${{ github.event.inputs.services }}
           CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
-          ALL='["auth-service","calendar-service","commercial-service","dynasty-service","features-service","financial-service","health-check-service","levels-service","notifications-service","social-service","storage-service","support-service","training-service"]'
+          ALL='["auth-service","calendar-service","commercial-service","dynasty-service","features-service","financial-service","health-check-service","levels-service","notifications-service","social-service","storage-service","support-service","training-service","websocket-gateway"]'
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$DISPATCH_INPUT" = "all" ] || [ -z "$DISPATCH_INPUT" ]; then

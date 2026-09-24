@@ -109,7 +109,7 @@ func mapProfilePhotoServiceError(err error, locale string) error {
 	case errors.Is(err, service.ErrImageRequired):
 		return status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "image_data is required"))
 	case errors.Is(err, service.ErrInvalidImage):
-		return status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "invalid image: must be PNG or JPEG, ≤1 MB"))
+		return status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "invalid image: must be PNG or JPEG, ≤2 MB"))
 	case errors.Is(err, service.ErrStorageUnavailable):
 		return status.Errorf(codes.Internal, "%s", lang.T(locale, "storage service not available"))
 	case errors.Is(err, service.ErrProfilePhotoNotFound):

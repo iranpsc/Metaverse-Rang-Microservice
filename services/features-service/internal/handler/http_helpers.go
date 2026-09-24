@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,26 +41,94 @@ func effectiveHTTPMethod(r *http.Request) string {
 	return r.Method
 }
 
+// requestHasBody reports whether the request may carry a body.
+// ContentLength -1 (chunked / unset) is common for API clients and must not be treated as empty.
+func requestHasBody(r *http.Request) bool {
+	if r.Body == nil {
+		return false
+	}
+	if r.ContentLength == 0 {
+		return false
+	}
+	return r.ContentLength > 0 || r.ContentLength < 0
+}
+
 func decodeBody(r *http.Request, into interface{}) error {
-	if r.Body == nil || r.ContentLength == 0 {
+	if !requestHasBody(r) {
 		return io.EOF
 	}
 	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") || strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+	if strings.HasPrefix(contentType, "multipart/form-data") {
 		if err := r.ParseMultipartForm(32 << 20); err != nil {
 			return err
 		}
-		values := r.Form
-		raw := make(map[string]interface{}, len(values))
-		for key, value := range values {
-			if len(value) > 0 {
-				raw[key] = value[0]
-			}
+		return decodeFormValues(r.Form, into)
+	}
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if err := r.ParseForm(); err != nil {
+			return err
 		}
-		bytes, _ := json.Marshal(raw)
-		return json.Unmarshal(bytes, into)
+		return decodeFormValues(r.Form, into)
 	}
 	return json.NewDecoder(r.Body).Decode(into)
+}
+
+func decodeFormValues(values url.Values, into interface{}) error {
+	raw := make(map[string]interface{}, len(values))
+	for key, value := range values {
+		if len(value) > 0 {
+			raw[key] = value[0]
+		}
+	}
+	bytes, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(bytes, into)
+}
+
+// multipartFeatureImageFiles returns uploaded feature images from common form field names.
+func multipartFeatureImageFiles(r *http.Request) ([]*multipart.FileHeader, error) {
+	if r.MultipartForm == nil {
+		if err := r.ParseMultipartForm(10 << 20); err != nil {
+			return nil, err
+		}
+	}
+	if r.MultipartForm == nil {
+		return nil, nil
+	}
+	var files []*multipart.FileHeader
+	for _, key := range []string{"images", "images[]", "image"} {
+		files = append(files, r.MultipartForm.File[key]...)
+	}
+	return files, nil
+}
+
+func featureImageContentType(file *multipart.FileHeader) string {
+	ct := strings.ToLower(strings.TrimSpace(strings.Split(file.Header.Get("Content-Type"), ";")[0]))
+	switch ct {
+	case "image/png", "image/jpeg", "image/jpg", "image/bmp":
+		return ct
+	}
+	switch strings.ToLower(filepath.Ext(file.Filename)) {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".bmp":
+		return "image/bmp"
+	default:
+		return ct
+	}
+}
+
+func isAllowedFeatureImageContentType(ct string) bool {
+	switch strings.ToLower(strings.TrimSpace(strings.Split(ct, ";")[0])) {
+	case "image/png", "image/jpeg", "image/jpg", "image/bmp":
+		return true
+	default:
+		return false
+	}
 }
 
 func parsePoints(query url.Values) ([]string, bool) {

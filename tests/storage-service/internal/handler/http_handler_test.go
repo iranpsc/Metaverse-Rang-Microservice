@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -179,14 +180,106 @@ func TestHTTPHandler_HandleChunkUpload(t *testing.T) {
 		}
 	})
 
+	t.Run("GET chunk test without session returns 204", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/upload?resumableIdentifier=missing&resumableChunkNumber=1", nil)
+		w := httptest.NewRecorder()
+
+		h.HandleChunkUpload(w, req)
+
+		if w.Code != http.StatusNoContent {
+			t.Errorf("Expected status 204 for missing chunk, got %d", w.Code)
+		}
+	})
+
 	t.Run("non-POST method returns 405", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/upload", nil)
+		req := httptest.NewRequest(http.MethodPut, "/api/upload", nil)
 		w := httptest.NewRecorder()
 
 		h.HandleChunkUpload(w, req)
 
 		if w.Code != http.StatusMethodNotAllowed {
 			t.Errorf("Expected status 405, got %d", w.Code)
+		}
+	})
+
+	t.Run("resumable.js chunk fields upload successfully", func(t *testing.T) {
+		fileContent := []byte("resumable chunk content")
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+
+		part, err := writer.CreateFormFile("file", "resume.txt")
+		if err != nil {
+			t.Fatalf("Failed to create form file: %v", err)
+		}
+		if _, err := part.Write(fileContent); err != nil {
+			t.Fatalf("Failed to write file content: %v", err)
+		}
+
+		_ = writer.WriteField("resumableIdentifier", "23-resume-txt")
+		_ = writer.WriteField("resumableChunkNumber", "1") // 1-based
+		_ = writer.WriteField("resumableTotalChunks", "1")
+		_ = writer.WriteField("resumableTotalSize", strconv.Itoa(len(fileContent)))
+		_ = writer.WriteField("resumableFilename", "resume.txt")
+		_ = writer.WriteField("resumableType", "text/plain")
+		_ = writer.Close()
+
+		req := httptest.NewRequest(http.MethodPost, "/api/upload", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		w := httptest.NewRecorder()
+
+		h.HandleChunkUpload(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d. Body: %s", w.Code, w.Body.String())
+		}
+
+		var response map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Fatalf("Failed to parse response: %v", err)
+		}
+		if response["name"] == nil || response["path"] == nil {
+			t.Fatalf("Expected completed upload fields, got: %v", response)
+		}
+	})
+
+	t.Run("GET chunk test returns 200 after chunk uploaded", func(t *testing.T) {
+		fileContent := []byte("chunk-a")
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		part, err := writer.CreateFormFile("file", "multi.txt")
+		if err != nil {
+			t.Fatalf("Failed to create form file: %v", err)
+		}
+		if _, err := part.Write(fileContent); err != nil {
+			t.Fatalf("Failed to write file content: %v", err)
+		}
+		_ = writer.WriteField("resumableIdentifier", "test-resume-multi")
+		_ = writer.WriteField("resumableChunkNumber", "1")
+		_ = writer.WriteField("resumableTotalChunks", "2")
+		_ = writer.WriteField("resumableTotalSize", "14")
+		_ = writer.WriteField("resumableFilename", "multi.txt")
+		_ = writer.Close()
+
+		postReq := httptest.NewRequest(http.MethodPost, "/api/upload", body)
+		postReq.Header.Set("Content-Type", writer.FormDataContentType())
+		postW := httptest.NewRecorder()
+		h.HandleChunkUpload(postW, postReq)
+		if postW.Code != http.StatusOK {
+			t.Fatalf("Expected status 200 for first chunk, got %d. Body: %s", postW.Code, postW.Body.String())
+		}
+
+		getReq := httptest.NewRequest(http.MethodGet, "/api/upload?resumableIdentifier=test-resume-multi&resumableChunkNumber=1", nil)
+		getW := httptest.NewRecorder()
+		h.HandleChunkUpload(getW, getReq)
+		if getW.Code != http.StatusOK {
+			t.Errorf("Expected status 200 for existing chunk, got %d", getW.Code)
+		}
+
+		missingReq := httptest.NewRequest(http.MethodGet, "/api/upload?resumableIdentifier=test-resume-multi&resumableChunkNumber=2", nil)
+		missingW := httptest.NewRecorder()
+		h.HandleChunkUpload(missingW, missingReq)
+		if missingW.Code != http.StatusNoContent {
+			t.Errorf("Expected status 204 for missing chunk, got %d", missingW.Code)
 		}
 	})
 
@@ -230,9 +323,10 @@ func TestHTTPHandler_HandleChunkUpload(t *testing.T) {
 			t.Fatal("Name should be a string")
 		}
 
-		// Construct expected file path for default layout uploads under storageBase.
-		// Path is like "uploads/image-jpeg/2024-01-15/".
-		expectedPath := filepath.Join(storageBase, filepath.FromSlash(strings.TrimSuffix(path, "/")+"/"+name))
+		// Construct expected file path for default layout under storageBase.
+		// Public path is "uploads/{mime}/{date}/"; files live at {storageBase}/{mime}/{date}/{name}.
+		rel := strings.TrimPrefix(strings.TrimSuffix(path, "/")+"/"+name, "uploads/")
+		expectedPath := filepath.Join(storageBase, filepath.FromSlash(rel))
 
 		// Check if file exists
 		if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
@@ -471,7 +565,8 @@ func TestChunkUpload_CompleteFlow(t *testing.T) {
 	if finalPath == "" || finalName == "" {
 		t.Fatal("missing path/name in completed response")
 	}
-	savedFile := filepath.Join(storageBase, filepath.FromSlash(strings.TrimSuffix(finalPath, "/")+"/"+finalName))
+	rel := strings.TrimPrefix(strings.TrimSuffix(finalPath, "/")+"/"+finalName, "uploads/")
+	savedFile := filepath.Join(storageBase, filepath.FromSlash(rel))
 	savedContent, err := os.ReadFile(savedFile)
 	if err != nil {
 		t.Fatalf("Failed to read saved file %s: %v", savedFile, err)
@@ -534,6 +629,79 @@ func TestHTTPHandler_ServeUploads_EdgeCases(t *testing.T) {
 			t.Fatalf("expected 200, got %d", w.Code)
 		}
 	})
+
+	t.Run("legacy doubled uploads prefix", func(t *testing.T) {
+		legacyDir := filepath.Join(uploadRoot, "uploads", "text-plain", "2026-09-10")
+		if err := os.MkdirAll(legacyDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(legacyDir, "legacy.txt"), []byte("old-layout"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/uploads/text-plain/2026-09-10/legacy.txt", nil)
+		w := httptest.NewRecorder()
+		h.ServeUploads(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d body=%s", w.Code, w.Body.String())
+		}
+		if !bytes.Equal(w.Body.Bytes(), []byte("old-layout")) {
+			t.Fatalf("unexpected body: %q", w.Body.Bytes())
+		}
+	})
+}
+
+func TestHTTPHandler_DefaultChunkUploadIsPubliclyServable(t *testing.T) {
+	tempDir := t.TempDir()
+	chunkManager, err := service.NewChunkManager(filepath.Join(tempDir, "chunks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	storageBase := filepath.Join(tempDir, "storage", "app")
+	ftpClient := ftp.NewMockFTPClient(filepath.Join(tempDir, "ftp"), "http://example.com")
+	storageService := service.NewStorageService(ftpClient, chunkManager, storageBase)
+	h := handler.NewHTTPHandler(storageService, storageBase)
+
+	content := []byte("servable-chunk-bytes")
+	contentType, body, err := createMultipartFormData("note.txt", content, map[string]string{
+		"filename":     "note.txt",
+		"content_type": "text/plain",
+		"upload_id":    "serve-default",
+		"chunk_index":  "0",
+		"total_chunks": "1",
+		"total_size":   fmt.Sprintf("%d", len(content)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/upload", body)
+	req.Header.Set("Content-Type", contentType)
+	w := httptest.NewRecorder()
+	h.HandleChunkUpload(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("upload: %d %s", w.Code, w.Body.String())
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	path, _ := response["path"].(string)
+	name, _ := response["name"].(string)
+	if path == "" || name == "" {
+		t.Fatalf("missing path/name: %v", response)
+	}
+
+	public := "/" + strings.TrimPrefix(path, "/") + name
+	getReq := httptest.NewRequest(http.MethodGet, public, nil)
+	getW := httptest.NewRecorder()
+	h.ServeUploads(getW, getReq)
+	if getW.Code != http.StatusOK {
+		t.Fatalf("GET %s: %d body=%s", public, getW.Code, getW.Body.String())
+	}
+	if !bytes.Equal(getW.Body.Bytes(), content) {
+		t.Fatalf("served content mismatch: %q", getW.Body.Bytes())
+	}
 }
 
 func TestHTTPHandler_RegisterHTTPRoutes(t *testing.T) {

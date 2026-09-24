@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -51,11 +52,10 @@ func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 
 func loadEnvFiles() bool {
 	configPaths := []string{
+		"services/notifications-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/notifications-service/config.env",
 	}
 	for _, configPath := range configPaths {
 		if err := godotenv.Load(configPath); err == nil {
@@ -90,6 +90,28 @@ func logSMSConfig(cfg service.SMSChannelConfig) {
 		cfg.Provider, cfg.Sender, service.SMSAPIKeySource(), service.MaskAPIKey(cfg.APIKey))
 }
 
+func loadEmailChannelConfig() service.EmailChannelConfig {
+	return service.EmailChannelConfig{
+		Host:      getEnv("SMTP_HOST", ""),
+		Port:      getEnv("SMTP_PORT", "587"),
+		Username:  getEnv("SMTP_USERNAME", ""),
+		Password:  getEnv("SMTP_PASSWORD", ""),
+		FromName:  getEnv("SMTP_FROM_NAME", "metarang Notifications"),
+		FromEmail: getEnv("SMTP_FROM_EMAIL", ""),
+	}
+}
+
+func logEmailConfig(cfg service.EmailChannelConfig) {
+	if strings.TrimSpace(cfg.Host) == "" || strings.TrimSpace(cfg.FromEmail) == "" {
+		log.Printf("WARNING: email not fully configured (SMTP_HOST set=%v, SMTP_FROM_EMAIL set=%v). Email delivery will use noop and report success.",
+			strings.TrimSpace(cfg.Host) != "", strings.TrimSpace(cfg.FromEmail) != "")
+		log.Printf("Set SMTP_HOST and SMTP_FROM_EMAIL in services/notifications-service/config.env.")
+		return
+	}
+	log.Printf("Email configured: host=%s port=%s from=%s username_set=%v",
+		cfg.Host, cfg.Port, cfg.FromEmail, strings.TrimSpace(cfg.Username) != "")
+}
+
 func grpcListenAddr(port string) string {
 	if port == "" {
 		port = "50058"
@@ -109,7 +131,7 @@ func setupDatabase() (*sql.DB, error) {
 		return nil, fmt.Errorf("invalid DB_PORT value: %w", err)
 	}
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 		getEnv("DB_USER", "root"),
 		getEnv("DB_PASSWORD", ""),
 		getEnv("DB_HOST", "localhost"),

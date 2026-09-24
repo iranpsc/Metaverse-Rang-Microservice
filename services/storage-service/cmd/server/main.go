@@ -139,7 +139,7 @@ func getEnv(key, defaultValue string) string {
 }
 
 func buildDSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 		getEnv("DB_USER", "root"),
 		getEnv("DB_PASSWORD", ""),
 		getEnv("DB_HOST", "localhost"),
@@ -182,11 +182,10 @@ func ensureUploadsDir(dir string) error {
 
 func loadEnvFiles() bool {
 	configPaths := []string{
+		"services/storage-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/storage-service/config.env",
 	}
 	for _, configPath := range configPaths {
 		if err := godotenv.Load(configPath); err == nil {

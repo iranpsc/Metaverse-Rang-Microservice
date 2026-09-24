@@ -48,7 +48,8 @@ func NewRedisPublisher(redisURL string) (RedisPublisher, error) {
 
 // UserStatusChangedEvent represents the user status change event
 type UserStatusChangedEvent struct {
-	ID     uint64 `json:"id"`
+	UserID uint64 `json:"user_id"`
+	ID     uint64 `json:"id"` // legacy alias for older consumers
 	Online bool   `json:"online"`
 }
 
@@ -56,6 +57,7 @@ type UserStatusChangedEvent struct {
 // This will be picked up by the WebSocket gateway and broadcast to connected clients
 func (p *redisPublisher) PublishUserStatusChanged(ctx context.Context, userID uint64, online bool) error {
 	event := UserStatusChangedEvent{
+		UserID: userID,
 		ID:     userID,
 		Online: online,
 	}
@@ -65,8 +67,8 @@ func (p *redisPublisher) PublishUserStatusChanged(ctx context.Context, userID ui
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
-	// Publish to the user-status-changed channel
-	err = p.client.Publish(ctx, "user-status-changed", payload).Err()
+	// Publish to the channel expected by websocket-gateway
+	err = p.client.Publish(ctx, "user-status", payload).Err()
 	if err != nil {
 		return fmt.Errorf("failed to publish to Redis: %w", err)
 	}

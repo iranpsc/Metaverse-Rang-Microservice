@@ -17,6 +17,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func expectNoOpenSellRequest(mock sqlmock.Sqlmock, featureID uint64) {
+	mock.ExpectQuery("feature_id = \\? AND status = 0").
+		WithArgs(featureID).
+		WillReturnError(sql.ErrNoRows)
+}
+
+func expectNoOpenSellRequestsIn(mock sqlmock.Sqlmock, featureID uint64) {
+	mock.ExpectQuery("WHERE feature_id IN").
+		WithArgs(featureID).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "seller_id", "feature_id", "price_psc", "price_irr", "limit", "status", "created_at", "updated_at",
+		}))
+}
+
 func mapCols() []string {
 	return []string{
 		"id", "name", "karbari", "publish_date", "publisher_name", "polygon_count",
@@ -110,14 +124,14 @@ func TestFeaturePricingService_SQLMock(t *testing.T) {
 	assert.Equal(t, "m", info["karbari"])
 
 	expectFeatureFindByID(mock, 99, "m", 1000, 80)
-	err = svc.UpdateFeaturePricing(context.Background(), 1, 3, 90)
+	_, err = svc.UpdateFeaturePricing(context.Background(), 1, 3, 90)
 	require.Error(t, err)
 
 	expectFeatureFindByID(mock, 3, "m", 1000, 80)
 	mock.ExpectQuery("SELECT birthdate FROM kycs").
 		WithArgs(uint64(3)).
 		WillReturnError(sql.ErrNoRows)
-	err = svc.UpdateFeaturePricing(context.Background(), 1, 3, 70)
+	_, err = svc.UpdateFeaturePricing(context.Background(), 1, 3, 70)
 	require.Error(t, err)
 
 	expectFeatureFindByID(mock, 3, "m", 1000, 80)
@@ -132,7 +146,11 @@ func TestFeaturePricingService_SQLMock(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1.0))
 	mock.ExpectExec("SET price_psc").
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	require.NoError(t, svc.UpdateFeaturePricing(context.Background(), 1, 3, 90))
+	pricing, err := svc.UpdateFeaturePricing(context.Background(), 1, 3, 90)
+	require.NoError(t, err)
+	require.NotNil(t, pricing)
+	assert.Equal(t, "450.0000000000", pricing.PricePSC)
+	assert.Equal(t, "450.0000000000", pricing.PriceIRR)
 
 	expectFeatureFindByID(mock, 3, "m", 1000, 80)
 	mock.ExpectExec("UPDATE feature_properties SET").
@@ -199,7 +217,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 			"p1", 1, "m", "d", "o", "l", "addr",
 			10.0, 1, 10.0, "0", "0", 80, now, now,
 		))
-	err = svc.UpdateMyFeature(context.Background(), 2, 1, 90)
+	_, err = svc.UpdateMyFeature(context.Background(), 2, 1, 90)
 	require.Error(t, err)
 
 	mock.ExpectQuery("f.owner_id").
@@ -279,6 +297,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 			"model_id", "model_model_id", "model_name", "model_sku", "model_images",
 			"model_attributes", "model_file", "model_required_satisfaction",
 		}))
+	expectNoOpenSellRequest(mock, 1)
 
 	feat, err := svc.GetFeature(context.Background(), 1)
 	require.NoError(t, err)
@@ -294,6 +313,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 			"p1", 1, "m", "d", "o", "l", "addr",
 			10.0, 1, 10.0, "0", "0", 80, now, now,
 		))
+	expectLatestSellRequest(mock, nil)
 	list, err := svc.ListMyFeatures(context.Background(), 2, 0, "", "")
 	require.NoError(t, err)
 	require.Len(t, list, 1)
@@ -314,6 +334,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 	mock.ExpectQuery("LEFT JOIN users").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrNoRows)
+	expectNoOpenSellRequest(mock, 1)
 	mine, err := svc.GetMyFeature(context.Background(), 2, 1)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), mine.Id)
@@ -344,6 +365,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 	mock.ExpectQuery("FROM buildings").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrConnDone)
+	expectNoOpenSellRequest(mock, 1)
 	updated, err := svc.UpdateFeature(context.Background(), 1, &pb.FeatureProperties{
 		Karbari: "m", Rgb: "d", Owner: "o", Label: "l", PricePsc: "1", PriceIrr: "2", MinimumPricePercentage: 90,
 	})
@@ -366,6 +388,7 @@ func TestFeatureService_GetAndList_SQLMock(t *testing.T) {
 	mock.ExpectQuery("FROM buildings").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrConnDone)
+	expectNoOpenSellRequest(mock, 1)
 	added, err := svc.AddFeatureImages(context.Background(), 1, []string{"https://x"})
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), added.Id)
@@ -380,14 +403,14 @@ func TestMarketplaceService_DeleteBuyRequest_SQLMock(t *testing.T) {
 	mock.ExpectQuery("FROM buy_feature_requests").
 		WithArgs(uint64(9)).
 		WillReturnRows(buyRequestFindRows(3, 2, 0))
-	mock.ExpectQuery("FROM locked_wallets").
+	mock.ExpectQuery("FROM locked_assets").
 		WithArgs(uint64(9)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "buy_feature_request_id", "feature_id", "psc", "irr", "created_at", "updated_at",
 		}).AddRow(7, 9, 1, 10.0, 20.0, now, now))
 	mock.ExpectExec("DELETE FROM transactions").
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("DELETE FROM locked_wallets").
+	mock.ExpectExec("DELETE FROM locked_assets").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("DELETE FROM buy_feature_requests").
@@ -442,8 +465,54 @@ func TestFeatureService_AddMyFeatureImages_Uploads(t *testing.T) {
 	mock.ExpectQuery("LEFT JOIN users").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrNoRows)
+	expectNoOpenSellRequest(mock, 1)
 	out, err := svc.AddMyFeatureImages(context.Background(), 2, 1, [][]byte{{1, 2, 3}}, nil, []string{"image/png"})
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), out.Id)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestFeatureService_GetMyFeature_IncludesLatestOpenSellRequest(t *testing.T) {
+	db, mock := testutil.NewSQLMock(t)
+	svc := service.NewFeatureService(
+		repository.NewFeatureRepository(db),
+		repository.NewPropertiesRepository(db),
+		repository.NewGeometryRepository(db),
+		repository.NewImageRepository(db),
+		repository.NewBuildingRepository(db),
+		repository.NewTradeRepository(db),
+		repository.NewHourlyProfitRepository(db),
+		nil, db, nil, "https://app.test",
+	)
+	now := time.Now()
+	mock.ExpectQuery("f.owner_id").
+		WithArgs(uint64(1), uint64(2)).
+		WillReturnRows(sqlmock.NewRows(featureFindCols()).AddRow(
+			1, 2, 1, "polygon", now, now,
+			"p1", 1, "m", "a", "o", "l", "addr",
+			10.0, 1, 10.0, "12.5", "450", 90, now, now,
+		))
+	mock.ExpectQuery("FROM geometries g").
+		WithArgs(uint64(1)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("FROM images").
+		WithArgs(uint64(1)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("LEFT JOIN users").
+		WithArgs(uint64(1)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("feature_id = \\? AND status = 0").
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "seller_id", "feature_id", "price_psc", "price_irr", "limit", "status", "created_at", "updated_at",
+		}).AddRow(8, 2, 1, 12.5, 450.0, 90, 0, now, now))
+
+	feat, err := svc.GetMyFeature(context.Background(), 2, 1)
+	require.NoError(t, err)
+	require.Equal(t, int32(1), feat.IsForSale)
+	require.NotNil(t, feat.LatestSellRequest)
+	assert.Equal(t, uint64(8), feat.LatestSellRequest.Id)
+	assert.Equal(t, "12.5000000000", feat.LatestSellRequest.PricePsc)
+	assert.Equal(t, "450.0000000000", feat.LatestSellRequest.PriceIrr)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

@@ -30,11 +30,29 @@ import (
 	"metarang/shared/pkg/sentry"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 func main() {
+	configPaths := []string{
+		"services/features-service/config.env",
+		"config.env",
+		"./config.env",
+		"../../config.env",
+	}
+	var configLoaded bool
+	for _, configPath := range configPaths {
+		if err := godotenv.Load(configPath); err == nil {
+			configLoaded = true
+			break
+		}
+	}
+	if !configLoaded {
+		fmt.Println("Warning: config.env not found, using environment variables only")
+	}
+
 	// Initialize logger
 	log := logger.NewLogger("features-service")
 	log.Info("Starting Features Service...")
@@ -129,7 +147,7 @@ func main() {
 	// Initialize Redis event broadcaster
 	redisAddr := getEnv("REDIS_ADDR", "redis:6379")
 	redisPassword := getEnv("REDIS_PASSWORD", "")
-	broadcastChannel := getEnv("BROADCAST_CHANNEL", "feature-events")
+	broadcastChannel := getEnv("BROADCAST_CHANNEL", "feature-status")
 	eventBroadcaster, err := events.NewRedisBroadcaster(redisAddr, redisPassword, broadcastChannel)
 	if err != nil {
 		log.Warn("Failed to connect to Redis - event broadcasting disabled", "error", err)
@@ -339,9 +357,10 @@ func main() {
 	httpHandlers.CitizenBuildings = handler.NewHTTPCitizenBuildingsHandler(citizenBuildingsHandler, httpHandlers.CitizenFeatures)
 	authMiddleware := middleware.AuthMiddleware(authClient)
 	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(authClient)
+	accountSecurityMiddleware := middleware.AccountSecurityMiddleware(authClient)
 	go func() {
 		log.Info("Features HTTP server started", "port", httpPort)
-		if err := handler.StartHTTPServer(httpHandlers, httpPort, authMiddleware, optionalAuthMiddleware); err != nil {
+		if err := handler.StartHTTPServer(httpHandlers, httpPort, authMiddleware, optionalAuthMiddleware, accountSecurityMiddleware); err != nil {
 			log.Fatal("Failed to serve HTTP", "error", err)
 		}
 	}()
@@ -372,7 +391,7 @@ func getEnv(key, defaultValue string) string {
 }
 
 func buildMySQLDSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 		getEnv("DB_USER", "metarang_user"),
 		getEnv("DB_PASSWORD", "metarang_password"),
 		getEnv("DB_HOST", "mysql"),

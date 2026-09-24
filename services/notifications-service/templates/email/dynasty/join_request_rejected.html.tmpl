@@ -4,11 +4,18 @@
 
 {{define "email/dynasty/join_request_rejected/content"}}
   <h1>درخواست پیوستن رد شد</h1>
+  {{if or (eq .Side "receiver") (eq .Side "received")}}
   <p>
     {{with .RecipientName}}سلام {{.}}،{{else}}سلام شهروند عزیز،{{end}}
-    متأسفانه درخواست تو برای پیوستن به خاندان {{with .DynastyName}}{{.}}{{else}}منتخب{{end}} تأیید نشد.
-    می‌توانی پس از بررسی دلایل احتمالی، درخواست تازه‌ای ثبت کنی یا به خاندان دیگری بپیوندی.
+    درخواست پیوستن به خاندان {{with .DynastyName}}{{.}}{{else}}منتخب{{end}} را رد کردی.
   </p>
+  {{else}}
+  <p>
+    {{with .RecipientName}}سلام {{.}}،{{else}}سلام شهروند عزیز،{{end}}
+    متأسفانه درخواست پیوستن به خاندان {{with .DynastyName}}{{.}}{{else}}تو{{end}} تأیید نشد.
+    می‌توانی پس از بررسی دلایل احتمالی، درخواست تازه‌ای ثبت کنی.
+  </p>
+  {{end}}
 
   <table class="details-table" role="presentation">
     <tbody>
@@ -30,16 +37,22 @@
       {{end}}
       {{with .RejectionReason}}
       <tr>
-        <th>دلیل اعلام شده</th>
+        <th>توضیح</th>
         <td>{{.}}</td>
       </tr>
       {{end}}
     </tbody>
   </table>
 
+  {{if or (eq .Side "receiver") (eq .Side "received")}}
+  <p>
+    در صورت نیاز می‌توانی وضعیت خاندان را از پنل دنبال کنی.
+  </p>
+  {{else}}
   <p>
     برای افزایش شانس پذیرش، پروفایل خود را کامل کن و اهداف مشارکتت را شفاف بنویس.
   </p>
+  {{end}}
 
   <div style="text-align:center; margin:24px 0;">
     {{with .ExploreURL}}
@@ -54,5 +67,3 @@
     متارنگ همیشه پذیرای ایده‌های تازه است؛ ناامید نشو و دوباره تلاش کن.
   </p>
 {{end}}
-
-

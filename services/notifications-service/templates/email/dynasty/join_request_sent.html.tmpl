@@ -5,8 +5,8 @@
 {{define "email/dynasty/join_request_sent/content"}}
   <h1>درخواست پیوستن ارسال شد</h1>
   <p>
-    {{with .RequesterName}}سلام {{.}}،{{else}}سلام شهروند عزیز،{{end}}
-    درخواست تو برای پیوستن به خاندان {{with .DynastyName}}{{.}}{{else}}منتخب{{end}} ثبت شد. منتظر تأیید سرپرست خاندان باش.
+    {{with .RecipientName}}سلام {{.}}،{{else}}{{with .RequesterName}}سلام {{.}}،{{else}}سلام شهروند عزیز،{{end}}{{end}}
+    دعوت پیوستن به خاندان {{with .DynastyName}}{{.}}{{else}}تو{{end}} برای {{with .ReceiverName}}{{.}}{{else}}کاربر مقصد{{end}} ارسال شد. منتظر تأیید طرف مقابل باش.
   </p>
 
   <table class="details-table" role="presentation">
@@ -21,9 +21,21 @@
         <td>{{.}}</td>
       </tr>
       {{end}}
-      {{with .RequesterCode}}
+      {{with .ReceiverName}}
       <tr>
-        <th>شناسه درخواست‌کننده</th>
+        <th>نام دریافت‌کننده</th>
+        <td>{{.}}</td>
+      </tr>
+      {{end}}
+      {{with .ReceiverCode}}
+      <tr>
+        <th>شناسه دریافت‌کننده</th>
+        <td>{{.}}</td>
+      </tr>
+      {{end}}
+      {{with .Role}}
+      <tr>
+        <th>نقش پیشنهادی</th>
         <td>{{.}}</td>
       </tr>
       {{end}}
@@ -65,5 +77,3 @@
     برای آشنایی بیشتر با قوانین خاندان‌ها، راهنمای متارنگ را مطالعه کن.
   </p>
 {{end}}
-
-

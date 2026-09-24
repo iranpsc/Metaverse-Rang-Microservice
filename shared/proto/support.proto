@@ -101,6 +101,8 @@ message TicketResponse {
   repeated TicketResponseItem responses = 11;
   string created_at = 12; // Jalali formatted
   string updated_at = 13; // Jalali formatted
+  repeated TicketResponseItem messages = 14; // chat thread: opening + replies, oldest first
+  uint64 current_user_id = 15; // viewer used to compute is_mine
 }
 
 message TicketsResponse {
@@ -116,6 +118,10 @@ message TicketResponseItem {
   string responser_name = 5;
   uint64 responser_id = 6;
   string created_at = 7; // Jalali formatted
+  common.UserBasic author = 8;
+  string role = 9; // sender, receiver, staff
+  bool is_mine = 10; // relative to current_user_id
+  string kind = 11; // opening, reply
 }
 
 // Report Messages

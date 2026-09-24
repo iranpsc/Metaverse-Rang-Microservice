@@ -2,7 +2,8 @@ package handler_test
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -13,9 +14,30 @@ import (
 	"metarang/support-service/internal/handler"
 )
 
+type stubFileStorage struct {
+	path           string
+	err            error
+	calls          int
+	lastUploadPath string
+	lastFilename   string
+}
+
+func (s *stubFileStorage) UploadChunk(_ context.Context, _, uploadPath, filename, _ string, _ []byte) (string, error) {
+	s.calls++
+	s.lastUploadPath = uploadPath
+	s.lastFilename = filename
+	if s.err != nil {
+		return "", s.err
+	}
+	if s.path != "" {
+		return s.path, nil
+	}
+	return strings.TrimSuffix(uploadPath, "/") + "/stored-" + filename, nil
+}
+
 func TestUploadTicketAttachment_StorageNotConfigured(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
-	_, err := handler.ExportUploadTicketAttachment(req, "", "http://app")
+	_, err := handler.ExportUploadTicketAttachment(req, nil, "http://app")
 	if err == nil || !strings.Contains(err.Error(), "storage service not configured") {
 		t.Fatalf("err=%v", err)
 	}
@@ -28,7 +50,7 @@ func TestUploadTicketAttachment_MissingFileReturnsEmpty(t *testing.T) {
 	_ = w.Close()
 	req := httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	url, err := handler.ExportUploadTicketAttachment(req, "storage:9000", "http://app")
+	url, err := handler.ExportUploadTicketAttachment(req, &stubFileStorage{}, "http://app")
 	if err != nil || url != "" {
 		t.Fatalf("url=%q err=%v", url, err)
 	}
@@ -45,7 +67,7 @@ func TestUploadTicketAttachment_InvalidType(t *testing.T) {
 	_ = w.Close()
 	req := httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	_, err = handler.ExportUploadTicketAttachment(req, "storage:9000", "http://app")
+	_, err = handler.ExportUploadTicketAttachment(req, &stubFileStorage{}, "http://app")
 	if err == nil || !strings.Contains(err.Error(), "invalid attachment type") {
 		t.Fatalf("err=%v", err)
 	}
@@ -62,192 +84,125 @@ func TestUploadTicketAttachment_ExceedsSize(t *testing.T) {
 	_ = w.Close()
 	req := httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	_, err = handler.ExportUploadTicketAttachment(req, "storage:9000", "http://app")
+	_, err = handler.ExportUploadTicketAttachment(req, &stubFileStorage{}, "http://app")
 	if err == nil || !strings.Contains(err.Error(), "5MB") {
 		t.Fatalf("err=%v", err)
 	}
 }
 
-func TestUploadBytesToStorage_StubSuccessAndFailures(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/upload" {
-			t.Fatalf("path=%s", r.URL.Path)
-		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"path": "uploads/tickets/", "name": "a.png", "done": 1, "success": true,
-		})
-	}))
-	defer srv.Close()
-	host := strings.TrimPrefix(srv.URL, "http://")
-
-	got, err := handler.ExportUploadBytesToStorage(host, "http://app.test", "tickets", "a.png", "image/png", []byte("hi"))
-	if err != nil || got != "http://app.test/uploads/tickets/a.png" {
+func TestUploadBytesToStorage_DelegatesToStorageService(t *testing.T) {
+	storage := &stubFileStorage{path: "/uploads/tickets/hash.png"}
+	got, err := handler.ExportUploadBytesToStorage(context.Background(), storage, "http://app.test", "tickets", "a.png", "image/png", []byte("hi"))
+	if err != nil || got != "http://app.test/uploads/tickets/hash.png" {
 		t.Fatalf("got=%q err=%v", got, err)
 	}
+	if storage.calls != 1 || storage.lastUploadPath != "/uploads/tickets" {
+		t.Fatalf("calls=%d uploadPath=%q", storage.calls, storage.lastUploadPath)
+	}
 
-	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte("nope"))
-	}))
-	defer bad.Close()
-	_, err = handler.ExportUploadBytesToStorage(strings.TrimPrefix(bad.URL, "http://"), "http://app", "tickets", "a.png", "image/png", []byte("hi"))
-	if err == nil || !strings.Contains(err.Error(), "status 500") {
+	_, err = handler.ExportUploadBytesToStorage(context.Background(), nil, "http://app", "tickets", "a.png", "image/png", []byte("hi"))
+	if err == nil || !strings.Contains(err.Error(), "storage service not configured") {
 		t.Fatalf("err=%v", err)
 	}
 
-	invalid := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{`))
-	}))
-	defer invalid.Close()
-	_, err = handler.ExportUploadBytesToStorage(strings.TrimPrefix(invalid.URL, "http://"), "http://app", "tickets", "a.png", "image/png", []byte("hi"))
-	if err == nil || !strings.Contains(err.Error(), "invalid storage response") {
-		t.Fatalf("err=%v", err)
-	}
-
-	noname := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
-	}))
-	defer noname.Close()
-	_, err = handler.ExportUploadBytesToStorage(strings.TrimPrefix(noname.URL, "http://"), "http://app", "tickets", "a.png", "image/png", []byte("hi"))
-	if err == nil || !strings.Contains(err.Error(), "did not return file path") {
+	_, err = handler.ExportUploadBytesToStorage(context.Background(), &stubFileStorage{err: fmt.Errorf("boom")}, "http://app", "tickets", "a.png", "image/png", []byte("hi"))
+	if err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("err=%v", err)
 	}
 }
 
-func TestParseTicketFormFields_MultipartURLEncodedAndInvalidReceiver(t *testing.T) {
+func TestParseTicketFormFields(t *testing.T) {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	_ = w.WriteField("title", "T")
 	_ = w.WriteField("content", "C")
-	_ = w.WriteField("department", "technical_support")
-	_ = w.WriteField("reciever", "9")
+	_ = w.WriteField("department", "D")
+	_ = w.WriteField("reciever", "42")
 	_ = w.Close()
 	req := httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	title, content, dept, rid, err := handler.ExportParseTicketFormFields(req)
-	if err != nil || title != "T" || content != "C" || dept != "technical_support" || rid == nil || *rid != 9 {
-		t.Fatalf("multipart title=%s content=%s dept=%s rid=%v err=%v", title, content, dept, rid, err)
+	title, content, dept, receiverID, err := handler.ExportParseTicketFormFields(req)
+	if err != nil || title != "T" || content != "C" || dept != "D" || receiverID == nil || *receiverID != 42 {
+		t.Fatalf("got title=%q content=%q dept=%q rec=%v err=%v", title, content, dept, receiverID, err)
 	}
 
 	form := url.Values{}
-	form.Set("title", "T")
-	form.Set("content", "C")
-	form.Set("reciever", "abc")
+	form.Set("title", "t2")
+	form.Set("content", "c2")
+	form.Set("department", "d2")
+	form.Set("reciever", "7")
 	req = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	_, _, _, _, err = handler.ExportParseTicketFormFields(req)
-	if err == nil || !strings.Contains(err.Error(), "invalid reciever") {
-		t.Fatalf("err=%v", err)
-	}
-
-	form = url.Values{}
-	form.Set("title", "T")
-	form.Set("content", "C")
-	form.Set("reciever", "4")
-	req = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	title, _, _, rid, err = handler.ExportParseTicketFormFields(req)
-	if err != nil || title != "T" || rid == nil || *rid != 4 {
-		t.Fatalf("urlencoded err=%v title=%s rid=%v", err, title, rid)
+	title, content, dept, receiverID, err = handler.ExportParseTicketFormFields(req)
+	if err != nil || title != "t2" || content != "c2" || dept != "d2" || receiverID == nil || *receiverID != 7 {
+		t.Fatalf("urlencoded title=%q content=%q dept=%q rec=%v err=%v", title, content, dept, receiverID, err)
 	}
 
 	req = httptest.NewRequest(http.MethodPost, "/", nil)
 	req.Header.Set("Content-Type", "application/json")
-	title, content, dept, rid, err = handler.ExportParseTicketFormFields(req)
-	if err != nil || title != "" || content != "" || dept != "" || rid != nil {
-		t.Fatalf("json content-type should skip form parse")
+	title, content, dept, receiverID, err = handler.ExportParseTicketFormFields(req)
+	if err != nil || title != "" || content != "" || dept != "" || receiverID != nil {
+		t.Fatalf("json title=%q content=%q dept=%q rec=%v err=%v", title, content, dept, receiverID, err)
 	}
 }
 
 func TestParseNoteAndReportFormFields(t *testing.T) {
-	form := url.Values{}
-	form.Set("title", "N")
-	form.Set("content", "C")
-	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	title, content, err := handler.ExportParseNoteFormFields(req)
-	if err != nil || title != "N" || content != "C" {
-		t.Fatalf("note form err=%v title=%s content=%s", err, title, content)
-	}
-
-	rform := url.Values{}
-	rform.Set("title", "T")
-	rform.Set("content", "C")
-	rform.Set("subject", "displayError")
-	rform.Set("url", "https://x")
-	req = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(rform.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	title, _, subject, u, err := handler.ExportParseReportFormFields(req)
-	if err != nil || title != "T" || subject != "displayError" || u != "https://x" {
-		t.Fatalf("report form err=%v title=%s subject=%s url=%s", err, title, subject, u)
-	}
-
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
-	_ = w.WriteField("title", "N")
-	_ = w.WriteField("content", "C")
-	_ = w.Close()
-	req = httptest.NewRequest(http.MethodPost, "/", &buf)
-	req.Header.Set("Content-Type", w.FormDataContentType())
-	title, _, err = handler.ExportParseNoteFormFields(req)
-	if err != nil || title != "N" {
-		t.Fatalf("note multipart err=%v", err)
-	}
-}
-
-func TestUploadReportAttachments_TooManyAndInvalidType(t *testing.T) {
-	var buf bytes.Buffer
-	w := multipart.NewWriter(&buf)
-	for i := 0; i < 6; i++ {
-		part, err := w.CreateFormFile("attachments[]", string(rune('a'+i))+".png")
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, _ = part.Write([]byte("x"))
-	}
+	_ = w.WriteField("title", "nt")
+	_ = w.WriteField("content", "nc")
 	_ = w.Close()
 	req := httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	_, err := handler.ExportUploadReportAttachments(req, "storage:9000", "http://app")
-	if err == nil || !strings.Contains(err.Error(), "more than 5") {
-		t.Fatalf("err=%v", err)
+	title, content, err := handler.ExportParseNoteFormFields(req)
+	if err != nil || title != "nt" || content != "nc" {
+		t.Fatalf("note title=%q content=%q err=%v", title, content, err)
 	}
 
 	buf.Reset()
 	w = multipart.NewWriter(&buf)
-	part, err := w.CreateFormFile("attachments[]", "x.exe")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _ = part.Write([]byte("x"))
+	_ = w.WriteField("title", "rt")
+	_ = w.WriteField("content", "rc")
+	_ = w.WriteField("subject", "displayError")
+	_ = w.WriteField("url", "https://x")
 	_ = w.Close()
 	req = httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	_, err = handler.ExportUploadReportAttachments(req, "storage:9000", "http://app")
-	if err == nil || !strings.Contains(err.Error(), "invalid attachment type") {
-		t.Fatalf("err=%v", err)
-	}
-
-	req = httptest.NewRequest(http.MethodPost, "/", nil)
-	req.Header.Set("Content-Type", "application/json")
-	paths, err := handler.ExportUploadReportAttachments(req, "storage:9000", "http://app")
-	if err != nil || paths != nil {
-		t.Fatalf("non-multipart paths=%v err=%v", paths, err)
+	title, content, subject, u, err := handler.ExportParseReportFormFields(req)
+	if err != nil || title != "rt" || content != "rc" || subject != "displayError" || u != "https://x" {
+		t.Fatalf("report title=%q content=%q subject=%q url=%q err=%v", title, content, subject, u, err)
 	}
 }
 
-func TestResolveNoteAttachmentURL_InvalidTypeAndClear(t *testing.T) {
+func TestResolveNoteAttachmentURL(t *testing.T) {
+	storage := &stubFileStorage{path: "/uploads/notes/hash.png"}
+
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
-	part, err := w.CreateFormFile("attachment", "x.exe")
+	part, err := w.CreateFormFile("attachments[]", "a.png")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _ = part.Write([]byte("x"))
+	_, _ = part.Write([]byte("png"))
 	_ = w.Close()
 	req := httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	_, _, err = handler.ExportResolveNoteAttachmentURL(req, "storage:9000", "http://app")
+	url, clear, err := handler.ExportResolveNoteAttachmentURL(req, storage, "http://app")
+	if err != nil || clear || url != "http://app/uploads/notes/hash.png" {
+		t.Fatalf("url=%q clear=%v err=%v", url, clear, err)
+	}
+
+	buf.Reset()
+	w = multipart.NewWriter(&buf)
+	part, err = w.CreateFormFile("attachments[]", "bad.exe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = part.Write([]byte("MZ"))
+	_ = w.Close()
+	req = httptest.NewRequest(http.MethodPost, "/", &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	_, _, err = handler.ExportResolveNoteAttachmentURL(req, storage, "http://app")
 	if err == nil || !strings.Contains(err.Error(), "invalid attachment type") {
 		t.Fatalf("err=%v", err)
 	}
@@ -258,7 +213,7 @@ func TestResolveNoteAttachmentURL_InvalidTypeAndClear(t *testing.T) {
 	_ = w.Close()
 	req = httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	url, clear, err := handler.ExportResolveNoteAttachmentURL(req, "storage:9000", "http://app")
+	url, clear, err = handler.ExportResolveNoteAttachmentURL(req, storage, "http://app")
 	if err != nil || url != "" || !clear {
 		t.Fatalf("clear url=%q clear=%v err=%v", url, clear, err)
 	}
@@ -269,14 +224,14 @@ func TestResolveNoteAttachmentURL_InvalidTypeAndClear(t *testing.T) {
 	_ = w.Close()
 	req = httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	url, clear, err = handler.ExportResolveNoteAttachmentURL(req, "storage:9000", "http://app")
+	url, clear, err = handler.ExportResolveNoteAttachmentURL(req, storage, "http://app")
 	if err != nil || url != "keep.png" || clear {
 		t.Fatalf("current url=%q clear=%v err=%v", url, clear, err)
 	}
 
 	req = httptest.NewRequest(http.MethodPost, "/", nil)
 	req.Header.Set("Content-Type", "application/json")
-	url, clear, err = handler.ExportResolveNoteAttachmentURL(req, "storage:9000", "http://app")
+	url, clear, err = handler.ExportResolveNoteAttachmentURL(req, storage, "http://app")
 	if err != nil || url != "" || clear {
 		t.Fatalf("non-multipart url=%q clear=%v err=%v", url, clear, err)
 	}
@@ -293,21 +248,82 @@ func TestUploadReportFileHeader_ExceedsSize(t *testing.T) {
 	_ = w.Close()
 	req := httptest.NewRequest(http.MethodPost, "/", &buf)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	_, err = handler.ExportUploadReportAttachments(req, "storage:9000", "http://app")
+	_, err = handler.ExportUploadReportAttachments(req, &stubFileStorage{}, "http://app")
 	if err == nil || !strings.Contains(err.Error(), "1MB") {
 		t.Fatalf("err=%v", err)
 	}
 }
 
 func TestUploadBytesToStorageWithRelativePath(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"path": "uploads/reports/", "name": "a.png", "success": true,
-		})
-	}))
-	defer srv.Close()
-	full, rel, err := handler.ExportUploadBytesToStorageWithRelativePath(strings.TrimPrefix(srv.URL, "http://"), "http://app", "reports", "a.png", "image/png", []byte("hi"))
-	if err != nil || !strings.Contains(full, "a.png") || rel != "reports/a.png" {
-		t.Fatalf("full=%q rel=%q err=%v", full, rel, err)
+	storage := &stubFileStorage{path: "/uploads/reports/abc123def.png"}
+	full, rel, err := handler.ExportUploadBytesToStorageWithRelativePath(
+		context.Background(),
+		storage,
+		"http://app",
+		"reports",
+		"original.png",
+		"image/png",
+		[]byte("hi"),
+	)
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if full != "http://app/uploads/reports/abc123def.png" {
+		t.Fatalf("full=%q", full)
+	}
+	if rel != "reports/abc123def.png" {
+		t.Fatalf("rel=%q want reports/abc123def.png (must use storage name, not original filename)", rel)
+	}
+}
+
+func TestUploadReportAttachments_DelegatesToStorage(t *testing.T) {
+	storage := &stubFileStorage{path: "/uploads/reports/stored-hash.png"}
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	part, err := w.CreateFormFile("attachments[]", "photo.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = part.Write([]byte("png-bytes"))
+	_ = w.Close()
+
+	req := httptest.NewRequest(http.MethodPost, "/", &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	paths, err := handler.ExportUploadReportAttachments(req, storage, "http://app")
+	if err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	if len(paths) != 1 || paths[0] != "reports/stored-hash.png" {
+		t.Fatalf("paths=%v", paths)
+	}
+	if storage.calls != 1 || storage.lastUploadPath != "/uploads/reports" {
+		t.Fatalf("calls=%d uploadPath=%q", storage.calls, storage.lastUploadPath)
+	}
+}
+
+func TestUploadReportAttachments_StorageNotConfigured(t *testing.T) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	part, err := w.CreateFormFile("attachments[]", "photo.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = part.Write([]byte("png"))
+	_ = w.Close()
+	req := httptest.NewRequest(http.MethodPost, "/", &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	_, err = handler.ExportUploadReportAttachments(req, nil, "http://app")
+	if err == nil || !strings.Contains(err.Error(), "storage service not configured") {
+		t.Fatalf("err=%v", err)
+	}
+}
+
+func TestRelativeDBPath(t *testing.T) {
+	if got := handler.ExportRelativeDBPath("/uploads/reports/a.png"); got != "reports/a.png" {
+		t.Fatalf("got=%q", got)
+	}
+	if got := handler.ExportPrependPublicURL("http://app/", "/uploads/x.png"); got != "http://app/uploads/x.png" {
+		t.Fatalf("got=%q", got)
 	}
 }

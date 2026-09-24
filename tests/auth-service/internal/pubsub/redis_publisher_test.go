@@ -41,7 +41,7 @@ func TestRedisPublisher_PublishAndClose(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	defer client.Close()
 
-	sub := client.Subscribe(ctx, "user-status-changed")
+	sub := client.Subscribe(ctx, "user-status")
 	defer sub.Close()
 	if _, err := sub.Receive(ctx); err != nil {
 		t.Fatalf("subscribe: %v", err)

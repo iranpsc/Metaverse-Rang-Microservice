@@ -47,15 +47,25 @@
         <td>{{.}}</td>
       </tr>
       {{end}}
+      {{if .PaidAssetAmount}}
       <tr>
-        <th>پیشنهاد IRR</th>
-        <td>{{with .OfferIRR}}{{.}}{{else}}—{{end}}</td>
+        <th>پیشنهاد ({{if .PaidAssetLabel}}{{.PaidAssetLabel}}{{else}}دارایی{{end}})</th>
+        <td>{{.PaidAssetAmount}}</td>
       </tr>
+      {{end}}
+      {{if .OfferIRR}}
       <tr>
-        <th>پیشنهاد PSC</th>
-        <td>{{with .OfferPSC}}{{.}}{{else}}—{{end}}</td>
+        <th>پیشنهاد ({{if .OfferIRRLabel}}{{.OfferIRRLabel}}{{else}}IRR{{end}})</th>
+        <td>{{.OfferIRR}}</td>
       </tr>
-      {{with .RequestId}}
+      {{end}}
+      {{if .OfferPSC}}
+      <tr>
+        <th>پیشنهاد ({{if .OfferPSCLabel}}{{.OfferPSCLabel}}{{else}}PSC{{end}})</th>
+        <td>{{.OfferPSC}}</td>
+      </tr>
+      {{end}}
+      {{with .RequestID}}
       <tr>
         <th>شناسه پیشنهاد</th>
         <td>{{.}}</td>

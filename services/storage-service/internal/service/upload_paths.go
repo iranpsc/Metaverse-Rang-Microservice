@@ -67,10 +67,17 @@ func resolveChunkPublicDir(relativePath, uploadSubdir string, customUpload bool)
 
 	pathDir := filepath.Dir(relativePath)
 	pathDir = strings.ReplaceAll(pathDir, "\\", "/")
-	if !strings.HasSuffix(pathDir, "/") {
-		pathDir += "/"
+	if pathDir == "." {
+		pathDir = ""
 	}
-	return pathDir
+	pathDir = strings.Trim(pathDir, "/")
+	if pathDir == "" {
+		return "uploads/"
+	}
+	if !strings.HasPrefix(pathDir, "uploads/") && pathDir != "uploads" {
+		pathDir = "uploads/" + pathDir
+	}
+	return pathDir + "/"
 }
 
 func safePathUnderBase(baseDir, relativePath string) (string, error) {

@@ -77,11 +77,16 @@ func (h *HTTPAuthHandler) UploadProfilePhoto(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(imageData)
+	}
+
 	grpcReq := &pb.UploadProfilePhotoRequest{
 		UserId:      userCtx.UserID,
 		ImageData:   imageData,
 		Filename:    header.Filename,
-		ContentType: header.Header.Get("Content-Type"),
+		ContentType: contentType,
 	}
 
 	resp, err := h.profilePhotoClient.UploadProfilePhoto(r.Context(), grpcReq)

@@ -15,7 +15,6 @@ import (
 // notificationAPI is the subset of notification RPCs used by the HTTP layer.
 type notificationAPI interface {
 	GetNotifications(context.Context, *notificationpb.GetNotificationsRequest) (*notificationpb.NotificationsResponse, error)
-	GetNotification(context.Context, *notificationpb.GetNotificationRequest) (*notificationpb.Notification, error)
 	MarkAsRead(context.Context, *notificationpb.MarkAsReadRequest) (*commonpb.Empty, error)
 	MarkAllAsRead(context.Context, *notificationpb.MarkAllAsReadRequest) (*commonpb.Empty, error)
 }
@@ -43,9 +42,7 @@ func (h *HTTPNotificationHandler) RegisterHTTPRoutes(
 
 	mux.Handle("/api/notifications", authMiddleware(http.HandlerFunc(h.GetNotifications)))
 	mux.Handle("/api/notifications/read/all", authMiddleware(http.HandlerFunc(h.MarkAllAsRead)))
-	mux.Handle("/api/notifications/mark-all-read", authMiddleware(http.HandlerFunc(h.MarkAllAsRead)))
-	mux.Handle("/api/notifications/mark-read", authMiddleware(http.HandlerFunc(h.MarkAsRead)))
-	mux.Handle("/api/notifications/", authMiddleware(http.HandlerFunc(h.handleNotificationRoutes)))
+	mux.Handle("/api/notifications/read/{id}", authMiddleware(http.HandlerFunc(h.MarkAsRead)))
 }
 
 // StartHTTPServer starts the public HTTP server (behind Kong).
@@ -62,15 +59,6 @@ func StartHTTPServer(
 		Handler: sentry.HTTPMiddleware(mux),
 	}
 	return server.ListenAndServe()
-}
-
-func (h *HTTPNotificationHandler) handleNotificationRoutes(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-	if strings.Contains(path, "/read/") && !strings.Contains(path, "/read/all") {
-		h.MarkAsRead(w, r)
-		return
-	}
-	h.GetNotification(w, r)
 }
 
 // GetNotifications handles GET /api/notifications
@@ -119,46 +107,15 @@ func (h *HTTPNotificationHandler) GetNotifications(w http.ResponseWriter, r *htt
 	writeJSON(w, http.StatusOK, map[string]interface{}{"data": notifications})
 }
 
-// GetNotification handles GET /api/notifications/{notification}
-func (h *HTTPNotificationHandler) GetNotification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
-	path := strings.TrimPrefix(r.URL.Path, "/api/notifications/")
-	if path == "" || path == r.URL.Path {
-		writeError(w, http.StatusBadRequest, "notification ID is required")
-		return
-	}
-
-	userCtx, err := middleware.GetUserFromRequest(r)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	notif, err := h.api.GetNotification(r.Context(), &notificationpb.GetNotificationRequest{
-		NotificationId: path,
-		UserId:         userCtx.UserID,
-	})
-	if err != nil {
-		writeHandlerError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": transformNotification(notif)})
-}
-
-// MarkAsRead handles POST /api/notifications/read/{notification}
+// MarkAsRead handles POST /api/notifications/read/{id}
 func (h *HTTPNotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	path := strings.TrimPrefix(r.URL.Path, "/api/notifications/read/")
-	if path == "" || path == r.URL.Path {
+	id := r.PathValue("id")
+	if id == "" {
 		writeError(w, http.StatusBadRequest, "notification ID is required")
 		return
 	}
@@ -170,7 +127,7 @@ func (h *HTTPNotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Requ
 	}
 
 	if _, err := h.api.MarkAsRead(r.Context(), &notificationpb.MarkAsReadRequest{
-		NotificationId: path,
+		NotificationId: id,
 		UserId:         userCtx.UserID,
 	}); err != nil {
 		writeHandlerError(w, err)

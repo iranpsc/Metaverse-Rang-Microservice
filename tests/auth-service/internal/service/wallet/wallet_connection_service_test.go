@@ -32,6 +32,18 @@ func (f *fakeWalletCacheRepo) TryAcquireAccountSecurityVerificationSlot(context.
 	return true, nil
 }
 
+func (f *fakeWalletCacheRepo) TryAcquireMobileChangeSendSlot(context.Context, uint64, time.Duration) (bool, error) {
+	return true, nil
+}
+func (f *fakeWalletCacheRepo) ReleaseMobileChangeSendSlot(context.Context, uint64) error { return nil }
+func (f *fakeWalletCacheRepo) SaveMobileChangeChallenge(context.Context, uint64, *repository.MobileChangeChallenge, time.Duration) error {
+	return nil
+}
+func (f *fakeWalletCacheRepo) GetMobileChangeChallenge(context.Context, uint64) (*repository.MobileChangeChallenge, error) {
+	return nil, nil
+}
+func (f *fakeWalletCacheRepo) DeleteMobileChangeChallenge(context.Context, uint64) error { return nil }
+
 func (f *fakeWalletCacheRepo) SetWeb3LinkNonce(_ context.Context, userID uint64, address, nonce string, _ time.Duration) error {
 	if f.linkNonces == nil {
 		f.linkNonces = map[string]string{}

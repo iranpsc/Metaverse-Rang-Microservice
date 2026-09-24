@@ -26,7 +26,7 @@ func TestBuildMySQLDSN(t *testing.T) {
 	t.Setenv("DB_DATABASE", "features_db")
 
 	got := buildMySQLDSN()
-	want := "app:secret@tcp(db.internal:3307)/features_db?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci"
+	want := "app:secret@tcp(db.internal:3307)/features_db?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

@@ -109,7 +109,9 @@ func registerNotificationServices(grpcServer *grpc.Server, db *sql.DB) *handler.
 	smsCfg := loadSMSChannelConfig()
 	logSMSConfig(smsCfg)
 	smsChannel := service.NewSMSChannel(smsCfg)
-	emailChannel := service.NewEmailChannel()
+	emailCfg := loadEmailChannelConfig()
+	logEmailConfig(emailCfg)
+	emailChannel := service.NewEmailChannelFromConfig(emailCfg)
 
 	notificationService := service.NewNotificationService(notificationRepo, smsChannel, emailChannel)
 	smsService := service.NewSMSService(smsChannel)

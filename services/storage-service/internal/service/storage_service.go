@@ -106,7 +106,9 @@ func localUploadPathCandidates(uploadBaseDir, filePath string) []string {
 	if strings.HasPrefix(filePath, "upload/") && !strings.HasPrefix(filePath, "uploads/") {
 		add(filepath.Join("uploads", strings.TrimPrefix(filePath, "upload/")))
 	}
-	if !strings.HasPrefix(filePath, "uploads/") {
+	if strings.HasPrefix(filePath, "uploads/") {
+		add(strings.TrimPrefix(filePath, "uploads/"))
+	} else {
 		add(filepath.Join("uploads", filePath))
 	}
 	return out
@@ -136,6 +138,12 @@ func contentTypeForPath(filePath string) string {
 // DeleteFile deletes a file from FTP server
 func (s *StorageService) DeleteFile(filePath string) error {
 	return s.ftpClient.DeleteFile(filePath)
+}
+
+// HasUploadedChunk reports whether a chunk was already received for an upload session.
+// Used by resumable.js GET test requests before uploading each chunk.
+func (s *StorageService) HasUploadedChunk(uploadID string, chunkIndex int32) bool {
+	return s.chunkManager.HasChunk(uploadID, chunkIndex)
 }
 
 // HandleChunkUpload processes a chunk upload

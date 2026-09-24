@@ -4,110 +4,239 @@ package hub
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	socketio "github.com/googollee/go-socket.io"
-	"github.com/googollee/go-socket.io/engineio"
-	"github.com/googollee/go-socket.io/engineio/transport"
-	"github.com/googollee/go-socket.io/engineio/transport/polling"
-	"github.com/googollee/go-socket.io/engineio/transport/websocket"
-
-	"metarang/websocket-gateway/internal/auth"
+	"github.com/zishang520/engine.io/v2/types"
+	"github.com/zishang520/socket.io/v2/socket"
 )
 
-var errUnauthorized = errors.New("unauthorized")
+const (
+	publicFeatureRoom = "feature-status"
+	publicUserRoom    = "user-status"
+)
+
+// TokenValidator validates Sanctum tokens for incoming Socket.IO connections.
+type TokenValidator interface {
+	ValidateToken(ctx context.Context, token string) (uint64, error)
+}
+
+// connectionIdentity is stored on each socket after the auth middleware runs.
+// Anonymous public clients have Authenticated=false and UserID=0.
+type connectionIdentity struct {
+	UserID        uint64
+	Authenticated bool
+}
 
 // Hub manages Socket.IO connections and Redis-driven broadcasts.
 type Hub struct {
-	server *socketio.Server
-	users  map[uint64]map[string]struct{}
-	mu     sync.RWMutex
-	auth   *auth.Validator
+	server  *socket.Server
+	handler http.Handler
+	users   map[uint64]map[string]struct{}
+	mu      sync.RWMutex
+	auth    TokenValidator
 }
 
-// New creates a Socket.IO hub with authentication on connect.
-func New(validator *auth.Validator) *Hub {
+// New creates a Socket.IO v4 hub.
+// Public rooms (feature-status, user-status) are open without a token.
+// Private notifications require a valid Sanctum token (user:{id} room).
+func New(validator TokenValidator, corsOrigins []string) *Hub {
 	h := &Hub{
 		users: make(map[uint64]map[string]struct{}),
 		auth:  validator,
 	}
 
-	opts := &engineio.Options{
-		Transports: []transport.Transport{
-			polling.Default,
-			websocket.Default,
+	opts := socket.DefaultServerOptions()
+	opts.SetCors(&types.Cors{
+		Origin:  corsOriginOption(corsOrigins),
+		Methods: []string{http.MethodGet, http.MethodPost},
+		AllowedHeaders: []string{
+			"Authorization",
+			"Content-Type",
+			"Accept",
+			"Origin",
+			"X-Requested-With",
 		},
-	}
+		Credentials:          true,
+		OptionsSuccessStatus: http.StatusNoContent,
+	})
 
-	server := socketio.NewServer(opts)
+	server := socket.NewServer(nil, opts)
 
-	server.OnConnect("/", func(s socketio.Conn) error {
-		token := extractToken(s)
+	server.Use(func(client *socket.Socket, next func(*socket.ExtendedError)) {
+		token := extractToken(client)
 		if token == "" {
-			return errUnauthorized
+			// Anonymous clients may listen to public channels only.
+			client.SetData(connectionIdentity{})
+			next(nil)
+			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		userID, err := h.auth.ValidateToken(ctx, token)
 		if err != nil {
 			log.Printf("token validation failed: %v", err)
-			return errUnauthorized
+			next(socket.NewExtendedError("unauthorized", map[string]any{"message": "unauthorized"}))
+			return
 		}
 
-		s.SetContext(userID)
-		h.track(userID, s.ID())
-		room := userRoom(userID)
-		s.Join(room)
-
-		s.Emit("connected", map[string]any{
-			"message":   "Connected to metarang WebSocket Gateway",
-			"userId":    userID,
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		})
-		return nil
+		client.SetData(connectionIdentity{UserID: userID, Authenticated: true})
+		next(nil)
 	})
 
-	server.OnEvent("/", "ping", func(s socketio.Conn) {
-		s.Emit("pong", map[string]any{"timestamp": time.Now().UnixMilli()})
-	})
-
-	server.OnDisconnect("/", func(s socketio.Conn, _ string) {
-		userID, ok := s.Context().(uint64)
+	if err := server.On("connection", func(clients ...any) {
+		client, ok := clients[0].(*socket.Socket)
 		if !ok {
 			return
 		}
-		h.untrack(userID, s.ID())
-	})
 
-	server.OnError("/", func(_ socketio.Conn, err error) {
-		log.Printf("socket error: %v", err)
-	})
+		identity, ok := client.Data().(connectionIdentity)
+		if !ok {
+			client.Disconnect(true)
+			return
+		}
+
+		socketID := string(client.Id())
+		rooms := []socket.Room{socket.Room(publicFeatureRoom), socket.Room(publicUserRoom)}
+		if identity.Authenticated {
+			h.track(identity.UserID, socketID)
+			rooms = append(rooms, socket.Room(userRoom(identity.UserID)))
+		}
+		client.Join(rooms...)
+
+		payload := map[string]any{
+			"message":       "Connected to metarang WebSocket Gateway",
+			"authenticated": identity.Authenticated,
+			"timestamp":     time.Now().UTC().Format(time.RFC3339),
+		}
+		if identity.Authenticated {
+			payload["userId"] = identity.UserID
+		}
+		_ = client.Emit("connected", payload)
+
+		if err := client.On("client-ping", func(...any) {
+			_ = client.Emit("client-pong", map[string]any{"timestamp": time.Now().UnixMilli()})
+		}); err != nil {
+			log.Printf("failed to register client-ping handler: %v", err)
+		}
+		// Keep legacy alias for older clients.
+		if err := client.On("ping", func(...any) {
+			_ = client.Emit("pong", map[string]any{"timestamp": time.Now().UnixMilli()})
+		}); err != nil {
+			log.Printf("failed to register ping handler: %v", err)
+		}
+		if identity.Authenticated {
+			userID := identity.UserID
+			if err := client.On("disconnect", func(...any) {
+				h.untrack(userID, socketID)
+			}); err != nil {
+				log.Printf("failed to register disconnect handler: %v", err)
+			}
+		}
+	}); err != nil {
+		log.Printf("failed to register connection handler: %v", err)
+	}
 
 	h.server = server
+	h.handler = server.ServeHandler(opts)
 	return h
+}
+
+// Close shuts down the Socket.IO server.
+func (h *Hub) Close() error {
+	if h.server == nil {
+		return nil
+	}
+	h.server.Close(nil)
+	return nil
 }
 
 // ServeHTTP handles Socket.IO traffic.
 func (h *Hub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.server.ServeHTTP(w, r)
+	h.handler.ServeHTTP(w, r)
 }
 
-func extractToken(s socketio.Conn) string {
-	reqURL := s.URL()
-	if token := reqURL.Query().Get("token"); token != "" {
+func extractToken(s *socket.Socket) string {
+	if s == nil || s.Handshake() == nil {
+		return ""
+	}
+	hs := s.Handshake()
+	return tokenFromHandshake(hs.Query, hs.Auth, hs.Headers)
+}
+
+func tokenFromHandshake(query map[string][]string, auth any, headers map[string][]string) string {
+	if token := firstValue(query, "token"); token != "" {
 		return token
 	}
-	if authHeader := s.RemoteHeader().Get("Authorization"); authHeader != "" {
+	if token := tokenFromAuth(auth); token != "" {
+		return token
+	}
+	if authHeader := firstHeader(headers, "Authorization"); authHeader != "" {
 		return strings.TrimPrefix(strings.TrimSpace(authHeader), "Bearer ")
 	}
 	return ""
+}
+
+func tokenFromAuth(auth any) string {
+	switch v := auth.(type) {
+	case map[string]any:
+		if token, ok := v["token"].(string); ok {
+			return token
+		}
+	case map[string]string:
+		return v["token"]
+	}
+	return ""
+}
+
+func firstValue(values map[string][]string, key string) string {
+	if values == nil {
+		return ""
+	}
+	if vals := values[key]; len(vals) > 0 {
+		return vals[0]
+	}
+	return ""
+}
+
+func firstHeader(headers map[string][]string, key string) string {
+	if headers == nil {
+		return ""
+	}
+	for _, candidate := range []string{key, strings.ToLower(key), http.CanonicalHeaderKey(key)} {
+		if vals := headers[candidate]; len(vals) > 0 && vals[0] != "" {
+			return vals[0]
+		}
+	}
+	return ""
+}
+
+func corsOriginOption(corsOrigins []string) any {
+	origins := make([]any, 0, len(corsOrigins))
+	allowAll := false
+	for _, origin := range corsOrigins {
+		origin = strings.TrimSpace(origin)
+		if origin == "" {
+			continue
+		}
+		if origin == "*" {
+			allowAll = true
+			continue
+		}
+		origins = append(origins, origin)
+	}
+	if allowAll || len(origins) == 0 {
+		return true
+	}
+	if len(origins) == 1 {
+		return origins[0]
+	}
+	return origins
 }
 
 func (h *Hub) track(userID uint64, socketID string) {
@@ -142,22 +271,28 @@ func (h *Hub) Stats() (connections int, users int) {
 	return connections, len(h.users)
 }
 
-// BroadcastUserStatus sends a user-status event to a specific user room.
+// BroadcastUserStatus sends a user-status event to the public user-status room.
 func (h *Hub) BroadcastUserStatus(data map[string]any) {
-	userID, ok := numericID(data["user_id"])
-	if !ok {
-		return
+	if _, ok := numericID(data["user_id"]); !ok {
+		if _, ok = numericID(data["id"]); !ok {
+			return
+		}
 	}
-	h.server.BroadcastToRoom("/", userRoom(userID), "user-status-changed", data)
+	_ = h.server.To(socket.Room(publicUserRoom)).Emit("user-status-changed", data)
 }
 
-// BroadcastFeatureStatus sends feature ownership updates to involved users.
+// BroadcastFeatureStatus sends feature status updates to map clients and involved owners.
 func (h *Hub) BroadcastFeatureStatus(data map[string]any) {
+	// Public map updates (id + rgb) go to every connected client.
+	if _, hasID := numericID(data["id"]); hasID {
+		_ = h.server.To(socket.Room(publicFeatureRoom)).Emit("feature-status-changed", data)
+	}
+
 	if oldOwner, ok := numericID(data["old_owner_id"]); ok {
-		h.server.BroadcastToRoom("/", userRoom(oldOwner), "feature-status-changed", merge(data, map[string]any{"userType": "old_owner"}))
+		_ = h.server.To(socket.Room(userRoom(oldOwner))).Emit("feature-status-changed", merge(data, map[string]any{"userType": "old_owner"}))
 	}
 	if newOwner, ok := numericID(data["new_owner_id"]); ok {
-		h.server.BroadcastToRoom("/", userRoom(newOwner), "feature-status-changed", merge(data, map[string]any{"userType": "new_owner"}))
+		_ = h.server.To(socket.Room(userRoom(newOwner))).Emit("feature-status-changed", merge(data, map[string]any{"userType": "new_owner"}))
 	}
 }
 
@@ -176,7 +311,7 @@ func (h *Hub) BroadcastNotification(data map[string]any) {
 		"created_at": data["created_at"],
 		"timestamp":  time.Now().UTC().Format(time.RFC3339),
 	}
-	h.server.BroadcastToRoom("/", userRoom(userID), "notification-received", payload)
+	_ = h.server.To(socket.Room(userRoom(userID))).Emit("notification-received", payload)
 }
 
 func userRoom(userID uint64) string {

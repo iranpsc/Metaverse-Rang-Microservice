@@ -899,6 +899,7 @@ CREATE TABLE `interactions` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `interactions_user_likeable_unique` (`user_id`,`likeable_type`,`likeable_id`),
   KEY `interactions_user_id_foreign` (`user_id`),
   KEY `interactions_likeable_type_likeable_id_index` (`likeable_type`,`likeable_id`),
   CONSTRAINT `interactions_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)

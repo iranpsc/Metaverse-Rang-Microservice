@@ -151,6 +151,53 @@ func expectReloadFeatureAndGeometry(mock sqlmock.Sqlmock, ownerID uint64, rgb st
 			AddRow(3, "Polygon", now, now))
 }
 
+func expectTradeChannels(mock sqlmock.Sqlmock, userID uint64, name string) {
+	t := time.Now()
+	mock.ExpectQuery("trade_notification_channels").
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"name", "phone", "phone_verified_at", "notifications"}).
+			AddRow(name, "09120000000", t, `{"trades_sms":true,"trades_email":true}`))
+}
+
+func expectFeatureCoordinates(mock sqlmock.Sqlmock, featureID uint64) {
+	mock.ExpectQuery("SELECT c.x, c.y").
+		WithArgs(featureID).
+		WillReturnRows(sqlmock.NewRows([]string{"x", "y"}).
+			AddRow(51.4, 35.7).
+			AddRow(51.5, 35.8))
+}
+
+func expectUserCodeLookup(mock sqlmock.Sqlmock, userID uint64, code string) {
+	mock.ExpectQuery("SELECT code FROM users WHERE id").
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"code"}).AddRow(code))
+}
+
+func expectBuyFeatureNotifyEnrichment(mock sqlmock.Sqlmock, featureID, buyerID, sellerID uint64, buyerCode, sellerCode string) {
+	expectFeatureCoordinates(mock, featureID)
+	expectUserCodeLookup(mock, buyerID, buyerCode)
+	if sellerID > 0 {
+		expectUserCodeLookup(mock, sellerID, sellerCode)
+	}
+}
+
+func expectSellFeatureNotifyEnrichment(mock sqlmock.Sqlmock, featureID, sellerID, buyerID uint64, sellerCode, buyerCode string) {
+	expectFeatureCoordinates(mock, featureID)
+	expectUserCodeLookup(mock, sellerID, sellerCode)
+	if buyerID > 0 {
+		expectUserCodeLookup(mock, buyerID, buyerCode)
+	}
+}
+
+func expectBuyRequestNotifyEnrichment(mock sqlmock.Sqlmock, featureID, buyerID, sellerID uint64, buyerCode, sellerCode string, counterpartNameUserID uint64) {
+	expectFeatureCoordinates(mock, featureID)
+	mock.ExpectQuery("SELECT name FROM users WHERE id").
+		WithArgs(counterpartNameUserID).
+		WillReturnRows(sqlmock.NewRows([]string{"name"}).AddRow("counterpart"))
+	expectUserCodeLookup(mock, buyerID, buyerCode)
+	expectUserCodeLookup(mock, sellerID, sellerCode)
+}
+
 func TestMarketplaceService_BuyFeature_Limited_NoLimitation(t *testing.T) {
 	stub := testutil.NewCommercialStub()
 	svc, mock := newMarketplaceWithWallet(t, stub)
@@ -206,6 +253,15 @@ func TestMarketplaceService_BuyFeature_Limited_HappyPath(t *testing.T) {
 	assert.Equal(t, testutil.BalanceOp{UserID: 2, Asset: "yellow", Amount: 10}, stub.DeductCalls[0])
 	require.GreaterOrEqual(t, len(stub.AddCalls), 1)
 	assert.Equal(t, testutil.BalanceOp{UserID: 5, Asset: "yellow", Amount: 10}, stub.AddCalls[0])
+	require.Len(t, stub.CreateTxCalls, 2)
+	assert.Equal(t, testutil.CreateTxOp{
+		UserID: 2, Asset: "yellow", Amount: 10, Action: "withdraw", Status: 1,
+		PayableType: `App\Models\Trade`, PayableID: 7,
+	}, stub.CreateTxCalls[0])
+	assert.Equal(t, testutil.CreateTxOp{
+		UserID: 5, Asset: "yellow", Amount: 10, Action: "deposit", Status: 1,
+		PayableType: `App\Models\Trade`, PayableID: 7,
+	}, stub.CreateTxCalls[1])
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -245,6 +301,12 @@ func TestMarketplaceService_BuyFeature_RGB_HappyPath(t *testing.T) {
 	require.Len(t, stub.DeductCalls, 1)
 	assert.Equal(t, testutil.BalanceOp{UserID: 2, Asset: "yellow", Amount: 10}, stub.DeductCalls[0])
 	assert.Equal(t, testutil.BalanceOp{UserID: 5, Asset: "yellow", Amount: 10}, stub.AddCalls[0])
+	require.Len(t, stub.CreateTxCalls, 2)
+	assert.Equal(t, "withdraw", stub.CreateTxCalls[0].Action)
+	assert.Equal(t, "yellow", stub.CreateTxCalls[0].Asset)
+	assert.Equal(t, `App\Models\Trade`, stub.CreateTxCalls[0].PayableType)
+	assert.Equal(t, uint64(7), stub.CreateTxCalls[0].PayableID)
+	assert.Equal(t, "deposit", stub.CreateTxCalls[1].Action)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -353,8 +415,8 @@ func TestMarketplaceService_SendBuyRequest_WalletSuccess(t *testing.T) {
 	mock.ExpectExec("INSERT INTO buy_feature_requests").
 		WithArgs(uint64(2), uint64(3), uint64(1), "", 500.0, 500.0).
 		WillReturnResult(sqlmock.NewResult(9, 1))
-	mock.ExpectExec("INSERT INTO locked_wallets").
-		WithArgs(uint64(9), uint64(1), 525.0, 525.0).
+	mock.ExpectExec("INSERT INTO locked_assets").
+		WithArgs(uint64(2), uint64(9), uint64(1), 525.0, 525.0).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectQuery("FROM buy_feature_requests").
 		WithArgs(uint64(9)).
@@ -519,7 +581,7 @@ func TestMarketplaceService_AcceptBuyRequest_WalletThenCommit(t *testing.T) {
 	mock.ExpectExec("SET deleted_at = NOW\\(\\) WHERE id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery("WHERE feature_id = \\? AND deleted_at IS NULL").
@@ -534,12 +596,12 @@ func TestMarketplaceService_AcceptBuyRequest_WalletThenCommit(t *testing.T) {
 			"id", "buyer_id", "seller_id", "feature_id", "note", "price_psc", "price_irr",
 			"status", "requested_grace_period", "created_at", "updated_at",
 		}).AddRow(10, uint64(4), uint64(3), 1, "n", 10.0, 20.0, 0, nil, now, now))
-	mock.ExpectQuery("FROM locked_wallets").
+	mock.ExpectQuery("FROM locked_assets").
 		WithArgs(uint64(10)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "buy_feature_request_id", "feature_id", "psc", "irr", "created_at", "updated_at",
 		}).AddRow(8, 10, 1, 5.0, 6.0, now, now))
-	mock.ExpectExec("DELETE FROM locked_wallets").
+	mock.ExpectExec("DELETE FROM locked_assets").
 		WithArgs(uint64(10)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("SET deleted_at = NOW\\(\\) WHERE id").
@@ -571,7 +633,7 @@ func expectRefundLockedWallet(mock sqlmock.Sqlmock, requestID uint64, sellerOrBu
 	mock.ExpectExec("DELETE FROM transactions WHERE transactionable_type").
 		WithArgs("App\\Models\\BuyFeatureRequest", requestID).
 		WillReturnResult(sqlmock.NewResult(0, 2))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(requestID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("DELETE FROM buy_feature_requests WHERE id").

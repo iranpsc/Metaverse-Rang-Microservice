@@ -30,11 +30,10 @@ import (
 func main() {
 	// Load environment variables from config.env
 	configPaths := []string{
+		"services/levels-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/levels-service/config.env",
 	}
 	for _, configPath := range configPaths {
 		if err := godotenv.Load(configPath); err == nil {
@@ -53,7 +52,7 @@ func main() {
 
 	// Load configuration from environment
 	// Construct DSN from individual environment variables
-	dbDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+	dbDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 		getEnv("DB_USER", "metarang_user"),
 		getEnv("DB_PASSWORD", "metarang_password"),
 		getEnv("DB_HOST", "mysql"),

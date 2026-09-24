@@ -2,6 +2,8 @@ package service_test
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -13,14 +15,26 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"metarang/dynasty-service/internal/repository"
+	levelspb "metarang/shared/pb/levels"
 )
+
+type stubUserLevelPort struct {
+	resp  *levelspb.UserLevelResponse
+	err   error
+	calls []uint64
+}
+
+func (s *stubUserLevelPort) GetUserLevel(_ context.Context, userID uint64) (*levelspb.UserLevelResponse, error) {
+	s.calls = append(s.calls, userID)
+	return s.resp, s.err
+}
 
 func TestFamilyService_GetFamily(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	defer db.Close()
 
-	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), nil)
 	ctx := context.Background()
 	now := time.Now()
 
@@ -62,7 +76,7 @@ func TestFamilyService_GetFamilyMembers(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), nil)
 	ctx := context.Background()
 	now := time.Now()
 
@@ -82,7 +96,7 @@ func TestFamilyService_GetFamily_RepoError(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), nil)
 	mock.ExpectQuery("FROM families WHERE id").WithArgs(uint64(10)).WillReturnError(assert.AnError)
 	_, err = svc.GetFamily(context.Background(), 10, 0)
 	require.Error(t, err)
@@ -94,7 +108,7 @@ func TestFamilyService_GetUserBasicInfo(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db))
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), nil)
 	mock.ExpectQuery("SELECT id, code, name FROM users").
 		WithArgs(uint64(5)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "C5", "Name5"))
@@ -110,5 +124,77 @@ func TestFamilyService_GetUserBasicInfo(t *testing.T) {
 	assert.Equal(t, "Name5", info.Name)
 	require.NotNil(t, info.ProfilePhoto)
 	assert.Equal(t, "https://img", *info.ProfilePhoto)
+	assert.Equal(t, "", info.Level)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestFamilyService_GetUserBasicInfo_IncludesLatestLevel(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	levels := &stubUserLevelPort{
+		resp: &levelspb.UserLevelResponse{
+			LatestLevel: &levelspb.Level{Id: 3, Name: "Gold", Slug: "3"},
+		},
+	}
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), levels)
+
+	mock.ExpectQuery("SELECT id, code, name FROM users").
+		WithArgs(uint64(5)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "C5", "Name5"))
+	mock.ExpectQuery("SELECT url FROM images").
+		WithArgs(uint64(5)).
+		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("https://img"))
+
+	info, err := svc.GetUserBasicInfo(context.Background(), 5)
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	assert.Equal(t, "Gold", info.Level)
+	assert.Equal(t, []uint64{5}, levels.calls)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestFamilyService_GetUserBasicInfo_LevelLookupFailureLeavesEmpty(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	levels := &stubUserLevelPort{err: errors.New("levels unavailable")}
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), levels)
+
+	mock.ExpectQuery("SELECT id, code, name FROM users").
+		WithArgs(uint64(5)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "C5", "Name5"))
+	mock.ExpectQuery("SELECT url FROM images").
+		WithArgs(uint64(5)).
+		WillReturnError(sql.ErrNoRows)
+
+	info, err := svc.GetUserBasicInfo(context.Background(), 5)
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	assert.Equal(t, "", info.Level)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestFamilyService_GetUserBasicInfo_NoLatestLevel(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	levels := &stubUserLevelPort{resp: &levelspb.UserLevelResponse{}}
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), levels)
+
+	mock.ExpectQuery("SELECT id, code, name FROM users").
+		WithArgs(uint64(5)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "C5", "Name5"))
+	mock.ExpectQuery("SELECT url FROM images").
+		WithArgs(uint64(5)).
+		WillReturnError(sql.ErrNoRows)
+
+	info, err := svc.GetUserBasicInfo(context.Background(), 5)
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	assert.Equal(t, "", info.Level)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

@@ -20,6 +20,7 @@ import (
 	"metarang/dynasty-service/internal/middleware"
 	"metarang/dynasty-service/internal/repository"
 	"metarang/dynasty-service/internal/service"
+	"metarang/dynasty-service/internal/validation"
 
 	authpb "metarang/shared/pb/auth"
 	dynastypb "metarang/shared/pb/dynasty"
@@ -31,11 +32,10 @@ import (
 func main() {
 	// Load environment variables from config.env
 	configPaths := []string{
+		"services/dynasty-service/config.env",
 		"config.env",
 		"./config.env",
-		"../config.env",
 		"../../config.env",
-		"services/dynasty-service/config.env",
 	}
 	var configLoaded bool
 	for _, configPath := range configPaths {
@@ -54,7 +54,7 @@ func main() {
 	defer sentry.Flush(2 * time.Second)
 
 	// Database connection
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
 		getEnv("DB_USER", "root"),
 		getEnv("DB_PASSWORD", ""),
 		getEnv("DB_HOST", "localhost"),
@@ -89,14 +89,16 @@ func main() {
 	permissionRepo := repository.NewPermissionRepository(db)
 	variableRepo := repository.NewVariableRepository(db)
 	userVariableRepo := repository.NewUserVariableRepository(db)
+	validationRepo := repository.NewValidationRepository(db)
 
 	// Notification service client (for sending notifications)
 	notificationServiceAddr := getEnv("NOTIFICATION_SERVICE_ADDR", "localhost:50058")
 	var notificationPort service.NotificationPort
-	if notif, err := client.NewNotificationClient(notificationServiceAddr); err != nil {
+	if notif, err := dialNotificationClient(notificationServiceAddr); err != nil {
 		log.Printf("Warning: notification service unavailable (%v); dynasty join-request notifications disabled", err)
 	} else {
 		notificationPort = notif
+		log.Printf("Connected to notification service at %s", notificationServiceAddr)
 		defer func() {
 			if err := notif.Close(); err != nil {
 				log.Printf("notification client close: %v", err)
@@ -133,7 +135,7 @@ func main() {
 	var levelsPort service.LevelsPort
 	levelsAddr := getEnv("LEVELS_SERVICE_ADDR", "levels-service:50054")
 	if lc, err := client.NewLevelsClient(levelsAddr); err != nil {
-		log.Printf("Warning: levels service unavailable (%v); search levels enrichment disabled", err)
+		log.Printf("Warning: levels service unavailable (%v); search and family-member levels enrichment disabled", err)
 	} else {
 		levelsPort = lc
 		defer func() {
@@ -145,8 +147,8 @@ func main() {
 
 	// Initialize services
 	dynastyService := service.NewDynastyService(dynastyRepo, familyRepo, prizeRepo, notificationServiceAddr)
-	joinRequestService := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, notificationPort, notificationServiceAddr)
-	familyService := service.NewFamilyService(familyRepo, dynastyRepo)
+	joinRequestService := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, validation.NewFamilyValidator(validationRepo), notificationPort, notificationServiceAddr)
+	familyService := service.NewFamilyService(familyRepo, dynastyRepo, levelsPort)
 	prizeService := service.NewPrizeService(db, prizeRepo, variableRepo, userVariableRepo, walletPort)
 	permissionService := service.NewPermissionService(permissionRepo, joinRequestRepo, familyRepo, dynastyRepo)
 	userSearchService := service.NewUserSearchService(db, kycPort, levelsPort)
@@ -231,4 +233,24 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func dialNotificationClient(address string) (*client.NotificationClient, error) {
+	const attempts = 3
+	var lastErr error
+	for i := 1; i <= attempts; i++ {
+		notif, err := client.NewNotificationClient(address)
+		if err == nil {
+			if i > 1 {
+				log.Printf("Connected to notification service at %s after %d attempts", address, i)
+			}
+			return notif, nil
+		}
+		lastErr = err
+		if i < attempts {
+			log.Printf("Warning: notification service unavailable (attempt %d/%d): %v", i, attempts, err)
+			time.Sleep(time.Duration(i) * 2 * time.Second)
+		}
+	}
+	return nil, lastErr
 }

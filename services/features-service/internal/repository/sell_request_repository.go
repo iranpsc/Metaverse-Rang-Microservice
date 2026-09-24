@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"metarang/features-service/internal/models"
 )
@@ -13,6 +14,30 @@ type SellRequestRepository struct {
 
 func NewSellRequestRepository(db *sql.DB) *SellRequestRepository {
 	return &SellRequestRepository{db: db}
+}
+
+// GetLatestByFeatureID returns the newest sell request for a feature, if any.
+func (r *SellRequestRepository) GetLatestByFeatureID(ctx context.Context, featureID uint64) (*models.SellFeatureRequest, error) {
+	request := &models.SellFeatureRequest{}
+
+	query := `
+		SELECT id, seller_id, feature_id, price_psc, price_irr, ` + "`limit`" + `, status, created_at, updated_at
+		FROM sell_feature_requests
+		WHERE feature_id = ?
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`
+
+	err := r.db.QueryRowContext(ctx, query, featureID).Scan(
+		&request.ID, &request.SellerID, &request.FeatureID,
+		&request.PricePSC, &request.PriceIRR, &request.Limit, &request.Status,
+		&request.CreatedAt, &request.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	return request, err
 }
 
 // Create creates a new sell feature request
@@ -54,6 +79,76 @@ func (r *SellRequestRepository) GetLatestForSellerAndFeature(ctx context.Context
 	}
 
 	return request, err
+}
+
+// GetLatestOpenByFeatureID returns the newest open sell request for a feature.
+func (r *SellRequestRepository) GetLatestOpenByFeatureID(ctx context.Context, featureID uint64) (*models.SellFeatureRequest, error) {
+	request := &models.SellFeatureRequest{}
+
+	query := `
+		SELECT id, seller_id, feature_id, price_psc, price_irr, ` + "`limit`" + `, status, created_at, updated_at
+		FROM sell_feature_requests
+		WHERE feature_id = ? AND status = 0
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`
+
+	err := r.db.QueryRowContext(ctx, query, featureID).Scan(
+		&request.ID, &request.SellerID, &request.FeatureID,
+		&request.PricePSC, &request.PriceIRR, &request.Limit, &request.Status,
+		&request.CreatedAt, &request.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return request, nil
+}
+
+// GetLatestOpenByFeatureIDs returns the newest open sell request for each feature ID.
+func (r *SellRequestRepository) GetLatestOpenByFeatureIDs(ctx context.Context, featureIDs []uint64) (map[uint64]*models.SellFeatureRequest, error) {
+	out := make(map[uint64]*models.SellFeatureRequest, len(featureIDs))
+	if len(featureIDs) == 0 {
+		return out, nil
+	}
+
+	placeholders := strings.Repeat("?,", len(featureIDs))
+	placeholders = placeholders[:len(placeholders)-1]
+	query := `
+		SELECT id, seller_id, feature_id, price_psc, price_irr, ` + "`limit`" + `, status, created_at, updated_at
+		FROM sell_feature_requests
+		WHERE feature_id IN (` + placeholders + `) AND status = 0
+		ORDER BY created_at DESC, id DESC
+	`
+	args := make([]interface{}, len(featureIDs))
+	for i, id := range featureIDs {
+		args[i] = id
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		req := &models.SellFeatureRequest{}
+		if err := rows.Scan(
+			&req.ID, &req.SellerID, &req.FeatureID,
+			&req.PricePSC, &req.PriceIRR, &req.Limit, &req.Status,
+			&req.CreatedAt, &req.UpdatedAt,
+		); err != nil {
+			continue
+		}
+		if _, exists := out[req.FeatureID]; exists {
+			continue
+		}
+		out[req.FeatureID] = req
+	}
+
+	return out, nil
 }
 
 // GetLatestUnderpricedForSeller gets the latest underpriced sell request for a seller
@@ -123,6 +218,38 @@ func (r *SellRequestRepository) ListBySellerID(ctx context.Context, sellerID uin
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, sellerID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	requests := []*models.SellFeatureRequest{}
+	for rows.Next() {
+		req := &models.SellFeatureRequest{}
+		if err := rows.Scan(
+			&req.ID, &req.SellerID, &req.FeatureID,
+			&req.PricePSC, &req.PriceIRR, &req.Limit, &req.Status,
+			&req.CreatedAt, &req.UpdatedAt,
+		); err != nil {
+			continue
+		}
+		requests = append(requests, req)
+	}
+
+	return requests, nil
+}
+
+// ListByFeatureID retrieves all sell requests for a feature, newest first.
+// Implements GET /api/features/{feature}/sell-requests
+func (r *SellRequestRepository) ListByFeatureID(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error) {
+	query := `
+		SELECT id, seller_id, feature_id, price_psc, price_irr, ` + "`limit`" + `, status, created_at, updated_at
+		FROM sell_feature_requests
+		WHERE feature_id = ?
+		ORDER BY created_at DESC, id DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, featureID)
 	if err != nil {
 		return nil, err
 	}

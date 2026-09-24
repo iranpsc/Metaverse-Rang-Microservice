@@ -58,12 +58,7 @@ func (h *JoinRequestHandler) SendJoinRequest(ctx context.Context, req *dynastypb
 		}
 	}
 
-	var message *string
-	if req.Message != "" {
-		message = &req.Message
-	}
-
-	joinRequest, err := h.joinRequestService.SendJoinRequest(ctx, req.FromUserId, req.ToUserId, req.Relationship, message, permissions)
+	joinRequest, err := h.joinRequestService.SendJoinRequest(ctx, req.FromUserId, req.ToUserId, req.Relationship, nil, permissions)
 	if err != nil {
 		return nil, mapServiceError(err)
 	}

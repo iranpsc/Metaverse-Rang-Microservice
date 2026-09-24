@@ -12,6 +12,7 @@ import (
 
 	"metarang/shared/pkg/sentry"
 	"metarang/support-service/internal/middleware"
+	"metarang/support-service/internal/models"
 
 	pbCommon "metarang/shared/pb/common"
 	pbSupport "metarang/shared/pb/support"
@@ -42,21 +43,22 @@ type noteAPI interface {
 
 // HTTPSupportHandler serves Kong-facing REST routes for support-service.
 type HTTPSupportHandler struct {
-	tickets            ticketAPI
-	reports            reportAPI
-	notes              noteAPI
-	storageServiceAddr string
-	appURL             string
+	tickets ticketAPI
+	reports reportAPI
+	notes   noteAPI
+	storage fileStorageUploader
+	appURL  string
 }
 
 // NewHTTPSupportHandler wraps gRPC support handlers for local HTTP use.
-func NewHTTPSupportHandler(tickets ticketAPI, reports reportAPI, notes noteAPI, storageServiceAddr, appURL string) *HTTPSupportHandler {
+// storage must be a storage-service client; attachment bytes are never stored locally.
+func NewHTTPSupportHandler(tickets ticketAPI, reports reportAPI, notes noteAPI, storage fileStorageUploader, appURL string) *HTTPSupportHandler {
 	return &HTTPSupportHandler{
-		tickets:            tickets,
-		reports:            reports,
-		notes:              notes,
-		storageServiceAddr: storageServiceAddr,
-		appURL:             appURL,
+		tickets: tickets,
+		reports: reports,
+		notes:   notes,
+		storage: storage,
+		appURL:  appURL,
 	}
 }
 
@@ -112,8 +114,6 @@ func (h *HTTPSupportHandler) RegisterHTTPRoutes(mux *http.ServeMux, authMiddlewa
 
 	mux.Handle("/api/tickets", ticketsCollection)
 	mux.Handle("/api/tickets/", ticketsItem)
-	mux.Handle("/api/support/tickets", ticketsCollection)
-	mux.Handle("/api/support/tickets/", ticketsItem)
 
 	mux.Handle("/api/reports", reportsCollection)
 	mux.Handle("/api/reports/", reportsItem)
@@ -171,12 +171,12 @@ func StartHTTPServer(httpHandler *HTTPSupportHandler, port string, authMiddlewar
 
 func ticketIDFromPath(path string) string {
 	if strings.Contains(path, "/response/") {
-		return extractIDFromPath(path, "/api/tickets/response/", "/api/support/tickets/response/")
+		return extractIDFromPath(path, "/api/tickets/response/")
 	}
 	if strings.Contains(path, "/close/") {
-		return extractIDFromPath(path, "/api/tickets/close/", "/api/support/tickets/close/")
+		return extractIDFromPath(path, "/api/tickets/close/")
 	}
-	return extractIDFromPath(path, "/api/tickets/", "/api/support/tickets/")
+	return extractIDFromPath(path, "/api/tickets/")
 }
 
 func reportIDFromPath(path string) string {
@@ -224,7 +224,7 @@ func (h *HTTPSupportHandler) ListTickets(w http.ResponseWriter, r *http.Request)
 
 	tickets := make([]map[string]interface{}, 0, len(resp.Tickets))
 	for _, ticket := range resp.Tickets {
-		tickets = append(tickets, formatTicketResource(ticket, false))
+		tickets = append(tickets, formatTicketResource(ticket, userID, false))
 	}
 
 	response := map[string]interface{}{"data": tickets}
@@ -251,7 +251,7 @@ func (h *HTTPSupportHandler) CreateTicket(w http.ResponseWriter, r *http.Request
 	attachment := ""
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		attachment, err = uploadTicketAttachment(r, h.storageServiceAddr, h.appURL)
+		attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -302,7 +302,7 @@ func (h *HTTPSupportHandler) CreateTicket(w http.ResponseWriter, r *http.Request
 		writeHandlerError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, formatTicketResponse(resp))
+	writeJSON(w, http.StatusCreated, formatTicketResource(resp, userID, true))
 }
 
 // GetTicket handles GET /api/tickets/{id}
@@ -332,7 +332,7 @@ func (h *HTTPSupportHandler) GetTicket(w http.ResponseWriter, r *http.Request) {
 		writeHandlerError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, formatTicketResource(resp, true))
+	writeJSON(w, http.StatusOK, formatTicketResource(resp, userID, true))
 }
 
 // UpdateTicket handles PUT/PATCH /api/tickets/{id}
@@ -364,7 +364,7 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
 		if _, hdr, fileErr := r.FormFile("attachment"); fileErr == nil && hdr != nil {
-			attachment, err = uploadTicketAttachment(r, h.storageServiceAddr, h.appURL)
+			attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
 			if err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
@@ -400,7 +400,7 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 		writeHandlerError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, formatTicketResponse(resp))
+	writeJSON(w, http.StatusOK, formatTicketResponse(resp, userID))
 }
 
 // AddTicketResponse handles POST /api/tickets/response/{id}
@@ -436,7 +436,7 @@ func (h *HTTPSupportHandler) AddTicketResponse(w http.ResponseWriter, r *http.Re
 			return
 		}
 		responseText = r.FormValue("response")
-		attachment, err = uploadTicketAttachment(r, h.storageServiceAddr, h.appURL)
+		attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -473,7 +473,7 @@ func (h *HTTPSupportHandler) AddTicketResponse(w http.ResponseWriter, r *http.Re
 		writeHandlerError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, formatTicketResponse(resp))
+	writeJSON(w, http.StatusOK, formatTicketResource(resp, userID, true))
 }
 
 // CloseTicket handles GET /api/tickets/close/{id}
@@ -508,10 +508,10 @@ func (h *HTTPSupportHandler) CloseTicket(w http.ResponseWriter, r *http.Request)
 		writeHandlerError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, formatTicketResource(resp, false))
+	writeJSON(w, http.StatusOK, formatTicketResource(resp, userID, false))
 }
 
-func formatTicketResource(resp *pbSupport.TicketResponse, includeResponses bool) map[string]interface{} {
+func formatTicketResource(resp *pbSupport.TicketResponse, viewerID uint64, includeThread bool) map[string]interface{} {
 	dateStr, timeStr := splitJalaliDateTime(resp.UpdatedAt)
 	ticketMap := map[string]interface{}{
 		"id":         resp.Id,
@@ -524,46 +524,164 @@ func formatTicketResource(resp *pbSupport.TicketResponse, includeResponses bool)
 		"time":       timeStr,
 	}
 	if resp.Sender != nil {
-		ticketMap["sender"] = map[string]interface{}{
-			"name":          resp.Sender.Name,
-			"code":          resp.Sender.Code,
-			"profile-photo": resp.Sender.ProfilePhoto,
-		}
+		ticketMap["sender"] = formatTicketUser(resp.Sender)
 	}
 	if resp.Receiver != nil {
-		ticketMap["reciever"] = map[string]interface{}{
-			"name":          resp.Receiver.Name,
-			"code":          resp.Receiver.Code,
-			"profile-photo": resp.Receiver.ProfilePhoto,
-		}
+		ticketMap["reciever"] = formatTicketUser(resp.Receiver)
 	}
 	if resp.Department != "" {
 		ticketMap["department"] = resp.Department
 	}
-	if includeResponses {
-		ticketMap["responses"] = formatTicketResponseItems(resp.Responses)
+	if includeThread {
+		ticketMap["current_user_id"] = viewerID
+		ticketMap["responses"] = formatTicketResponseItems(resp.Responses, viewerID)
+		ticketMap["messages"] = formatTicketMessages(ticketThreadMessages(resp, viewerID), viewerID)
 	}
 	return ticketMap
 }
 
-func formatTicketResponse(resp *pbSupport.TicketResponse) map[string]interface{} {
-	return formatTicketResource(resp, false)
+func formatTicketResponse(resp *pbSupport.TicketResponse, viewerID uint64) map[string]interface{} {
+	return formatTicketResource(resp, viewerID, false)
 }
 
-func formatTicketResponseItems(items []*pbSupport.TicketResponseItem) []map[string]interface{} {
+func formatTicketUser(user *pbCommon.UserBasic) map[string]interface{} {
+	return map[string]interface{}{
+		"id":            user.Id,
+		"name":          user.Name,
+		"code":          user.Code,
+		"profile-photo": user.ProfilePhoto,
+	}
+}
+
+func ticketThreadMessages(resp *pbSupport.TicketResponse, viewerID uint64) []*pbSupport.TicketResponseItem {
+	if len(resp.Messages) > 0 {
+		return resp.Messages
+	}
+	opening := &pbSupport.TicketResponseItem{
+		Id:         0,
+		TicketId:   resp.Id,
+		Response:   resp.Content,
+		Attachment: resp.Attachment,
+		CreatedAt:  resp.CreatedAt,
+		Role:       models.TicketMessageRoleSender,
+		Kind:       models.TicketMessageKindOpening,
+	}
+	if resp.Sender != nil {
+		opening.Author = resp.Sender
+		opening.ResponserId = resp.Sender.Id
+		opening.ResponserName = resp.Sender.Name
+		opening.IsMine = resp.Sender.Id == viewerID
+	}
+	messages := make([]*pbSupport.TicketResponseItem, 0, 1+len(resp.Responses))
+	messages = append(messages, opening)
+	for _, item := range resp.Responses {
+		clone := cloneTicketResponseItem(item)
+		if clone.Kind == "" {
+			clone.Kind = models.TicketMessageKindReply
+		}
+		if clone.Role == "" {
+			clone.Role = ticketMessageRole(resp, item.ResponserId)
+		}
+		if clone.Author == nil {
+			clone.Author = ticketMessageAuthor(resp, item)
+		}
+		clone.IsMine = item.ResponserId == viewerID
+		messages = append(messages, clone)
+	}
+	return messages
+}
+
+func cloneTicketResponseItem(item *pbSupport.TicketResponseItem) *pbSupport.TicketResponseItem {
+	if item == nil {
+		return &pbSupport.TicketResponseItem{}
+	}
+	return &pbSupport.TicketResponseItem{
+		Id:            item.Id,
+		TicketId:      item.TicketId,
+		Response:      item.Response,
+		Attachment:    item.Attachment,
+		ResponserName: item.ResponserName,
+		ResponserId:   item.ResponserId,
+		CreatedAt:     item.CreatedAt,
+		Author:        item.Author,
+		Role:          item.Role,
+		IsMine:        item.IsMine,
+		Kind:          item.Kind,
+	}
+}
+
+func ticketMessageRole(resp *pbSupport.TicketResponse, userID uint64) string {
+	if resp.Sender != nil && resp.Sender.Id == userID {
+		return models.TicketMessageRoleSender
+	}
+	if resp.Receiver != nil && resp.Receiver.Id == userID {
+		return models.TicketMessageRoleReceiver
+	}
+	return models.TicketMessageRoleStaff
+}
+
+func ticketMessageAuthor(resp *pbSupport.TicketResponse, item *pbSupport.TicketResponseItem) *pbCommon.UserBasic {
+	if resp.Sender != nil && item.ResponserId == resp.Sender.Id {
+		return resp.Sender
+	}
+	if resp.Receiver != nil && item.ResponserId == resp.Receiver.Id {
+		return resp.Receiver
+	}
+	return &pbCommon.UserBasic{Id: item.ResponserId, Name: item.ResponserName}
+}
+
+func formatTicketMessages(items []*pbSupport.TicketResponseItem, viewerID uint64) []map[string]interface{} {
+	messages := make([]map[string]interface{}, 0, len(items))
+	for _, item := range items {
+		dateStr, timeStr := splitJalaliDateTime(item.CreatedAt)
+		kind := item.Kind
+		if kind == "" {
+			kind = models.TicketMessageKindReply
+		}
+		authorID := item.ResponserId
+		if authorID == 0 && item.Author != nil {
+			authorID = item.Author.Id
+		}
+		msg := map[string]interface{}{
+			"id":         item.Id,
+			"ticket_id":  strconv.FormatUint(item.TicketId, 10),
+			"kind":       kind,
+			"text":       item.Response,
+			"attachment": item.Attachment,
+			"is_mine":    authorID == viewerID,
+			"role":       item.Role,
+			"date":       dateStr,
+			"time":       timeStr,
+		}
+		if item.Author != nil {
+			msg["author"] = formatTicketUser(item.Author)
+		}
+		messages = append(messages, msg)
+	}
+	return messages
+}
+
+func formatTicketResponseItems(items []*pbSupport.TicketResponseItem, viewerID uint64) []map[string]interface{} {
 	responses := make([]map[string]interface{}, 0, len(items))
 	for _, item := range items {
 		dateStr, timeStr := splitJalaliDateTime(item.CreatedAt)
-		responses = append(responses, map[string]interface{}{
+		row := map[string]interface{}{
 			"id":             item.Id,
 			"ticket_id":      strconv.FormatUint(item.TicketId, 10),
 			"response":       item.Response,
 			"attachment":     item.Attachment,
 			"responser_id":   item.ResponserId,
 			"responser_name": item.ResponserName,
+			"is_mine":        item.ResponserId == viewerID,
+			"role":           item.Role,
+			"kind":           item.Kind,
 			"date":           dateStr,
 			"time":           timeStr,
-		})
+		}
+		if item.Author != nil {
+			row["author"] = formatTicketUser(item.Author)
+		}
+		responses = append(responses, row)
 	}
 	return responses
 }
@@ -633,7 +751,7 @@ func (h *HTTPSupportHandler) CreateReport(w http.ResponseWriter, r *http.Request
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		imagePaths, err = uploadReportAttachments(r, h.storageServiceAddr, h.appURL)
+		imagePaths, err = uploadReportAttachments(r, h.storage, h.appURL)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -777,7 +895,7 @@ func (h *HTTPSupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) 
 	attachment := ""
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		url, _, attachErr := resolveNoteAttachmentURL(r, h.storageServiceAddr, h.appURL)
+		url, _, attachErr := resolveNoteAttachmentURL(r, h.storage, h.appURL)
 		if attachErr != nil {
 			writeError(w, http.StatusBadRequest, attachErr.Error())
 			return
@@ -883,7 +1001,7 @@ func (h *HTTPSupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) 
 	updateAttachment := false
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		url, clear, attachErr := resolveNoteAttachmentURL(r, h.storageServiceAddr, h.appURL)
+		url, clear, attachErr := resolveNoteAttachmentURL(r, h.storage, h.appURL)
 		if attachErr != nil {
 			writeError(w, http.StatusBadRequest, attachErr.Error())
 			return

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ type featureHTTPAPI interface {
 	GetMyFeature(context.Context, *featurespb.GetMyFeatureRequest) (*featurespb.FeatureResponse, error)
 	AddMyFeatureImages(context.Context, *featurespb.AddMyFeatureImagesRequest) (*featurespb.FeatureResponse, error)
 	RemoveMyFeatureImage(context.Context, *featurespb.RemoveMyFeatureImageRequest) (*emptypb.Empty, error)
-	UpdateMyFeature(context.Context, *featurespb.UpdateMyFeatureRequest) (*emptypb.Empty, error)
+	UpdateMyFeature(context.Context, *featurespb.UpdateMyFeatureRequest) (*featurespb.UpdateMyFeatureResponse, error)
 	GetFeatureTradeHistory(context.Context, *featurespb.GetFeatureTradeHistoryRequest) (*featurespb.GetFeatureTradeHistoryResponse, error)
 }
 type marketplaceHTTPAPI interface {
@@ -35,6 +36,7 @@ type marketplaceHTTPAPI interface {
 	ListReceivedBuyRequests(context.Context, *featurespb.ListReceivedBuyRequestsRequest) (*featurespb.BuyRequestsResponse, error)
 	CreateSellRequest(context.Context, *featurespb.CreateSellRequestRequest) (*featurespb.SellRequestResponse, error)
 	ListSellRequests(context.Context, *featurespb.ListSellRequestsRequest) (*featurespb.SellRequestsResponse, error)
+	ListFeatureSellRequests(context.Context, *featurespb.ListFeatureSellRequestsRequest) (*featurespb.SellRequestsResponse, error)
 	DeleteSellRequest(context.Context, *featurespb.DeleteSellRequestRequest) (*emptypb.Empty, error)
 	UpdateGracePeriod(context.Context, *featurespb.UpdateGracePeriodRequest) (*emptypb.Empty, error)
 }
@@ -110,6 +112,10 @@ func (h *HTTPFeaturesHandler) HandleFeaturesRoutes(w http.ResponseWriter, r *htt
 	}
 	if isFeatureTradeHistoryPath(path) {
 		h.TradeHistory(w, r)
+		return
+	}
+	if isFeatureSellRequestsPath(path) {
+		h.FeatureSellRequests(w, r)
 		return
 	}
 	if strings.Contains(path, "/build/package") {
@@ -307,6 +313,28 @@ func (h *HTTPFeaturesHandler) TradeHistory(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, 200, paginated(data, resp.Links, resp.Meta))
 }
 
+func (h *HTTPFeaturesHandler) FeatureSellRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	id, err := featureIDFromSellRequestsRequest(r)
+	if err != nil || id == 0 {
+		writeError(w, 400, "invalid feature ID")
+		return
+	}
+	resp, err := h.market.ListFeatureSellRequests(r.Context(), &featurespb.ListFeatureSellRequestsRequest{FeatureId: id})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	out := []map[string]interface{}{}
+	for _, x := range resp.SellRequests {
+		out = append(out, sellRequestMap(x))
+	}
+	writeJSON(w, 200, out)
+}
+
 func (h *HTTPFeaturesHandler) HandleBuyRequestsRoutes(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/buy-requests"), "/")
 	switch {
@@ -348,7 +376,7 @@ func (h *HTTPFeaturesHandler) ListBuyRequests(w http.ResponseWriter, r *http.Req
 	}
 	out := []map[string]interface{}{}
 	for _, x := range resp.BuyRequests {
-		out = append(out, buyRequestMap(x))
+		out = append(out, buyRequestListMap(x))
 	}
 	writeJSON(w, 200, out)
 }
@@ -364,7 +392,7 @@ func (h *HTTPFeaturesHandler) ListReceivedBuyRequests(w http.ResponseWriter, r *
 	}
 	out := []map[string]interface{}{}
 	for _, x := range resp.BuyRequests {
-		out = append(out, buyRequestMap(x))
+		out = append(out, buyRequestListMap(x))
 	}
 	writeJSON(w, 200, out)
 }
@@ -562,7 +590,12 @@ func (h *HTTPFeaturesHandler) ListMyFeatures(w http.ResponseWriter, r *http.Requ
 	}
 	data := []map[string]interface{}{}
 	for _, x := range resp.Data {
-		row := map[string]interface{}{"id": x.Id, "images": []interface{}{}}
+		row := map[string]interface{}{"id": x.Id, "images": []interface{}{}, "is-for-sale": x.IsForSale}
+		if x.LatestSellRequest != nil {
+			row["latest-sell-request"] = sellRequestMap(x.LatestSellRequest)
+		} else {
+			row["latest-sell-request"] = nil
+		}
 		if x.Properties != nil {
 			row["properties"] = map[string]interface{}{
 				"id":                       x.Properties.Id,
@@ -652,19 +685,22 @@ func (h *HTTPFeaturesHandler) AddMyFeatureImages(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
+	files, err := multipartFeatureImageFiles(r)
+	if err != nil {
 		writeError(w, 400, "failed to parse multipart form")
 		return
 	}
-	files := r.MultipartForm.File["images"]
 	if len(files) == 0 {
 		writeValidationError(w, "images field is required")
 		return
 	}
-	req := &featurespb.AddMyFeatureImagesRequest{UserId: ids[0], FeatureId: ids[1]}
+	h.writeAddMyFeatureImages(w, r, ids[0], ids[1], files)
+}
+func (h *HTTPFeaturesHandler) writeAddMyFeatureImages(w http.ResponseWriter, r *http.Request, userID, featureID uint64, files []*multipart.FileHeader) {
+	req := &featurespb.AddMyFeatureImagesRequest{UserId: userID, FeatureId: featureID}
 	for _, file := range files {
-		ct := file.Header.Get("Content-Type")
-		if ct != "image/png" && ct != "image/jpeg" && ct != "image/bmp" {
+		ct := featureImageContentType(file)
+		if !isAllowedFeatureImageContentType(ct) {
 			writeValidationError(w, "invalid image type: must be PNG, JPG, or BMP")
 			return
 		}
@@ -677,10 +713,14 @@ func (h *HTTPFeaturesHandler) AddMyFeatureImages(w http.ResponseWriter, r *http.
 			writeError(w, 400, "failed to read file")
 			return
 		}
-		data, err := io.ReadAll(f)
+		data, err := io.ReadAll(io.LimitReader(f, 1024*1024+1))
 		_ = f.Close()
 		if err != nil {
 			writeError(w, 400, "failed to read file data")
+			return
+		}
+		if len(data) > 1024*1024 {
+			writeValidationError(w, "image size exceeds 1024 KB limit")
 			return
 		}
 		req.ImageData = append(req.ImageData, data)
@@ -715,6 +755,41 @@ func (h *HTTPFeaturesHandler) UpdateMyFeature(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	// Clients often POST multipart images to the feature update URL. Accept them here so
+	// uploads are stored via storage-service and image rows are created in features-service.
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		files, err := multipartFeatureImageFiles(r)
+		if err != nil {
+			writeError(w, 400, "failed to parse multipart form")
+			return
+		}
+		if len(files) > 0 {
+			h.writeAddMyFeatureImages(w, r, ids[0], ids[1], files)
+			return
+		}
+		if raw := strings.TrimSpace(r.FormValue("minimum_price_percentage")); raw != "" {
+			minimum, err := strconv.ParseInt(raw, 10, 32)
+			if err != nil {
+				writeValidationError(w, "minimum_price_percentage must be at least 80")
+				return
+			}
+			if minimum < 80 {
+				writeValidationError(w, "minimum_price_percentage must be at least 80")
+				return
+			}
+			resp, err := h.feature.UpdateMyFeature(r.Context(), &featurespb.UpdateMyFeatureRequest{
+				UserId: ids[0], FeatureId: ids[1], MinimumPricePercentage: int32(minimum),
+			})
+			if err != nil {
+				writeGRPCError(w, err)
+				return
+			}
+			writeUpdateMyFeatureJSON(w, resp)
+			return
+		}
+		writeError(w, 400, "request body is required")
+		return
+	}
 	var body struct {
 		Minimum int32 `json:"minimum_price_percentage"`
 	}
@@ -726,12 +801,26 @@ func (h *HTTPFeaturesHandler) UpdateMyFeature(w http.ResponseWriter, r *http.Req
 		writeValidationError(w, "minimum_price_percentage must be at least 80")
 		return
 	}
-	_, err := h.feature.UpdateMyFeature(r.Context(), &featurespb.UpdateMyFeatureRequest{UserId: ids[0], FeatureId: ids[1], MinimumPricePercentage: body.Minimum})
+	resp, err := h.feature.UpdateMyFeature(r.Context(), &featurespb.UpdateMyFeatureRequest{UserId: ids[0], FeatureId: ids[1], MinimumPricePercentage: body.Minimum})
 	if err != nil {
 		writeGRPCError(w, err)
 		return
 	}
-	w.WriteHeader(204)
+	writeUpdateMyFeatureJSON(w, resp)
+}
+
+func writeUpdateMyFeatureJSON(w http.ResponseWriter, resp *featurespb.UpdateMyFeatureResponse) {
+	pricePSC, priceIRR := "", ""
+	if resp != nil {
+		pricePSC = resp.PricePsc
+		priceIRR = resp.PriceIrr
+	}
+	writeJSON(w, 200, map[string]interface{}{
+		"data": map[string]interface{}{
+			"price_psc": pricePSC,
+			"price_irr": priceIRR,
+		},
+	})
 }
 
 func (h *HTTPFeaturesHandler) user(w http.ResponseWriter, r *http.Request) (*middlewareUser, bool) {
@@ -761,7 +850,24 @@ func isFeatureTradeHistoryPath(path string) bool {
 	return false
 }
 
+func isFeatureSellRequestsPath(path string) bool {
+	path = strings.Trim(path, "/")
+	if i := strings.Index(path, "/"); i >= 0 {
+		return path[i+1:] == "sell-requests"
+	}
+	return false
+}
+
 func featureIDFromTradeHistoryRequest(r *http.Request) (uint64, error) {
+	if v := r.PathValue("feature"); v != "" {
+		return strconv.ParseUint(v, 10, 64)
+	}
+	path := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/")
+	idPart := strings.Split(path, "/")[0]
+	return strconv.ParseUint(idPart, 10, 64)
+}
+
+func featureIDFromSellRequestsRequest(r *http.Request) (uint64, error) {
 	if v := r.PathValue("feature"); v != "" {
 		return strconv.ParseUint(v, 10, 64)
 	}
@@ -807,7 +913,10 @@ func featureMap(f *featurespb.Feature) map[string]interface{} {
 	if f == nil {
 		return map[string]interface{}{}
 	}
-	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive}
+	out := map[string]interface{}{"id": f.Id, "owner_id": f.OwnerId, "is_hourly_profit_active": f.IsHourlyProfitActive, "is_for_sale": f.IsForSale}
+	if f.IsForSale != 0 && f.LatestSellRequest != nil {
+		out["latest_sell_request"] = sellRequestMap(f.LatestSellRequest)
+	}
 	if f.Properties != nil {
 		out["properties"] = propertyMap(f.Properties)
 	}
@@ -938,7 +1047,20 @@ func propertyMap(p *featurespb.FeatureProperties) map[string]interface{} {
 	return map[string]interface{}{"id": p.Id, "address": p.Address, "density": p.Density, "stability": p.Stability, "price_psc": p.PricePsc, "price_irr": p.PriceIrr, "minimum_price_percentage": p.MinimumPricePercentage, "rgb": p.Rgb, "karbari": p.Karbari, "owner": p.Owner, "label": p.Label, "area": p.Area}
 }
 func buyRequestMap(x *featurespb.BuyRequestResponse) map[string]interface{} {
+	return buyRequestJSON(x, false)
+}
+
+func buyRequestListMap(x *featurespb.BuyRequestResponse) map[string]interface{} {
+	return buyRequestJSON(x, true)
+}
+
+func buyRequestJSON(x *featurespb.BuyRequestResponse, includeCoordinates bool) map[string]interface{} {
 	out := map[string]interface{}{"id": x.Id, "feature_id": x.FeatureId, "status": x.Status, "note": x.Note, "price_psc": x.PricePsc, "price_irr": x.PriceIrr, "created_at": x.CreatedAt}
+	if x.RequestedGracePeriod != "" {
+		out["requested_grace_period"] = x.RequestedGracePeriod
+	} else {
+		out["requested_grace_period"] = nil
+	}
 	if x.Buyer != nil {
 		out["buyer"] = map[string]interface{}{"id": x.Buyer.Id, "code": x.Buyer.Code, "profile_photo": x.Buyer.ProfilePhoto}
 	}
@@ -947,6 +1069,16 @@ func buyRequestMap(x *featurespb.BuyRequestResponse) map[string]interface{} {
 	}
 	if x.FeatureProperties != nil {
 		out["feature_properties"] = propertyMap(x.FeatureProperties)
+	}
+	if includeCoordinates {
+		coords := make([]map[string]interface{}, 0, len(x.FeatureCoordinates))
+		for _, c := range x.FeatureCoordinates {
+			if c == nil {
+				continue
+			}
+			coords = append(coords, map[string]interface{}{"id": c.Id, "geometry_id": c.GeometryId, "x": c.X, "y": c.Y})
+		}
+		out["feature_coordinates"] = coords
 	}
 	return out
 }

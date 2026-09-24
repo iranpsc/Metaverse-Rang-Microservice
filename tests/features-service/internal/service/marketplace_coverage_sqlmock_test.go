@@ -53,6 +53,16 @@ func TestMarketplaceService_ListAndGetHelpers(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, sells, 1)
 
+	mock.ExpectQuery("WHERE feature_id = \\?").
+		WithArgs(uint64(10)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "seller_id", "feature_id", "price_psc", "price_irr", "limit", "status", "created_at", "updated_at",
+		}).AddRow(2, 3, 10, 15.0, 25.0, 100, 0, now, now).AddRow(1, 3, 10, 10.0, 20.0, 90, 0, now.Add(-time.Hour), now.Add(-time.Hour)))
+	featureSells, err := svc.ListFeatureSellRequests(context.Background(), 10)
+	require.NoError(t, err)
+	require.Len(t, featureSells, 2)
+	assert.Equal(t, uint64(2), featureSells[0].ID)
+
 	mock.ExpectQuery("FROM buy_feature_requests").
 		WithArgs(uint64(9)).
 		WillReturnRows(buyRequestFindRows(3, 2, 0))
@@ -157,7 +167,7 @@ func TestMarketplaceService_RejectWithMetrics(t *testing.T) {
 	mock.ExpectExec("DELETE FROM transactions").
 		WithArgs("App\\Models\\BuyFeatureRequest", uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec("DELETE FROM locked_wallets WHERE buy_feature_request_id").
+	mock.ExpectExec("DELETE FROM locked_assets WHERE buy_feature_request_id").
 		WithArgs(uint64(9)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec("DELETE FROM buy_feature_requests").
@@ -190,6 +200,10 @@ func TestMarketplaceService_CreateSellRequest_PercentageSuccess(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(8, 1))
 	mock.ExpectExec("UPDATE feature_properties SET").
 		WillReturnResult(sqlmock.NewResult(0, 1))
+	expectTradeChannels(mock, 3, "seller")
+	expectFeatureCoordinates(mock, 1)
+	expectUserCodeLookup(mock, 3, "HM-3")
+	expectUserCodeLookup(mock, 3, "HM-3")
 	now := time.Now()
 	mock.ExpectQuery("FROM sell_feature_requests").
 		WithArgs(uint64(8)).

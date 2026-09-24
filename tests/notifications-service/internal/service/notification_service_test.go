@@ -155,6 +155,36 @@ func TestNotificationService_SendNotification(t *testing.T) {
 		assert.False(t, result.Sent)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
+
+	t.Run("SMS failure still sends email", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		defer db.Close()
+
+		emailCalled := false
+		svc := newNotificationService(db, &testutil.MockSMSChannel{
+			SendSMSFunc: func(context.Context, models.SMSPayload) (string, error) {
+				return "", errors.New("kavenegar API error: APIError[416]")
+			},
+		}, &testutil.MockEmailChannel{
+			SendEmailFunc: func(_ context.Context, payload models.EmailPayload) (string, error) {
+				emailCalled = true
+				assert.Equal(t, "buyer@example.com", payload.To)
+				return "smtp", nil
+			},
+		})
+		expectCreateNotification(mock)
+
+		result, err := svc.SendNotification(ctx, service.SendNotificationInput{
+			UserID: 123, Type: "BuyFeatureNotification", Title: "خریداری ملک", Message: "Message",
+			SendSMS: true, SMSPayload: &models.SMSPayload{Phone: "+1234567890", Message: "Test SMS"},
+			SendEmail: true, EmailPayload: &models.EmailPayload{To: "buyer@example.com", Subject: "Sub", Body: "Body"},
+		})
+		require.NoError(t, err)
+		assert.True(t, result.Sent)
+		assert.True(t, emailCalled)
+		assert.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestNotificationService_GetNotifications(t *testing.T) {

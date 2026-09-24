@@ -19,7 +19,7 @@ type FeatureServicePort interface {
 	GetMyFeature(ctx context.Context, userID, featureID uint64) (*pb.Feature, error)
 	AddMyFeatureImages(ctx context.Context, userID, featureID uint64, imageData [][]byte, filenames, contentTypes []string) (*pb.Feature, error)
 	RemoveMyFeatureImage(ctx context.Context, userID, featureID, imageID uint64) error
-	UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) error
+	UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error)
 }
 
 // TradeHistoryServicePort is implemented by *service.FeatureTradeHistoryService.
@@ -34,6 +34,7 @@ type MarketplaceServicePort interface {
 	AcceptBuyRequest(ctx context.Context, requestID, sellerID uint64) (*models.BuyFeatureRequest, error)
 	CreateSellRequest(ctx context.Context, req *pb.CreateSellRequestRequest) (*models.SellFeatureRequest, error)
 	ListSellRequests(ctx context.Context, sellerID uint64) ([]*models.SellFeatureRequest, error)
+	ListFeatureSellRequests(ctx context.Context, featureID uint64) ([]*models.SellFeatureRequest, error)
 	DeleteSellRequest(ctx context.Context, sellRequestID, sellerID uint64) error
 	RequestGracePeriod(ctx context.Context, requestID, sellerID uint64, gracePeriod string) error
 	ListBuyRequests(ctx context.Context, buyerID uint64) ([]*models.BuyFeatureRequest, error)

@@ -18,6 +18,9 @@ type mockAuthService struct {
 	validateTokenFunc          func(context.Context, string) (*models.User, error)
 	requestAccountSecurityFunc func(context.Context, uint64, int32, string) error
 	verifyAccountSecurityFunc  func(context.Context, uint64, string, string, string) error
+	checkAccountSecurityFunc   func(context.Context, uint64) (bool, error)
+	sendMobileChangeCodeFunc   func(context.Context, uint64, string) error
+	verifyMobileChangeFunc     func(context.Context, uint64, string, string, string) error
 }
 
 func (m *mockAuthService) Register(ctx context.Context, backURL, referral string) (string, error) {
@@ -72,6 +75,27 @@ func (m *mockAuthService) RequestAccountSecurity(ctx context.Context, userID uin
 func (m *mockAuthService) VerifyAccountSecurity(ctx context.Context, userID uint64, code, ip, userAgent string) error {
 	if m.verifyAccountSecurityFunc != nil {
 		return m.verifyAccountSecurityFunc(ctx, userID, code, ip, userAgent)
+	}
+	return nil
+}
+
+func (m *mockAuthService) CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error) {
+	if m.checkAccountSecurityFunc != nil {
+		return m.checkAccountSecurityFunc(ctx, userID)
+	}
+	return true, nil
+}
+
+func (m *mockAuthService) SendMobileChangeCode(ctx context.Context, userID uint64, mobile string) error {
+	if m.sendMobileChangeCodeFunc != nil {
+		return m.sendMobileChangeCodeFunc(ctx, userID, mobile)
+	}
+	return nil
+}
+
+func (m *mockAuthService) VerifyMobileChange(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+	if m.verifyMobileChangeFunc != nil {
+		return m.verifyMobileChangeFunc(ctx, userID, code, ip, userAgent)
 	}
 	return nil
 }

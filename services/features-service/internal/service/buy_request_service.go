@@ -8,6 +8,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -109,7 +110,7 @@ func (s *BuyRequestService) SendBuyRequest(ctx context.Context, buyerID, feature
 	}
 
 	// Create locked asset record
-	if _, err := s.lockedAssetRepo.Create(ctx, requestID, featureID, buyerChargePSC, buyerChargeIRR); err != nil {
+	if _, err := s.lockedAssetRepo.Create(ctx, buyerID, requestID, featureID, buyerChargePSC, buyerChargeIRR); err != nil {
 		s.log.Error("Failed to create locked asset", "error", err)
 	}
 
@@ -154,9 +155,8 @@ func (s *BuyRequestService) AcceptBuyRequest(ctx context.Context, requestID, sel
 		return err
 	}
 
-	// Get locked assets to verify they exist
-	_, err = s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID)
-	if err != nil {
+	// Locked assets are optional for accept (funds already deducted at send time)
+	if _, err = s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("locked assets not found: %w", err)
 	}
 
@@ -401,17 +401,16 @@ func (s *BuyRequestService) RejectBuyRequest(ctx context.Context, requestID, sel
 		return fmt.Errorf("unauthorized: not the seller")
 	}
 
-	// Get locked assets
-	lockedAsset, err := s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID)
+	refundPSC, refundIRR, err := s.resolveBuyRequestRefund(ctx, requestID, buyRequest)
 	if err != nil {
-		return fmt.Errorf("locked assets not found: %w", err)
+		return err
 	}
 
 	// Refund buyer
-	if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", lockedAsset.PSC); err != nil {
+	if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", refundPSC); err != nil {
 		return fmt.Errorf("failed to refund PSC: %w", err)
 	}
-	if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", lockedAsset.IRR); err != nil {
+	if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", refundIRR); err != nil {
 		return fmt.Errorf("failed to refund IRR: %w", err)
 	}
 
@@ -443,17 +442,16 @@ func (s *BuyRequestService) DeleteBuyRequest(ctx context.Context, requestID, buy
 		return fmt.Errorf("unauthorized: not the buyer")
 	}
 
-	// Get locked assets
-	lockedAsset, err := s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID)
+	refundPSC, refundIRR, err := s.resolveBuyRequestRefund(ctx, requestID, buyRequest)
 	if err != nil {
-		return fmt.Errorf("locked assets not found: %w", err)
+		return err
 	}
 
 	// Refund buyer
-	if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", lockedAsset.PSC); err != nil {
+	if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "psc", refundPSC); err != nil {
 		return fmt.Errorf("failed to refund PSC: %w", err)
 	}
-	if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", lockedAsset.IRR); err != nil {
+	if err := s.commercialClient.AddBalance(ctx, buyRequest.BuyerID, "irr", refundIRR); err != nil {
 		return fmt.Errorf("failed to refund IRR: %w", err)
 	}
 
@@ -505,6 +503,22 @@ func (s *BuyRequestService) UpdateGracePeriod(ctx context.Context, requestID, se
 
 	s.log.Info("Grace period updated", "request_id", requestID, "grace_period_days", gracePeriodDays)
 	return nil
+}
+
+func (s *BuyRequestService) resolveBuyRequestRefund(ctx context.Context, requestID uint64, buyRequest *models.BuyFeatureRequest) (float64, float64, error) {
+	lockedAsset, err := s.lockedAssetRepo.GetByBuyRequestID(ctx, requestID)
+	if err == nil {
+		return lockedAsset.PSC, lockedAsset.IRR, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, fmt.Errorf("locked assets not found: %w", err)
+	}
+
+	s.log.Warn("locked assets missing; refunding from buy request prices",
+		"request_id", requestID,
+		"buyer_id", buyRequest.BuyerID,
+	)
+	return constants.CalculateBuyerCharge(buyRequest.PricePSC), constants.CalculateBuyerCharge(buyRequest.PriceIRR), nil
 }
 
 // BuyRequestDetail contains all information needed for a buy request response

@@ -17,9 +17,14 @@ var (
 	ExportUploadReportAttachments              = uploadReportAttachments
 	ExportResolveNoteAttachmentURL             = resolveNoteAttachmentURL
 	ExportUploadBytesToStorageWithRelativePath = uploadBytesToStorageWithRelativePath
+	ExportRelativeDBPath                       = relativeDBPath
+	ExportPrependPublicURL                     = prependPublicURL
 )
 
 const (
 	ExportMaxTicketAttachmentSize = maxTicketAttachmentSize
 	ExportMaxReportAttachmentSize = maxReportAttachmentSize
 )
+
+// FileStorageUploader is exported for tests that stub storage-service uploads.
+type FileStorageUploader = fileStorageUploader

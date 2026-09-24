@@ -36,6 +36,8 @@ message SendNotificationRequest {
   map<string, string> data = 5;
   bool send_sms = 6;
   bool send_email = 7;
+  string sms_template = 8; // Kavenegar verifyLookup template name
+  map<string, string> sms_tokens = 9; // token, token2, token3, token10, token20, ...
 }
 
 message NotificationResponse {
