@@ -422,12 +422,9 @@ func (r *LevelRepository) GetLevelGeneralInfo(ctx context.Context, levelID uint6
 		info.CreationDate = creationDate.String
 	}
 
-	// Format file URLs with admin_panel_url prefix (for png_file, fbx_file, gif_file)
+	// Format file URLs with admin_panel_url prefix (for png_file, gif_file; fbx_file is returned as stored)
 	if info.PngFile != "" {
 		info.PngFile = r.formatImageURL(info.PngFile)
-	}
-	if info.FbxFile != "" {
-		info.FbxFile = r.formatImageURL(info.FbxFile)
 	}
 	if info.GifFile != "" {
 		info.GifFile = r.formatImageURL(info.GifFile)
