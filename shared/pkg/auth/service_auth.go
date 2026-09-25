@@ -21,6 +21,12 @@ var InternalServiceMethods = map[string]struct{}{
 	"/financial.WalletService/DeductBalance":              {},
 	"/financial.WalletService/LockBalance":                {},
 	"/financial.WalletService/UnlockBalance":              {},
+	// Citizen building stats trust caller-supplied user_id and karbari filters.
+	// The public HTTP handler applies privacy in-process. Network callers must
+	// present the service token.
+	"/features.CitizenBuildingsService/GetCitizenBuildingSummary": {},
+	"/features.CitizenBuildingsService/GetCitizenBuildingChart":   {},
+	"/features.CitizenBuildingsService/ListCitizenBuildings":      {},
 }
 
 // RequiresServiceAuth reports whether a gRPC method must be called with a service token.

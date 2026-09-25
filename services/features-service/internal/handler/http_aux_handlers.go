@@ -33,11 +33,6 @@ type citizenFeaturesHTTPAPI interface {
 	GetCitizenFeatureChart(context.Context, *featurespb.GetCitizenFeatureChartRequest) (*featurespb.GetCitizenFeatureChartResponse, error)
 	ListCitizenFeatures(context.Context, *featurespb.ListCitizenFeaturesRequest) (*featurespb.ListCitizenFeaturesResponse, error)
 }
-type citizenBuildingsHTTPAPI interface {
-	GetCitizenBuildingSummary(context.Context, *featurespb.GetCitizenBuildingSummaryRequest) (*featurespb.GetCitizenBuildingSummaryResponse, error)
-	GetCitizenBuildingChart(context.Context, *featurespb.GetCitizenBuildingChartRequest) (*featurespb.GetCitizenBuildingChartResponse, error)
-	ListCitizenBuildings(context.Context, *featurespb.ListCitizenBuildingsRequest) (*featurespb.ListCitizenBuildingsResponse, error)
-}
 
 type HTTPProfitHandler struct{ api profitHTTPAPI }
 
@@ -186,16 +181,9 @@ type HTTPCitizenFeaturesHandler struct {
 	api     citizenFeaturesHTTPAPI
 	citizen authpb.CitizenServiceClient
 }
-type HTTPCitizenBuildingsHandler struct {
-	api      citizenBuildingsHTTPAPI
-	features *HTTPCitizenFeaturesHandler
-}
 
 func NewHTTPCitizenFeaturesHandler(api citizenFeaturesHTTPAPI, c authpb.CitizenServiceClient) *HTTPCitizenFeaturesHandler {
 	return &HTTPCitizenFeaturesHandler{api, c}
-}
-func NewHTTPCitizenBuildingsHandler(api citizenBuildingsHTTPAPI, f *HTTPCitizenFeaturesHandler) *HTTPCitizenBuildingsHandler {
-	return &HTTPCitizenBuildingsHandler{api, f}
 }
 
 var privacyKeys = map[string]string{"a": "amoozeshi_features", "m": "maskoni_features", "t": "tejari_features", "g": "gardeshgari_features", "s": "fazasabz_features", "b": "behdashti_features", "e": "edari_features", "n": "nemayeshgah_features"}
@@ -345,86 +333,4 @@ func (h *HTTPCitizenFeaturesHandler) Handle(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	writeJSON(w, 200, map[string]interface{}{"data": data, "links": links, "meta": meta, "map_markers": markers})
-}
-func (h *HTTPCitizenBuildingsHandler) Handle(w http.ResponseWriter, r *http.Request, code string, rest []string) {
-	id, allowed, ok := h.features.resolve(w, r, code)
-	if !ok {
-		return
-	}
-	period := r.URL.Query().Get("period")
-	if period != "weekly" && period != "monthly" && period != "yearly" {
-		period = "daily"
-	}
-	if len(rest) > 0 && rest[0] == "summary" {
-		resp, err := h.api.GetCitizenBuildingSummary(r.Context(), &featurespb.GetCitizenBuildingSummaryRequest{UserId: id, AllowedKarbaris: allowed})
-		if err != nil {
-			writeGRPCError(w, err)
-			return
-		}
-		data := []map[string]interface{}{}
-		for _, x := range resp.Data {
-			data = append(data, map[string]interface{}{"karbari": x.Karbari, "label": x.Label, "count": x.Count})
-		}
-		writeJSON(w, 200, map[string]interface{}{"data": data})
-		return
-	}
-	if len(rest) > 0 && rest[0] == "chart" {
-		resp, err := h.api.GetCitizenBuildingChart(r.Context(), &featurespb.GetCitizenBuildingChartRequest{UserId: id, Period: period, AllowedKarbaris: allowed})
-		if err != nil {
-			writeGRPCError(w, err)
-			return
-		}
-		writeJSON(w, 200, map[string]interface{}{
-			"data": citizenChartPointsJSON(resp.Data.Completed),
-		})
-		return
-	}
-	resp, err := h.api.ListCitizenBuildings(r.Context(), &featurespb.ListCitizenBuildingsRequest{UserId: id, AllowedKarbaris: allowed, Page: pageQuery(r, 1)})
-	if err != nil {
-		writeGRPCError(w, err)
-		return
-	}
-	data := make([]map[string]interface{}, 0, len(resp.Data))
-	for _, x := range resp.Data {
-		data = append(data, map[string]interface{}{
-			"building_id":           x.BuildingId,
-			"karbari":               x.Karbari,
-			"area":                  optionalFloat64(x.Area),
-			"visitors":              optionalFloat64(x.Visitors),
-			"empty_units":           optionalFloat64(x.EmptyUnits),
-			"density":               optionalFloat64(x.Density),
-			"construction_end_date": optionalString(x.ConstructionEndDate),
-			"images":                citizenImagesJSON(x.Images),
-		})
-	}
-	basePath := requestPath(r)
-	meta := map[string]interface{}{
-		"current_page": int32(1), "from": nil, "last_page": int32(1), "path": basePath,
-		"per_page": int32(10), "to": nil, "total": int32(0),
-	}
-	links := map[string]interface{}{
-		"first": basePath + "?page=1", "last": basePath + "?page=1", "prev": nil, "next": nil,
-	}
-	if resp.Meta != nil {
-		meta["current_page"] = resp.Meta.CurrentPage
-		meta["last_page"] = resp.Meta.LastPage
-		meta["per_page"] = resp.Meta.PerPage
-		meta["total"] = resp.Meta.Total
-		meta["path"] = basePath
-		if resp.Meta.From != nil {
-			meta["from"] = *resp.Meta.From
-		}
-		if resp.Meta.To != nil {
-			meta["to"] = *resp.Meta.To
-		}
-		links["first"] = basePath + "?page=1"
-		links["last"] = fmt.Sprintf("%s?page=%d", basePath, resp.Meta.LastPage)
-		if resp.Meta.CurrentPage > 1 {
-			links["prev"] = fmt.Sprintf("%s?page=%d", basePath, resp.Meta.CurrentPage-1)
-		}
-		if resp.Meta.CurrentPage < resp.Meta.LastPage {
-			links["next"] = fmt.Sprintf("%s?page=%d", basePath, resp.Meta.CurrentPage+1)
-		}
-	}
-	writeJSON(w, 200, map[string]interface{}{"data": data, "links": links, "meta": meta})
 }

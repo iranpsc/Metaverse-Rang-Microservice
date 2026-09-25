@@ -1,0 +1,175 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: buildings-service
+  namespace: metarang
+  labels:
+    app: buildings-service
+    version: v1
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      app: buildings-service
+  template:
+    metadata:
+      labels:
+        app: buildings-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+        traffic.sidecar.istio.io/excludeInboundPorts: "9090"
+    spec:
+      imagePullSecrets:
+        - name: dockerhub-credentials
+      containers:
+      - name: buildings-service
+        image: abbasajorloo/buildings-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 50063
+          name: grpc
+          protocol: TCP
+        - containerPort: 8072
+          name: http
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        - name: DB_HOST
+          value: "mysql"
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: db.port
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: metarang-secrets
+              key: db.user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: metarang-secrets
+              key: db.password
+        - name: DB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: db.database
+        - name: GRPC_PORT
+          value: "50063"
+        - name: HTTP_PORT
+          value: "8072"
+        - name: APP_URL
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: app.url
+              optional: true
+        - name: METRICS_PORT
+          value: "9090"
+        - name: COMMERCIAL_SERVICE_ADDR
+          value: "commercial-service:50052"
+        - name: SENTRY_DSN
+          valueFrom:
+            secretKeyRef:
+              name: metarang-secrets
+              key: sentry.dsn
+              optional: true
+        - name: SENTRY_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: sentry.environment
+        - name: SENTRY_RELEASE
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: sentry.release
+              optional: true
+        - name: SENTRY_TRACES_SAMPLE_RATE
+          valueFrom:
+            configMapKeyRef:
+              name: metarang-config
+              key: sentry.traces_sample_rate
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "300m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8072
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8072
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 10
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: buildings-service
+  namespace: metarang
+  labels:
+    app: buildings-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 50063
+    targetPort: 50063
+    protocol: TCP
+    name: grpc
+  - port: 8072
+    targetPort: 8072
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: buildings-service
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: buildings-service-hpa
+  namespace: metarang
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: buildings-service
+  minReplicas: 1
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

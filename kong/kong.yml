@@ -35,6 +35,17 @@ services:
     read_timeout: 60000
     retries: 3
 
+  # Buildings REST API — served directly by buildings-service
+  - name: buildings-service
+    url: http://buildings-service:8072
+    protocol: http
+    host: buildings-service
+    port: 8072
+    connect_timeout: 60000
+    write_timeout: 60000
+    read_timeout: 60000
+    retries: 3
+
   # Features REST API — served directly by features-service (migrated off grpc-gateway)
   - name: features-service
     url: http://features-service:8062
@@ -233,6 +244,7 @@ routes:
   # Features API — higher priority than catch-all /api → grpc-gateway.
   # Include OPTIONS so preflight always matches this route (PATCH must be allowed).
   # Kong CORS (priority 2000) answers OPTIONS before rate-limiting (901).
+  # Build/citizen-buildings paths are routed by buildings-api (priority 99).
   - name: features-api
     service: features-service
     paths:
@@ -244,10 +256,40 @@ routes:
       - /api/hourly-profits
       - /api/maps
       - ~/api/citizen/[^/]+/features
-      - ~/api/citizen/[^/]+/buildings
     strip_path: false
     preserve_host: false
     regex_priority: 98
+    protocols:
+      - http
+      - https
+    methods:
+      - GET
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+      - OPTIONS
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: redis
+          redis:
+            host: redis
+            port: 6379
+            ssl: false
+            ssl_verify: false
+
+  # Buildings API — higher priority than features-api for build/citizen-buildings paths
+  - name: buildings-api
+    service: buildings-service
+    paths:
+      - ~/api/features/[^/]+/build
+      - /api/features/buildings/completed
+      - ~/api/citizen/[^/]+/buildings
+    strip_path: false
+    preserve_host: false
+    regex_priority: 99
     protocols:
       - http
       - https
@@ -439,7 +481,7 @@ routes:
 
   # Auth API
   # /api/user/transactions* and /api/citizen/*/wallet/history* are routed by commercial-api (priority 98).
-  # /api/citizen/* features/buildings subpaths are routed by features-api (priority 98).
+  # /api/citizen/* features routed by features-api (98); buildings by buildings-api (99).
   - name: auth-api
     service: auth-service
     paths:

@@ -200,32 +200,6 @@ func TestCitizenJSONHelpers(t *testing.T) {
 	}
 }
 
-func TestParseBuildingInformation(t *testing.T) {
-	if parseBuildingInformation(map[string]interface{}{}) != nil {
-		t.Fatal("empty")
-	}
-	info := parseBuildingInformation(map[string]interface{}{"name": "Shop"})
-	if info == nil || info.Name != "Shop" {
-		t.Fatalf("%#v", info)
-	}
-	nested := parseBuildingInformation(map[string]interface{}{
-		"information": map[string]interface{}{"address": "a"},
-	})
-	if nested == nil || nested.Address != "a" {
-		t.Fatalf("%#v", nested)
-	}
-	m := buildingInformationMap(nil)
-	if len(m) != 0 {
-		t.Fatal(m)
-	}
-	m = buildingInformationMap(&featurespb.BuildingInformation{
-		ActivityLine: "al", Name: "n", Address: "a", PostalCode: "p", Website: "w", Description: "d",
-	})
-	if len(m) != 6 {
-		t.Fatalf("%#v", m)
-	}
-}
-
 func TestWriteJSONAndGRPCError(t *testing.T) {
 	rec := httptest.NewRecorder()
 	writeJSON(rec, 200, nil)

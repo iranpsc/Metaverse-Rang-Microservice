@@ -81,11 +81,7 @@ func (mockHTTPIsicAPI) ListIsicCodes(context.Context, *pb.ListIsicCodesRequest) 
 }
 
 func TestHTTPRoutesCoverage(t *testing.T) {
-	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{
-		getBuildings: func(_ context.Context, _ *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
-			return &pb.BuildingsResponse{Buildings: sampleHTTPFeature().BuildingModels}, nil
-		},
-	}, routeAuthClient{})
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, routeAuthClient{})
 
 	withUserJSON := func(method, target, body string) *http.Request {
 		req := requestWithUser(httptest.NewRequest(method, target, strings.NewReader(body)), 2)
@@ -102,9 +98,6 @@ func TestHTTPRoutesCoverage(t *testing.T) {
 
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1", "")).Code)
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodPost, "/api/features/buy/1", "")).Code)
-	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/build/package", "")).Code)
-	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodPost, "/api/features/1/build/m1", `{"launched_satisfaction":"1","rotation":"0","position":"1,2"}`)).Code)
-	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/build/buildings", "")).Code)
 	assert.Equal(t, 200, serve(h.HandleFeaturesRoutes, withUserJSON(http.MethodGet, "/api/features/1/sell-requests", "")).Code)
 
 	assert.Equal(t, 200, serve(h.HandleBuyRequestsRoutes, withUserJSON(http.MethodGet, "/api/buy-requests", "")).Code)
@@ -197,7 +190,7 @@ func TestHTTPGetMyFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 		}
 		return &pb.FeatureResponse{Feature: feat}, nil
 	}}
-	h := handler.NewHTTPFeaturesHandler(api, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	h := handler.NewHTTPFeaturesHandler(api, &mockHTTPMarketplaceAPI{}, routeAuthClient{})
 	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features/2/features/1", nil), 2)
 	req.Header.Set("Authorization", "Bearer tok")
 	w := httptest.NewRecorder()
@@ -215,7 +208,7 @@ func TestHTTPGetMyFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 }
 
 func TestHTTPUpdateMyFeature_ReturnsPricesJSON(t *testing.T) {
-	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, routeAuthClient{})
 	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/my-features/2/features/1", strings.NewReader(`{"minimum_price_percentage":90}`)), 2)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer tok")
@@ -231,7 +224,7 @@ func TestHTTPUpdateMyFeature_ReturnsPricesJSON(t *testing.T) {
 }
 
 func TestHTTPUpdateMyFeature_MultipartMinimumReturnsPricesJSON(t *testing.T) {
-	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, routeAuthClient{})
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	require.NoError(t, mw.WriteField("minimum_price_percentage", "90"))
@@ -274,7 +267,7 @@ func TestHTTPProfitSingleWithProfit(t *testing.T) {
 }
 
 func TestHTTPBuyRequestListsIncludeFeatureCoordinates(t *testing.T) {
-	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, &mockHTTPBuildingAPI{}, routeAuthClient{})
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPMarketplaceAPI{}, routeAuthClient{})
 	withUserJSON := func(method, target, body string) *http.Request {
 		req := requestWithUser(httptest.NewRequest(method, target, strings.NewReader(body)), 2)
 		req.Header.Set("Content-Type", "application/json")

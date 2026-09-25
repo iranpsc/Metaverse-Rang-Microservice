@@ -9,12 +9,11 @@ import (
 
 // HTTPServerHandlers groups the local RPC wrappers used by the public server.
 type HTTPServerHandlers struct {
-	Features         *HTTPFeaturesHandler
-	Profit           *HTTPProfitHandler
-	Maps             *HTTPMapsHandler
-	Isic             *HTTPIsicCodesHandler
-	CitizenFeatures  *HTTPCitizenFeaturesHandler
-	CitizenBuildings *HTTPCitizenBuildingsHandler
+	Features        *HTTPFeaturesHandler
+	Profit          *HTTPProfitHandler
+	Maps            *HTTPMapsHandler
+	Isic            *HTTPIsicCodesHandler
+	CitizenFeatures *HTTPCitizenFeaturesHandler
 }
 
 // corsPreflightMiddleware answers OPTIONS when Kong proxies them (defense in depth).
@@ -69,7 +68,6 @@ func newPublicHTTPHandler(
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"}, true)
 	})
 	mux.Handle("GET /api/features", optionalAuth(http.HandlerFunc(handlers.Features.ListFeatures)))
-	mux.Handle("GET /api/features/buildings/completed", optionalAuth(http.HandlerFunc(handlers.Features.ListCompletedBuildings)))
 	mux.Handle("GET /api/features/{feature}/trade-history", http.HandlerFunc(handlers.Features.TradeHistory))
 	mux.Handle("GET /api/features/{feature}/sell-requests", http.HandlerFunc(handlers.Features.FeatureSellRequests))
 	mux.Handle("/api/features/", optionalAuth(accountSecurity(http.HandlerFunc(handlers.Features.HandleFeaturesRoutes))))
@@ -93,12 +91,6 @@ func newPublicHTTPHandler(
 		switch parts[1] {
 		case "features":
 			handlers.CitizenFeatures.Handle(w, r, parts[0], parts[2:])
-		case "buildings":
-			if handlers.CitizenBuildings == nil {
-				http.NotFound(w, r)
-				return
-			}
-			handlers.CitizenBuildings.Handle(w, r, parts[0], parts[2:])
 		default:
 			http.NotFound(w, r)
 		}

@@ -18,7 +18,6 @@ import (
 	"metarang/features-service/internal/middleware"
 	"metarang/features-service/internal/repository"
 	"metarang/features-service/internal/service"
-	"metarang/features-service/pkg/threed_client"
 	authpb "metarang/shared/pb/auth"
 	pb "metarang/shared/pb/features"
 	storagepb "metarang/shared/pb/storage"
@@ -66,7 +65,6 @@ func main() {
 	port := getEnv("GRPC_PORT", "50053")
 	httpPort := getEnv("HTTP_PORT", "8062")
 	metricsPort := getEnv("METRICS_PORT", "9090")
-	threeDMetaURL := getEnv("THREE_D_META_URL", "http://3d-meta-api")
 
 	// Initialize database connection
 	database, err := sql.Open("mysql", dbDSN)
@@ -110,9 +108,6 @@ func main() {
 	featureLimitRepo := repository.NewFeatureLimitRepository(database)
 	mapRepo := repository.NewMapRepository(database)
 	variableRepo := repository.NewVariableRepository(database)
-
-	// Initialize 3D client
-	threeDClient := threed_client.New(threeDMetaURL)
 
 	// Initialize commercial client for wallet operations
 	commercialServiceAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052")
@@ -226,19 +221,6 @@ func main() {
 		log,
 	)
 
-	buildingService := service.NewBuildingService(
-		buildingRepo,
-		featureRepo,
-		geometryRepo,
-		hourlyProfitRepo,
-		threeDClient,
-	)
-
-	// Set commercial client for building service (for wallet operations)
-	if commercialClient != nil {
-		buildingService.SetCommercialClient(commercialClient)
-	}
-
 	mapService := service.NewMapService(
 		mapRepo,
 		featureRepo,
@@ -249,8 +231,6 @@ func main() {
 		tradeRepo,
 	)
 
-	completedBuildingService := service.NewCompletedBuildingService(buildingRepo)
-
 	isicCodeRepo := repository.NewIsicCodeRepository(database)
 	isicCodeService := service.NewIsicCodeService(isicCodeRepo)
 
@@ -258,18 +238,14 @@ func main() {
 	userRepo := repository.NewUserRepository(database)
 	citizenFeaturesService := service.NewCitizenFeaturesService(citizenFeaturesRepo, userRepo)
 
-	citizenBuildingsService := service.NewCitizenBuildingsService(buildingRepo, userRepo, nil)
-
 	// Initialize gRPC handlers
 	handler.SetProjectLocale(getEnv("PROJECT_LOCALE", "EN"))
 	featureHandler := handler.NewFeatureHandler(featureService, tradeHistoryService)
 	marketplaceHandler := handler.NewMarketplaceHandler(marketplaceService, geometryRepo, featureRepo)
 	profitHandler := handler.NewProfitHandler(profitService)
-	buildingHandler := handler.NewBuildingHandler(buildingService, completedBuildingService)
 	isicCodeHandler := handler.NewIsicCodeHandler(isicCodeService)
 	mapHandler := handler.NewMapHandler(mapService)
 	citizenFeaturesHandler := handler.NewCitizenFeaturesHandler(citizenFeaturesService)
-	citizenBuildingsHandler := handler.NewCitizenBuildingsHandler(citizenBuildingsService)
 
 	// Initialize token validator for authentication
 	// Connect to auth service for token validation
@@ -320,11 +296,9 @@ func main() {
 	pb.RegisterFeatureServiceServer(grpcServer, featureHandler)
 	pb.RegisterFeatureMarketplaceServiceServer(grpcServer, marketplaceHandler)
 	pb.RegisterFeatureProfitServiceServer(grpcServer, profitHandler)
-	pb.RegisterBuildingServiceServer(grpcServer, buildingHandler)
 	pb.RegisterIsicCodeServiceServer(grpcServer, isicCodeHandler)
 	pb.RegisterMapsServiceServer(grpcServer, mapHandler)
 	pb.RegisterCitizenFeaturesServiceServer(grpcServer, citizenFeaturesHandler)
-	pb.RegisterCitizenBuildingsServiceServer(grpcServer, citizenBuildingsHandler)
 
 	// Enable reflection for debugging
 	reflection.Register(grpcServer)
@@ -348,13 +322,12 @@ func main() {
 	log.Info("Features Service started", "port", port, "metrics_port", metricsPort)
 
 	httpHandlers := handler.HTTPServerHandlers{
-		Features: handler.NewHTTPFeaturesHandler(featureHandler, marketplaceHandler, buildingHandler, authClient),
+		Features: handler.NewHTTPFeaturesHandler(featureHandler, marketplaceHandler, authClient),
 		Profit:   handler.NewHTTPProfitHandler(profitHandler),
 		Maps:     handler.NewHTTPMapsHandler(mapHandler),
 		Isic:     handler.NewHTTPIsicCodesHandler(isicCodeHandler),
 	}
 	httpHandlers.CitizenFeatures = handler.NewHTTPCitizenFeaturesHandler(citizenFeaturesHandler, citizenClient)
-	httpHandlers.CitizenBuildings = handler.NewHTTPCitizenBuildingsHandler(citizenBuildingsHandler, httpHandlers.CitizenFeatures)
 	authMiddleware := middleware.AuthMiddleware(authClient)
 	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(authClient)
 	accountSecurityMiddleware := middleware.AccountSecurityMiddleware(authClient)

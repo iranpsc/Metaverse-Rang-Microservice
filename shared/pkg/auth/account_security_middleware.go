@@ -18,7 +18,7 @@ func AccountSecurityMiddleware(checker AccountSecurityChecker) func(http.Handler
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
-			case http.MethodPost, http.MethodPut, http.MethodDelete:
+			case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 			default:
 				next.ServeHTTP(w, r)
 				return

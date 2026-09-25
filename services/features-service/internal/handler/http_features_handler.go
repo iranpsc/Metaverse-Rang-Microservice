@@ -40,26 +40,16 @@ type marketplaceHTTPAPI interface {
 	DeleteSellRequest(context.Context, *featurespb.DeleteSellRequestRequest) (*emptypb.Empty, error)
 	UpdateGracePeriod(context.Context, *featurespb.UpdateGracePeriodRequest) (*emptypb.Empty, error)
 }
-type buildingHTTPAPI interface {
-	GetBuildPackage(context.Context, *featurespb.GetBuildPackageRequest) (*featurespb.BuildPackageResponse, error)
-	BuildFeature(context.Context, *featurespb.BuildFeatureRequest) (*featurespb.BuildFeatureResponse, error)
-	GetBuildings(context.Context, *featurespb.GetBuildingsRequest) (*featurespb.BuildingsResponse, error)
-	UpdateBuilding(context.Context, *featurespb.UpdateBuildingRequest) (*featurespb.BuildingResponse, error)
-	UpdateBuildingInformation(context.Context, *featurespb.UpdateBuildingInformationRequest) (*featurespb.UpdateBuildingInformationResponse, error)
-	DestroyBuilding(context.Context, *featurespb.DestroyBuildingRequest) (*featurespb.BuildingResponse, error)
-	ListCompletedBuildings(context.Context, *featurespb.ListCompletedBuildingsRequest) (*featurespb.ListCompletedBuildingsResponse, error)
-}
 
 // HTTPFeaturesHandler exposes the existing feature RPC handlers without a loopback dial.
 type HTTPFeaturesHandler struct {
-	feature  featureHTTPAPI
-	market   marketplaceHTTPAPI
-	building buildingHTTPAPI
-	auth     authpb.AuthServiceClient
+	feature featureHTTPAPI
+	market  marketplaceHTTPAPI
+	auth    authpb.AuthServiceClient
 }
 
-func NewHTTPFeaturesHandler(feature featureHTTPAPI, market marketplaceHTTPAPI, building buildingHTTPAPI, auth authpb.AuthServiceClient) *HTTPFeaturesHandler {
-	return &HTTPFeaturesHandler{feature: feature, market: market, building: building, auth: auth}
+func NewHTTPFeaturesHandler(feature featureHTTPAPI, market marketplaceHTTPAPI, auth authpb.AuthServiceClient) *HTTPFeaturesHandler {
+	return &HTTPFeaturesHandler{feature: feature, market: market, auth: auth}
 }
 
 func (h *HTTPFeaturesHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {
@@ -106,32 +96,12 @@ func (h *HTTPFeaturesHandler) HandleFeaturesRoutes(w http.ResponseWriter, r *htt
 		h.BuyFeature(w, r)
 		return
 	}
-	if path == "buildings/completed" {
-		h.ListCompletedBuildings(w, r)
-		return
-	}
 	if isFeatureTradeHistoryPath(path) {
 		h.TradeHistory(w, r)
 		return
 	}
 	if isFeatureSellRequestsPath(path) {
 		h.FeatureSellRequests(w, r)
-		return
-	}
-	if strings.Contains(path, "/build/package") {
-		h.BuildPackage(w, r)
-		return
-	}
-	if strings.Contains(path, "/build/buildings/") {
-		h.BuildingMutation(w, r)
-		return
-	}
-	if strings.Contains(path, "/build/buildings") {
-		h.GetBuildings(w, r)
-		return
-	}
-	if strings.Contains(path, "/build/") {
-		h.BuildFeature(w, r)
 		return
 	}
 	h.GetFeature(w, r)
@@ -152,141 +122,6 @@ func (h *HTTPFeaturesHandler) BuyFeature(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, 200, map[string]interface{}{"data": featureMap(resp.Feature)})
-}
-func (h *HTTPFeaturesHandler) BuildPackage(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.user(w, r); !ok {
-		return
-	}
-	id, err := featureID(r)
-	if err != nil {
-		writeError(w, 400, "invalid feature ID")
-		return
-	}
-	page := pageQuery(r, 1)
-	resp, err := h.building.GetBuildPackage(r.Context(), &featurespb.GetBuildPackageRequest{FeatureId: id, Page: page})
-	if err != nil {
-		writeGRPCError(w, err)
-		return
-	}
-	data := []map[string]interface{}{}
-	for _, m := range resp.Models {
-		data = append(data, map[string]interface{}{"id": m.Id, "model_id": m.ModelId, "name": m.Name, "sku": m.Sku, "images": parseJSONString(m.Images), "attributes": parseJSONString(m.Attributes), "file": parseJSONString(m.File), "required_satisfaction": m.RequiredSatisfaction})
-	}
-	writeJSON(w, 200, map[string]interface{}{"data": data, "feature": map[string]interface{}{"coordinates": resp.Coordinates}})
-}
-func (h *HTTPFeaturesHandler) BuildFeature(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.NotFound(w, r)
-		return
-	}
-	if _, ok := h.user(w, r); !ok {
-		return
-	}
-	id, err := featureID(r)
-	if err != nil {
-		writeError(w, 400, "invalid feature ID")
-		return
-	}
-	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/"), "/")
-	if len(parts) < 3 {
-		writeError(w, 400, "feature ID and building model ID are required")
-		return
-	}
-	body := map[string]interface{}{}
-	if err = decodeBody(r, &body); err != nil {
-		writeValidationError(w, "request body is required")
-		return
-	}
-	req := buildingRequest(id, parts[2], body)
-	if _, err = h.building.BuildFeature(r.Context(), req); err != nil {
-		writeGRPCError(w, err)
-		return
-	}
-	writeJSON(w, 200, map[string]interface{}{})
-}
-func (h *HTTPFeaturesHandler) GetBuildings(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.NotFound(w, r)
-		return
-	}
-	id, err := featureID(r)
-	if err != nil {
-		writeError(w, 400, "invalid feature ID")
-		return
-	}
-	resp, err := h.building.GetBuildings(r.Context(), &featurespb.GetBuildingsRequest{FeatureId: id})
-	if err != nil {
-		writeGRPCError(w, err)
-		return
-	}
-	writeJSON(w, 200, map[string]interface{}{"data": buildingModelsMap(id, resp.Buildings)})
-}
-func (h *HTTPFeaturesHandler) BuildingMutation(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.user(w, r); !ok {
-		return
-	}
-	id, err := featureID(r)
-	if err != nil {
-		writeError(w, 400, "invalid feature ID")
-		return
-	}
-	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/"), "/")
-	if len(parts) < 4 {
-		writeError(w, 400, "feature ID and building model ID are required")
-		return
-	}
-	model := parts[3]
-	switch effectiveHTTPMethod(r) {
-	case http.MethodDelete:
-		_, err = h.building.DestroyBuilding(r.Context(), &featurespb.DestroyBuildingRequest{FeatureId: id, BuildingModelId: model})
-		if err == nil {
-			writeJSON(w, 200, map[string]interface{}{})
-		}
-	case http.MethodPut:
-		body := map[string]interface{}{}
-		if err = decodeBody(r, &body); err == nil {
-			_, err = h.building.UpdateBuilding(r.Context(), updateBuildingRequest(id, model, body))
-		}
-		if err == nil {
-			writeJSON(w, 200, map[string]interface{}{})
-		}
-	case http.MethodPatch:
-		body := map[string]interface{}{}
-		if err = decodeBody(r, &body); err == nil {
-			info := parseBuildingInformation(body)
-			if info == nil {
-				writeValidationError(w, "information is required")
-				return
-			}
-			var resp *featurespb.UpdateBuildingInformationResponse
-			resp, err = h.building.UpdateBuildingInformation(r.Context(), &featurespb.UpdateBuildingInformationRequest{FeatureId: id, BuildingModelId: model, Information: info})
-			if err == nil {
-				writeJSON(w, 200, map[string]interface{}{"information": buildingInformationMap(resp.Information)}, true)
-			}
-		}
-	default:
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		writeGRPCError(w, err)
-	}
-}
-func (h *HTTPFeaturesHandler) ListCompletedBuildings(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.NotFound(w, r)
-		return
-	}
-	resp, err := h.building.ListCompletedBuildings(r.Context(), &featurespb.ListCompletedBuildingsRequest{Page: pageQuery(r, 1)})
-	if err != nil {
-		writeGRPCError(w, err)
-		return
-	}
-	data := []map[string]interface{}{}
-	for _, x := range resp.Data {
-		data = append(data, map[string]interface{}{"id": x.Id, "feature_id": x.FeatureId, "feature_properties_id": x.FeaturePropertiesId, "length": optionalString(x.Length), "width": optionalString(x.Width), "density": optionalString(x.Density), "karbari": x.Karbari})
-	}
-	writeJSON(w, 200, paginated(data, resp.Links, resp.Meta))
 }
 func (h *HTTPFeaturesHandler) TradeHistory(w http.ResponseWriter, r *http.Request) {
 	id, err := featureIDFromTradeHistoryRequest(r)
@@ -903,12 +738,6 @@ func int32Value(value interface{}) (int32, bool) {
 	}
 	return 0, false
 }
-func buildingRequest(id uint64, model string, body map[string]interface{}) *featurespb.BuildFeatureRequest {
-	return &featurespb.BuildFeatureRequest{FeatureId: id, BuildingModelId: model, LaunchedSatisfaction: numberString(body["launched_satisfaction"]), Rotation: numberString(body["rotation"]), Position: stringValue(body["position"]), Information: parseBuildingInformation(body)}
-}
-func updateBuildingRequest(id uint64, model string, body map[string]interface{}) *featurespb.UpdateBuildingRequest {
-	return &featurespb.UpdateBuildingRequest{FeatureId: id, BuildingModelId: model, LaunchedSatisfaction: numberString(body["launched_satisfaction"]), Rotation: numberString(body["rotation"]), Position: stringValue(body["position"]), Information: parseBuildingInformation(body)}
-}
 func featureMap(f *featurespb.Feature) map[string]interface{} {
 	if f == nil {
 		return map[string]interface{}{}
@@ -1012,37 +841,6 @@ func parseNumericOrString(s string) interface{} {
 	return s
 }
 
-// buildingModelsMap maps buildings for GET /api/features/{id}/build/buildings (full model + pivot).
-func buildingModelsMap(featureID uint64, buildings []*featurespb.Building) []map[string]interface{} {
-	out := make([]map[string]interface{}, 0, len(buildings))
-	for _, b := range buildings {
-		if b == nil || b.Model == nil {
-			continue
-		}
-		out = append(out, map[string]interface{}{
-			"id":                    b.Model.Id,
-			"model_id":              b.Model.ModelId,
-			"name":                  b.Model.Name,
-			"sku":                   b.Model.Sku,
-			"images":                parseJSONString(b.Model.Images),
-			"attributes":            parseJSONString(b.Model.Attributes),
-			"file":                  parseJSONString(b.Model.File),
-			"required_satisfaction": b.Model.RequiredSatisfaction,
-			"building": map[string]interface{}{
-				"model_id":                b.Model.ModelId,
-				"feature_id":              featureID,
-				"construction_start_date": b.ConstructionStartDate,
-				"construction_end_date":   b.ConstructionEndDate,
-				"launched_satisfaction":   b.LaunchedSatisfaction,
-				"information":             parseJSONString(b.Information),
-				"rotation":                b.Rotation,
-				"position":                b.Position,
-				"bubble_diameter":         b.BubbleDiameter,
-			},
-		})
-	}
-	return out
-}
 func propertyMap(p *featurespb.FeatureProperties) map[string]interface{} {
 	return map[string]interface{}{"id": p.Id, "address": p.Address, "density": p.Density, "stability": p.Stability, "price_psc": p.PricePsc, "price_irr": p.PriceIrr, "minimum_price_percentage": p.MinimumPricePercentage, "rgb": p.Rgb, "karbari": p.Karbari, "owner": p.Owner, "label": p.Label, "area": p.Area}
 }

@@ -271,9 +271,6 @@ func shouldSkipAuth(fullMethod string) bool {
 		"/features.CitizenFeaturesService/GetCitizenFeatureSummary",
 		"/features.CitizenFeaturesService/GetCitizenFeatureChart",
 		"/features.CitizenFeaturesService/ListCitizenFeatures",
-		"/features.CitizenBuildingsService/GetCitizenBuildingSummary",
-		"/features.CitizenBuildingsService/GetCitizenBuildingChart",
-		"/features.CitizenBuildingsService/ListCitizenBuildings",
 	}
 
 	for _, method := range publicMethods {

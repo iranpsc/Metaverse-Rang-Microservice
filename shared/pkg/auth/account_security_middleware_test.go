@@ -47,6 +47,27 @@ func TestAccountSecurityMiddleware_Returns410WhenLocked(t *testing.T) {
 	}
 }
 
+func TestAccountSecurityMiddleware_LocksPATCH(t *testing.T) {
+	checker := &stubAccountSecurityChecker{unlocked: false}
+	called := false
+	handler := authpkg.AccountSecurityMiddleware(checker)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPatch, "/x", nil)
+	req = req.WithContext(context.WithValue(req.Context(), authpkg.UserContextKey{}, &authpkg.UserContext{UserID: 9}))
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusGone || called {
+		t.Fatalf("status=%d called=%v", rr.Code, called)
+	}
+	if checker.calls != 1 {
+		t.Fatalf("calls=%d", checker.calls)
+	}
+}
+
 func TestAccountSecurityMiddleware_AllowsWalletLoginWithoutUnlock(t *testing.T) {
 	checker := &stubAccountSecurityChecker{unlocked: false}
 	called := false

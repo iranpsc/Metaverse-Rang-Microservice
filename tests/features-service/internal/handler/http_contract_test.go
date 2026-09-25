@@ -1,7 +1,6 @@
 package handler_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -144,54 +143,6 @@ func (*mockHTTPMarketplaceAPI) UpdateGracePeriod(context.Context, *pb.UpdateGrac
 	return &emptypb.Empty{}, nil
 }
 
-type mockHTTPBuildingAPI struct {
-	getBuildings       func(context.Context, *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error)
-	updateBuilding     func(context.Context, *pb.UpdateBuildingRequest) (*pb.BuildingResponse, error)
-	updateInformation  func(context.Context, *pb.UpdateBuildingInformationRequest) (*pb.UpdateBuildingInformationResponse, error)
-	destroyBuilding    func(context.Context, *pb.DestroyBuildingRequest) (*pb.BuildingResponse, error)
-	completedBuildings func(context.Context, *pb.ListCompletedBuildingsRequest) (*pb.ListCompletedBuildingsResponse, error)
-}
-
-func (*mockHTTPBuildingAPI) GetBuildPackage(context.Context, *pb.GetBuildPackageRequest) (*pb.BuildPackageResponse, error) {
-	return &pb.BuildPackageResponse{
-		Models:      []*pb.BuildingModel{{Id: 1, ModelId: "1", Name: "n", Sku: "s", Images: "[]", Attributes: "[]", File: "{}", RequiredSatisfaction: "1"}},
-		Coordinates: []string{"1,2"},
-	}, nil
-}
-func (*mockHTTPBuildingAPI) BuildFeature(context.Context, *pb.BuildFeatureRequest) (*pb.BuildFeatureResponse, error) {
-	return &pb.BuildFeatureResponse{}, nil
-}
-func (m *mockHTTPBuildingAPI) GetBuildings(ctx context.Context, req *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
-	if m.getBuildings != nil {
-		return m.getBuildings(ctx, req)
-	}
-	return &pb.BuildingsResponse{}, nil
-}
-func (m *mockHTTPBuildingAPI) UpdateBuilding(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.BuildingResponse, error) {
-	if m.updateBuilding != nil {
-		return m.updateBuilding(ctx, req)
-	}
-	return &pb.BuildingResponse{}, nil
-}
-func (m *mockHTTPBuildingAPI) UpdateBuildingInformation(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.UpdateBuildingInformationResponse, error) {
-	if m.updateInformation != nil {
-		return m.updateInformation(ctx, req)
-	}
-	return &pb.UpdateBuildingInformationResponse{}, nil
-}
-func (m *mockHTTPBuildingAPI) DestroyBuilding(ctx context.Context, req *pb.DestroyBuildingRequest) (*pb.BuildingResponse, error) {
-	if m.destroyBuilding != nil {
-		return m.destroyBuilding(ctx, req)
-	}
-	return &pb.BuildingResponse{}, nil
-}
-func (m *mockHTTPBuildingAPI) ListCompletedBuildings(ctx context.Context, req *pb.ListCompletedBuildingsRequest) (*pb.ListCompletedBuildingsResponse, error) {
-	if m.completedBuildings != nil {
-		return m.completedBuildings(ctx, req)
-	}
-	return &pb.ListCompletedBuildingsResponse{}, nil
-}
-
 type mockHTTPProfitAPI struct {
 	single func(context.Context, *pb.GetSingleProfitRequest) (*pb.HourlyProfitResponse, error)
 	list   func(context.Context, *pb.GetHourlyProfitsRequest) (*pb.HourlyProfitsResponse, error)
@@ -213,8 +164,8 @@ func (m *mockHTTPProfitAPI) GetSingleProfit(ctx context.Context, req *pb.GetSing
 	return &pb.HourlyProfitResponse{Profit: &pb.HourlyProfit{}}, nil
 }
 
-func newHTTPFeaturesHandler(feature *mockHTTPFeatureAPI, building *mockHTTPBuildingAPI) *handler.HTTPFeaturesHandler {
-	return handler.NewHTTPFeaturesHandler(feature, &mockHTTPMarketplaceAPI{}, building, nil)
+func newHTTPFeaturesHandler(feature *mockHTTPFeatureAPI) *handler.HTTPFeaturesHandler {
+	return handler.NewHTTPFeaturesHandler(feature, &mockHTTPMarketplaceAPI{}, nil)
 }
 
 func requestWithUser(req *http.Request, userID uint64) *http.Request {
@@ -236,14 +187,14 @@ func TestHTTPListFeaturesPointsContract(t *testing.T) {
 				return &pb.FeaturesResponse{}, nil
 			}}
 			w := httptest.NewRecorder()
-			newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).ListFeatures(w, httptest.NewRequest(http.MethodGet, test.target, nil))
+			newHTTPFeaturesHandler(feature).ListFeatures(w, httptest.NewRequest(http.MethodGet, test.target, nil))
 			assert.Equal(t, http.StatusOK, w.Code)
 		})
 	}
 
 	t.Run("missing points returns validation response", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		newHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPBuildingAPI{}).ListFeatures(w, httptest.NewRequest(http.MethodGet, "/api/features", nil))
+		newHTTPFeaturesHandler(&mockHTTPFeatureAPI{}).ListFeatures(w, httptest.NewRequest(http.MethodGet, "/api/features", nil))
 		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 		var body map[string]interface{}
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
@@ -275,7 +226,7 @@ func TestHTTPListFeaturesBuildingModels(t *testing.T) {
 	}}
 
 	w := httptest.NewRecorder()
-	newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).ListFeatures(
+	newHTTPFeaturesHandler(feature).ListFeatures(
 		w,
 		httptest.NewRequest(http.MethodGet, "/api/features?points[]=10,20&points[]=30,20&points[]=30,40&points[]=10,40&load_buildings=1", nil),
 	)
@@ -305,85 +256,7 @@ func TestHTTPListFeaturesBuildingModels(t *testing.T) {
 	assert.NotContains(t, building, "bubble_diameter")
 }
 
-func TestHTTPBuildingMutationRoutes(t *testing.T) {
-	var updated, patched, destroyed *pb.BuildingInformation
-	building := &mockHTTPBuildingAPI{
-		updateBuilding: func(_ context.Context, req *pb.UpdateBuildingRequest) (*pb.BuildingResponse, error) {
-			assert.Equal(t, uint64(42), req.FeatureId)
-			assert.Equal(t, "1001", req.BuildingModelId)
-			updated = &pb.BuildingInformation{}
-			return &pb.BuildingResponse{}, nil
-		},
-		updateInformation: func(_ context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.UpdateBuildingInformationResponse, error) {
-			assert.Equal(t, uint64(42), req.FeatureId)
-			assert.Equal(t, "1001", req.BuildingModelId)
-			patched = req.Information
-			return &pb.UpdateBuildingInformationResponse{Information: req.Information}, nil
-		},
-		destroyBuilding: func(_ context.Context, req *pb.DestroyBuildingRequest) (*pb.BuildingResponse, error) {
-			assert.Equal(t, uint64(42), req.FeatureId)
-			assert.Equal(t, "1001", req.BuildingModelId)
-			destroyed = &pb.BuildingInformation{}
-			return &pb.BuildingResponse{}, nil
-		},
-	}
-	h := newHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, building)
-	for _, test := range []struct {
-		name, method, target, body string
-	}{
-		{"PUT", http.MethodPut, "/api/features/42/build/buildings/1001", `{"launched_satisfaction":"50"}`},
-		{"POST method PUT", http.MethodPost, "/api/features/42/build/buildings/1001?_method=put", `{"launched_satisfaction":"50"}`},
-		{"PATCH", http.MethodPatch, "/api/features/42/build/buildings/1001", `{"information":{"name":"Updated Store"}}`},
-		{"POST method PATCH", http.MethodPost, "/api/features/42/build/buildings/1001?_method=patch", `{"information":{"name":"Updated Store"}}`},
-		{"DELETE", http.MethodDelete, "/api/features/42/build/buildings/1001", ""},
-		{"POST method DELETE", http.MethodPost, "/api/features/42/build/buildings/1001?_method=delete", ""},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			w := httptest.NewRecorder()
-			req := requestWithUser(httptest.NewRequest(test.method, test.target, bytes.NewBufferString(test.body)), 7)
-			req.Header.Set("Content-Type", "application/json")
-			h.HandleFeaturesRoutes(w, req)
-			assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
-		})
-	}
-	assert.NotNil(t, updated)
-	assert.Equal(t, "Updated Store", patched.Name)
-	assert.NotNil(t, destroyed)
-}
 
-func TestHTTPCompletedBuildingsRoutes(t *testing.T) {
-	building := &mockHTTPBuildingAPI{completedBuildings: func(_ context.Context, _ *pb.ListCompletedBuildingsRequest) (*pb.ListCompletedBuildingsResponse, error) {
-		return &pb.ListCompletedBuildingsResponse{
-			Data:  []*pb.CompletedBuilding{{Id: 1, FeatureId: 10, FeaturePropertiesId: "QA-1"}},
-			Links: &pb.PaginationLinks{}, Meta: &pb.FeatureTradeHistoryPaginationMeta{},
-		}, nil
-	}}
-	h := newHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, building)
-
-	t.Run("takes precedence over feature lookup", func(t *testing.T) {
-		w := httptest.NewRecorder()
-		h.HandleFeaturesRoutes(w, httptest.NewRequest(http.MethodGet, "/api/features/buildings/completed", nil))
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.NotContains(t, w.Body.String(), "invalid feature ID")
-	})
-	t.Run("specific mux registration takes precedence", func(t *testing.T) {
-		mux := http.NewServeMux()
-		mux.Handle("GET /api/features/buildings/completed", http.HandlerFunc(h.ListCompletedBuildings))
-		mux.Handle("/api/features/", http.HandlerFunc(h.HandleFeaturesRoutes))
-		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/features/buildings/completed", nil))
-		assert.Equal(t, http.StatusOK, w.Code)
-	})
-	t.Run("building list still routes correctly", func(t *testing.T) {
-		building.getBuildings = func(_ context.Context, req *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
-			assert.Equal(t, uint64(42), req.FeatureId)
-			return &pb.BuildingsResponse{}, nil
-		}
-		w := httptest.NewRecorder()
-		h.HandleFeaturesRoutes(w, httptest.NewRequest(http.MethodGet, "/api/features/42/build/buildings", nil))
-		assert.Equal(t, http.StatusOK, w.Code)
-	})
-}
 
 func TestHTTPGetSingleProfit_ExpectedResourceShape(t *testing.T) {
 	profit := &mockHTTPProfitAPI{single: func(_ context.Context, req *pb.GetSingleProfitRequest) (*pb.HourlyProfitResponse, error) {
@@ -438,7 +311,7 @@ func TestHTTPListMyFeatures_SearchFilterAddressAndPagination(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features?page=2&search=TO111&filter=m", nil), 42)
-	newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).ListMyFeatures(w, req)
+	newHTTPFeaturesHandler(feature).ListMyFeatures(w, req)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 
 	var body map[string]interface{}
@@ -473,7 +346,7 @@ func TestHTTPListMyFeatures_TrimsSearchAndFilter(t *testing.T) {
 	}}
 	w := httptest.NewRecorder()
 	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features?search=%20block%20&filter=%20t%20", nil), 1)
-	newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).ListMyFeatures(w, req)
+	newHTTPFeaturesHandler(feature).ListMyFeatures(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "block", gotSearch)
 	assert.Equal(t, "t", gotFilter)
@@ -484,7 +357,7 @@ func TestHTTPTradeHistoryRoutesExtractFeatureID(t *testing.T) {
 		assert.Equal(t, uint64(99), req.FeatureId)
 		return &pb.GetFeatureTradeHistoryResponse{Links: &pb.PaginationLinks{}, Meta: &pb.FeatureTradeHistoryPaginationMeta{}}, nil
 	}}
-	h := newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{})
+	h := newHTTPFeaturesHandler(feature)
 
 	for _, target := range []string{"/api/features/99/trade-history", "/api/features/99/trade-history."} {
 		t.Run(target, func(t *testing.T) {
@@ -506,7 +379,7 @@ func TestHTTPFeatureSellRequestsRoute(t *testing.T) {
 			}}, nil
 		},
 	}
-	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, market, &mockHTTPBuildingAPI{}, nil)
+	h := handler.NewHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, market, nil)
 
 	w := httptest.NewRecorder()
 	h.HandleFeaturesRoutes(w, httptest.NewRequest(http.MethodGet, "/api/features/99/sell-requests", nil))
@@ -523,7 +396,7 @@ func TestHTTPFeatureSellRequestsRoute(t *testing.T) {
 }
 
 func TestHTTPFeatureSellRequestsRoute_InvalidFeatureID(t *testing.T) {
-	h := newHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPBuildingAPI{})
+	h := newHTTPFeaturesHandler(&mockHTTPFeatureAPI{})
 	w := httptest.NewRecorder()
 	h.HandleFeaturesRoutes(w, httptest.NewRequest(http.MethodGet, "/api/features/abc/sell-requests", nil))
 	assert.Equal(t, http.StatusBadRequest, w.Code)
@@ -540,7 +413,7 @@ func TestHTTPGetFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 		return &pb.FeatureResponse{Feature: feature}, nil
 	}}
 	w := httptest.NewRecorder()
-	newHTTPFeaturesHandler(api, &mockHTTPBuildingAPI{}).GetFeature(w, httptest.NewRequest(http.MethodGet, "/api/features/1", nil))
+	newHTTPFeaturesHandler(api).GetFeature(w, httptest.NewRequest(http.MethodGet, "/api/features/1", nil))
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 
 	var body map[string]interface{}
@@ -555,7 +428,7 @@ func TestHTTPGetFeature_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 
 func TestHTTPGetFeature_OmitsLatestSellRequestWhenNotForSale(t *testing.T) {
 	w := httptest.NewRecorder()
-	newHTTPFeaturesHandler(&mockHTTPFeatureAPI{}, &mockHTTPBuildingAPI{}).GetFeature(w, httptest.NewRequest(http.MethodGet, "/api/features/1", nil))
+	newHTTPFeaturesHandler(&mockHTTPFeatureAPI{}).GetFeature(w, httptest.NewRequest(http.MethodGet, "/api/features/1", nil))
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 
 	var body map[string]interface{}
@@ -582,7 +455,7 @@ func TestHTTPListMyFeatures_IncludesLatestSellRequestWhenForSale(t *testing.T) {
 	}}
 	w := httptest.NewRecorder()
 	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features", nil), 42)
-	newHTTPFeaturesHandler(api, &mockHTTPBuildingAPI{}).ListMyFeatures(w, req)
+	newHTTPFeaturesHandler(api).ListMyFeatures(w, req)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 
 	var body map[string]interface{}
@@ -625,7 +498,7 @@ func TestHTTPListMyFeatures_IncludesIsForSaleOnEachItem(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := requestWithUser(httptest.NewRequest(http.MethodGet, "/api/my-features?page=1", nil), 42)
-	newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).ListMyFeatures(w, req)
+	newHTTPFeaturesHandler(feature).ListMyFeatures(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 
 	var body map[string]interface{}
@@ -648,7 +521,7 @@ func TestHTTPGetFeature_IncludesIsForSaleWithoutLatestSellRequest(t *testing.T) 
 		return &pb.FeatureResponse{Feature: &pb.Feature{Id: 42, OwnerId: 2, IsForSale: 1}}, nil
 	}}
 	w := httptest.NewRecorder()
-	newHTTPFeaturesHandler(feature, &mockHTTPBuildingAPI{}).HandleFeaturesRoutes(
+	newHTTPFeaturesHandler(feature).HandleFeaturesRoutes(
 		w,
 		httptest.NewRequest(http.MethodGet, "/api/features/42", nil),
 	)

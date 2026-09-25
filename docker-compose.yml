@@ -330,6 +330,51 @@ services:
         - action: rebuild
           path: ./shared
 
+  # Buildings Service - Feature buildings & citizen building APIs
+  buildings-service:
+    build:
+      context: .
+      dockerfile: ./services/buildings-service/Dockerfile
+    env_file:
+      - ./services/buildings-service/config.env
+    environment:
+      GRPC_PORT: 50063
+      HTTP_PORT: 8072
+      AUTH_SERVICE_ADDR: auth-service:50051
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      COMMERCIAL_SERVICE_ADDR: commercial-service:50052
+      THREE_D_META_URL: ${THREE_D_META_URL:-http://3d-meta-api}
+      <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
+    depends_on:
+      <<: [*grpc-certs-depends, *migrate-depends]
+      mysql:
+        condition: service_healthy
+      commercial-service:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    volumes:
+      - *grpc-certs-mount
+    networks:
+      - metarang-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8072/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/buildings-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+        - action: rebuild
+          path: ./shared
+
   # Dynasty Service - Family & Dynasty Management (gRPC internal + HTTP for Kong /api/dynasty)
   dynasty-service:
     build:
@@ -843,6 +888,8 @@ services:
       commercial-service:
         condition: service_started
       features-service:
+        condition: service_healthy
+      buildings-service:
         condition: service_healthy
       levels-service:
         condition: service_healthy
