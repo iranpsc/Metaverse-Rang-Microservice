@@ -18,6 +18,7 @@ Microservices implementation for the Metarang platform using Golang/gRPC.
 | notifications-service | 50058 | Multi-channel Notifications |
 | calendar-service | 50059 (gRPC), 8060 (HTTP) | Events Management |
 | storage-service | 50060 (gRPC), 8059 (HTTP) | File Upload & Management |
+| sitemap-generator-service | 8071 (HTTP health) | Sitemap XML, refreshed every 3 hours |
 | financial-service | 50062 | Payment Processing |
 | websocket-gateway | 3002 | Real-time Communication |
 | Kong API Gateway | 8000 | HTTP/REST edge gateway |

@@ -1,0 +1,23 @@
+# Generated sitemap XML (created at runtime)
+sitemaps/
+
+# Local configuration (keep config.env.sample)
+config.env
+*.env
+.env
+.env.*
+
+# Build artifacts
+bin/
+dist/
+build/
+tmp/
+*.exe
+*.out
+*.test
+coverage/
+*.log
+.idea/
+.vscode/
+.DS_Store
+vendor/
