@@ -1,3 +1,4 @@
+// Package models defines domain types used when building sitemaps.
 package models
 
 import "time"

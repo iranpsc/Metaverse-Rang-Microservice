@@ -1,3 +1,4 @@
+// Package sitemap builds URL lists and renders sitemap XML documents.
 package sitemap
 
 import (

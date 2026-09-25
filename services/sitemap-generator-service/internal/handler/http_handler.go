@@ -1,3 +1,4 @@
+// Package handler serves HTTP health and regenerate endpoints for sitemap generation.
 package handler
 
 import (

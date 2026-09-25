@@ -1,3 +1,4 @@
+// Package service implements sitemap generation, export, and scheduling.
 package service
 
 import (

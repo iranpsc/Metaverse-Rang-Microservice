@@ -1,3 +1,4 @@
+// Package repository provides data access for sitemap source tables.
 package repository
 
 import (
