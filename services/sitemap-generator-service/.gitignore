@@ -1,23 +1,43 @@
-# Generated sitemap XML (created at runtime)
-sitemaps/
+# Build artifacts & binaries
+*.exe
+*.out
+*.test
+bin/
+dist/
+build/
+tmp/
+temp/
 
-# Local configuration (keep config.env.sample)
+# Configuration files (keep config.env.sample)
 config.env
 *.env
 .env
 .env.*
 
-# Build artifacts
-bin/
-dist/
-build/
-tmp/
-*.exe
-*.out
-*.test
-coverage/
+# Logs
 *.log
+logs/
+
+# IDE / Editor files
 .idea/
 .vscode/
+*.swp
+*.swo
+*.iml
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+*.coverage
+coverage-final.json
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Go specific
 vendor/

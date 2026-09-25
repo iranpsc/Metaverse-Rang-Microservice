@@ -648,6 +648,53 @@ services:
         - action: rebuild
           path: ./shared
 
+  # Sitemap Generator Service - Periodic XML sitemap export
+  sitemap-generator-service:
+    build:
+      context: .
+      dockerfile: ./services/sitemap-generator-service/Dockerfile
+    env_file:
+      - ./services/sitemap-generator-service/config.env
+    environment:
+      HTTP_PORT: 8071
+      SITEMAPS_EXPORT_PATH: /opt/metarang/sitemaps
+      TEMPLATES_PATH: ./templates/templates.json
+      ADMIN_PANEL_URL: ${ADMIN_PANEL_URL:-https://admin.metarang.com}
+      SITEMAP_SCHEDULER_INTERVAL_HOURS: 3
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${MYSQL_DATABASE:-metarang_db}
+      DB_USER: ${SITEMAP_DB_USER:-sitemap_service}
+      DB_PASSWORD: ${SITEMAP_DB_PASSWORD:-sitemap_password}
+      TZ: ${TZ:-Asia/Tehran}
+      <<: [*sentry-environment, *internal-auth]
+    depends_on:
+      <<: [*migrate-depends]
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ${SITEMAPS_HOST_PATH:-./services/sitemap-generator-service/sitemaps}:/opt/metarang/sitemaps
+    networks:
+      - metarang-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8071/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./services/sitemap-generator-service
+          ignore:
+            - "**/_test.go"
+            - "**/tmp"
+            - "**/.git"
+            - "**/sitemaps"
+        - action: rebuild
+          path: ./shared
+
   # Storage Service - File Upload & Management
   storage-service:
     build:
@@ -685,47 +732,6 @@ services:
             - "**/uploads"
         - action: rebuild
           path: ./shared
-
-  # Sitemap Generator — writes urlsets every 3 hours into the service sitemaps directory.
-  # Host path: SITEMAPS_EXPORT_PATH (config.env / project .env), default /opt/metarang/sitemaps.
-  # Container path: /app/sitemaps (the sitemaps directory inside the service root).
-  sitemap-generator-service:
-    build:
-      context: .
-      dockerfile: ./services/sitemap-generator-service/Dockerfile
-    ports:
-      - "8071:8071"
-    env_file:
-      - ./services/sitemap-generator-service/config.env
-    environment:
-      HTTP_PORT: 8071
-      SITEMAPS_OUTPUT_DIR: /app/sitemaps
-      TEMPLATES_PATH: /app/templates.json
-      <<: [*sentry-environment, *db-environment]
-    volumes:
-      - ${SITEMAPS_EXPORT_PATH:-/opt/metarang/sitemaps}:/app/sitemaps
-    depends_on:
-      <<: *migrate-depends
-      mysql:
-        condition: service_healthy
-    networks:
-      - metarang-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8071/live"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    develop:
-      watch:
-        - action: rebuild
-          path: ./services/sitemap-generator-service
-          ignore:
-            - "**/_test.go"
-            - "**/tmp"
-            - "**/.git"
-            - "**/sitemaps"
 
   # ============================================================================
   # Gateway Services

@@ -93,6 +93,7 @@ jobs:
               - 'tests/notifications-service/**'
             sitemap-generator-service:
               - 'services/sitemap-generator-service/**'
+              - 'tests/sitemap-generator-service/**'
             social-service:
               - 'services/social-service/**'
               - 'tests/social-service/**'
@@ -145,6 +146,6 @@ jobs:
     uses: ./.github/workflows/service-ci.yml
     with:
       service_name: ${{ matrix.service }}
-      enable_deploy: ${{ matrix.service != 'health-check-service' && matrix.service != 'sitemap-generator-service' }}
+      enable_deploy: ${{ matrix.service != 'health-check-service' }}
       enable_test: ${{ matrix.service != 'health-check-service' }}
     secrets: inherit
