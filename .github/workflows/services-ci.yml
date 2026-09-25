@@ -91,6 +91,9 @@ jobs:
             notifications-service:
               - 'services/notifications-service/**'
               - 'tests/notifications-service/**'
+            sitemap-generator-service:
+              - 'services/sitemap-generator-service/**'
+              - 'tests/sitemap-generator-service/**'
             social-service:
               - 'services/social-service/**'
               - 'tests/social-service/**'
@@ -114,7 +117,7 @@ jobs:
           DISPATCH_INPUT: ${{ github.event.inputs.services }}
           CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
-          ALL='["auth-service","calendar-service","commercial-service","dynasty-service","features-service","financial-service","health-check-service","levels-service","notifications-service","social-service","storage-service","support-service","training-service","websocket-gateway"]'
+          ALL='["auth-service","calendar-service","commercial-service","dynasty-service","features-service","financial-service","health-check-service","levels-service","notifications-service","sitemap-generator-service","social-service","storage-service","support-service","training-service","websocket-gateway"]'
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ "$DISPATCH_INPUT" = "all" ] || [ -z "$DISPATCH_INPUT" ]; then

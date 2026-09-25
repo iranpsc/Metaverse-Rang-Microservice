@@ -10,6 +10,7 @@ use (
 	./services/health-check-service
 	./services/levels-service
 	./services/notifications-service
+	./services/sitemap-generator-service
 	./services/social-service
 	./services/storage-service
 	./services/support-service
