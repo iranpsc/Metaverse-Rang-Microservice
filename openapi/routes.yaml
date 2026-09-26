@@ -750,21 +750,34 @@ routes:
     security: none
 
   # --- Training ---
-  - path: /api/video-tutorials
-    methods: [post]
-    tag: Training
-    summary: Get video tutorial by filename
-    security: optional
+  # Videos
   - path: /api/tutorials
     methods: [get]
     tag: Training
-    summary: List video tutorials
+    summary: List video tutorials (paginated)
     security: optional
   - path: /api/tutorials/{slug}
     methods: [get]
     tag: Training
     summary: Get video tutorial by slug
     security: optional
+  - path: /api/video-tutorials
+    methods: [post]
+    tag: Training
+    summary: Get video tutorial by partial filename
+    security: optional
+  - path: /api/tutorials/search
+    methods: [post]
+    tag: Training
+    summary: Search video tutorials by title
+    security: optional
+  - path: /api/tutorials/{video}/interactions
+    methods: [post]
+    tag: Training
+    summary: Like or dislike a video
+    security: bearer
+
+  # Categories
   - path: /api/tutorials/categories
     methods: [get]
     tag: Training
@@ -773,32 +786,86 @@ routes:
   - path: /api/tutorials/categories/{slug}
     methods: [get]
     tag: Training
-    summary: Get tutorial category
+    summary: Get tutorial category with subcategories
     security: optional
   - path: /api/tutorials/categories/{slug}/videos
     methods: [get]
     tag: Training
-    summary: List category videos
+    summary: List videos in a category
     security: optional
-  - path: /api/tutorials/search
+  - path: /api/tutorials/categories/{category}/{subcategory}
     methods: [get]
     tag: Training
-    summary: Search video tutorials
+    summary: Get subcategory with videos
+    security: optional
+
+  # Comments
+  - path: /api/tutorials/{video}/comments
+    methods: [get]
+    tag: Training
+    summary: List top-level comments for a video
     security: optional
   - path: /api/tutorials/{video}/comments
-    methods: [get, post]
+    methods: [post]
     tag: Training
-    summary: List or add video comments
-    security: optional
+    summary: Add a comment on a video
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}
+    methods: [put, post]
+    tag: Training
+    summary: Update a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}
+    methods: [delete]
+    tag: Training
+    summary: Delete a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}/interactions
+    methods: [post]
+    tag: Training
+    summary: Like or dislike a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}/like
+    methods: [post]
+    tag: Training
+    summary: Like a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}/dislike
+    methods: [post]
+    tag: Training
+    summary: Dislike a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}/report
+    methods: [post]
+    tag: Training
+    summary: Report a comment
+    security: bearer
+
+  # Replies
   - path: /api/comments/{comment}/replies
     methods: [get]
     tag: Training
-    summary: List comment replies
+    summary: List replies to a comment
     security: optional
   - path: /api/comments/{comment}/reply
     methods: [post]
     tag: Training
-    summary: Add comment reply
+    summary: Add a reply to a comment
+    security: bearer
+  - path: /api/comments/{comment}/replies/{reply}
+    methods: [put]
+    tag: Training
+    summary: Update a reply
+    security: bearer
+  - path: /api/comments/{comment}/replies/{reply}
+    methods: [delete]
+    tag: Training
+    summary: Delete a reply
+    security: bearer
+  - path: /api/comments/{comment}/replies/{reply}/interactions
+    methods: [post]
+    tag: Training
+    summary: Like or dislike a reply
     security: bearer
 
   # --- Social ---
