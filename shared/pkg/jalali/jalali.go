@@ -65,36 +65,20 @@ func CarbonToJalaliDateTime(t time.Time) string {
 	return fmt.Sprintf("%d/%02d/%02d %02d:%02d", year, month, day, t.Hour(), t.Minute())
 }
 
-// gregorianToJalali converts Gregorian date to Jalali date
+// gregorianToJalali converts Gregorian date to Jalali date.
+// Uses the standard jalaali (jdf) algorithm so results match common
+// Iranian calendar converters (e.g. 2026-09-26 → 1405/07/04).
 func gregorianToJalali(gy, gm, gd int) (jy, jm, jd int) {
 	gDM := []int{0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334}
 
-	if gy > 1600 {
-		jy = 979
-		gy -= 1600
-	} else {
-		jy = 0
-		gy -= 621
-	}
-
-	if gm > 2 {
-		gy2 := gy + 1
-		if (gy2%4 == 0 && gy2%100 != 0) || (gy2%400 == 0) {
-			gDM[2] = 60
-		}
-	}
-
 	gy2 := gy
-	if (gy2%4 == 0 && gy2%100 != 0) || (gy2%400 == 0) {
-		// leap year
-		if gm > 2 {
-			gd++
-		}
+	if gm > 2 {
+		gy2 = gy + 1
 	}
 
-	days := 365*gy + ((gy + 3) / 4) - ((gy + 99) / 100) + ((gy + 399) / 400) + gd + gDM[gm-1] - 1
+	days := 355666 + (365 * gy) + ((gy2 + 3) / 4) - ((gy2 + 99) / 100) + ((gy2 + 399) / 400) + gd + gDM[gm-1]
 
-	jy += 33 * (days / 12053)
+	jy = -1595 + 33*(days/12053)
 	days %= 12053
 
 	jy += 4 * (days / 1461)

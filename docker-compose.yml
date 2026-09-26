@@ -842,17 +842,22 @@ services:
       retries: 3
       start_period: 10s
 
-  # Swagger UI - OpenAPI documentation browser
+  # Swagger UI - regenerates openapi/openapi.yaml from routes.yaml on every start
   swagger-ui:
-    image: swaggerapi/swagger-ui:v5.18.2
+    build:
+      context: .
+      dockerfile: ./scripts/docker/openapi/Dockerfile
     environment:
       APP_URL: ${APP_URL:-http://localhost:8000}
-    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+      REPO_ROOT: /workspace
+      URL: /openapi/openapi.yaml
     ports:
       - "8081:8080"
     volumes:
-      - ./openapi:/openapi-src:ro
-      - ./scripts/swagger-ui-entrypoint.sh:/entrypoint.sh:ro
+      # rw so gen-openapi can write openapi.yaml on each start
+      - ./openapi:/workspace/openapi
+      # handler discovery (query/path params) for support-service routes
+      - ./services/support-service/internal/handler:/workspace/services/support-service/internal/handler:ro
     networks:
       - metarang-network
       - dokploy-network
@@ -862,7 +867,16 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./scripts/gen-openapi
+        - action: rebuild
+          path: ./scripts/docker/openapi
+        - action: sync+restart
+          path: ./openapi/routes.yaml
+          target: /workspace/openapi/routes.yaml
 
   # Kong API Gateway
   kong:
