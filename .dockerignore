@@ -46,6 +46,8 @@ scripts/
 !scripts/docker/**
 !scripts/migrations/
 !scripts/migrations/**
+!scripts/gen-openapi/
+!scripts/gen-openapi/**
 
 # Compose and local tooling
 docker-compose*.yml
