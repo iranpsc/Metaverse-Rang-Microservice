@@ -45,6 +45,12 @@ func (e *CommercialError) Unwrap() error {
 	return e.Err
 }
 
+// PaymentAmbiguous reports a wallet call whose commit state is unknown.
+// Timeouts and unavailable responses can arrive after the server has applied the change.
+func (e *CommercialError) PaymentAmbiguous() bool {
+	return e != nil && e.Type == "service_unavailable"
+}
+
 // NewCommercialClient creates a new Commercial Service client
 func NewCommercialClient(address string) (*CommercialClient, error) {
 	conn, err := grpcutil.DialContextWithTimeout(address, 5*time.Second)
@@ -272,6 +278,12 @@ func (c *CommercialClient) GetWallet(ctx context.Context, userID uint64) (*pb.Wa
 	}
 
 	return resp, nil
+}
+
+// RecordTransaction writes a wallet-history row for a balance change.
+func (c *CommercialClient) RecordTransaction(ctx context.Context, userID uint64, asset string, amount float64, action string, status int32, payableType string, payableID uint64) error {
+	_, err := c.CreateTransaction(ctx, userID, asset, amount, action, status, payableType, payableID)
+	return err
 }
 
 // CreateTransaction creates a transaction record

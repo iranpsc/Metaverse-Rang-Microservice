@@ -40,6 +40,26 @@ type CompletedBuildingServicePort interface {
 	Paginate(ctx context.Context, page int) (*models.CompletedBuildingPage, error)
 }
 
+// BuildingEntryServicePort is implemented by *service.BuildingEntryService.
+type BuildingEntryServicePort interface {
+	SetConfig(ctx context.Context, req *pb.SetBuildingEntryConfigRequest) (*pb.BuildingEntryConfig, error)
+	GetConfig(ctx context.Context, featureID uint64) (*pb.BuildingEntryConfig, error)
+	CreateCoupon(ctx context.Context, req *pb.CreateBuildingEntryCouponRequest) (*pb.BuildingEntryCoupon, error)
+	ListCoupons(ctx context.Context, featureID uint64) ([]*pb.BuildingEntryCoupon, error)
+	Enter(ctx context.Context, req *pb.EnterBuildingRequest) (string, error)
+	Exit(ctx context.Context, featureID uint64) (string, error)
+}
+
+// BuildingEntryHTTPAPI is the subset of entry gRPC methods exposed over HTTP.
+type BuildingEntryHTTPAPI interface {
+	SetBuildingEntryConfig(context.Context, *pb.SetBuildingEntryConfigRequest) (*pb.SetBuildingEntryConfigResponse, error)
+	GetBuildingEntryConfig(context.Context, *pb.GetBuildingEntryConfigRequest) (*pb.GetBuildingEntryConfigResponse, error)
+	CreateBuildingEntryCoupon(context.Context, *pb.CreateBuildingEntryCouponRequest) (*pb.BuildingEntryCouponResponse, error)
+	ListBuildingEntryCoupons(context.Context, *pb.ListBuildingEntryCouponsRequest) (*pb.ListBuildingEntryCouponsResponse, error)
+	EnterBuilding(context.Context, *pb.EnterBuildingRequest) (*pb.EnterBuildingResponse, error)
+	ExitBuilding(context.Context, *pb.ExitBuildingRequest) (*pb.ExitBuildingResponse, error)
+}
+
 // CitizenBuildingsServicePort is implemented by *service.CitizenBuildingsService.
 type CitizenBuildingsServicePort interface {
 	GetSummary(ctx context.Context, userID uint64, allowedKarbaris []string) (*models.CitizenBuildingSummaryResult, error)

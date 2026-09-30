@@ -171,9 +171,16 @@ func (r *walletRepository) AddBalance(ctx context.Context, userID uint64, asset 
 		WHERE user_id = ?
 	`, asset, asset)
 
-	_, err := r.db.ExecContext(ctx, query, amount.String(), time.Now(), userID)
+	result, err := r.db.ExecContext(ctx, query, amount.String(), time.Now(), userID)
 	if err != nil {
 		return fmt.Errorf("failed to add balance: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to add balance: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("wallet not found")
 	}
 
 	return nil

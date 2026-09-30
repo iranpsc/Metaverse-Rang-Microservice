@@ -25,6 +25,14 @@ func (c *authAccountSecurityChecker) CheckAccountSecurity(ctx context.Context, u
 	return resp.GetUnlocked(), nil
 }
 
+// NewAccountSecurityChecker calls auth-service to see whether the account is unlocked.
+func NewAccountSecurityChecker(client authpb.AuthServiceClient) authpkg.AccountSecurityChecker {
+	if client == nil {
+		return nil
+	}
+	return &authAccountSecurityChecker{client: client}
+}
+
 // AccountSecurityMiddleware blocks POST/PUT/DELETE when account security is locked (HTTP 410).
 // Crypto-wallet login sessions skip the unlock requirement.
 // It must run after AuthMiddleware so the user context is available.

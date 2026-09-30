@@ -285,6 +285,7 @@ routes:
     service: buildings-service
     paths:
       - ~/api/features/[^/]+/build
+      - ~/api/features/[^/]+/building
       - /api/features/buildings/completed
       - ~/api/citizen/[^/]+/buildings
     strip_path: false

@@ -9,6 +9,7 @@ import (
 	"metarang/buildings-service/internal/lang"
 	"metarang/buildings-service/internal/models"
 	pb "metarang/shared/pb/features"
+	authpkg "metarang/shared/pkg/auth"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -16,8 +17,10 @@ import (
 
 type BuildingHandler struct {
 	pb.UnimplementedBuildingServiceServer
-	service   BuildingServicePort
-	completed CompletedBuildingServicePort
+	service         BuildingServicePort
+	completed       CompletedBuildingServicePort
+	entry           BuildingEntryServicePort
+	accountSecurity authpkg.AccountSecurityChecker
 }
 
 func NewBuildingHandler(service BuildingServicePort, completed CompletedBuildingServicePort) *BuildingHandler {
@@ -25,6 +28,16 @@ func NewBuildingHandler(service BuildingServicePort, completed CompletedBuilding
 		service:   service,
 		completed: completed,
 	}
+}
+
+// SetEntryService wires building entry fees, coupons, and visits.
+func (h *BuildingHandler) SetEntryService(entry BuildingEntryServicePort) {
+	h.entry = entry
+}
+
+// SetAccountSecurity blocks enter and exit while account security is locked.
+func (h *BuildingHandler) SetAccountSecurity(checker authpkg.AccountSecurityChecker) {
+	h.accountSecurity = checker
 }
 
 func (h *BuildingHandler) GetBuildPackage(ctx context.Context, req *pb.GetBuildPackageRequest) (*pb.BuildPackageResponse, error) {
@@ -205,6 +218,136 @@ func (h *BuildingHandler) ListCompletedBuildings(
 		Links: links,
 		Meta:  meta,
 	}, nil
+}
+
+func (h *BuildingHandler) entryService() (BuildingEntryServicePort, error) {
+	if h.entry == nil {
+		return nil, status.Error(codes.Unavailable, "entry service unavailable")
+	}
+	return h.entry, nil
+}
+
+func (h *BuildingHandler) SetBuildingEntryConfig(ctx context.Context, req *pb.SetBuildingEntryConfigRequest) (*pb.SetBuildingEntryConfigResponse, error) {
+	locale := GetProjectLocale()
+	entry, err := h.entryService()
+	if err != nil {
+		return nil, err
+	}
+	if req.FeatureId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
+	}
+	config, err := entry.SetConfig(ctx, req)
+	if err != nil {
+		return nil, mapEntryServiceError(err, locale)
+	}
+	return &pb.SetBuildingEntryConfigResponse{Config: config}, nil
+}
+
+func (h *BuildingHandler) GetBuildingEntryConfig(ctx context.Context, req *pb.GetBuildingEntryConfigRequest) (*pb.GetBuildingEntryConfigResponse, error) {
+	locale := GetProjectLocale()
+	entry, err := h.entryService()
+	if err != nil {
+		return nil, err
+	}
+	if req.FeatureId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
+	}
+	config, err := entry.GetConfig(ctx, req.FeatureId)
+	if err != nil {
+		return nil, mapEntryServiceError(err, locale)
+	}
+	return &pb.GetBuildingEntryConfigResponse{Config: config}, nil
+}
+
+func (h *BuildingHandler) CreateBuildingEntryCoupon(ctx context.Context, req *pb.CreateBuildingEntryCouponRequest) (*pb.BuildingEntryCouponResponse, error) {
+	locale := GetProjectLocale()
+	entry, err := h.entryService()
+	if err != nil {
+		return nil, err
+	}
+	if req.FeatureId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
+	}
+	coupon, err := entry.CreateCoupon(ctx, req)
+	if err != nil {
+		return nil, mapEntryServiceError(err, locale)
+	}
+	return &pb.BuildingEntryCouponResponse{Coupon: coupon}, nil
+}
+
+func (h *BuildingHandler) ListBuildingEntryCoupons(ctx context.Context, req *pb.ListBuildingEntryCouponsRequest) (*pb.ListBuildingEntryCouponsResponse, error) {
+	locale := GetProjectLocale()
+	entry, err := h.entryService()
+	if err != nil {
+		return nil, err
+	}
+	if req.FeatureId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
+	}
+	coupons, err := entry.ListCoupons(ctx, req.FeatureId)
+	if err != nil {
+		return nil, mapEntryServiceError(err, locale)
+	}
+	return &pb.ListBuildingEntryCouponsResponse{Coupons: coupons}, nil
+}
+
+func (h *BuildingHandler) EnterBuilding(ctx context.Context, req *pb.EnterBuildingRequest) (*pb.EnterBuildingResponse, error) {
+	locale := GetProjectLocale()
+	if err := h.requireUnlockedAccount(ctx); err != nil {
+		return nil, err
+	}
+	entry, err := h.entryService()
+	if err != nil {
+		return nil, err
+	}
+	if req.FeatureId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
+	}
+	message, err := entry.Enter(ctx, req)
+	if err != nil {
+		return nil, mapEntryServiceError(err, locale)
+	}
+	return &pb.EnterBuildingResponse{Success: true, Message: message}, nil
+}
+
+func (h *BuildingHandler) ExitBuilding(ctx context.Context, req *pb.ExitBuildingRequest) (*pb.ExitBuildingResponse, error) {
+	locale := GetProjectLocale()
+	if err := h.requireUnlockedAccount(ctx); err != nil {
+		return nil, err
+	}
+	entry, err := h.entryService()
+	if err != nil {
+		return nil, err
+	}
+	if req.FeatureId == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", lang.T(locale, "feature_id is required"))
+	}
+	message, err := entry.Exit(ctx, req.FeatureId)
+	if err != nil {
+		return nil, mapEntryServiceError(err, locale)
+	}
+	return &pb.ExitBuildingResponse{Success: true, Message: message}, nil
+}
+
+func (h *BuildingHandler) requireUnlockedAccount(ctx context.Context) error {
+	if h.accountSecurity == nil {
+		return nil
+	}
+	user, err := authpkg.GetUserFromContext(ctx)
+	if err != nil {
+		return status.Error(codes.Unauthenticated, "unauthorized: authentication required")
+	}
+	if user.WalletLogin {
+		return nil
+	}
+	unlocked, err := h.accountSecurity.CheckAccountSecurity(ctx, user.UserID)
+	if err != nil {
+		return status.Error(codes.Internal, "failed to check account security")
+	}
+	if !unlocked {
+		return status.Error(codes.FailedPrecondition, "Account security is locked. Unlock your account security to continue.")
+	}
+	return nil
 }
 
 func mapCompletedBuilding(item models.CompletedBuilding) *pb.CompletedBuilding {

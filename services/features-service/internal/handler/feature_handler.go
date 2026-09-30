@@ -1,3 +1,4 @@
+// Package handler provides gRPC and HTTP handlers for the features service.
 package handler
 
 import (

@@ -126,11 +126,29 @@ func main() {
 		buildingService.SetCommercialClient(commercialClient)
 	}
 
+	levelsServiceAddr := getEnv("LEVELS_SERVICE_ADDR", "levels-service:50054")
+	levelsClient, err := client.NewLevelsClient(levelsServiceAddr)
+	if err != nil {
+		log.Warn("Failed to connect to levels service - level-scoped entry disabled", "error", err)
+		levelsClient = nil
+	} else {
+		log.Info("Connected to levels service", "addr", levelsServiceAddr)
+		defer func() { _ = levelsClient.Close() }()
+	}
+
+	entryService := service.NewBuildingEntryService(
+		repository.NewBuildingEntryRepository(database),
+		featureRepo,
+		buildingRepo,
+		levelsClient,
+		commercialClient,
+	)
 	completedBuildingService := service.NewCompletedBuildingService(buildingRepo)
 	citizenBuildingsService := service.NewCitizenBuildingsService(buildingRepo, userRepo, nil)
 
 	handler.SetProjectLocale(getEnv("PROJECT_LOCALE", "EN"))
 	buildingHandler := handler.NewBuildingHandler(buildingService, completedBuildingService)
+	buildingHandler.SetEntryService(entryService)
 	citizenBuildingsHandler := handler.NewCitizenBuildingsHandler(citizenBuildingsService)
 
 	authServiceAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:50051")
@@ -150,6 +168,7 @@ func main() {
 		authClient = authpb.NewAuthServiceClient(authConn)
 		citizenClient = authpb.NewCitizenServiceClient(authConn)
 	}
+	buildingHandler.SetAccountSecurity(middleware.NewAccountSecurityChecker(authClient))
 
 	serviceMetrics := metrics.NewMetrics("buildings_service")
 	metrics.StartHTTPServer(metricsPort)
@@ -180,8 +199,10 @@ func main() {
 		log.Fatal("Failed to listen", "error", err, "port", port)
 	}
 
+	httpBuildings := handler.NewHTTPBuildingsHandler(buildingHandler)
+	httpBuildings.SetEntry(buildingHandler)
 	httpHandlers := handler.HTTPServerHandlers{
-		Buildings:        handler.NewHTTPBuildingsHandler(buildingHandler),
+		Buildings:        httpBuildings,
 		CitizenBuildings: handler.NewHTTPCitizenBuildingsHandler(citizenBuildingsHandler, citizenClient),
 	}
 	authMiddleware := middleware.AuthMiddleware(authClient)

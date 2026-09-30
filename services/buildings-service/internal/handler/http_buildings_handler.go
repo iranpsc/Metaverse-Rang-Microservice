@@ -15,10 +15,16 @@ import (
 // HTTPBuildingsHandler exposes building RPC handlers over HTTP.
 type HTTPBuildingsHandler struct {
 	building BuildingHTTPAPI
+	entry    BuildingEntryHTTPAPI
 }
 
 func NewHTTPBuildingsHandler(building BuildingHTTPAPI) *HTTPBuildingsHandler {
 	return &HTTPBuildingsHandler{building: building}
+}
+
+// SetEntry wires the entry-fee HTTP API. Nil keeps those routes unavailable.
+func (h *HTTPBuildingsHandler) SetEntry(entry BuildingEntryHTTPAPI) {
+	h.entry = entry
 }
 
 func (h *HTTPBuildingsHandler) HandleFeaturesBuildRoutes(w http.ResponseWriter, r *http.Request) {
@@ -197,6 +203,256 @@ func (h *HTTPBuildingsHandler) ListCompletedBuildings(w http.ResponseWriter, r *
 		})
 	}
 	writeJSON(w, 200, paginated(data, resp.Links, resp.Meta))
+}
+
+func (h *HTTPBuildingsHandler) requireEntry(w http.ResponseWriter) bool {
+	if h.entry == nil {
+		writeError(w, http.StatusServiceUnavailable, "service temporarily unavailable")
+		return false
+	}
+	return true
+}
+
+func (h *HTTPBuildingsHandler) SetEntryConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	if _, ok := requireUser(w, r); !ok || !h.requireEntry(w) {
+		return
+	}
+	id, err := featureID(r)
+	if err != nil {
+		writeError(w, 400, "invalid feature ID")
+		return
+	}
+	body := map[string]interface{}{}
+	if err = decodeBody(r, &body); err != nil {
+		writeValidationError(w, "request body is required")
+		return
+	}
+	existingResp, getErr := h.entry.GetBuildingEntryConfig(r.Context(), &featurespb.GetBuildingEntryConfigRequest{FeatureId: id})
+	var existing *featurespb.BuildingEntryConfig
+	if getErr != nil {
+		if status.Code(getErr) != codes.NotFound {
+			writeGRPCError(w, getErr)
+			return
+		}
+	} else {
+		existing = existingResp.GetConfig()
+	}
+	resp, err := h.entry.SetBuildingEntryConfig(r.Context(), entryConfigRequest(id, body, existing))
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]interface{}{"data": entryConfigMap(resp.GetConfig())})
+}
+
+func (h *HTTPBuildingsHandler) GetEntryConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if _, ok := requireUser(w, r); !ok || !h.requireEntry(w) {
+		return
+	}
+	id, err := featureID(r)
+	if err != nil {
+		writeError(w, 400, "invalid feature ID")
+		return
+	}
+	resp, err := h.entry.GetBuildingEntryConfig(r.Context(), &featurespb.GetBuildingEntryConfigRequest{FeatureId: id})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]interface{}{"data": entryConfigMap(resp.GetConfig())})
+}
+
+func (h *HTTPBuildingsHandler) CreateEntryCoupon(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	if _, ok := requireUser(w, r); !ok || !h.requireEntry(w) {
+		return
+	}
+	id, err := featureID(r)
+	if err != nil {
+		writeError(w, 400, "invalid feature ID")
+		return
+	}
+	body := map[string]interface{}{}
+	if err = decodeBody(r, &body); err != nil {
+		writeValidationError(w, "request body is required")
+		return
+	}
+	usage, ok := intFromBody(body, "usage_count")
+	if !ok {
+		usage, ok = intFromBody(body, "max_usage_count")
+	}
+	if !ok {
+		writeValidationError(w, "usage_count is required")
+		return
+	}
+	discount, ok := intFromBody(body, "discount_percentage")
+	if !ok {
+		writeValidationError(w, "discount_percentage is required")
+		return
+	}
+	resp, err := h.entry.CreateBuildingEntryCoupon(r.Context(), &featurespb.CreateBuildingEntryCouponRequest{
+		FeatureId:          id,
+		Code:               stringValue(body["code"]),
+		DiscountPercentage: discount,
+		MaxUsageCount:      usage,
+	})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]interface{}{"data": entryCouponMap(resp.GetCoupon())})
+}
+
+func (h *HTTPBuildingsHandler) ListEntryCoupons(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	if _, ok := requireUser(w, r); !ok || !h.requireEntry(w) {
+		return
+	}
+	id, err := featureID(r)
+	if err != nil {
+		writeError(w, 400, "invalid feature ID")
+		return
+	}
+	resp, err := h.entry.ListBuildingEntryCoupons(r.Context(), &featurespb.ListBuildingEntryCouponsRequest{FeatureId: id})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	data := make([]map[string]interface{}, 0, len(resp.GetCoupons()))
+	for _, coupon := range resp.GetCoupons() {
+		data = append(data, entryCouponMap(coupon))
+	}
+	writeJSON(w, 200, map[string]interface{}{"data": data})
+}
+
+func (h *HTTPBuildingsHandler) EnterBuilding(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	if _, ok := requireUser(w, r); !ok || !h.requireEntry(w) {
+		return
+	}
+	id, err := featureID(r)
+	if err != nil {
+		writeError(w, 400, "invalid feature ID")
+		return
+	}
+	body := map[string]interface{}{}
+	if requestHasBody(r) {
+		if err = decodeBody(r, &body); err != nil {
+			writeValidationError(w, "invalid request body")
+			return
+		}
+	}
+	resp, err := h.entry.EnterBuilding(r.Context(), &featurespb.EnterBuildingRequest{
+		FeatureId:  id,
+		CouponCode: stringValue(body["coupon_code"]),
+	})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]interface{}{"message": resp.GetMessage()}, true)
+}
+
+func (h *HTTPBuildingsHandler) ExitBuilding(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	if _, ok := requireUser(w, r); !ok || !h.requireEntry(w) {
+		return
+	}
+	id, err := featureID(r)
+	if err != nil {
+		writeError(w, 400, "invalid feature ID")
+		return
+	}
+	resp, err := h.entry.ExitBuilding(r.Context(), &featurespb.ExitBuildingRequest{FeatureId: id})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]interface{}{"message": resp.GetMessage()}, true)
+}
+
+func entryConfigRequest(featureID uint64, body map[string]interface{}, existing *featurespb.BuildingEntryConfig) *featurespb.SetBuildingEntryConfigRequest {
+	req := &featurespb.SetBuildingEntryConfigRequest{FeatureId: featureID}
+	if _, ok := body["fee_psc"]; ok {
+		req.FeePsc = numberString(body["fee_psc"])
+	} else if existing != nil {
+		req.FeePsc = existing.FeePsc
+	}
+	if _, ok := body["fee_irr"]; ok {
+		req.FeeIrr = numberString(body["fee_irr"])
+	} else if existing != nil {
+		req.FeeIrr = existing.FeeIrr
+	}
+	if _, ok := body["about"]; ok {
+		req.About = stringValue(body["about"])
+	} else if existing != nil {
+		req.About = existing.About
+	}
+	if _, ok := body["level_scope_type"]; ok {
+		req.LevelScopeType = stringValue(body["level_scope_type"])
+	} else if existing != nil {
+		req.LevelScopeType = existing.LevelScopeType
+	}
+	if _, ok := body["level_slug"]; ok {
+		req.LevelSlug = stringValue(body["level_slug"])
+	} else if existing != nil {
+		req.LevelSlug = existing.LevelSlug
+	}
+	if _, ok := body["is_active"]; ok {
+		req.IsActive = boolFromBody(body, "is_active")
+	} else if existing != nil {
+		req.IsActive = existing.IsActive
+	}
+	return req
+}
+
+func entryConfigMap(config *featurespb.BuildingEntryConfig) map[string]interface{} {
+	if config == nil {
+		return map[string]interface{}{}
+	}
+	return map[string]interface{}{
+		"feature_id":       config.FeatureId,
+		"fee_psc":          config.FeePsc,
+		"fee_irr":          config.FeeIrr,
+		"about":            config.About,
+		"level_scope_type": config.LevelScopeType,
+		"level_slug":       config.LevelSlug,
+		"is_active":        config.IsActive,
+	}
+}
+
+func entryCouponMap(coupon *featurespb.BuildingEntryCoupon) map[string]interface{} {
+	if coupon == nil {
+		return map[string]interface{}{}
+	}
+	return map[string]interface{}{
+		"id":                  coupon.Id,
+		"feature_id":          coupon.FeatureId,
+		"code":                coupon.Code,
+		"discount_percentage": coupon.DiscountPercentage,
+		"usage_count":         coupon.MaxUsageCount,
+		"real_usage_count":    coupon.RealUsageCount,
+	}
 }
 
 type HTTPCitizenBuildingsHandler struct {

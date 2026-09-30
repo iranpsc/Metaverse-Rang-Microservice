@@ -72,7 +72,11 @@ func NewPublicHTTPHandler(
 	// handlers enforce auth where required.
 	mux.Handle("/api/features/", optionalAuth(accountSecurity(http.HandlerFunc(handlers.Buildings.HandleFeaturesBuildRoutes))))
 
-	_ = secureAuth // reserved for future routes that always require auth at mux level
+	// Entry settings, enter, and exit all move or change account state, so they
+	// require auth and an unlocked account.
+	if handlers.Buildings != nil {
+		registerBuildingEntryRoutes(mux, handlers.Buildings, secureAuth, secureAuth)
+	}
 
 	mux.Handle("/api/citizen/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/citizen/"), "/"), "/")
@@ -87,6 +91,20 @@ func NewPublicHTTPHandler(
 		handlers.CitizenBuildings.Handle(w, r, parts[0], parts[2:])
 	}))
 	return CorsPreflightMiddleware(sentry.HTTPMiddleware(mux))
+}
+
+func registerBuildingEntryRoutes(
+	mux *http.ServeMux,
+	buildings *HTTPBuildingsHandler,
+	ownerAuth func(http.Handler) http.Handler,
+	guestAuth func(http.Handler) http.Handler,
+) {
+	mux.Handle("POST /api/features/{featureID}/building/entry-config", ownerAuth(http.HandlerFunc(buildings.SetEntryConfig)))
+	mux.Handle("GET /api/features/{featureID}/building/entry-config", ownerAuth(http.HandlerFunc(buildings.GetEntryConfig)))
+	mux.Handle("POST /api/features/{featureID}/building/entry-coupons", ownerAuth(http.HandlerFunc(buildings.CreateEntryCoupon)))
+	mux.Handle("GET /api/features/{featureID}/building/entry-coupons", ownerAuth(http.HandlerFunc(buildings.ListEntryCoupons)))
+	mux.Handle("POST /api/features/{featureID}/building/enter", guestAuth(http.HandlerFunc(buildings.EnterBuilding)))
+	mux.Handle("POST /api/features/{featureID}/building/exit", guestAuth(http.HandlerFunc(buildings.ExitBuilding)))
 }
 
 func StartHTTPServer(

@@ -2424,6 +2424,228 @@ paths:
             summary: Update building construction or destroy building
             tags:
                 - Features
+    /api/features/{feature}/building/enter:
+        post:
+            operationId: post_features_feature_building_enter
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Enter a building. A paid visit stays valid for 24 hours; exit and re-entry in that window do not charge again
+            tags:
+                - Features
+    /api/features/{feature}/building/entry-config:
+        get:
+            operationId: get_features_feature_building_entry-config
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Get building entry configuration
+            tags:
+                - Features
+        post:
+            operationId: post_features_feature_building_entry-config
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Set building entry fee (PSC and IRR), about text, level scope, and active flag
+            tags:
+                - Features
+    /api/features/{feature}/building/entry-coupons:
+        get:
+            operationId: get_features_feature_building_entry-coupons
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: List building entry coupons with real usage counts
+            tags:
+                - Features
+        post:
+            operationId: post_features_feature_building_entry-coupons
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Create a building entry discount coupon (code, discount percentage, usage count)
+            tags:
+                - Features
+    /api/features/{feature}/building/exit:
+        post:
+            operationId: post_features_feature_building_exit
+            parameters:
+                - description: Feature ID
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Exit a building and close the active visit
+            tags:
+                - Features
     /api/features/{feature}/sell-requests:
         get:
             operationId: get_features_feature_sell-requests

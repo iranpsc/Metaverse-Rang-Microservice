@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"sort"
@@ -252,6 +253,50 @@ func numberString(value interface{}) string {
 func stringValue(value interface{}) string {
 	v, _ := value.(string)
 	return v
+}
+
+func boolFromBody(body map[string]interface{}, key string) bool {
+	value, ok := body[key]
+	if !ok || value == nil {
+		return false
+	}
+	switch v := value.(type) {
+	case bool:
+		return v
+	case float64:
+		return v != 0
+	case string:
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "1", "true", "yes":
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+func intFromBody(body map[string]interface{}, key string) (int32, bool) {
+	value, ok := body[key]
+	if !ok || value == nil {
+		return 0, false
+	}
+	switch v := value.(type) {
+	case float64:
+		if v != math.Trunc(v) {
+			return 0, false
+		}
+		return int32(v), true
+	case string:
+		n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 32)
+		if err != nil {
+			return 0, false
+		}
+		return int32(n), true
+	default:
+		return 0, false
+	}
 }
 
 func buildPlacementFromBody(body map[string]interface{}) (launched, rotation, position string, info *featurespb.BuildingInformation) {

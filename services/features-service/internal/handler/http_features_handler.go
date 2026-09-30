@@ -672,9 +672,6 @@ type middlewareUser struct{ UserID uint64 }
 func idAfter(r *http.Request, prefix string) (uint64, error) {
 	return strconv.ParseUint(strings.Trim(strings.TrimPrefix(r.URL.Path, prefix), "/"), 10, 64)
 }
-func featureID(r *http.Request) (uint64, error) {
-	return strconv.ParseUint(strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/"), "/")[0], 10, 64)
-}
 
 func isFeatureTradeHistoryPath(path string) bool {
 	path = strings.Trim(path, "/")

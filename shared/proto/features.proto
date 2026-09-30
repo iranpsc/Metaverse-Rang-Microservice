@@ -387,6 +387,13 @@ service BuildingService {
   rpc DestroyBuilding(DestroyBuildingRequest) returns (BuildingResponse);
   // ListCompletedBuildings returns paginated buildings with construction_end_date < now (GET /api/features/buildings/completed).
   rpc ListCompletedBuildings(ListCompletedBuildingsRequest) returns (ListCompletedBuildingsResponse);
+  // Entry fees, coupons, and guest enter/exit for a building on a feature.
+  rpc SetBuildingEntryConfig(SetBuildingEntryConfigRequest) returns (SetBuildingEntryConfigResponse);
+  rpc GetBuildingEntryConfig(GetBuildingEntryConfigRequest) returns (GetBuildingEntryConfigResponse);
+  rpc CreateBuildingEntryCoupon(CreateBuildingEntryCouponRequest) returns (BuildingEntryCouponResponse);
+  rpc ListBuildingEntryCoupons(ListBuildingEntryCouponsRequest) returns (ListBuildingEntryCouponsResponse);
+  rpc EnterBuilding(EnterBuildingRequest) returns (EnterBuildingResponse);
+  rpc ExitBuilding(ExitBuildingRequest) returns (ExitBuildingResponse);
 }
 
 // Hourly Profit Messages
@@ -539,6 +546,87 @@ message BuildingResponse {
 message DestroyBuildingRequest {
   uint64 feature_id = 1;
   string building_model_id = 2;
+}
+
+// Building entry (fees, level scope, coupons, enter/exit)
+
+message BuildingEntryConfig {
+  uint64 feature_id = 1;
+  string fee_psc = 2;
+  string fee_irr = 3;
+  string about = 4;
+  string level_scope_type = 5; // "exact" | "and_upper" | "and_lower" | ""
+  string level_slug = 6;
+  bool is_active = 7;
+}
+
+message SetBuildingEntryConfigRequest {
+  uint64 feature_id = 1;
+  string fee_psc = 2;
+  string fee_irr = 3;
+  string about = 4;
+  string level_scope_type = 5;
+  string level_slug = 6;
+  bool is_active = 7;
+}
+
+message SetBuildingEntryConfigResponse {
+  BuildingEntryConfig config = 1;
+}
+
+message GetBuildingEntryConfigRequest {
+  uint64 feature_id = 1;
+}
+
+message GetBuildingEntryConfigResponse {
+  BuildingEntryConfig config = 1;
+}
+
+message BuildingEntryCoupon {
+  uint64 id = 1;
+  uint64 feature_id = 2;
+  string code = 3;
+  int32 discount_percentage = 4;
+  int32 max_usage_count = 5;
+  int32 real_usage_count = 6; // counted from entry sessions
+}
+
+message CreateBuildingEntryCouponRequest {
+  uint64 feature_id = 1;
+  string code = 2;
+  int32 discount_percentage = 3;
+  int32 max_usage_count = 4;
+}
+
+message BuildingEntryCouponResponse {
+  BuildingEntryCoupon coupon = 1;
+}
+
+message ListBuildingEntryCouponsRequest {
+  uint64 feature_id = 1;
+}
+
+message ListBuildingEntryCouponsResponse {
+  repeated BuildingEntryCoupon coupons = 1;
+}
+
+message EnterBuildingRequest {
+  uint64 feature_id = 1;
+  string coupon_code = 2;
+}
+
+message EnterBuildingResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ExitBuildingRequest {
+  uint64 feature_id = 1;
+}
+
+message ExitBuildingResponse {
+  bool success = 1;
+  string message = 2;
 }
 
 // Completed buildings (GET /api/features/buildings/completed)

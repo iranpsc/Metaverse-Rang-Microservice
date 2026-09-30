@@ -5,6 +5,7 @@ go 1.25.13
 require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/joho/godotenv v1.5.1
+	github.com/shopspring/decimal v1.3.1
 	google.golang.org/grpc v1.83.2
 	metarang/shared v0.0.0
 )

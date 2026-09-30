@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/shopspring/decimal"
 
@@ -71,10 +72,12 @@ func (s *walletService) CreateWallet(ctx context.Context, userID uint64) (map[st
 }
 
 func (s *walletService) DeductBalance(ctx context.Context, userID uint64, asset string, amount float64) (map[string]string, error) {
-	amountDec := decimal.NewFromFloat(amount)
-
-	err := s.walletRepo.DeductBalance(ctx, userID, asset, amountDec)
+	amountDec, err := decimalFromAmount(amount)
 	if err != nil {
+		return nil, err
+	}
+
+	if err = s.walletRepo.DeductBalance(ctx, userID, asset, amountDec); err != nil {
 		return nil, fmt.Errorf("failed to deduct balance: %w", err)
 	}
 
@@ -82,14 +85,30 @@ func (s *walletService) DeductBalance(ctx context.Context, userID uint64, asset 
 }
 
 func (s *walletService) AddBalance(ctx context.Context, userID uint64, asset string, amount float64) (map[string]string, error) {
-	amountDec := decimal.NewFromFloat(amount)
+	amountDec, err := decimalFromAmount(amount)
+	if err != nil {
+		return nil, err
+	}
 
-	err := s.walletRepo.AddBalance(ctx, userID, asset, amountDec)
+	err = s.walletRepo.AddBalance(ctx, userID, asset, amountDec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add balance: %w", err)
 	}
 
-	return s.GetWallet(ctx, userID)
+	// The credit is already committed. A follow-up read failure must not look
+	// like a failed credit, or callers will refund money that the owner kept.
+	wallet, err := s.GetWallet(ctx, userID)
+	if err != nil {
+		return map[string]string{asset: amountDec.StringFixed(2)}, nil
+	}
+	return wallet, nil
+}
+
+func decimalFromAmount(amount float64) (decimal.Decimal, error) {
+	if math.IsNaN(amount) || math.IsInf(amount, 0) || amount < 0 {
+		return decimal.Zero, fmt.Errorf("invalid amount")
+	}
+	return decimal.NewFromFloat(amount).Round(2), nil
 }
 
 func (s *walletService) LockBalance(ctx context.Context, userID uint64, asset string, amount float64, reason string) error {

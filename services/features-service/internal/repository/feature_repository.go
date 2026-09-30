@@ -1,3 +1,4 @@
+// Package repository provides data access for the features service.
 package repository
 
 import (

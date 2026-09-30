@@ -76,6 +76,8 @@ spec:
           value: "9090"
         - name: COMMERCIAL_SERVICE_ADDR
           value: "commercial-service:50052"
+        - name: LEVELS_SERVICE_ADDR
+          value: "levels-service:50054"
         - name: SENTRY_DSN
           valueFrom:
             secretKeyRef:

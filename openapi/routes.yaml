@@ -639,6 +639,78 @@ routes:
         type: string
         description: Building model identifier (3D model_id or local building_models.id)
         example: "1001"
+  - path: /api/features/{feature}/building/entry-config
+    methods: [post]
+    tag: Features
+    summary: Set building entry fee (PSC and IRR), about text, level scope, and active flag
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+  - path: /api/features/{feature}/building/entry-config
+    methods: [get]
+    tag: Features
+    summary: Get building entry configuration
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+  - path: /api/features/{feature}/building/entry-coupons
+    methods: [post]
+    tag: Features
+    summary: Create a building entry discount coupon (code, discount percentage, usage count)
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+  - path: /api/features/{feature}/building/entry-coupons
+    methods: [get]
+    tag: Features
+    summary: List building entry coupons with real usage counts
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+  - path: /api/features/{feature}/building/enter
+    methods: [post]
+    tag: Features
+    summary: Enter a building. A paid visit stays valid for 24 hours; exit and re-entry in that window do not charge again
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
+  - path: /api/features/{feature}/building/exit
+    methods: [post]
+    tag: Features
+    summary: Exit a building and close the active visit
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID
+        example: 1
   - path: /api/my-features
     methods: [get]
     tag: Features
