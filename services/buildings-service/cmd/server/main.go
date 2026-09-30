@@ -97,6 +97,7 @@ func main() {
 	hourlyProfitRepo := repository.NewHourlyProfitRepository(database)
 	userRepo := repository.NewUserRepository(database)
 
+	log.Info("3D Meta API configured", "url", threeDMetaURL)
 	threeDClient := threed_client.New(threeDMetaURL)
 
 	commercialServiceAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "commercial-service:50052")

@@ -344,7 +344,6 @@ services:
       APP_URL: ${APP_URL:-http://localhost:8000}
       COMMERCIAL_SERVICE_ADDR: commercial-service:50052
       LEVELS_SERVICE_ADDR: levels-service:50054
-      THREE_D_META_URL: ${THREE_D_META_URL:-http://3d-meta-api}
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
     depends_on:
       <<: [*grpc-certs-depends, *migrate-depends]
