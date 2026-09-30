@@ -355,7 +355,6 @@ func main() {
 		log.Fatal("Failed to serve", "error", err)
 	}
 }
-
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

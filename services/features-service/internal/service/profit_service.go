@@ -264,8 +264,11 @@ func (s *ProfitService) GetHourlyProfitTimePercentage(ctx context.Context, userI
 	totalSeconds := profit.Deadline.Sub(lastWithdraw).Seconds()
 	secondsPassed := now.Sub(lastWithdraw).Seconds()
 
-	if totalSeconds <= 0 || secondsPassed < 0 || secondsPassed >= totalSeconds {
+	if totalSeconds <= 0 || secondsPassed < 0 {
 		return 0, nil
+	}
+	if secondsPassed >= totalSeconds {
+		return 100, nil
 	}
 
 	percentage := (secondsPassed / totalSeconds) * 100
