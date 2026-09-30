@@ -41,13 +41,10 @@ func newMobileChangeHarness(users map[uint64]*models.User) *mobileChangeHarness 
 			userRepo,
 			nil,
 			cacheRepo,
-			newFakeAccountSecurityRepository(),
-			newFakeActivityRepository(),
 			nil,
 			nil,
 			smsClient,
 			"", "", "", "", "",
-			false,
 			service.WithResetRepository(resetRepo),
 		),
 	}

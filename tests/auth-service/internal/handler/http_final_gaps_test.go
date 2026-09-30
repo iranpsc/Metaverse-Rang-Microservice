@@ -327,9 +327,6 @@ func TestHTTPAuthErrorMatrix(t *testing.T) {
 	authSvc.validateTokenFunc = func(context.Context, string) (*models.User, error) {
 		return nil, status.Error(codes.Unauthenticated, "bad token")
 	}
-	authSvc.requestAccountSecurityFunc = func(context.Context, uint64, int32, string) error {
-		return status.Error(codes.InvalidArgument, "bad")
-	}
 	tokenRepo := &mockTokenRepository{}
 	authServer := handler.NewAuthHandler(authSvc, tokenRepo, &mockProfilePhotoService{}, "en")
 	kycServer := handler.NewKYCHandler(&mockKYCService{}, "https://gw")

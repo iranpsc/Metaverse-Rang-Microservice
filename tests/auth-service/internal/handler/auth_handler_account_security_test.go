@@ -18,12 +18,13 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 
 	t.Run("successful request", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+		security := &mockAccountSecurityService{}
+		security.requestFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
 			return nil
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.RequestAccountSecurityRequest{
 			UserId:      1,
@@ -39,12 +40,13 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 
 	t.Run("invalid unlock duration", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+		security := &mockAccountSecurityService{}
+		security.requestFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
 			return service.ErrInvalidUnlockDuration
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.RequestAccountSecurityRequest{
 			UserId:      1,
@@ -68,12 +70,13 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 
 	t.Run("phone required when not verified", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+		security := &mockAccountSecurityService{}
+		security.requestFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
 			return service.ErrPhoneRequired
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.RequestAccountSecurityRequest{
 			UserId:      1,
@@ -100,12 +103,13 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 
 	t.Run("invalid phone format", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+		security := &mockAccountSecurityService{}
+		security.requestFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
 			return service.ErrInvalidPhoneFormat
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.RequestAccountSecurityRequest{
 			UserId:      1,
@@ -132,12 +136,13 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 
 	t.Run("phone already taken", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+		security := &mockAccountSecurityService{}
+		security.requestFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
 			return service.ErrPhoneAlreadyTaken
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.RequestAccountSecurityRequest{
 			UserId:      1,
@@ -164,12 +169,13 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 
 	t.Run("user not found", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+		security := &mockAccountSecurityService{}
+		security.requestFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
 			return service.ErrUserNotFound
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.RequestAccountSecurityRequest{
 			UserId:      999,
@@ -193,12 +199,13 @@ func TestAuthHandler_RequestAccountSecurity(t *testing.T) {
 
 	t.Run("verification request rate limited", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.requestAccountSecurityFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
+		security := &mockAccountSecurityService{}
+		security.requestFunc = func(ctx context.Context, userID uint64, minutes int32, phone string) error {
 			return service.ErrVerificationRequestRateLimited
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.RequestAccountSecurityRequest{
 			UserId:      1,
@@ -226,12 +233,13 @@ func TestAuthHandler_VerifyAccountSecurity(t *testing.T) {
 
 	t.Run("successful verification", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.verifyAccountSecurityFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+		security := &mockAccountSecurityService{}
+		security.verifyFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
 			return nil
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.VerifyAccountSecurityRequest{
 			UserId:    1,
@@ -248,12 +256,13 @@ func TestAuthHandler_VerifyAccountSecurity(t *testing.T) {
 
 	t.Run("invalid OTP code format", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.verifyAccountSecurityFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+		security := &mockAccountSecurityService{}
+		security.verifyFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
 			return service.ErrInvalidOTPCode
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.VerifyAccountSecurityRequest{
 			UserId:    1,
@@ -278,12 +287,13 @@ func TestAuthHandler_VerifyAccountSecurity(t *testing.T) {
 
 	t.Run("invalid OTP code - wrong value", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.verifyAccountSecurityFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+		security := &mockAccountSecurityService{}
+		security.verifyFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
 			return service.ErrInvalidOTPCode
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.VerifyAccountSecurityRequest{
 			UserId:    1,
@@ -308,12 +318,13 @@ func TestAuthHandler_VerifyAccountSecurity(t *testing.T) {
 
 	t.Run("account security not found", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.verifyAccountSecurityFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+		security := &mockAccountSecurityService{}
+		security.verifyFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
 			return service.ErrAccountSecurityNotFound
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.VerifyAccountSecurityRequest{
 			UserId:    1,
@@ -338,12 +349,13 @@ func TestAuthHandler_VerifyAccountSecurity(t *testing.T) {
 
 	t.Run("account security already unlocked", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.verifyAccountSecurityFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+		security := &mockAccountSecurityService{}
+		security.verifyFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
 			return service.ErrAccountSecurityAlreadyUnlocked
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.VerifyAccountSecurityRequest{
 			UserId:    1,
@@ -368,12 +380,13 @@ func TestAuthHandler_VerifyAccountSecurity(t *testing.T) {
 
 	t.Run("user not found", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.verifyAccountSecurityFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+		security := &mockAccountSecurityService{}
+		security.verifyFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
 			return service.ErrUserNotFound
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.VerifyAccountSecurityRequest{
 			UserId:    999,
@@ -398,12 +411,13 @@ func TestAuthHandler_VerifyAccountSecurity(t *testing.T) {
 
 	t.Run("internal service error", func(t *testing.T) {
 		mockAuthService := &mockAuthService{}
-		mockAuthService.verifyAccountSecurityFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+		security := &mockAccountSecurityService{}
+		security.verifyFunc = func(ctx context.Context, userID uint64, code, ip, userAgent string) error {
 			return errors.New("database connection failed")
 		}
 
 		tokenRepo := &mockTokenRepository{}
-		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "")
+		h := handler.NewAuthHandler(mockAuthService, tokenRepo, nil, "", handler.WithAccountSecurityService(security))
 
 		req := &pb.VerifyAccountSecurityRequest{
 			UserId:    1,

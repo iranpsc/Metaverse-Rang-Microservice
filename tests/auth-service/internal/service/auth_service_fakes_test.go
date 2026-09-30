@@ -542,6 +542,11 @@ func (f *fakeCacheRepository) TryAcquireAccountSecurityVerificationSlot(_ contex
 	return true, nil
 }
 
+func (f *fakeCacheRepository) ReleaseAccountSecurityVerificationSlot(_ context.Context, userID uint64) error {
+	delete(f.verificationRequestSlots, userID)
+	return nil
+}
+
 func (f *fakeCacheRepository) TryAcquireMobileChangeSendSlot(_ context.Context, userID uint64, period time.Duration) (bool, error) {
 	if until, exists := f.mobileChangeSendSlots[userID]; exists && time.Now().Before(until) {
 		return false, nil

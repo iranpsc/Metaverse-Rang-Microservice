@@ -34,32 +34,24 @@ type AuthService interface {
 	GetMe(ctx context.Context, token string) (*UserDetails, error)
 	Logout(ctx context.Context, userID uint64, ip, userAgent string) error
 	ValidateToken(ctx context.Context, token string) (*models.User, error)
-	RequestAccountSecurity(ctx context.Context, userID uint64, minutes int32, phone string) error
-	VerifyAccountSecurity(ctx context.Context, userID uint64, code, ip, userAgent string) error
-	// CheckAccountSecurity reports whether mutating requests may proceed.
-	// Returns true when no security record exists or the unlock window is still valid.
-	CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error)
 	SendMobileChangeCode(ctx context.Context, userID uint64, mobile string) error
 	VerifyMobileChange(ctx context.Context, userID uint64, code, ip, userAgent string) error
 }
 
 type authService struct {
-	userRepo                      repository.UserRepository
-	tokenRepo                     repository.TokenRepository
-	cacheRepo                     repository.CacheRepository
-	accountSecurityRepo           repository.AccountSecurityRepository
-	activityRepo                  repository.ActivityRepository
-	observerService               ObserverService
-	helperService                 HelperService
-	notificationsClient           notificationspb.SMSServiceClient
-	resetRepo                     repository.ResetRepository
-	oauthServerURL                string
-	oauthClientID                 string
-	oauthClientSecret             string
-	appURL                        string
-	frontEndURL                   string
-	rateLimitVerificationRequests bool
-	httpClient                    *http.Client
+	userRepo            repository.UserRepository
+	tokenRepo           repository.TokenRepository
+	cacheRepo           repository.CacheRepository
+	observerService     ObserverService
+	helperService       HelperService
+	notificationsClient notificationspb.SMSServiceClient
+	resetRepo           repository.ResetRepository
+	oauthServerURL      string
+	oauthClientID       string
+	oauthClientSecret   string
+	appURL              string
+	frontEndURL         string
+	httpClient          *http.Client
 }
 
 type CallbackResult struct {
@@ -111,8 +103,6 @@ var (
 	ErrMobileResetLimitExceeded       = errors.New("mobile reset limit exceeded")
 )
 
-const accountSecurityVerificationRequestPeriod = time.Minute
-
 var (
 	iranMobileRegex = regexp.MustCompile(`^09\d{9}$`)
 	otpCodeRegex    = regexp.MustCompile(`^\d{6}$`)
@@ -132,13 +122,10 @@ func NewAuthService(
 	userRepo repository.UserRepository,
 	tokenRepo repository.TokenRepository,
 	cacheRepo repository.CacheRepository,
-	accountSecurityRepo repository.AccountSecurityRepository,
-	activityRepo repository.ActivityRepository,
 	observerService ObserverService,
 	helperService HelperService,
 	notificationsClient notificationspb.SMSServiceClient,
 	oauthServerURL, oauthClientID, oauthClientSecret, appURL, frontEndURL string,
-	rateLimitVerificationRequests bool,
 	opts ...AuthServiceOption,
 ) AuthService {
 	// Validate OAuth configuration
@@ -153,21 +140,18 @@ func NewAuthService(
 	}
 
 	svc := &authService{
-		userRepo:                      userRepo,
-		tokenRepo:                     tokenRepo,
-		cacheRepo:                     cacheRepo,
-		accountSecurityRepo:           accountSecurityRepo,
-		activityRepo:                  activityRepo,
-		observerService:               observerService,
-		helperService:                 helperService,
-		notificationsClient:           notificationsClient,
-		oauthServerURL:                oauthServerURL,
-		oauthClientID:                 oauthClientID,
-		oauthClientSecret:             oauthClientSecret,
-		appURL:                        appURL,
-		frontEndURL:                   frontEndURL,
-		rateLimitVerificationRequests: rateLimitVerificationRequests,
-		httpClient:                    &http.Client{Timeout: 30 * time.Second},
+		userRepo:            userRepo,
+		tokenRepo:           tokenRepo,
+		cacheRepo:           cacheRepo,
+		observerService:     observerService,
+		helperService:       helperService,
+		notificationsClient: notificationsClient,
+		oauthServerURL:      oauthServerURL,
+		oauthClientID:       oauthClientID,
+		oauthClientSecret:   oauthClientSecret,
+		appURL:              appURL,
+		frontEndURL:         frontEndURL,
+		httpClient:          &http.Client{Timeout: 30 * time.Second},
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -522,266 +506,6 @@ func (s *authService) Logout(ctx context.Context, userID uint64, ip, userAgent s
 
 func (s *authService) ValidateToken(ctx context.Context, token string) (*models.User, error) {
 	return s.tokenRepo.ValidateToken(ctx, token)
-}
-
-func (s *authService) RequestAccountSecurity(ctx context.Context, userID uint64, minutes int32, phone string) error {
-	if minutes < 5 || minutes > 60 {
-		return ErrInvalidUnlockDuration
-	}
-
-	user, err := s.userRepo.FindByID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to find user: %w", err)
-	}
-	if user == nil {
-		return ErrUserNotFound
-	}
-
-	// Validate phone before consuming a verification rate-limit slot so users
-	// without a verified mobile get a validation error instead of rate limiting.
-	hasVerifiedPhone := user.Phone.Valid && strings.TrimSpace(user.Phone.String) != "" && user.PhoneVerifiedAt.Valid
-	sanitizedPhone := ""
-	if !hasVerifiedPhone {
-		sanitizedPhone = strings.TrimSpace(phone)
-		if sanitizedPhone == "" {
-			return ErrPhoneRequired
-		}
-		if !iranMobileRegex.MatchString(sanitizedPhone) {
-			return ErrInvalidPhoneFormat
-		}
-
-		// If the phone matches the user's current phone, skip the "phone already taken" check
-		currentPhone := ""
-		if user.Phone.Valid {
-			currentPhone = strings.TrimSpace(user.Phone.String)
-		}
-		if sanitizedPhone != currentPhone {
-			taken, err := s.userRepo.IsPhoneTaken(ctx, sanitizedPhone, user.ID)
-			if err != nil {
-				return fmt.Errorf("failed to validate phone uniqueness: %w", err)
-			}
-			if taken {
-				return ErrPhoneAlreadyTaken
-			}
-		}
-	}
-
-	// Apply rate limiting only after phone validation passes and before
-	// mutating state / sending a verification OTP.
-	if err := s.enforceAccountSecurityVerificationRateLimit(ctx, userID); err != nil {
-		return err
-	}
-
-	if !hasVerifiedPhone {
-		if err := s.userRepo.UpdatePhone(ctx, user.ID, sanitizedPhone); err != nil {
-			return fmt.Errorf("failed to update phone: %w", err)
-		}
-		user.Phone = sql.NullString{String: sanitizedPhone, Valid: true}
-	}
-
-	if user.Phone.Valid {
-		user.Phone = sql.NullString{String: strings.TrimSpace(user.Phone.String), Valid: true}
-	}
-
-	lengthSeconds := int64(minutes) * 60
-
-	security, err := s.accountSecurityRepo.GetByUserID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to load account security: %w", err)
-	}
-
-	if security == nil {
-		security = &models.AccountSecurity{
-			UserID:   userID,
-			Unlocked: false,
-			Until:    sql.NullInt64{},
-			Length:   lengthSeconds,
-		}
-		if err := s.accountSecurityRepo.Create(ctx, security); err != nil {
-			return fmt.Errorf("failed to create account security: %w", err)
-		}
-	} else {
-		security.Unlocked = false
-		security.Until = sql.NullInt64{}
-		security.Length = lengthSeconds
-		if err := s.accountSecurityRepo.Update(ctx, security); err != nil {
-			return fmt.Errorf("failed to update account security: %w", err)
-		}
-	}
-
-	code, err := generateOtpCode()
-	if err != nil {
-		return fmt.Errorf("failed to generate otp: %w", err)
-	}
-
-	hashed, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("failed to hash otp: %w", err)
-	}
-
-	otp := &models.Otp{
-		UserID:       user.ID,
-		VerifiableID: security.ID,
-		Code:         string(hashed),
-	}
-
-	if err := s.accountSecurityRepo.UpsertOtp(ctx, otp); err != nil {
-		return fmt.Errorf("failed to persist otp: %w", err)
-	}
-
-	phoneForOTP := ""
-	if user.Phone.Valid {
-		phoneForOTP = user.Phone.String
-	}
-	if err := s.dispatchAccountSecurityOTP(ctx, phoneForOTP, code); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *authService) VerifyAccountSecurity(ctx context.Context, userID uint64, code, ip, userAgent string) error {
-	sanitizedCode := strings.TrimSpace(code)
-	if !otpCodeRegex.MatchString(sanitizedCode) {
-		return ErrInvalidOTPCode
-	}
-
-	user, err := s.userRepo.FindByID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to find user: %w", err)
-	}
-	if user == nil {
-		return ErrUserNotFound
-	}
-
-	security, err := s.accountSecurityRepo.GetByUserID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to load account security: %w", err)
-	}
-	if security == nil {
-		return ErrAccountSecurityNotFound
-	}
-	if security.Unlocked {
-		return ErrAccountSecurityAlreadyUnlocked
-	}
-
-	otp, err := s.accountSecurityRepo.GetOtpByAccountSecurity(ctx, security.ID)
-	if err != nil {
-		return fmt.Errorf("failed to load otp: %w", err)
-	}
-	if otp == nil {
-		return ErrAccountSecurityNotFound
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(otp.Code), []byte(sanitizedCode)); err != nil {
-		return ErrInvalidOTPCode
-	}
-
-	if !user.PhoneVerifiedAt.Valid {
-		if err := s.userRepo.MarkPhoneAsVerified(ctx, user.ID); err != nil {
-			return fmt.Errorf("failed to mark phone as verified: %w", err)
-		}
-		user.PhoneVerifiedAt = sql.NullTime{Time: time.Now(), Valid: true}
-	}
-
-	expiresAt := time.Now().Unix() + security.Length
-	security.Unlocked = true
-	security.Until = sql.NullInt64{Int64: expiresAt, Valid: true}
-	if err := s.accountSecurityRepo.Update(ctx, security); err != nil {
-		return fmt.Errorf("failed to update account security: %w", err)
-	}
-
-	if err := s.accountSecurityRepo.DeleteOtp(ctx, otp.ID); err != nil {
-		return fmt.Errorf("failed to delete otp: %w", err)
-	}
-
-	event := &models.UserEvent{
-		UserID: user.ID,
-		Event:  "غیر فعال سازی امنیت حساب کاربری",
-		IP:     strings.TrimSpace(ip),
-		Device: strings.TrimSpace(userAgent),
-		Status: 1,
-	}
-	if err := s.activityRepo.CreateUserEvent(ctx, event); err != nil {
-		return fmt.Errorf("failed to record account security event: %w", err)
-	}
-
-	return nil
-}
-
-func (s *authService) CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error) {
-	security, err := s.accountSecurityRepo.GetByUserID(ctx, userID)
-	if err != nil {
-		return false, fmt.Errorf("failed to load account security: %w", err)
-	}
-	// No record means account security has never been enabled for this user.
-	if security == nil {
-		return true, nil
-	}
-	if !security.Unlocked {
-		return false, nil
-	}
-	now := time.Now().Unix()
-	if security.Until.Valid && security.Until.Int64 < now {
-		security.Unlocked = false
-		if err := s.accountSecurityRepo.Update(ctx, security); err != nil {
-			return false, fmt.Errorf("failed to expire account security: %w", err)
-		}
-		return false, nil
-	}
-
-	security.LastActivity = sql.NullInt64{Int64: now, Valid: true}
-	if err := s.accountSecurityRepo.Update(ctx, security); err != nil {
-		return false, fmt.Errorf("failed to update account security activity: %w", err)
-	}
-	return true, nil
-}
-
-func (s *authService) enforceAccountSecurityVerificationRateLimit(ctx context.Context, userID uint64) error {
-	if !s.rateLimitVerificationRequests {
-		return nil
-	}
-	if s.cacheRepo == nil {
-		return fmt.Errorf("verification request rate limit is enabled but cache is not configured")
-	}
-
-	allowed, err := s.cacheRepo.TryAcquireAccountSecurityVerificationSlot(
-		ctx,
-		userID,
-		accountSecurityVerificationRequestPeriod,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to check verification request rate limit: %w", err)
-	}
-	if !allowed {
-		return ErrVerificationRequestRateLimited
-	}
-	return nil
-}
-
-func (s *authService) dispatchAccountSecurityOTP(ctx context.Context, phone, code string) error {
-	phone = strings.TrimSpace(phone)
-	if phone == "" {
-		return ErrPhoneRequired
-	}
-
-	if s.notificationsClient == nil {
-		return fmt.Errorf("notification service client is not configured")
-	}
-
-	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err := s.notificationsClient.SendOTP(sendCtx, &notificationspb.SendOTPRequest{
-		Phone:  phone,
-		Code:   code,
-		Reason: "verify",
-	})
-	if err != nil {
-		return fmt.Errorf("failed to dispatch account security otp: %w", err)
-	}
-
-	return nil
 }
 
 // OAuth helper methods

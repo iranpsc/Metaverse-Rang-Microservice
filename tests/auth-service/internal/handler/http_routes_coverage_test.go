@@ -71,8 +71,6 @@ func TestHTTPAuthHandler_CoverageBatch(t *testing.T) {
 	defer s.Stop()
 
 	authSvc := &mockAuthService{}
-	authSvc.requestAccountSecurityFunc = func(context.Context, uint64, int32, string) error { return nil }
-	authSvc.verifyAccountSecurityFunc = func(context.Context, uint64, string, string, string) error { return nil }
 	authSvc.validateTokenFunc = func(context.Context, string) (*models.User, error) {
 		return &models.User{ID: 1, Email: "a@x.com"}, nil
 	}
@@ -87,7 +85,7 @@ func TestHTTPAuthHandler_CoverageBatch(t *testing.T) {
 		return &models.Image{ID: 9, URL: "/p.jpg"}, nil
 	}
 	photo.deletePhotoFunc = func(context.Context, uint64, uint64) error { return nil }
-	authServer := handler.NewAuthHandler(authSvc, &mockTokenRepository{}, photo, "en")
+	authServer := handler.NewAuthHandler(authSvc, &mockTokenRepository{}, photo, "en", handler.WithAccountSecurityService(&mockAccountSecurityService{}))
 
 	kycMock := &mockKYCService{}
 	kycMock.createBankAccountFunc = func(_ context.Context, userID uint64, bankName, shaba, card string) (*models.BankAccount, error) {

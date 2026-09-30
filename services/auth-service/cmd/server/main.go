@@ -143,8 +143,6 @@ func main() {
 		userRepo,
 		tokenRepo,
 		cacheRepo,
-		accountSecurityRepo,
-		activityRepo,
 		observerService,
 		helperService,
 		smsClient,
@@ -153,8 +151,15 @@ func main() {
 		cfgRuntime.OAuthClientSecret,
 		cfgRuntime.AppURL,
 		cfgRuntime.FrontEndURL,
-		service.IsProductionEnv(cfgRuntime.AppEnv),
 		service.WithResetRepository(resetRepo),
+	)
+	accountSecurityService := service.NewAccountSecurityService(
+		userRepo,
+		accountSecurityRepo,
+		activityRepo,
+		cacheRepo,
+		smsClient,
+		service.IsProductionEnv(cfgRuntime.AppEnv),
 	)
 	userService := service.NewUserServiceWithDependencies(
 		userRepo,
@@ -212,7 +217,14 @@ func main() {
 
 	projectLocale := cfgRuntime.ProjectLocale
 	handler.SetProjectLocale(projectLocale)
-	authHandler := handler.RegisterAuthHandler(grpcServer, authService, tokenRepo, profilePhotoService, projectLocale)
+	authHandler := handler.RegisterAuthHandler(
+		grpcServer,
+		authService,
+		tokenRepo,
+		profilePhotoService,
+		projectLocale,
+		handler.WithAccountSecurityService(accountSecurityService),
+	)
 	walletHandler := handler.RegisterWalletConnectionHandler(grpcServer, walletConnectionService, projectLocale)
 	userHandler := handler.RegisterUserHandler(grpcServer, userService, profileLimitationService, helperService)
 	kycHandler := handler.RegisterKYCHandler(grpcServer, kycService, apiGatewayURL)

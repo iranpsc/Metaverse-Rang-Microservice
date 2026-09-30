@@ -29,18 +29,15 @@ func TestRegister(t *testing.T) {
 		})
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"https://oauth.example.com",
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		url, err := svc.Register(ctx, "https://example.com/back", "REF123")
@@ -69,18 +66,15 @@ func TestRegister(t *testing.T) {
 		userRepo := newFakeUserRepository(nil)
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"https://oauth.example.com",
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		url, err := svc.Register(ctx, "https://example.com/back", "")
@@ -101,18 +95,15 @@ func TestRedirect(t *testing.T) {
 		userRepo := newFakeUserRepository(nil)
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"https://oauth.example.com",
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		url, state, err := svc.Redirect(ctx, "https://example.com/dashboard", "https://example.com/home")
@@ -163,18 +154,15 @@ func TestRedirect(t *testing.T) {
 		userRepo := newFakeUserRepository(nil)
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"https://oauth.example.com",
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		_, state, err := svc.Redirect(ctx, "https://example.com/dashboard", "")
@@ -252,8 +240,6 @@ func TestCallback(t *testing.T) {
 		}
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 		observerService := newFakeObserverService()
 
 		// Set up state and redirect URLs in cache
@@ -262,14 +248,13 @@ func TestCallback(t *testing.T) {
 		cacheRepo.SetRedirectTo(ctx, state, "https://example.com/dashboard", 5*time.Minute)
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			observerService, nil, nil,
 			oauthServer.URL,
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1", false)
@@ -309,18 +294,15 @@ func TestCallback(t *testing.T) {
 		userRepo := newFakeUserRepository(nil)
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			oauthServer.URL,
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		_, err := svc.Callback(ctx, "invalid_state", "test_code", "127.0.0.1", false)
@@ -356,8 +338,6 @@ func TestCallback(t *testing.T) {
 
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 		observerService := newFakeObserverService()
 
 		state := "test_state_existing"
@@ -365,14 +345,13 @@ func TestCallback(t *testing.T) {
 		cacheRepo.SetBackURL(ctx, state, "https://example.com/home", 5*time.Minute)
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			observerService, nil, nil,
 			oauthServer.URL,
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1", false)
@@ -418,8 +397,6 @@ func TestCallback(t *testing.T) {
 		}
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 		observerService := newFakeObserverService()
 
 		state := "test_state_preference"
@@ -428,14 +405,13 @@ func TestCallback(t *testing.T) {
 		cacheRepo.SetBackURL(ctx, state, "https://example.com/home", 5*time.Minute)
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			observerService, nil, nil,
 			oauthServer.URL,
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1", false)
@@ -514,21 +490,19 @@ func TestCallbackCreatesUserRelatedRecords(t *testing.T) {
 
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
 
 		state := "test_state_related_records"
 		cacheRepo.SetState(ctx, state, 5*time.Minute)
 		cacheRepo.SetRedirectTo(ctx, state, "https://example.com/dashboard", 5*time.Minute)
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			observerService, helperService, nil,
 			oauthServer.URL,
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1", false)
@@ -629,21 +603,19 @@ func TestCallbackCreatesUserRelatedRecords(t *testing.T) {
 
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
 
 		state := "test_state_existing_related"
 		cacheRepo.SetState(ctx, state, 5*time.Minute)
 		cacheRepo.SetBackURL(ctx, state, "https://example.com/home", 5*time.Minute)
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			observerService, helperService, nil,
 			oauthServer.URL,
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		_, err := svc.Callback(ctx, state, "test_code", "127.0.0.1", false)
@@ -743,21 +715,19 @@ func TestCallbackLoggedInEvent(t *testing.T) {
 
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
 
 		state := "test_state_logged_in"
 		cacheRepo.SetState(ctx, state, 5*time.Minute)
 		cacheRepo.SetBackURL(ctx, state, "https://example.com/home", 5*time.Minute)
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			observerService, helperService, nil,
 			oauthServer.URL,
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		_, err := svc.Callback(ctx, state, "test_code", "203.0.113.10", false)
@@ -881,21 +851,19 @@ func TestCallbackLoggedInEvent(t *testing.T) {
 
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
 
 		state := "test_state_new_no_login"
 		cacheRepo.SetState(ctx, state, 5*time.Minute)
 		cacheRepo.SetRedirectTo(ctx, state, "https://example.com/dashboard", 5*time.Minute)
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			observerService, newFakeHelperService(), nil,
 			oauthServer.URL,
 			"test-client-id",
 			"test-client-secret",
 			"http://localhost:8000",
 			"http://localhost:3000",
-			false,
 		)
 
 		_, err := svc.Callback(ctx, state, "test_code", "127.0.0.1", false)
@@ -953,14 +921,11 @@ func TestGetMe(t *testing.T) {
 		}
 
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
-			false,
 		)
 
 		details, err := svc.GetMe(ctx, "valid_token")
@@ -989,14 +954,11 @@ func TestGetMe(t *testing.T) {
 			return nil, fmt.Errorf("invalid token")
 		}
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
-			false,
 		)
 
 		_, err := svc.GetMe(ctx, "invalid_token")
@@ -1023,15 +985,12 @@ func TestLogout(t *testing.T) {
 			return nil
 		}
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 		observerService := newFakeObserverService()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			observerService, nil, nil,
 			"", "", "", "", "",
-			false,
 		)
 
 		err := svc.Logout(ctx, 1, "127.0.0.1", "Mozilla/5.0")
@@ -1049,14 +1008,11 @@ func TestLogout(t *testing.T) {
 		userRepo := newFakeUserRepository(nil)
 		tokenRepo := newFakeTokenRepository()
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
-			false,
 		)
 
 		err := svc.Logout(ctx, 999, "127.0.0.1", "Mozilla/5.0")
@@ -1082,14 +1038,11 @@ func TestValidateToken(t *testing.T) {
 			return users[1], nil
 		}
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
-			false,
 		)
 
 		user, err := svc.ValidateToken(ctx, "valid_token")
@@ -1111,14 +1064,11 @@ func TestValidateToken(t *testing.T) {
 			return nil, fmt.Errorf("invalid token")
 		}
 		cacheRepo := newFakeCacheRepository()
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
 
 		svc := service.NewAuthService(
-			userRepo, tokenRepo, cacheRepo, accountRepo, activityRepo,
+			userRepo, tokenRepo, cacheRepo,
 			nil, nil, nil,
 			"", "", "", "", "",
-			false,
 		)
 
 		_, err := svc.ValidateToken(ctx, "invalid_token")

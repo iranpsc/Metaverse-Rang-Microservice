@@ -31,6 +31,9 @@ func (f *fakeWalletCacheRepo) GetBackURL(context.Context, string) (string, error
 func (f *fakeWalletCacheRepo) TryAcquireAccountSecurityVerificationSlot(context.Context, uint64, time.Duration) (bool, error) {
 	return true, nil
 }
+func (f *fakeWalletCacheRepo) ReleaseAccountSecurityVerificationSlot(context.Context, uint64) error {
+	return nil
+}
 
 func (f *fakeWalletCacheRepo) TryAcquireMobileChangeSendSlot(context.Context, uint64, time.Duration) (bool, error) {
 	return true, nil
