@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -89,44 +90,54 @@ func (s *BuildingService) SetCommercialClient(c buildingCommercialClient) {
 // GetBuildPackage retrieves building models from 3D Meta API
 // Checks ownership, calls 3D API, calculates required_satisfaction, upserts models, and returns with coordinates
 func (s *BuildingService) GetBuildPackage(ctx context.Context, featureID uint64, page int32) ([]*pb.BuildingModel, []string, error) {
+	fail := func(err error) ([]*pb.BuildingModel, []string, error) {
+		slog.Error("get build package failed",
+			"feature_id", featureID,
+			"page", page,
+			"error", err,
+		)
+		return nil, nil, err
+	}
+
 	// Get feature with properties
 	feature, properties, err := s.featureRepo.FindByID(ctx, featureID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("feature not found: %w", err)
+		return fail(fmt.Errorf("feature not found: %w", err))
 	}
 
 	user, err := auth.GetUserFromContext(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unauthorized: authentication required")
+		return fail(fmt.Errorf("unauthorized: authentication required"))
 	}
 	if feature.OwnerID != user.UserID {
-		return nil, nil, fmt.Errorf("unauthorized: user does not own this feature")
+		return fail(fmt.Errorf("unauthorized: user does not own this feature"))
 	}
 
 	// Get coordinates for feature
 	coordinates, err := s.geometryRepo.GetCoordinatesByFeatureID(ctx, featureID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get coordinates: %w", err)
+		return fail(fmt.Errorf("failed to get coordinates: %w", err))
 	}
 
 	requiredSatisfaction, err := requiredSatisfactionForFeature(properties)
 	if err != nil {
-		return nil, nil, err
+		return fail(err)
 	}
 	density := properties.Density
 	if density == 0 {
 		density = 1
 	}
 
-	apiResp, err := s.threeDClient.GetBuildPackage(ctx, threed_client.BuildPackageRequest{
+	apiReq := threed_client.BuildPackageRequest{
 		FeatureID: featureID,
 		Area:      fmt.Sprintf("%.2f", properties.Area),
 		Density:   fmt.Sprintf("%d", density),
 		Karbari:   properties.Karbari,
 		Page:      page,
-	})
+	}
+	apiResp, err := s.threeDClient.GetBuildPackage(ctx, apiReq)
 	if err != nil {
-		return nil, nil, fmt.Errorf("3D API call failed: %w", err)
+		return fail(fmt.Errorf("3D API call failed area=%s density=%s karbari=%s: %w", apiReq.Area, apiReq.Density, apiReq.Karbari, err))
 	}
 
 	// Persist catalog fields only. required_satisfaction is feature-specific and
@@ -139,7 +150,7 @@ func (s *BuildingService) GetBuildPackage(ctx context.Context, featureID uint64,
 
 		if err := s.buildingRepo.UpsertBuildingModel(ctx, item.ID, item.Name, item.SKU,
 			string(imagesJSON), string(attrsJSON), string(fileJSON), 0); err != nil {
-			return nil, nil, fmt.Errorf("failed to upsert building model: %w", err)
+			return fail(fmt.Errorf("failed to upsert building model %d: %w", item.ID, err))
 		}
 
 		models = append(models, &pb.BuildingModel{
