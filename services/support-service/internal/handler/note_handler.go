@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"strings"
 
 	"metarang/support-service/internal/models"
 	"metarang/support-service/internal/service"
@@ -139,6 +140,56 @@ func (h *NoteHandler) UpdateNote(ctx context.Context, req *pb.UpdateNoteRequest)
 		return nil, MapServiceError(err)
 	}
 
+	return convertNoteToProto(note), nil
+}
+
+func (h *NoteHandler) AddNoteAttachments(ctx context.Context, noteID, userID uint64, attachments []string) (*pb.NoteResponse, error) {
+	locale := handlerLocale(ctx)
+	cleaned := make([]string, 0, len(attachments))
+	for _, attachment := range attachments {
+		attachment = strings.TrimSpace(attachment)
+		if attachment != "" {
+			cleaned = append(cleaned, attachment)
+		}
+	}
+	validationErrors := mergeValidationErrors(
+		ValidateRequired("note_id", noteID, locale),
+		ValidateRequired("user_id", userID, locale),
+	)
+	if len(cleaned) == 0 {
+		validationErrors = mergeValidationErrors(validationErrors, ValidateRequired("attachment", "", locale))
+	}
+	if len(cleaned) > 5 {
+		validationErrors = mergeValidationErrors(validationErrors, map[string]string{
+			"attachments": "The attachments field must not have more than 5 items",
+		})
+	}
+	if len(validationErrors) > 0 {
+		return nil, returnValidationError(validationErrors)
+	}
+
+	note, err := h.noteService.AddNoteAttachments(ctx, noteID, userID, cleaned)
+	if err != nil {
+		return nil, MapServiceError(err)
+	}
+	return convertNoteToProto(note), nil
+}
+
+func (h *NoteHandler) DeleteNoteAttachment(ctx context.Context, noteID, userID uint64, attachment string) (*pb.NoteResponse, error) {
+	locale := handlerLocale(ctx)
+	validationErrors := mergeValidationErrors(
+		ValidateRequired("note_id", noteID, locale),
+		ValidateRequired("user_id", userID, locale),
+		ValidateRequired("attachment", strings.TrimSpace(attachment), locale),
+	)
+	if len(validationErrors) > 0 {
+		return nil, returnValidationError(validationErrors)
+	}
+
+	note, err := h.noteService.DeleteNoteAttachment(ctx, noteID, userID, attachment)
+	if err != nil {
+		return nil, MapServiceError(err)
+	}
 	return convertNoteToProto(note), nil
 }
 

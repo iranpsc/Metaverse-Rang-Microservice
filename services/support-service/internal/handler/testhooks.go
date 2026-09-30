@@ -10,6 +10,11 @@ var (
 	ExportDecodeJSONBody                       = decodeJSONBody
 	ExportSpoofedMethodFromValues              = spoofedMethodFromValues
 	ExportUploadTicketAttachment               = uploadTicketAttachment
+	ExportUploadTicketAttachments              = uploadTicketAttachments
+	ExportEncodeTicketAttachments              = encodeTicketAttachments
+	ExportDecodeTicketAttachments              = decodeTicketAttachments
+	ExportMergeTicketAttachmentFields          = mergeTicketAttachmentFields
+	ExportUploadNoteAttachmentFiles            = uploadNoteAttachmentFiles
 	ExportUploadBytesToStorage                 = uploadBytesToStorage
 	ExportParseTicketFormFields                = parseTicketFormFields
 	ExportParseNoteFormFields                  = parseNoteFormFields

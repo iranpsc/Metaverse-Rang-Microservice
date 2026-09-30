@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -39,6 +40,8 @@ type noteAPI interface {
 	GetNote(context.Context, *pbSupport.GetNoteRequest) (*pbSupport.NoteResponse, error)
 	UpdateNote(context.Context, *pbSupport.UpdateNoteRequest) (*pbSupport.NoteResponse, error)
 	DeleteNote(context.Context, *pbSupport.DeleteNoteRequest) (*pbCommon.Empty, error)
+	AddNoteAttachments(context.Context, uint64, uint64, []string) (*pbSupport.NoteResponse, error)
+	DeleteNoteAttachment(context.Context, uint64, uint64, string) (*pbSupport.NoteResponse, error)
 }
 
 // HTTPSupportHandler serves Kong-facing REST routes for support-service.
@@ -146,6 +149,10 @@ func (h *HTTPSupportHandler) handleTicketPath(w http.ResponseWriter, r *http.Req
 }
 
 func (h *HTTPSupportHandler) handleNotePath(w http.ResponseWriter, r *http.Request) {
+	if isNoteAttachmentsPath(r.URL.Path) {
+		h.handleNoteAttachments(w, r)
+		return
+	}
 	switch EffectiveHTTPMethod(r) {
 	case http.MethodDelete:
 		h.DeleteNote(w, r)
@@ -153,6 +160,21 @@ func (h *HTTPSupportHandler) handleNotePath(w http.ResponseWriter, r *http.Reque
 		h.UpdateNote(w, r)
 	case http.MethodGet:
 		h.GetNote(w, r)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func isNoteAttachmentsPath(path string) bool {
+	return strings.HasSuffix(strings.TrimSuffix(path, "/"), "/attachments")
+}
+
+func (h *HTTPSupportHandler) handleNoteAttachments(w http.ResponseWriter, r *http.Request) {
+	switch EffectiveHTTPMethod(r) {
+	case http.MethodPost:
+		h.AddNoteAttachments(w, r)
+	case http.MethodDelete:
+		h.DeleteNoteAttachment(w, r)
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -251,18 +273,24 @@ func (h *HTTPSupportHandler) CreateTicket(w http.ResponseWriter, r *http.Request
 	attachment := ""
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
+		urls, uploadErr := uploadTicketAttachments(r, h.storage, h.appURL)
+		if uploadErr != nil {
+			writeError(w, http.StatusBadRequest, uploadErr.Error())
+			return
+		}
+		attachment, err = encodeTicketAttachments(urls)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	} else {
 		var req struct {
-			Title      string  `json:"title"`
-			Content    string  `json:"content"`
-			Attachment string  `json:"attachment"`
-			Reciever   *uint64 `json:"reciever"`
-			Department string  `json:"department"`
+			Title       string   `json:"title"`
+			Content     string   `json:"content"`
+			Attachment  string   `json:"attachment"`
+			Attachments []string `json:"attachments"`
+			Reciever    *uint64  `json:"reciever"`
+			Department  string   `json:"department"`
 		}
 		if err := decodeJSONBody(r, &req); err != nil {
 			if err == io.EOF {
@@ -276,7 +304,11 @@ func (h *HTTPSupportHandler) CreateTicket(w http.ResponseWriter, r *http.Request
 		content = req.Content
 		department = req.Department
 		receiverID = req.Reciever
-		attachment = req.Attachment
+		attachment, err = mergeTicketAttachmentFields(req.Attachment, req.Attachments)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	if title == "" || content == "" {
@@ -363,8 +395,13 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 	attachment := ""
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		if _, hdr, fileErr := r.FormFile("attachment"); fileErr == nil && hdr != nil {
-			attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
+		urls, uploadErr := uploadTicketAttachments(r, h.storage, h.appURL)
+		if uploadErr != nil {
+			writeError(w, http.StatusBadRequest, uploadErr.Error())
+			return
+		}
+		if len(urls) > 0 {
+			attachment, err = encodeTicketAttachments(urls)
 			if err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
@@ -372,9 +409,10 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 		}
 	} else {
 		var req struct {
-			Title      string `json:"title"`
-			Content    string `json:"content"`
-			Attachment string `json:"attachment"`
+			Title       string   `json:"title"`
+			Content     string   `json:"content"`
+			Attachment  string   `json:"attachment"`
+			Attachments []string `json:"attachments"`
 		}
 		if err := decodeJSONBody(r, &req); err != nil {
 			if err == io.EOF {
@@ -386,7 +424,11 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 		}
 		title = req.Title
 		content = req.Content
-		attachment = req.Attachment
+		attachment, err = mergeTicketAttachmentFields(req.Attachment, req.Attachments)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	resp, err := h.tickets.UpdateTicket(r.Context(), &pbSupport.UpdateTicketRequest{
@@ -436,15 +478,21 @@ func (h *HTTPSupportHandler) AddTicketResponse(w http.ResponseWriter, r *http.Re
 			return
 		}
 		responseText = r.FormValue("response")
-		attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
+		urls, uploadErr := uploadTicketAttachments(r, h.storage, h.appURL)
+		if uploadErr != nil {
+			writeError(w, http.StatusBadRequest, uploadErr.Error())
+			return
+		}
+		attachment, err = encodeTicketAttachments(urls)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	} else {
 		var req struct {
-			Response   string `json:"response"`
-			Attachment string `json:"attachment"`
+			Response    string   `json:"response"`
+			Attachment  string   `json:"attachment"`
+			Attachments []string `json:"attachments"`
 		}
 		if err := decodeJSONBody(r, &req); err != nil {
 			if err == io.EOF {
@@ -455,7 +503,11 @@ func (h *HTTPSupportHandler) AddTicketResponse(w http.ResponseWriter, r *http.Re
 			return
 		}
 		responseText = req.Response
-		attachment = req.Attachment
+		attachment, err = mergeTicketAttachmentFields(req.Attachment, req.Attachments)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	if responseText == "" {
@@ -514,14 +566,15 @@ func (h *HTTPSupportHandler) CloseTicket(w http.ResponseWriter, r *http.Request)
 func formatTicketResource(resp *pbSupport.TicketResponse, viewerID uint64, includeThread bool) map[string]interface{} {
 	dateStr, timeStr := splitJalaliDateTime(resp.UpdatedAt)
 	ticketMap := map[string]interface{}{
-		"id":         resp.Id,
-		"title":      resp.Title,
-		"content":    resp.Content,
-		"code":       resp.Code,
-		"status":     resp.Status,
-		"attachment": resp.Attachment,
-		"date":       dateStr,
-		"time":       timeStr,
+		"id":          resp.Id,
+		"title":       resp.Title,
+		"content":     resp.Content,
+		"code":        resp.Code,
+		"status":      resp.Status,
+		"attachment":  resp.Attachment,
+		"attachments": decodeTicketAttachments(resp.Attachment),
+		"date":        dateStr,
+		"time":        timeStr,
 	}
 	if resp.Sender != nil {
 		ticketMap["sender"] = formatTicketUser(resp.Sender)
@@ -643,15 +696,16 @@ func formatTicketMessages(items []*pbSupport.TicketResponseItem, viewerID uint64
 			authorID = item.Author.Id
 		}
 		msg := map[string]interface{}{
-			"id":         item.Id,
-			"ticket_id":  strconv.FormatUint(item.TicketId, 10),
-			"kind":       kind,
-			"text":       item.Response,
-			"attachment": item.Attachment,
-			"is_mine":    authorID == viewerID,
-			"role":       item.Role,
-			"date":       dateStr,
-			"time":       timeStr,
+			"id":          item.Id,
+			"ticket_id":   strconv.FormatUint(item.TicketId, 10),
+			"kind":        kind,
+			"text":        item.Response,
+			"attachment":  item.Attachment,
+			"attachments": decodeTicketAttachments(item.Attachment),
+			"is_mine":     authorID == viewerID,
+			"role":        item.Role,
+			"date":        dateStr,
+			"time":        timeStr,
 		}
 		if item.Author != nil {
 			msg["author"] = formatTicketUser(item.Author)
@@ -670,6 +724,7 @@ func formatTicketResponseItems(items []*pbSupport.TicketResponseItem, viewerID u
 			"ticket_id":      strconv.FormatUint(item.TicketId, 10),
 			"response":       item.Response,
 			"attachment":     item.Attachment,
+			"attachments":    decodeTicketAttachments(item.Attachment),
 			"responser_id":   item.ResponserId,
 			"responser_name": item.ResponserName,
 			"is_mine":        item.ResponserId == viewerID,
@@ -1093,6 +1148,122 @@ func (h *HTTPSupportHandler) DeleteNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// AddNoteAttachments handles POST /api/notes/{id}/attachments
+// Path param: id (Note ID)
+func (h *HTTPSupportHandler) AddNoteAttachments(w http.ResponseWriter, r *http.Request) {
+	userID, err := h.getAuthUserID(r)
+	if err != nil {
+		writeHandlerError(w, err)
+		return
+	}
+
+	noteID, ok := noteIDFromRequest(w, r)
+	if !ok {
+		return
+	}
+
+	urls, err := h.readNoteAttachmentURLs(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp, err := h.notes.AddNoteAttachments(r.Context(), noteID, userID, urls)
+	if err != nil {
+		writeHandlerError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, formatNoteResponse(resp))
+}
+
+// DeleteNoteAttachment handles DELETE /api/notes/{id}/attachments
+// Path param: id (Note ID)
+// Query params: attachment (URL of the attachment to remove)
+func (h *HTTPSupportHandler) DeleteNoteAttachment(w http.ResponseWriter, r *http.Request) {
+	userID, err := h.getAuthUserID(r)
+	if err != nil {
+		writeHandlerError(w, err)
+		return
+	}
+
+	noteID, ok := noteIDFromRequest(w, r)
+	if !ok {
+		return
+	}
+
+	attachment, err := readDeletedNoteAttachment(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp, err := h.notes.DeleteNoteAttachment(r.Context(), noteID, userID, attachment)
+	if err != nil {
+		writeHandlerError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, formatNoteResponse(resp))
+}
+
+func noteIDFromRequest(w http.ResponseWriter, r *http.Request) (uint64, bool) {
+	noteIDStr := noteIDFromPath(r.URL.Path)
+	if noteIDStr == "" {
+		writeError(w, http.StatusBadRequest, "note_id is required")
+		return 0, false
+	}
+	noteID, err := strconv.ParseUint(noteIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid note_id")
+		return 0, false
+	}
+	return noteID, true
+}
+
+func (h *HTTPSupportHandler) readNoteAttachmentURLs(r *http.Request) ([]string, error) {
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		return uploadNoteAttachmentFiles(r, h.storage, h.appURL)
+	}
+
+	var req struct {
+		Attachment  string   `json:"attachment"`
+		Attachments []string `json:"attachments"`
+	}
+	if err := decodeJSONBody(r, &req); err != nil {
+		if err == io.EOF {
+			return nil, fmt.Errorf("request body is required")
+		}
+		return nil, fmt.Errorf("invalid request body")
+	}
+	if len(req.Attachments) > 0 {
+		return req.Attachments, nil
+	}
+	if strings.TrimSpace(req.Attachment) != "" {
+		return []string{strings.TrimSpace(req.Attachment)}, nil
+	}
+	return nil, nil
+}
+
+func readDeletedNoteAttachment(r *http.Request) (string, error) {
+	if attachment := strings.TrimSpace(r.URL.Query().Get("attachment")); attachment != "" {
+		return attachment, nil
+	}
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "application/json") || contentType == "" {
+		var req struct {
+			Attachment string `json:"attachment"`
+		}
+		if err := decodeJSONBody(r, &req); err != nil {
+			if err == io.EOF {
+				return "", nil
+			}
+			return "", fmt.Errorf("invalid request body")
+		}
+		return strings.TrimSpace(req.Attachment), nil
+	}
+	return "", nil
 }
 
 func formatNoteResponse(resp *pbSupport.NoteResponse) map[string]interface{} {

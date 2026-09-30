@@ -56,6 +56,8 @@ func MapServiceError(err error) error {
 	switch {
 	case strings.Contains(lower, "unauthorized"):
 		return status.Errorf(codes.PermissionDenied, "%s", msg)
+	case strings.Contains(lower, "must not have more than"):
+		return status.Errorf(codes.InvalidArgument, "%s", msg)
 	case strings.Contains(lower, "not found"):
 		return status.Errorf(codes.NotFound, "%s", msg)
 	case strings.Contains(lower, "cannot respond"),
