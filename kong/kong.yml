@@ -589,18 +589,15 @@ plugins:
       upstream_health_metrics: true
   - name: cors
     config:
-      # Exact origins + PCRE for local Vite/dev (localhost and 127.0.0.1, any port).
-      # credentials:true forbids Origin:* — Kong must echo a matching origin.
+      # Public origins only. kong/docker-entrypoint-wrapper.sh inserts dev
+      # frontends and localhost at the marker when PROJECT_ENV is staging
+      # or development. credentials:true forbids Origin:* — Kong must echo
+      # a matching origin.
       origins:
         - https://world.metarang.com
         - https://metarang.com
         - https://admin.metarang.com
-        - https://dev-reactjs.metarang.com
-        - https://dev-nextjs.metarang.com
-        - http://localhost:5173
-        - http://localhost:5175
-        - 'http://localhost:\d+'
-        - 'http://127\.0\.0\.1:\d+'
+        # cors-dev-origins
       methods:
         - GET
         - HEAD

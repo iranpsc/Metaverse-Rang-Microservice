@@ -881,11 +881,15 @@ services:
           target: /workspace/openapi/routes.yaml
 
   # Kong API Gateway
+  # PROJECT_ENV selects the CORS allowlist (see kong/docker-entrypoint-wrapper.sh).
+  # Unset or production: public sites only. staging or development: also dev frontends and localhost.
   kong:
     image: kong:3.9.3
+    entrypoint: ["/bin/sh", "/kong/docker-entrypoint-wrapper.sh"]
     environment:
+      PROJECT_ENV: ${PROJECT_ENV:-production}
       KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_DECLARATIVE_CONFIG: /tmp/kong.rendered.yml
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
@@ -897,6 +901,7 @@ services:
       # Admin API listens on 127.0.0.1:8001 inside the container only — not exposed on the host
     volumes:
       - ./kong/kong.yml:/kong/kong.yml:ro
+      - ./kong/docker-entrypoint-wrapper.sh:/kong/docker-entrypoint-wrapper.sh:ro
       - ./shared/proto:/kong/protos:ro
     depends_on:
       auth-service:
