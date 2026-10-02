@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	commercialpb "metarang/shared/pb/commercial"
 )
@@ -18,6 +19,18 @@ func (w *WalletAdapter) AddBalance(ctx context.Context, userID uint64, asset str
 	if w == nil || w.Client == nil {
 		return fmt.Errorf("wallet client not configured")
 	}
+	err := w.addBalance(ctx, userID, asset, amount)
+	if err == nil || !isWalletMissing(err) {
+		return err
+	}
+
+	if _, createErr := w.Client.CreateWallet(ctx, &commercialpb.CreateWalletRequest{UserId: userID}); createErr != nil {
+		return fmt.Errorf("%w; create wallet: %v", err, createErr)
+	}
+	return w.addBalance(ctx, userID, asset, amount)
+}
+
+func (w *WalletAdapter) addBalance(ctx context.Context, userID uint64, asset string, amount float64) error {
 	resp, err := w.Client.AddBalance(ctx, &commercialpb.AddBalanceRequest{
 		UserId: userID,
 		Asset:  asset,
@@ -34,6 +47,10 @@ func (w *WalletAdapter) AddBalance(ctx context.Context, userID uint64, asset str
 		return fmt.Errorf("wallet AddBalance rejected: %s", msg)
 	}
 	return nil
+}
+
+func isWalletMissing(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "wallet not found")
 }
 
 // ReferralAdapter calls commercial-service ReferralService.ProcessReferral (non-fatal).

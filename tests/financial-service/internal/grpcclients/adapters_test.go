@@ -15,13 +15,17 @@ import (
 )
 
 type mockWalletClient struct {
-	addBalance func(ctx context.Context, in *commercialpb.AddBalanceRequest, opts ...grpc.CallOption) (*commercialpb.AddBalanceResponse, error)
+	addBalance   func(ctx context.Context, in *commercialpb.AddBalanceRequest, opts ...grpc.CallOption) (*commercialpb.AddBalanceResponse, error)
+	createWallet func(ctx context.Context, in *commercialpb.CreateWalletRequest, opts ...grpc.CallOption) (*commercialpb.WalletResponse, error)
 }
 
 func (m *mockWalletClient) GetWallet(context.Context, *commercialpb.GetWalletRequest, ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
 	return nil, errors.New("not implemented")
 }
-func (m *mockWalletClient) CreateWallet(context.Context, *commercialpb.CreateWalletRequest, ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
+func (m *mockWalletClient) CreateWallet(ctx context.Context, in *commercialpb.CreateWalletRequest, opts ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
+	if m.createWallet != nil {
+		return m.createWallet(ctx, in, opts...)
+	}
 	return nil, errors.New("not implemented")
 }
 func (m *mockWalletClient) DeductBalance(context.Context, *commercialpb.DeductBalanceRequest, ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error) {
@@ -96,6 +100,35 @@ func TestWalletAdapter_Rejected(t *testing.T) {
 	err := adapter.AddBalance(context.Background(), 1, "psc", 10)
 	if err == nil {
 		t.Fatal("expected rejection error")
+	}
+}
+
+func TestWalletAdapter_CreatesWalletWhenMissing(t *testing.T) {
+	adds := 0
+	created := false
+	adapter := &grpcclients.WalletAdapter{
+		Client: &mockWalletClient{
+			addBalance: func(context.Context, *commercialpb.AddBalanceRequest, ...grpc.CallOption) (*commercialpb.AddBalanceResponse, error) {
+				adds++
+				if adds == 1 {
+					return &commercialpb.AddBalanceResponse{Success: false, Message: "failed to add balance: wallet not found"}, nil
+				}
+				return &commercialpb.AddBalanceResponse{Success: true}, nil
+			},
+			createWallet: func(_ context.Context, req *commercialpb.CreateWalletRequest, _ ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
+				created = true
+				if req.UserId != 4 {
+					t.Fatalf("user=%d", req.UserId)
+				}
+				return &commercialpb.WalletResponse{}, nil
+			},
+		},
+	}
+	if err := adapter.AddBalance(context.Background(), 4, "psc", 10); err != nil {
+		t.Fatal(err)
+	}
+	if !created || adds != 2 {
+		t.Fatalf("created=%v adds=%d", created, adds)
 	}
 }
 

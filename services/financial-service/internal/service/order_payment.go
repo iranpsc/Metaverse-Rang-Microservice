@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"metarang/financial-service/internal/config"
 	"metarang/financial-service/internal/constants"
@@ -196,6 +197,11 @@ func (s *orderService) findCallbackOrderAndTransaction(ctx context.Context, orde
 }
 
 func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order *models.Order, user *models.User, transaction *models.Transaction, token string, additionalParams map[string]string) (string, error) {
+	// The buyer can leave the bank return page while verify and the wallet
+	// credit are still running. Finish that work on a detached context.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 90*time.Second)
+	defer cancel()
+
 	rate, err := s.variableRepo.GetRate(ctx, order.Asset)
 	if err != nil {
 		return "", fmt.Errorf("failed to get rate: %w", err)
@@ -262,39 +268,33 @@ func (s *orderService) finalizeSuccessfulPayment(ctx context.Context, order *mod
 		Product: order.Asset,
 	}
 
-	if s.db != nil {
-		if err := s.finalizeSuccessfulPaymentTx(ctx, order, transaction, payment, firstOrder); err != nil {
-			return err
-		}
-	} else {
-		if err := s.orderRepo.Update(ctx, order); err != nil {
-			return fmt.Errorf("failed to update order: %w", err)
-		}
-		if err := s.transactionRepo.Update(ctx, transaction); err != nil {
-			return fmt.Errorf("failed to update transaction: %w", err)
-		}
-		if err := s.paymentRepo.Create(ctx, payment); err != nil {
-			return fmt.Errorf("failed to create payment record: %w", err)
-		}
-		if firstOrder != nil {
-			if err := s.firstOrderRepo.Create(ctx, firstOrder); err != nil {
-				return fmt.Errorf("failed to create first order record: %w", err)
-			}
-		}
-	}
-
 	walletAmount := order.Amount
 	if canGetBonus {
 		walletAmount += bonus
 	}
-	if err := s.addWalletBalance(ctx, order.UserID, order.Asset, walletAmount); err != nil {
-		return err
+
+	if s.db != nil {
+		return s.finalizeSuccessfulPaymentTx(ctx, order, transaction, payment, firstOrder, walletAmount)
 	}
 
-	return nil
+	if err := s.orderRepo.Update(ctx, order); err != nil {
+		return fmt.Errorf("failed to update order: %w", err)
+	}
+	if err := s.transactionRepo.Update(ctx, transaction); err != nil {
+		return fmt.Errorf("failed to update transaction: %w", err)
+	}
+	if err := s.paymentRepo.Create(ctx, payment); err != nil {
+		return fmt.Errorf("failed to create payment record: %w", err)
+	}
+	if firstOrder != nil {
+		if err := s.firstOrderRepo.Create(ctx, firstOrder); err != nil {
+			return fmt.Errorf("failed to create first order record: %w", err)
+		}
+	}
+	return s.addWalletBalance(ctx, order.UserID, order.Asset, walletAmount)
 }
 
-func (s *orderService) finalizeSuccessfulPaymentTx(ctx context.Context, order *models.Order, transaction *models.Transaction, payment *models.Payment, firstOrder *models.FirstOrder) error {
+func (s *orderService) finalizeSuccessfulPaymentTx(ctx context.Context, order *models.Order, transaction *models.Transaction, payment *models.Payment, firstOrder *models.FirstOrder, walletAmount float64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin payment transaction: %w", err)
@@ -316,7 +316,14 @@ func (s *orderService) finalizeSuccessfulPaymentTx(ctx context.Context, order *m
 		}
 	}
 
+	// Credit before commit. A wallet failure rolls the order back to pending
+	// so the bank callback can be retried without recording a paid order.
+	if err := s.addWalletBalance(ctx, order.UserID, order.Asset, walletAmount); err != nil {
+		return err
+	}
+
 	if err := tx.Commit(); err != nil {
+		logPaymentWarning("wallet credited for order %d but database commit failed: %v", order.ID, err)
 		return fmt.Errorf("failed to commit payment transaction: %w", err)
 	}
 
@@ -457,6 +464,7 @@ func (s *orderService) addWalletBalance(ctx context.Context, userID uint64, asse
 	}
 
 	if err := s.walletTopUp.AddBalance(ctx, userID, asset, amount); err != nil {
+		logPaymentWarning("wallet credit failed user_id=%d asset=%s amount=%v: %v", userID, asset, amount, err)
 		return fmt.Errorf("wallet AddBalance failed: %w", err)
 	}
 
