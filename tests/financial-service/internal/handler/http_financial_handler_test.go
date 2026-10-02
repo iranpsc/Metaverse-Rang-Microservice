@@ -138,6 +138,26 @@ func TestHTTPHandleCallback_Redirect(t *testing.T) {
 	}
 }
 
+func TestHTTPHandleCallback_RestoresPlusInToken(t *testing.T) {
+	order := &mockOrderAPI{}
+	order.HandleCallbackFunc = func(_ context.Context, req *financialpb.HandleCallbackRequest) (*financialpb.HandleCallbackResponse, error) {
+		if req.Token != "abc+def/ghi=" {
+			t.Fatalf("token=%q", req.Token)
+		}
+		return &financialpb.HandleCallbackResponse{RedirectUrl: "https://frontend/ok"}, nil
+	}
+	h := handler.NewHTTPFinancialHandler(order, &mockStoreAPI{})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/order/callback?order_id=99", strings.NewReader("Token=abc+def/ghi%3D&ResCode=0"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.HandleCallback(w, req)
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
 func TestHTTPHandleCallback_MissingOrderID(t *testing.T) {
 	h := handler.NewHTTPFinancialHandler(&mockOrderAPI{}, &mockStoreAPI{})
 	req := httptest.NewRequest(http.MethodGet, "/api/order/callback", nil)

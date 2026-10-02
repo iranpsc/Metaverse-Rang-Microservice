@@ -157,6 +157,16 @@ func (h *HTTPFinancialHandler) CreateOrder(w http.ResponseWriter, r *http.Reques
 	}, true)
 }
 
+// sadadCallbackToken restores "+" that form decoding turned into spaces.
+// Sadad tokens are Base64, so a space never belongs in the token sent to Verify.
+func sadadCallbackToken(r *http.Request) string {
+	token := r.FormValue("Token")
+	if token == "" {
+		token = r.FormValue("token")
+	}
+	return strings.ReplaceAll(strings.TrimSpace(token), " ", "+")
+}
+
 // HandleCallback handles GET|POST /api/order/callback and /api/payment/callback
 func (h *HTTPFinancialHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodGet {
@@ -187,10 +197,7 @@ func (h *HTTPFinancialHandler) HandleCallback(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	token := r.FormValue("Token")
-	if token == "" {
-		token = r.FormValue("token")
-	}
+	token := sadadCallbackToken(r)
 
 	resCode := r.FormValue("ResCode")
 	if resCode == "" {
