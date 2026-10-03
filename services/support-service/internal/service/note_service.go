@@ -88,10 +88,18 @@ func (s *noteService) UpdateNote(ctx context.Context, noteID, userID uint64, tit
 	note.Title = title
 	note.Content = content
 	if replaceAttachments {
-		if err := validateNoteAttachmentLimit(attachments); err != nil {
-			return nil, err
+		switch {
+		case attachments == nil:
+			// Leave stored attachments unchanged.
+		case len(attachments) == 0:
+			note.Attachments = []string{}
+		default:
+			merged, mergeErr := MergeNoteAttachments(note.Attachments, attachments)
+			if mergeErr != nil {
+				return nil, mergeErr
+			}
+			note.Attachments = merged
 		}
-		note.Attachments = attachments
 	}
 
 	err = s.noteRepo.Update(ctx, note)
@@ -108,23 +116,8 @@ func (s *noteService) AddNoteAttachments(ctx context.Context, noteID, userID uin
 		return nil, err
 	}
 
-	merged := append([]string{}, note.Attachments...)
-	seen := make(map[string]struct{}, len(merged))
-	for _, existing := range merged {
-		seen[existing] = struct{}{}
-	}
-	for _, attachment := range attachments {
-		attachment = strings.TrimSpace(attachment)
-		if attachment == "" {
-			continue
-		}
-		if _, ok := seen[attachment]; ok {
-			continue
-		}
-		merged = append(merged, attachment)
-		seen[attachment] = struct{}{}
-	}
-	if err := validateNoteAttachmentLimit(merged); err != nil {
+	merged, err := MergeNoteAttachments(note.Attachments, attachments)
+	if err != nil {
 		return nil, err
 	}
 
@@ -164,6 +157,31 @@ func (s *noteService) DeleteNoteAttachment(ctx context.Context, noteID, userID u
 		return nil, fmt.Errorf("failed to update note: %w", err)
 	}
 	return s.noteRepo.GetByID(ctx, noteID)
+}
+
+// MergeNoteAttachments appends new attachment URLs onto the ones already stored.
+// Duplicate and blank values are skipped. The combined list cannot exceed 5 items.
+func MergeNoteAttachments(existing, additional []string) ([]string, error) {
+	merged := append([]string{}, existing...)
+	seen := make(map[string]struct{}, len(merged)+len(additional))
+	for _, item := range merged {
+		seen[item] = struct{}{}
+	}
+	for _, attachment := range additional {
+		attachment = strings.TrimSpace(attachment)
+		if attachment == "" {
+			continue
+		}
+		if _, ok := seen[attachment]; ok {
+			continue
+		}
+		merged = append(merged, attachment)
+		seen[attachment] = struct{}{}
+	}
+	if err := validateNoteAttachmentLimit(merged); err != nil {
+		return nil, err
+	}
+	return merged, nil
 }
 
 func validateNoteAttachmentLimit(attachments []string) error {

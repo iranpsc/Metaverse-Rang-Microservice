@@ -42,6 +42,51 @@ func TestNoteService_CreateNote_StoresUpToFiveAttachments(t *testing.T) {
 	}
 }
 
+func TestNoteService_UpdateNote_AppendsUntilFive(t *testing.T) {
+	note := &models.Note{ID: 3, UserID: 9, Title: "t", Content: "c", Attachments: []string{"1.pdf", "2.docx", "3.jpg"}}
+	updated := 0
+	repo := &testutil.MockNoteRepo{
+		CheckUserOwnershipFunc: func(ctx context.Context, noteID, userID uint64) (bool, error) {
+			return true, nil
+		},
+		GetByIDFunc: func(ctx context.Context, noteID uint64) (*models.Note, error) {
+			cp := *note
+			cp.Attachments = append([]string{}, note.Attachments...)
+			return &cp, nil
+		},
+		UpdateFunc: func(ctx context.Context, n *models.Note) error {
+			updated++
+			note.Attachments = append([]string{}, n.Attachments...)
+			note.Title = n.Title
+			note.Content = n.Content
+			return nil
+		},
+	}
+	svc := service.NewNoteService(repo)
+	got, err := svc.UpdateNote(context.Background(), 3, 9, "t2", "c2", []string{"4.jpeg", "5.png"}, true)
+	if err != nil || len(got.Attachments) != 5 || got.Attachments[3] != "4.jpeg" || got.Attachments[4] != "5.png" {
+		t.Fatalf("got=%v err=%v", got, err)
+	}
+
+	_, err = svc.UpdateNote(context.Background(), 3, 9, "t2", "c2", []string{"6.pdf"}, true)
+	if err == nil || !strings.Contains(err.Error(), "more than 5") {
+		t.Fatalf("err=%v", err)
+	}
+	if updated != 1 || len(note.Attachments) != 5 {
+		t.Fatalf("updated=%d attachments=%v", updated, note.Attachments)
+	}
+
+	got, err = svc.UpdateNote(context.Background(), 3, 9, "kept", "c2", nil, true)
+	if err != nil || len(got.Attachments) != 5 || got.Title != "kept" {
+		t.Fatalf("keep got=%v err=%v", got, err)
+	}
+
+	got, err = svc.UpdateNote(context.Background(), 3, 9, "cleared", "c2", []string{}, true)
+	if err != nil || len(got.Attachments) != 0 {
+		t.Fatalf("clear got=%v err=%v", got, err)
+	}
+}
+
 func TestNoteService_AddNoteAttachments_AppendsAndSkipsDuplicates(t *testing.T) {
 	note := &models.Note{ID: 3, UserID: 9, Title: "t", Content: "c", Attachments: []string{"http://a.pdf"}}
 	repo := &testutil.MockNoteRepo{

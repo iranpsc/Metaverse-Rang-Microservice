@@ -265,7 +265,7 @@ message UpdateNoteRequest {
   uint64 user_id = 2;
   string title = 3;
   string content = 4;
-  repeated string attachments = 5; // replaces full list when non-empty
+  repeated string attachments = 5; // appended to the existing list; empty clears all attachments
 }
 
 message GetNotesRequest {

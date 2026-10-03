@@ -239,6 +239,57 @@ func TestHTTP_CreateNoteJSONAttachments(t *testing.T) {
 	}
 }
 
+func multipartNoteUpdateRequest(t *testing.T, field string, names ...string) *http.Request {
+	t.Helper()
+	req := multipartNoteCreateRequest(t, field, names...)
+	req.URL.Path = "/api/notes/4"
+	req.Method = http.MethodPut
+	return req
+}
+
+func TestHTTP_UpdateNoteAppendsFilesUntilFive(t *testing.T) {
+	existing := []string{"http://1.pdf", "http://2.docx", "http://3.jpg"}
+	var got []string
+	updated := 0
+	notes := &mockNoteAPI{
+		GetNoteFunc: func(context.Context, *pbSupport.GetNoteRequest) (*pbSupport.NoteResponse, error) {
+			return &pbSupport.NoteResponse{Id: 4, Title: "T", Content: "C", Attachments: append([]string{}, existing...)}, nil
+		},
+		UpdateNoteFunc: func(_ context.Context, req *pbSupport.UpdateNoteRequest) (*pbSupport.NoteResponse, error) {
+			updated++
+			got = append([]string{}, req.Attachments...)
+			return &pbSupport.NoteResponse{Id: 4, Title: req.Title, Content: req.Content, Attachments: req.Attachments}, nil
+		},
+	}
+	storage := &stubFileStorage{}
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, storage, "http://app")
+	mux := newSupportMux(h, withUser(7))
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, multipartNoteUpdateRequest(t, "attachments[]", "4.jpeg", "5.png"))
+	if rr.Code != http.StatusOK || updated != 1 || len(got) != 2 || storage.calls != 2 {
+		t.Fatalf("code=%d updated=%d attachments=%v calls=%d body=%s", rr.Code, updated, got, storage.calls, rr.Body.String())
+	}
+
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, multipartNoteUpdateRequest(t, "attachment", "6.pdf", "7.docx", "8.jpg"))
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "more than 5") || updated != 1 {
+		t.Fatalf("code=%d updated=%d body=%s", rr.Code, updated, rr.Body.String())
+	}
+
+	body := `{"title":"T2","content":"C2","attachments":["http://4.jpeg","http://5.png"]}`
+	rr = doJSON(mux, http.MethodPut, "/api/notes/4", body)
+	if rr.Code != http.StatusOK || len(got) != 2 || got[0] != "http://4.jpeg" || got[1] != "http://5.png" {
+		t.Fatalf("json code=%d attachments=%v body=%s", rr.Code, got, rr.Body.String())
+	}
+
+	tooMany := `{"title":"T2","content":"C2","attachments":["http://6.pdf","http://7.docx","http://8.jpg"]}`
+	rr = doJSON(mux, http.MethodPut, "/api/notes/4", tooMany)
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "more than 5") {
+		t.Fatalf("json limit code=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestHTTP_NoteAttachmentAddAndDelete(t *testing.T) {
 	notes := &mockNoteAPI{
 		AddNoteAttachmentsFunc: func(_ context.Context, noteID, userID uint64, attachments []string) (*pbSupport.NoteResponse, error) {

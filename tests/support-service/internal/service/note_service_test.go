@@ -106,9 +106,12 @@ func TestNoteService_UpdateDelete(t *testing.T) {
 		},
 	}
 	svc := service.NewNoteService(repo)
-	_, err := svc.UpdateNote(context.Background(), 1, 2, "n", "nc", []string{"u2"}, true)
+	got, err := svc.UpdateNote(context.Background(), 1, 2, "n", "nc", []string{"u2"}, true)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(got.Attachments) != 2 || got.Attachments[0] != "u1" || got.Attachments[1] != "u2" {
+		t.Fatalf("attachments=%v", got.Attachments)
 	}
 	if err := svc.DeleteNote(context.Background(), 1, 2); err != nil {
 		t.Fatal(err)

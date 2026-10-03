@@ -14,6 +14,7 @@ import (
 	"metarang/shared/pkg/sentry"
 	"metarang/support-service/internal/middleware"
 	"metarang/support-service/internal/models"
+	"metarang/support-service/internal/service"
 
 	pbCommon "metarang/shared/pb/common"
 	pbSupport "metarang/shared/pb/support"
@@ -1055,40 +1056,18 @@ func (h *HTTPSupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	attachment := ""
-	updateAttachment := false
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") {
-		url, clear, attachErr := resolveNoteAttachmentURL(r, h.storage, h.appURL)
-		if attachErr != nil {
-			writeError(w, http.StatusBadRequest, attachErr.Error())
+	added, clearAttachments, bodyTitle, bodyContent, isJSON, err := h.prepareNoteUpdateAttachments(r, noteID, userID)
+	if err != nil {
+		if _, ok := status.FromError(err); ok {
+			writeHandlerError(w, err)
 			return
 		}
-		if clear {
-			attachment = ""
-			updateAttachment = true
-		} else if url != "" {
-			attachment = url
-			updateAttachment = true
-		}
-	} else {
-		var req struct {
-			Title      string `json:"title"`
-			Content    string `json:"content"`
-			Attachment string `json:"attachment"`
-		}
-		if err := decodeJSONBody(r, &req); err != nil {
-			if err == io.EOF {
-				writeError(w, http.StatusBadRequest, "request body is required")
-			} else {
-				writeError(w, http.StatusBadRequest, "invalid request body")
-			}
-			return
-		}
-		title = req.Title
-		content = req.Content
-		attachment = req.Attachment
-		updateAttachment = true
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if isJSON {
+		title = bodyTitle
+		content = bodyContent
 	}
 
 	grpcReq := &pbSupport.UpdateNoteRequest{
@@ -1097,13 +1076,9 @@ func (h *HTTPSupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) 
 		Title:   title,
 		Content: content,
 	}
-	if updateAttachment {
-		if attachment != "" {
-			grpcReq.Attachments = []string{attachment}
-		} else {
-			grpcReq.Attachments = []string{}
-		}
-	} else {
+	if clearAttachments {
+		grpcReq.Attachments = []string{}
+	} else if len(added) == 0 {
 		existing, getErr := h.notes.GetNote(r.Context(), &pbSupport.GetNoteRequest{
 			NoteId: noteID,
 			UserId: userID,
@@ -1113,6 +1088,9 @@ func (h *HTTPSupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		grpcReq.Attachments = existing.Attachments
+	} else {
+		// UpdateNote appends these URLs onto the attachments already stored.
+		grpcReq.Attachments = added
 	}
 
 	resp, err := h.notes.UpdateNote(r.Context(), grpcReq)
@@ -1222,6 +1200,83 @@ func noteIDFromRequest(w http.ResponseWriter, r *http.Request) (uint64, bool) {
 		return 0, false
 	}
 	return noteID, true
+}
+
+// prepareNoteUpdateAttachments reads files or URLs added during a note edit.
+// New files are rejected before upload when they would push the note past 5 attachments.
+// An empty attachments[] multipart value with no files clears every attachment.
+func (h *HTTPSupportHandler) prepareNoteUpdateAttachments(r *http.Request, noteID, userID uint64) (added []string, clear bool, title, content string, isJSON bool, err error) {
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		headers := collectAttachmentFileHeaders(r)
+		if len(headers) == 0 && noteAttachmentsCleared(r) {
+			return nil, true, "", "", false, nil
+		}
+		if len(headers) == 0 {
+			return nil, false, "", "", false, nil
+		}
+		existing, getErr := h.notes.GetNote(r.Context(), &pbSupport.GetNoteRequest{
+			NoteId: noteID,
+			UserId: userID,
+		})
+		if getErr != nil {
+			return nil, false, "", "", false, getErr
+		}
+		if len(existing.Attachments)+len(headers) > maxNoteAttachmentCount {
+			return nil, false, "", "", false, fmt.Errorf("attachments must not have more than 5 items")
+		}
+		urls, uploadErr := uploadNoteAttachmentFiles(r, h.storage, h.appURL)
+		if uploadErr != nil {
+			return nil, false, "", "", false, uploadErr
+		}
+		return urls, false, "", "", false, nil
+	}
+
+	var req struct {
+		Title       string   `json:"title"`
+		Content     string   `json:"content"`
+		Attachment  string   `json:"attachment"`
+		Attachments []string `json:"attachments"`
+	}
+	if decodeErr := decodeJSONBody(r, &req); decodeErr != nil {
+		if decodeErr == io.EOF {
+			return nil, false, "", "", true, fmt.Errorf("request body is required")
+		}
+		return nil, false, "", "", true, fmt.Errorf("invalid request body")
+	}
+	urls, mergeErr := mergeNoteAttachmentURLs(req.Attachment, req.Attachments)
+	if mergeErr != nil {
+		return nil, false, "", "", true, mergeErr
+	}
+	if len(urls) > 0 {
+		existing, getErr := h.notes.GetNote(r.Context(), &pbSupport.GetNoteRequest{
+			NoteId: noteID,
+			UserId: userID,
+		})
+		if getErr != nil {
+			return nil, false, "", "", true, getErr
+		}
+		if _, countErr := service.MergeNoteAttachments(existing.Attachments, urls); countErr != nil {
+			return nil, false, "", "", true, countErr
+		}
+	}
+	return urls, false, req.Title, req.Content, true, nil
+}
+
+func noteAttachmentsCleared(r *http.Request) bool {
+	if r == nil || r.MultipartForm == nil {
+		return false
+	}
+	values, ok := r.MultipartForm.Value["attachments[]"]
+	if !ok || len(values) == 0 {
+		return false
+	}
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *HTTPSupportHandler) readNoteAttachmentURLs(r *http.Request) ([]string, error) {
