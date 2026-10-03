@@ -179,21 +179,17 @@ func (h *HTTPFinancialHandler) HandleCallback(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	orderIDStr := r.URL.Query().Get("order_id")
+	// OrderId comes only from the IPG POST body. Query-string order_id is ignored
+	// so a tampered ReturnUrl cannot select a different order.
+	orderIDStr := r.PostFormValue("OrderId")
 	if orderIDStr == "" {
-		orderIDStr = r.FormValue("order_id")
-	}
-	if orderIDStr == "" {
-		orderIDStr = r.FormValue("OrderId")
-	}
-	if orderIDStr == "" {
-		writeError(w, http.StatusBadRequest, "order_id is required")
+		writeError(w, http.StatusBadRequest, "OrderId is required")
 		return
 	}
 
 	orderID, err := strconv.ParseUint(orderIDStr, 10, 64)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid order_id")
+		writeError(w, http.StatusBadRequest, "invalid OrderId")
 		return
 	}
 

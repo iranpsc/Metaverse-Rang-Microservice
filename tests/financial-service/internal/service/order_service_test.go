@@ -374,6 +374,9 @@ func TestOrderService_CreateOrder(t *testing.T) {
 				if !strings.Contains(sadadClient.lastRequest.ReturnURL, "/api/order/callback") {
 					t.Errorf("expected Sadad ReturnURL to use API callback, got %q", sadadClient.lastRequest.ReturnURL)
 				}
+				if strings.Contains(sadadClient.lastRequest.ReturnURL, "order_id=") {
+					t.Errorf("Sadad ReturnURL must not carry order_id, got %q", sadadClient.lastRequest.ReturnURL)
+				}
 				if strings.Contains(sadadClient.lastRequest.ReturnURL, "/payment/verify") {
 					t.Errorf("Sadad ReturnURL must not point to frontend verify page, got %q", sadadClient.lastRequest.ReturnURL)
 				}
