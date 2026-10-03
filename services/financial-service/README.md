@@ -6,7 +6,7 @@ A Go microservice that handles order creation, Sadad (Bank Melli) payment gatewa
 
 ### 1. Order Service
 - Create orders for purchasing virtual assets (psc, irr, red, blue, yellow)
-- Integration with Sadad payment gateway (BankTest sandbox supported)
+- Integration with Sadad payment gateway
 - Handle payment callbacks and verification
 - First order bonus system (50% bonus for first-time buyers)
 - Referral commission processing (via commercial-service integration)
@@ -96,7 +96,7 @@ SADAD_CALLBACK_URL=${PROJECT_URL}/api/order/callback
 FRONTEND_URL=http://localhost:5173
 ```
 
-See `config.env.sample` for Sadad sandbox, IBAN/multiplexing, and inter-service addresses.
+See `config.env.sample` for Sadad IBAN/multiplexing and inter-service addresses.
 
 ## Setup
 

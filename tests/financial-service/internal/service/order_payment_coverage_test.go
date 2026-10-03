@@ -68,21 +68,6 @@ func seedCallbackOrder(t *testing.T, asset string, amount float64, token int64) 
 func TestCreateOrder_additionalBranches(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("sandbox omits multiplexing", func(t *testing.T) {
-		sadadClient := &mockSadadClient{requestResponse: &sadad.RequestResponse{ResCode: "0", Token: "99"}}
-		cfg := defaultOrderConfig()
-		cfg.SadadSandbox = true
-		svc := service.NewOrderService(nil, &mockOrderRepo{}, &mockTransactionRepo{}, &mockPaymentRepo{},
-			&mockVariableRepo{rates: map[string]float64{"psc": 1000}}, &mockFirstOrderRepo{},
-			sadadClient, &mockOrderPolicy{canBuy: true}, &mockJalaliConverter{}, nil, nil, nil, cfg)
-		if _, err := svc.CreateOrder(ctx, 1, 5, "psc"); err != nil {
-			t.Fatal(err)
-		}
-		if sadadClient.lastRequest.MultiplexingData != nil {
-			t.Fatal("sandbox should omit multiplexing")
-		}
-	})
-
 	t.Run("irr multiplexing amount to rial iban", func(t *testing.T) {
 		sadadClient := &mockSadadClient{requestResponse: &sadad.RequestResponse{ResCode: "0", Token: "99"}}
 		svc := service.NewOrderService(nil, &mockOrderRepo{}, &mockTransactionRepo{}, &mockPaymentRepo{},

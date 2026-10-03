@@ -5,7 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"metarang/financial-service/internal/constants"
 	"metarang/financial-service/internal/repository"
+)
+
+const (
+	adultAgeYears = 18
+	// hoursPerYear matches the existing age check (365.25 days, including leap years).
+	hoursPerYear = 365.25 * 24
 )
 
 type OrderPolicy interface {
@@ -25,20 +32,14 @@ func NewOrderPolicy(eligibilityRepo repository.EligibilityRepository, firstOrder
 	}
 }
 
-// CanBuyFromStore checks if user can buy from store
-// Rule: Blocks users under 18 unless permissions are verified and BFR flag is set; adults pass automatically
+// CanBuyFromStore blocks buyers under 18 unless child permissions are verified and the BFR flag is set.
+// A missing birthdate is treated as an adult.
 func (p *orderPolicy) CanBuyFromStore(ctx context.Context, userID uint64) (bool, error) {
 	birthdate, err := p.eligibilityRepo.GetUserBirthdate(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("failed to check user age: %w", err)
 	}
-
-	if birthdate == nil {
-		return true, nil
-	}
-
-	age := time.Since(*birthdate).Hours() / (365.25 * 24)
-	if age >= 18 {
+	if birthdate == nil || ageInYears(*birthdate) >= adultAgeYears {
 		return true, nil
 	}
 
@@ -46,18 +47,16 @@ func (p *orderPolicy) CanBuyFromStore(ctx context.Context, userID uint64) (bool,
 	if err != nil {
 		return false, fmt.Errorf("failed to check permissions: %w", err)
 	}
-
-	if found && verified && bfr {
-		return true, nil
-	}
-
-	return false, nil
+	return found && verified && bfr, nil
 }
 
-// CanGetBonus checks if user can get first order bonus
-// Rule: Returns true only when user has never logged a firstOrder record and asset is not 'irr'
+func ageInYears(birthdate time.Time) float64 {
+	return time.Since(birthdate).Hours() / hoursPerYear
+}
+
+// CanGetBonus is true only when the user has no first-order record and the asset is not IRR.
 func (p *orderPolicy) CanGetBonus(ctx context.Context, userID uint64, asset string) (bool, error) {
-	if asset == "irr" {
+	if asset == constants.AssetIRR {
 		return false, nil
 	}
 

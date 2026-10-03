@@ -74,7 +74,6 @@ type OrderConfig struct {
 	SadadPaymentIdentityNonRial string // IBAN / settlement identity for non-IRR assets
 	SadadCallbackURL            string
 	FrontendURL                 string
-	SadadSandbox                bool // BankTest sandbox omits MultiplexingData
 }
 
 func NewOrderService(
@@ -153,7 +152,7 @@ func (s *orderService) cleanupPendingOrder(ctx context.Context, orderID uint64, 
 }
 
 func validateCreateOrderInput(amount int32, asset string) error {
-	if amount < 1 {
+	if amount < constants.MinOrderAmount {
 		return ErrInvalidAmount
 	}
 
@@ -204,7 +203,7 @@ func (s *orderService) createDepositTransaction(ctx context.Context, order *mode
 		Asset:       asset,
 		Amount:      float64(amount),
 		Action:      constants.TransactionActionDeposit,
-		Status:      1,
+		Status:      constants.TransactionStatusPending,
 		PayableType: &payableType,
 		PayableID:   &order.ID,
 	}

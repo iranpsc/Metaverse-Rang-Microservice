@@ -18,12 +18,6 @@ func TestNewClientConstructors(t *testing.T) {
 	if sadad.NewClient() == nil {
 		t.Fatal("NewClient")
 	}
-	if sadad.NewClientWithSandbox(true) == nil {
-		t.Fatal("sandbox client")
-	}
-	if sadad.NewClientWithSandbox(false) == nil {
-		t.Fatal("production client")
-	}
 }
 
 func TestRequestPaymentValidationAndErrors(t *testing.T) {
@@ -31,7 +25,6 @@ func TestRequestPaymentValidationAndErrors(t *testing.T) {
 		PaymentRequestURL: "http://127.0.0.1:1",
 		VerifyURL:         "http://127.0.0.1:1",
 		GatewayURL:        "https://gw",
-		Multiplexed:       true,
 	})
 
 	t.Run("nil multiplexing", func(t *testing.T) {
@@ -163,7 +156,6 @@ func TestRequestPaymentHTTPFailures(t *testing.T) {
 			PaymentRequestURL: server.URL + path,
 			VerifyURL:         server.URL + path,
 			GatewayURL:        "https://gw",
-			Multiplexed:       true,
 		})
 		resp, err := c.RequestPayment(params)
 		if err != nil {
@@ -192,7 +184,6 @@ func TestRequestPaymentHTTPFailures(t *testing.T) {
 		PaymentRequestURL: server.URL + "/codes",
 		VerifyURL:         server.URL + "/codes",
 		GatewayURL:        "https://gw.example/purchase",
-		Multiplexed:       true,
 	})
 	resp, err := c.RequestPayment(params)
 	if err != nil {

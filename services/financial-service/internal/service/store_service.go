@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"metarang/financial-service/internal/constants"
+	"metarang/financial-service/internal/models"
 	"metarang/financial-service/internal/repository"
 )
 
@@ -46,14 +47,8 @@ func NewStoreService(
 }
 
 func (s *storeService) GetStorePackages(ctx context.Context, codes []string) ([]*PackageResource, error) {
-	if len(codes) < constants.MinStoreCodes {
-		return nil, ErrInvalidCodes
-	}
-
-	for _, code := range codes {
-		if len(code) < constants.MinStoreCodeLength {
-			return nil, ErrInvalidCodeLength
-		}
+	if err := validateStoreCodes(codes); err != nil {
+		return nil, err
 	}
 
 	options, err := s.optionRepo.FindByCodes(ctx, codes)
@@ -63,28 +58,47 @@ func (s *storeService) GetStorePackages(ctx context.Context, codes []string) ([]
 
 	packages := make([]*PackageResource, 0, len(options))
 	for _, option := range options {
-		rate, err := s.variableRepo.GetRate(ctx, option.Asset)
-		if err != nil {
-			rate = 0
-		}
-
-		var imageURL *string
-		url, err := s.imageRepo.FindImageURLByImageable(ctx, constants.OptionPayableType, option.ID)
-		if err == nil && url != "" {
-			imageURL = &url
-		}
-
-		packageResource := &PackageResource{
-			ID:        option.ID,
-			Code:      option.Code,
-			Asset:     option.Asset,
-			Amount:    option.Amount,
-			UnitPrice: rate,
-			Image:     imageURL,
-		}
-
-		packages = append(packages, packageResource)
+		packages = append(packages, s.packageResource(ctx, option))
 	}
-
 	return packages, nil
+}
+
+func validateStoreCodes(codes []string) error {
+	if len(codes) < constants.MinStoreCodes {
+		return ErrInvalidCodes
+	}
+	for _, code := range codes {
+		if len(code) < constants.MinStoreCodeLength {
+			return ErrInvalidCodeLength
+		}
+	}
+	return nil
+}
+
+func (s *storeService) packageResource(ctx context.Context, option *models.Option) *PackageResource {
+	return &PackageResource{
+		ID:        option.ID,
+		Code:      option.Code,
+		Asset:     option.Asset,
+		Amount:    option.Amount,
+		UnitPrice: s.unitPrice(ctx, option.Asset),
+		Image:     s.packageImage(ctx, option.ID),
+	}
+}
+
+// unitPrice returns zero when the rate cannot be loaded so one missing rate does not drop the package list.
+func (s *storeService) unitPrice(ctx context.Context, asset string) float64 {
+	rate, err := s.variableRepo.GetRate(ctx, asset)
+	if err != nil {
+		return 0
+	}
+	return rate
+}
+
+func (s *storeService) packageImage(ctx context.Context, optionID uint64) *string {
+	imageURL, err := s.imageRepo.FindImageURLByImageable(ctx, constants.OptionPayableType, optionID)
+	if err != nil || imageURL == "" {
+		return nil
+	}
+	return &imageURL
 }

@@ -27,7 +27,6 @@ var tehranLocation = func() *time.Location {
 const sadadHost = "https://sadad.shaparak.ir"
 
 // Production URLs match Sadad VPG Help v1.10 (no /VPG prefix).
-// BankTest sandbox still uses /VPG/ paths.
 const (
 	productionVerifyURL         = sadadHost + "/api/v0/Advice/Verify"
 	productionGatewayURL        = sadadHost + "/Purchase"
@@ -42,20 +41,11 @@ const (
 	sadadVerifyAttempts = 2
 )
 
-const banktestSandboxHost = "https://sandbox.banktest.ir/melli/sadad.shaparak.ir"
-
-const (
-	sandboxPaymentRequestURL = banktestSandboxHost + "/VPG/api/v0/Request/PaymentRequest"
-	sandboxVerifyURL         = banktestSandboxHost + "/VPG/api/v0/Advice/Verify"
-	sandboxGatewayURL        = banktestSandboxHost + "/VPG/Purchase"
-)
-
-// Endpoints holds Sadad API URLs for a given environment.
+// Endpoints holds Sadad API URLs.
 type Endpoints struct {
 	PaymentRequestURL string
 	VerifyURL         string
 	GatewayURL        string
-	Multiplexed       bool // production sends MultiplexingData; BankTest sandbox omits it
 }
 
 // ProductionEndpoints are the live Sadad (Bank Melli) IPG URLs.
@@ -63,15 +53,6 @@ var ProductionEndpoints = Endpoints{
 	PaymentRequestURL: productionPaymentRequestURL,
 	VerifyURL:         productionVerifyURL,
 	GatewayURL:        productionGatewayURL,
-	Multiplexed:       true,
-}
-
-// SandboxEndpoints are the BankTest URLs (https://banktest.ir) for local/dev testing.
-var SandboxEndpoints = Endpoints{
-	PaymentRequestURL: sandboxPaymentRequestURL,
-	VerifyURL:         sandboxVerifyURL,
-	GatewayURL:        sandboxGatewayURL,
-	Multiplexed:       false,
 }
 
 // Client handles Sadad payment gateway operations (Bank Melli).
@@ -82,17 +63,7 @@ type Client struct {
 
 // NewClient creates a Sadad client using production endpoints.
 func NewClient() *Client {
-	return NewClientWithSandbox(false)
-}
-
-// NewClientWithSandbox creates a Sadad client. When sandbox is true, requests are sent to
-// BankTest (https://sandbox.banktest.ir/melli/...) instead of the live Sadad gateway.
-func NewClientWithSandbox(sandbox bool) *Client {
-	endpoints := ProductionEndpoints
-	if sandbox {
-		endpoints = SandboxEndpoints
-	}
-	return NewClientWithEndpoints(endpoints)
+	return NewClientWithEndpoints(ProductionEndpoints)
 }
 
 // NewClientWithEndpoints creates a client with custom API URLs (mainly for tests).
@@ -160,8 +131,13 @@ func ibanNumberJSON(ibanNumber string) (any, error) {
 	return index, nil
 }
 
+const (
+	MultiplexingTypePercentage = "Percentage"
+	MultiplexingTypeAmount     = "Amount"
+)
+
 // MultiplexingData routes settlement across IBANs (percentage or amount split).
-// Official Type values: "Percentage" | "Amount".
+// Type is MultiplexingTypePercentage or MultiplexingTypeAmount.
 type MultiplexingData struct {
 	Type             string            `json:"Type"`
 	MultiplexingRows []MultiplexingRow `json:"MultiplexingRows"`
@@ -176,7 +152,7 @@ type RequestParams struct {
 	Amount           int64 // Rials
 	ReturnURL        string
 	LocalDateTime    string            // if empty, current Tehran datetime is used
-	MultiplexingData *MultiplexingData // percentage split across settlement IBANs; required in production
+	MultiplexingData *MultiplexingData // percentage or amount split across settlement IBANs
 }
 
 // RequestResponse is the response from Sadad payment request.
@@ -217,16 +193,6 @@ type multiplexedPaymentRequestBody struct {
 	MultiplexingData MultiplexingData `json:"MultiplexingData"`
 }
 
-type paymentRequestBody struct {
-	TerminalID    string `json:"TerminalId"`
-	MerchantID    string `json:"MerchantId"`
-	Amount        int64  `json:"Amount"`
-	OrderID       int64  `json:"OrderId"`
-	LocalDateTime string `json:"LocalDateTime"`
-	ReturnURL     string `json:"ReturnUrl"`
-	SignData      string `json:"SignData"`
-}
-
 type paymentRequestAPIResponse struct {
 	ResCode     json.RawMessage `json:"ResCode"`
 	Token       string          `json:"Token"`
@@ -251,15 +217,13 @@ type verifyAPIResponse struct {
 }
 
 // RequestPayment initiates a payment request and returns a token.
-// Production sends MultiplexingData; BankTest sandbox uses a plain PaymentRequest.
+// Every request includes MultiplexingData for settlement routing.
 func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) {
-	if c.endpoints.Multiplexed {
-		if params.MultiplexingData == nil {
-			return nil, fmt.Errorf("multiplexing data is required for multiplexed payments")
-		}
-		if err := validateMultiplexingData(params.MultiplexingData); err != nil {
-			return nil, err
-		}
+	if params.MultiplexingData == nil {
+		return nil, fmt.Errorf("multiplexing data is required for multiplexed payments")
+	}
+	if err := validateMultiplexingData(params.MultiplexingData); err != nil {
+		return nil, err
 	}
 
 	signedPayload, err := generateSignData(
@@ -274,29 +238,16 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 	if localDateTime == "" {
 		localDateTime = sadadLocalDateTime()
 	}
-	var payload []byte
-	if c.endpoints.Multiplexed {
-		payload, err = json.Marshal(multiplexedPaymentRequestBody{
-			TerminalID:       params.TerminalID,
-			MerchantID:       params.MerchantID,
-			Amount:           params.Amount,
-			OrderID:          params.OrderID,
-			LocalDateTime:    localDateTime,
-			ReturnURL:        params.ReturnURL,
-			SignData:         signedPayload,
-			MultiplexingData: *params.MultiplexingData,
-		})
-	} else {
-		payload, err = json.Marshal(paymentRequestBody{
-			TerminalID:    params.TerminalID,
-			MerchantID:    params.MerchantID,
-			Amount:        params.Amount,
-			OrderID:       params.OrderID,
-			LocalDateTime: localDateTime,
-			ReturnURL:     params.ReturnURL,
-			SignData:      signedPayload,
-		})
-	}
+	payload, err := json.Marshal(multiplexedPaymentRequestBody{
+		TerminalID:       params.TerminalID,
+		MerchantID:       params.MerchantID,
+		Amount:           params.Amount,
+		OrderID:          params.OrderID,
+		LocalDateTime:    localDateTime,
+		ReturnURL:        params.ReturnURL,
+		SignData:         signedPayload,
+		MultiplexingData: *params.MultiplexingData,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
@@ -373,7 +324,7 @@ func (c *Client) postJSON(endpoint string, payload []byte, attempts int, sendFai
 		attempts = 1
 	}
 
-	var lastErr error
+	var lastConnectErr error
 	for attempt := 1; attempt <= attempts; attempt++ {
 		req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(payload))
 		if err != nil {
@@ -383,11 +334,8 @@ func (c *Client) postJSON(endpoint string, payload []byte, attempts int, sendFai
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			lastErr = err
-			if attempt < attempts {
-				continue
-			}
-			return nil, fmt.Errorf("%s: %w", sendFailure, err)
+			lastConnectErr = err
+			continue
 		}
 
 		respBody, readErr := io.ReadAll(resp.Body)
@@ -398,7 +346,7 @@ func (c *Client) postJSON(endpoint string, payload []byte, attempts int, sendFai
 		return respBody, nil
 	}
 
-	return nil, fmt.Errorf("%s: %w", sendFailure, lastErr)
+	return nil, fmt.Errorf("%s: %w", sendFailure, lastConnectErr)
 }
 
 func setSadadHeaders(req *http.Request) {
@@ -526,7 +474,7 @@ func isSuccessResCode(code string) bool {
 
 func validateMultiplexingData(data *MultiplexingData) error {
 	switch data.Type {
-	case "Percentage", "Amount":
+	case MultiplexingTypePercentage, MultiplexingTypeAmount:
 	case "":
 		return fmt.Errorf("multiplexing type is required")
 	default:
@@ -546,7 +494,7 @@ func validateMultiplexingData(data *MultiplexingData) error {
 		}
 		sum += row.Value
 	}
-	if data.Type == "Percentage" && sum != 100 {
+	if data.Type == MultiplexingTypePercentage && sum != 100 {
 		return fmt.Errorf("percentage multiplexing rows must sum to 100, got %d", sum)
 	}
 	return nil

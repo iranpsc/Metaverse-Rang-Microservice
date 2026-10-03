@@ -35,7 +35,7 @@ func RegisterOrderHandler(grpcServer *grpc.Server, orderService service.OrderSer
 func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*pb.CreateOrderResponse, error) {
 	locale := GetLocaleFromContext(ctx)
 	validationErrors := mergeValidationErrors(
-		validateMin("amount", int64(req.Amount), 1, locale),
+		validateMin("amount", int64(req.Amount), int64(constants.MinOrderAmount), locale),
 		validateRequired("asset", req.Asset, locale),
 		validateOneOf("asset", req.Asset, constants.ValidOrderAssets, locale),
 	)
@@ -43,10 +43,8 @@ func (h *OrderHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderReque
 		return nil, returnValidationError(validationErrors)
 	}
 
-	// Call service
 	link, err := h.orderService.CreateOrder(ctx, req.UserId, req.Amount, req.Asset)
 	if err != nil {
-		// Map service errors to gRPC status codes
 		if errors.Is(err, service.ErrInvalidAmount) || errors.Is(err, service.ErrInvalidAsset) {
 			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
@@ -75,16 +73,7 @@ func (h *OrderHandler) HandleCallback(ctx context.Context, req *pb.HandleCallbac
 		return nil, returnValidationError(validationErrors)
 	}
 
-	// Convert additional params map
-	additionalParams := make(map[string]string)
-	if req.AdditionalParams != nil {
-		for k, v := range req.AdditionalParams {
-			additionalParams[k] = v
-		}
-	}
-
-	// Call service
-	redirectURL, err := h.orderService.HandleCallback(ctx, req.OrderId, req.Token, req.ResCode, additionalParams)
+	redirectURL, err := h.orderService.HandleCallback(ctx, req.OrderId, req.Token, req.ResCode, callbackAdditionalParams(req))
 	if err != nil {
 		if errors.Is(err, service.ErrOrderNotFound) {
 			return nil, status.Errorf(codes.NotFound, "%v", err)
@@ -95,6 +84,13 @@ func (h *OrderHandler) HandleCallback(ctx context.Context, req *pb.HandleCallbac
 	return &pb.HandleCallbackResponse{
 		RedirectUrl: redirectURL,
 	}, nil
+}
+
+func callbackAdditionalParams(req *pb.HandleCallbackRequest) map[string]string {
+	if params := req.GetAdditionalParams(); params != nil {
+		return params
+	}
+	return map[string]string{}
 }
 
 func paymentFailedMessage(err error) string {

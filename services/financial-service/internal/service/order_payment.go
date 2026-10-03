@@ -16,19 +16,24 @@ import (
 	notificationspb "metarang/shared/pb/notifications"
 )
 
+const (
+	sadadResCodeSuccess = "0"
+	sadadResCodeUnknown = "-1"
+	// callbackCompletionTimeout keeps verify and wallet credit running after the buyer leaves the bank return page.
+	callbackCompletionTimeout = 90 * time.Second
+)
+
 func logPaymentWarning(format string, args ...interface{}) {
 	log.Printf("financial-service: "+format, args...)
 }
 
 func (s *orderService) requestSadadPayment(orderID uint64, amount int32, asset string, rate float64) (string, string, error) {
-	baseReturnURL, err := s.sadadCallbackReturnURL()
+	// Sadad posts OrderId in the return body. The ReturnUrl itself stays free of
+	// an order id so the callback cannot be pointed at a different order.
+	returnURL, err := s.sadadCallbackReturnURL()
 	if err != nil {
 		return "", "", err
 	}
-
-	// Sadad posts OrderId in the return body. The ReturnUrl itself stays free of
-	// an order id so the callback cannot be pointed at a different order.
-	returnURL := baseReturnURL
 
 	amountRials := amountInRials(amount, rate)
 	multiplexingData, err := s.buildMultiplexingData(asset, amountRials)
@@ -105,9 +110,6 @@ func (s *orderService) storeTransactionToken(ctx context.Context, transaction *m
 // Sadad rejects Percentage splits that include a zero-value row (common cause of
 // Description "عملیات ناموفق بود" / ResCode 1104).
 func (s *orderService) buildMultiplexingData(asset string, amountRials int64) (*sadad.MultiplexingData, error) {
-	if s.sadadConfig.SadadSandbox {
-		return nil, nil
-	}
 	if amountRials <= 0 {
 		return nil, fmt.Errorf("%w: invalid multiplexing amount", ErrPaymentFailed)
 	}
@@ -118,18 +120,20 @@ func (s *orderService) buildMultiplexingData(asset string, amountRials int64) (*
 		return nil, fmt.Errorf("%w: payment IBANs not configured for multiplexing", ErrPaymentFailed)
 	}
 
-	// IRR → loan/rial IBAN; all other assets → main/non-rial IBAN (same as Laravel MultiplexingData::forAsset).
-	iban := nonRialIban
-	if asset == "irr" {
-		iban = rialIban
-	}
-
 	return &sadad.MultiplexingData{
-		Type: "Amount",
+		Type: sadad.MultiplexingTypeAmount,
 		MultiplexingRows: []sadad.MultiplexingRow{
-			{IbanNumber: iban, Value: amountRials},
+			{IbanNumber: settlementIBAN(asset, rialIban, nonRialIban), Value: amountRials},
 		},
 	}, nil
+}
+
+// settlementIBAN routes IRR to the loan IBAN and every other asset to the main IBAN.
+func settlementIBAN(asset, rialIBAN, nonRialIBAN string) string {
+	if asset == constants.AssetIRR {
+		return rialIBAN
+	}
+	return nonRialIBAN
 }
 
 func formatMultiplexingForLog(data *sadad.MultiplexingData) string {
@@ -157,21 +161,17 @@ func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token
 		return "", err
 	}
 
-	if resCode == "0" {
-		verifyResCode, err := s.handleSuccessfulSadadCallback(ctx, order, user, transaction, token, additionalParams)
+	redirectCode := resCode
+	if resCode == sadadResCodeSuccess {
+		redirectCode, err = s.handleSuccessfulSadadCallback(ctx, order, user, transaction, token, additionalParams)
 		if err != nil {
 			return "", err
 		}
-		if verifyResCode != "" {
-			resCode = verifyResCode
-		}
-	} else {
-		if err := s.markOrderAndTransactionFailed(ctx, order, transaction, resCode); err != nil {
-			return "", err
-		}
+	} else if err = s.markOrderAndTransactionFailed(ctx, order, transaction, resCode); err != nil {
+		return "", err
 	}
 
-	return s.buildPaymentVerifyRedirectURL(orderID, resCode)
+	return s.buildPaymentVerifyRedirectURL(orderID, redirectCode)
 }
 
 func (s *orderService) findCallbackOrderAndTransaction(ctx context.Context, orderID uint64) (*models.Order, *models.User, *models.Transaction, error) {
@@ -197,7 +197,7 @@ func (s *orderService) findCallbackOrderAndTransaction(ctx context.Context, orde
 func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order *models.Order, user *models.User, transaction *models.Transaction, token string, additionalParams map[string]string) (string, error) {
 	// The buyer can leave the bank return page while verify and the wallet
 	// credit are still running. Finish that work on a detached context.
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), callbackCompletionTimeout)
 	defer cancel()
 
 	rate, err := s.variableRepo.GetRate(ctx, order.Asset)
@@ -207,31 +207,34 @@ func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order 
 
 	verifyResponse, err := s.verifySadadPayment(transaction, token)
 	if err != nil {
-		if markErr := s.markOrderAndTransactionFailed(ctx, order, transaction, "-1"); markErr != nil {
-			return "", fmt.Errorf("failed to verify payment: %w; failed to mark order failed: %v", err, markErr)
-		}
-		return "-1", nil
+		return s.rejectVerifiedPayment(ctx, order, transaction, sadadResCodeUnknown, err)
 	}
 	if !verifyResponse.Success() {
 		failureCode := verifyResponse.ResCode
 		if failureCode == "" {
-			failureCode = "-1"
+			failureCode = sadadResCodeUnknown
 		}
-		if markErr := s.markOrderAndTransactionFailed(ctx, order, transaction, failureCode); markErr != nil {
-			return "", fmt.Errorf("payment verification failed with code %s; failed to mark order failed: %v", failureCode, markErr)
-		}
-		return failureCode, nil
+		return s.rejectVerifiedPayment(ctx, order, transaction, failureCode, nil)
 	}
 
-	refID := parseInt64OrDefault(verifyResponse.RetrivalRefNo, 0)
-	cardPan := cardPanFromCallback(additionalParams, verifyResponse)
-	if err := s.finalizeSuccessfulPayment(ctx, order, transaction, refID, rate, cardPan); err != nil {
+	refID := parseInt64OrZero(verifyResponse.RetrivalRefNo)
+	if err := s.finalizeSuccessfulPayment(ctx, order, transaction, refID, rate, cardPanFromCallback(additionalParams)); err != nil {
 		return "", err
 	}
 
 	s.processReferral(ctx, order)
 	s.sendPaymentTransactionSMS(ctx, user, order, rate)
-	return "", nil
+	return sadadResCodeSuccess, nil
+}
+
+func (s *orderService) rejectVerifiedPayment(ctx context.Context, order *models.Order, transaction *models.Transaction, resCode string, verifyErr error) (string, error) {
+	if markErr := s.markOrderAndTransactionFailed(ctx, order, transaction, resCode); markErr != nil {
+		if verifyErr != nil {
+			return "", fmt.Errorf("failed to verify payment: %w; failed to mark order failed: %v", verifyErr, markErr)
+		}
+		return "", fmt.Errorf("payment verification failed with code %s; failed to mark order failed: %v", resCode, markErr)
+	}
+	return resCode, nil
 }
 
 func (s *orderService) finalizeSuccessfulPayment(ctx context.Context, order *models.Order, transaction *models.Transaction, refID int64, rate float64, cardPan string) error {
@@ -240,24 +243,40 @@ func (s *orderService) finalizeSuccessfulPayment(ctx context.Context, order *mod
 		return fmt.Errorf("failed to check bonus eligibility: %w", err)
 	}
 
-	var bonus float64
-	var firstOrder *models.FirstOrder
-	if canGetBonus {
-		bonus = order.Amount * constants.FirstOrderBonusRate
-		firstOrder = &models.FirstOrder{
-			UserID: order.UserID,
-			Type:   order.Asset,
-			Amount: order.Amount,
-			Date:   s.jalaliConverter.NowJalali(),
-			Bonus:  bonus,
-		}
+	firstOrder, walletAmount := s.firstOrderReward(order, canGetBonus)
+	markPaymentSuccessful(order, transaction, refID)
+	payment := newSadadPayment(order, refID, cardPan, rate)
+
+	if s.db != nil {
+		return s.finalizeSuccessfulPaymentTx(ctx, order, transaction, payment, firstOrder, walletAmount)
+	}
+	// Callers without a database connection, including unit tests, persist each row on its own.
+	return s.persistSuccessfulPayment(ctx, order, transaction, payment, firstOrder, walletAmount)
+}
+
+func (s *orderService) firstOrderReward(order *models.Order, canGetBonus bool) (*models.FirstOrder, float64) {
+	if !canGetBonus {
+		return nil, order.Amount
 	}
 
+	bonus := order.Amount * constants.FirstOrderBonusRate
+	return &models.FirstOrder{
+		UserID: order.UserID,
+		Type:   order.Asset,
+		Amount: order.Amount,
+		Date:   s.jalaliConverter.NowJalali(),
+		Bonus:  bonus,
+	}, order.Amount + bonus
+}
+
+func markPaymentSuccessful(order *models.Order, transaction *models.Transaction, refID int64) {
 	order.Status = constants.StatusSuccess
 	transaction.Status = constants.StatusSuccess
 	transaction.RefID = &refID
+}
 
-	payment := &models.Payment{
+func newSadadPayment(order *models.Order, refID int64, cardPan string, rate float64) *models.Payment {
+	return &models.Payment{
 		UserID:  order.UserID,
 		RefID:   refID,
 		CardPan: cardPan,
@@ -265,16 +284,9 @@ func (s *orderService) finalizeSuccessfulPayment(ctx context.Context, order *mod
 		Amount:  order.Amount * rate,
 		Product: order.Asset,
 	}
+}
 
-	walletAmount := order.Amount
-	if canGetBonus {
-		walletAmount += bonus
-	}
-
-	if s.db != nil {
-		return s.finalizeSuccessfulPaymentTx(ctx, order, transaction, payment, firstOrder, walletAmount)
-	}
-
+func (s *orderService) persistSuccessfulPayment(ctx context.Context, order *models.Order, transaction *models.Transaction, payment *models.Payment, firstOrder *models.FirstOrder, walletAmount float64) error {
 	if err := s.orderRepo.Update(ctx, order); err != nil {
 		return fmt.Errorf("failed to update order: %w", err)
 	}
@@ -352,7 +364,7 @@ func (s *orderService) processReferral(ctx context.Context, order *models.Order)
 // cardPanFromCallback extracts the masked card number (PAN) from the Sadad callback POST.
 // Per VPG Help v1.10 section 6.5, Sadad sends PrimaryAccNo (masked PAN) in the callback body.
 // The Verify response does not include a card number field per the documented output.
-func cardPanFromCallback(additionalParams map[string]string, _ *sadad.VerificationResponse) string {
+func cardPanFromCallback(additionalParams map[string]string) string {
 	for _, key := range []string{"PrimaryAccNo", "CardMaskPan", "card_pan"} {
 		if cardPan := additionalParams[key]; cardPan != "" {
 			return cardPan
@@ -385,10 +397,10 @@ func parseStatusCode(resCode string) int32 {
 	return int32(parsed)
 }
 
-func parseInt64OrDefault(value string, defaultValue int64) int64 {
+func parseInt64OrZero(value string) int64 {
 	parsed, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
-		return defaultValue
+		return 0
 	}
 	return parsed
 }
@@ -476,21 +488,19 @@ func (s *orderService) sendPaymentTransactionSMS(ctx context.Context, user *mode
 	}
 }
 
+var assetDisplayNames = map[string]string{
+	"yellow":           "زرد",
+	"red":              "قرمز",
+	"blue":             "آبی",
+	"psc":              "PSC",
+	constants.AssetIRR: "ریال",
+}
+
 func assetDisplayName(asset string) string {
-	switch asset {
-	case "yellow":
-		return "زرد"
-	case "red":
-		return "قرمز"
-	case "blue":
-		return "آبی"
-	case "psc":
-		return "PSC"
-	case "irr":
-		return "ریال"
-	default:
-		return asset
+	if name, ok := assetDisplayNames[asset]; ok {
+		return name
 	}
+	return asset
 }
 
 func formatSMSAmount(amount float64) string {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"google.golang.org/grpc/metadata"
 
+	"metarang/financial-service/internal/constants"
 	"metarang/financial-service/internal/middleware"
 	financialpb "metarang/shared/pb/financial"
 	"metarang/shared/pkg/helpers"
@@ -100,7 +102,7 @@ func contextWithAcceptLanguage(r *http.Request) context.Context {
 
 // CreateOrder handles POST /api/order
 func (h *HTTPFinancialHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if !requestMethodAllowed(r, http.MethodPost) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -117,23 +119,18 @@ func (h *HTTPFinancialHandler) CreateOrder(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := decodeRequestBody(r, &req); err != nil {
-		if err == io.EOF {
-			writeError(w, http.StatusBadRequest, "request body is required")
-		} else {
-			writeError(w, http.StatusBadRequest, "invalid request body")
-		}
+		writeRequestBodyError(w, err)
 		return
 	}
 
-	if req.Amount < 1 {
+	if req.Amount < constants.MinOrderAmount {
 		helpers.WriteValidationErrorResponseFromMap(w, map[string]string{
-			"amount": "The amount field must be at least 1",
+			"amount": fmt.Sprintf("The amount field must be at least %d", constants.MinOrderAmount),
 		}, h.locale)
 		return
 	}
 
-	validAssets := map[string]bool{"psc": true, "irr": true, "red": true, "blue": true, "yellow": true}
-	if !validAssets[req.Asset] {
+	if !allowedOrderAsset(req.Asset) {
 		helpers.WriteValidationErrorResponseFromMap(w, map[string]string{
 			"asset": "The selected asset is invalid",
 		}, h.locale)
@@ -160,62 +157,135 @@ func (h *HTTPFinancialHandler) CreateOrder(w http.ResponseWriter, r *http.Reques
 // sadadCallbackToken restores "+" that form decoding turned into spaces.
 // Sadad tokens are Base64, so a space never belongs in the token sent to Verify.
 func sadadCallbackToken(r *http.Request) string {
-	token := r.FormValue("Token")
-	if token == "" {
-		token = r.FormValue("token")
-	}
+	token := firstFormValue(r, "Token", "token")
 	return strings.ReplaceAll(strings.TrimSpace(token), " ", "+")
 }
 
-// HandleCallback handles GET|POST /api/order/callback and /api/payment/callback
-func (h *HTTPFinancialHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost && r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
+var (
+	errCallbackForm    = errors.New("failed to parse form data")
+	errOrderIDRequired = errors.New("OrderId is required")
+	errInvalidOrderID  = errors.New("invalid OrderId")
+)
 
+type sadadCallbackForm struct {
+	orderID          uint64
+	token            string
+	resCode          string
+	additionalParams map[string]string
+}
+
+func parseSadadCallback(r *http.Request) (sadadCallbackForm, error) {
 	if err := r.ParseForm(); err != nil {
-		writeError(w, http.StatusBadRequest, "failed to parse form data")
-		return
+		return sadadCallbackForm{}, errCallbackForm
 	}
 
 	// OrderId comes only from the IPG POST body. Query-string order_id is ignored
 	// so a tampered ReturnUrl cannot select a different order.
 	orderIDStr := r.PostFormValue("OrderId")
 	if orderIDStr == "" {
-		writeError(w, http.StatusBadRequest, "OrderId is required")
-		return
+		return sadadCallbackForm{}, errOrderIDRequired
 	}
-
 	orderID, err := strconv.ParseUint(orderIDStr, 10, 64)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid OrderId")
+		return sadadCallbackForm{}, errInvalidOrderID
+	}
+
+	return sadadCallbackForm{
+		orderID:          orderID,
+		token:            sadadCallbackToken(r),
+		resCode:          firstFormValue(r, "ResCode", "resCode"),
+		additionalParams: callbackForwardedParams(r),
+	}, nil
+}
+
+func firstFormValue(r *http.Request, keys ...string) string {
+	for _, key := range keys {
+		if value := r.FormValue(key); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+var callbackFieldsNotForwarded = map[string]struct{}{
+	"Token":    {},
+	"token":    {},
+	"ResCode":  {},
+	"resCode":  {},
+	"OrderId":  {},
+	"order_id": {},
+}
+
+func callbackForwardedParams(r *http.Request) map[string]string {
+	params := make(map[string]string)
+	for key, values := range r.Form {
+		if _, skip := callbackFieldsNotForwarded[key]; skip || len(values) == 0 {
+			continue
+		}
+		params[key] = values[0]
+	}
+	return params
+}
+
+func requestMethodAllowed(r *http.Request, allowed ...string) bool {
+	for _, method := range allowed {
+		if r.Method == method {
+			return true
+		}
+	}
+	return false
+}
+
+func writeRequestBodyError(w http.ResponseWriter, err error) {
+	message := "invalid request body"
+	if err == io.EOF {
+		message = "request body is required"
+	}
+	writeError(w, http.StatusBadRequest, message)
+}
+
+func allowedOrderAsset(asset string) bool {
+	for _, allowed := range constants.ValidOrderAssets {
+		if asset == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func storePackageJSON(pkg *financialpb.Package) map[string]interface{} {
+	var image interface{}
+	if pkg.Image != nil && *pkg.Image != "" {
+		image = *pkg.Image
+	}
+	return map[string]interface{}{
+		"id":        pkg.Id,
+		"code":      pkg.Code,
+		"asset":     pkg.Asset,
+		"amount":    pkg.Amount,
+		"unitPrice": pkg.UnitPrice,
+		"image":     image,
+	}
+}
+
+// HandleCallback handles GET|POST /api/order/callback and /api/payment/callback
+func (h *HTTPFinancialHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
+	if !requestMethodAllowed(r, http.MethodGet, http.MethodPost) {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	token := sadadCallbackToken(r)
-
-	resCode := r.FormValue("ResCode")
-	if resCode == "" {
-		resCode = r.FormValue("resCode")
-	}
-
-	additionalParams := make(map[string]string)
-	for k, v := range r.Form {
-		switch k {
-		case "Token", "token", "ResCode", "resCode", "OrderId", "order_id":
-			continue
-		}
-		if len(v) > 0 {
-			additionalParams[k] = v[0]
-		}
+	callback, err := parseSadadCallback(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	grpcReq := &financialpb.HandleCallbackRequest{
-		OrderId:          orderID,
-		Token:            token,
-		ResCode:          resCode,
-		AdditionalParams: additionalParams,
+		OrderId:          callback.orderID,
+		Token:            callback.token,
+		ResCode:          callback.resCode,
+		AdditionalParams: callback.additionalParams,
 	}
 
 	resp, err := h.order.HandleCallback(contextWithAcceptLanguage(r), grpcReq)
@@ -229,7 +299,7 @@ func (h *HTTPFinancialHandler) HandleCallback(w http.ResponseWriter, r *http.Req
 
 // GetStorePackages handles POST /api/store
 func (h *HTTPFinancialHandler) GetStorePackages(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if !requestMethodAllowed(r, http.MethodPost) {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
@@ -239,25 +309,21 @@ func (h *HTTPFinancialHandler) GetStorePackages(w http.ResponseWriter, r *http.R
 	}
 
 	if err := decodeRequestBody(r, &req); err != nil {
-		if err == io.EOF {
-			writeError(w, http.StatusBadRequest, "request body is required")
-		} else {
-			writeError(w, http.StatusBadRequest, "invalid request body")
-		}
+		writeRequestBodyError(w, err)
 		return
 	}
 
-	if len(req.Codes) < 2 {
+	if len(req.Codes) < constants.MinStoreCodes {
 		helpers.WriteValidationErrorResponseFromMap(w, map[string]string{
-			"codes": "The codes field must contain at least 2 items",
+			"codes": fmt.Sprintf("The codes field must contain at least %d items", constants.MinStoreCodes),
 		}, h.locale)
 		return
 	}
 
 	for i, code := range req.Codes {
-		if len(code) < 2 {
+		if len(code) < constants.MinStoreCodeLength {
 			helpers.WriteValidationErrorResponseFromMap(w, map[string]string{
-				"codes": fmt.Sprintf("The codes.%d field must be at least 2 characters", i),
+				"codes": fmt.Sprintf("The codes.%d field must be at least %d characters", i, constants.MinStoreCodeLength),
 			}, h.locale)
 			return
 		}
@@ -275,19 +341,7 @@ func (h *HTTPFinancialHandler) GetStorePackages(w http.ResponseWriter, r *http.R
 
 	packages := make([]map[string]interface{}, 0, len(resp.Packages))
 	for _, pkg := range resp.Packages {
-		pkgData := map[string]interface{}{
-			"id":        pkg.Id,
-			"code":      pkg.Code,
-			"asset":     pkg.Asset,
-			"amount":    pkg.Amount,
-			"unitPrice": pkg.UnitPrice,
-		}
-		if pkg.Image != nil && *pkg.Image != "" {
-			pkgData["image"] = *pkg.Image
-		} else {
-			pkgData["image"] = nil
-		}
-		packages = append(packages, pkgData)
+		packages = append(packages, storePackageJSON(pkg))
 	}
 
 	writeJSON(w, http.StatusOK, packages)
