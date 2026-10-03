@@ -947,20 +947,21 @@ func (h *HTTPSupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	attachment := ""
+	var attachments []string
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		url, _, attachErr := resolveNoteAttachmentURL(r, h.storage, h.appURL)
+		urls, attachErr := uploadNoteAttachmentFiles(r, h.storage, h.appURL)
 		if attachErr != nil {
 			writeError(w, http.StatusBadRequest, attachErr.Error())
 			return
 		}
-		attachment = url
+		attachments = urls
 	} else {
 		var req struct {
-			Title      string `json:"title"`
-			Content    string `json:"content"`
-			Attachment string `json:"attachment"`
+			Title       string   `json:"title"`
+			Content     string   `json:"content"`
+			Attachment  string   `json:"attachment"`
+			Attachments []string `json:"attachments"`
 		}
 		if err := decodeJSONBody(r, &req); err != nil {
 			if err == io.EOF {
@@ -972,7 +973,11 @@ func (h *HTTPSupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) 
 		}
 		title = req.Title
 		content = req.Content
-		attachment = req.Attachment
+		attachments, err = mergeNoteAttachmentURLs(req.Attachment, req.Attachments)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	if title == "" || content == "" {
@@ -981,12 +986,10 @@ func (h *HTTPSupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) 
 	}
 
 	grpcReq := &pbSupport.CreateNoteRequest{
-		UserId:  userID,
-		Title:   title,
-		Content: content,
-	}
-	if attachment != "" {
-		grpcReq.Attachments = []string{attachment}
+		UserId:      userID,
+		Title:       title,
+		Content:     content,
+		Attachments: attachments,
 	}
 
 	resp, err := h.notes.CreateNote(r.Context(), grpcReq)

@@ -311,7 +311,10 @@ func parseTicketFormFields(r *http.Request) (title, content, department string, 
 	return "", "", "", nil, nil
 }
 
-const maxNoteAttachmentSize = 5 << 20
+const (
+	maxNoteAttachmentCount = 5
+	maxNoteAttachmentSize  = 5 << 20
+)
 
 var allowedNoteAttachmentExts = map[string]bool{
 	".pdf": true, ".docx": true, ".jpg": true, ".jpeg": true, ".png": true,
@@ -413,7 +416,7 @@ func uploadNoteAttachmentFiles(r *http.Request, storage fileStorageUploader, app
 	if len(headers) == 0 {
 		return nil, nil
 	}
-	if len(headers) > 5 {
+	if len(headers) > maxNoteAttachmentCount {
 		return nil, fmt.Errorf("attachments must not have more than 5 items")
 	}
 	if storage == nil {
@@ -427,6 +430,28 @@ func uploadNoteAttachmentFiles(r *http.Request, storage fileStorageUploader, app
 			return nil, err
 		}
 		urls = append(urls, fileURL)
+	}
+	return urls, nil
+}
+
+// mergeNoteAttachmentURLs prefers an attachments list and still accepts a single attachment string.
+func mergeNoteAttachmentURLs(single string, many []string) ([]string, error) {
+	urls := make([]string, 0, len(many)+1)
+	if len(many) > 0 {
+		for _, item := range many {
+			item = strings.TrimSpace(item)
+			if item != "" {
+				urls = append(urls, item)
+			}
+		}
+	} else if item := strings.TrimSpace(single); item != "" {
+		urls = append(urls, item)
+	}
+	if len(urls) > maxNoteAttachmentCount {
+		return nil, fmt.Errorf("attachments must not have more than 5 items")
+	}
+	if len(urls) == 0 {
+		return nil, nil
 	}
 	return urls, nil
 }

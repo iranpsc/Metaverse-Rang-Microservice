@@ -33,6 +33,10 @@ func NewNoteService(noteRepo repository.NoteRepository) NoteService {
 }
 
 func (s *noteService) CreateNote(ctx context.Context, userID uint64, title, content string, attachments []string) (*models.Note, error) {
+	if err := validateNoteAttachmentLimit(attachments); err != nil {
+		return nil, err
+	}
+
 	note := &models.Note{
 		Title:       title,
 		Content:     content,
@@ -84,6 +88,9 @@ func (s *noteService) UpdateNote(ctx context.Context, noteID, userID uint64, tit
 	note.Title = title
 	note.Content = content
 	if replaceAttachments {
+		if err := validateNoteAttachmentLimit(attachments); err != nil {
+			return nil, err
+		}
 		note.Attachments = attachments
 	}
 
@@ -117,8 +124,8 @@ func (s *noteService) AddNoteAttachments(ctx context.Context, noteID, userID uin
 		merged = append(merged, attachment)
 		seen[attachment] = struct{}{}
 	}
-	if len(merged) > maxNoteAttachments {
-		return nil, fmt.Errorf("attachments must not have more than 5 items")
+	if err := validateNoteAttachmentLimit(merged); err != nil {
+		return nil, err
 	}
 
 	note.Attachments = merged
@@ -157,6 +164,13 @@ func (s *noteService) DeleteNoteAttachment(ctx context.Context, noteID, userID u
 		return nil, fmt.Errorf("failed to update note: %w", err)
 	}
 	return s.noteRepo.GetByID(ctx, noteID)
+}
+
+func validateNoteAttachmentLimit(attachments []string) error {
+	if len(attachments) > maxNoteAttachments {
+		return fmt.Errorf("attachments must not have more than 5 items")
+	}
+	return nil
 }
 
 func (s *noteService) ownedNote(ctx context.Context, noteID, userID uint64, action string) (*models.Note, error) {

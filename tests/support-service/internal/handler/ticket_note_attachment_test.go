@@ -137,6 +137,108 @@ func TestHTTP_TicketAttachmentsLimit(t *testing.T) {
 	}
 }
 
+func multipartNoteCreateRequest(t *testing.T, field string, names ...string) *http.Request {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	if err := w.WriteField("title", "T"); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteField("content", "C"); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		part, err := w.CreateFormFile(field, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := part.Write([]byte("file-" + name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/notes", &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	return req
+}
+
+func TestHTTP_CreateNoteAcceptsUpToFiveFiles(t *testing.T) {
+	var got []string
+	notes := &mockNoteAPI{
+		CreateNoteFunc: func(_ context.Context, req *pbSupport.CreateNoteRequest) (*pbSupport.NoteResponse, error) {
+			if req.Title != "T" || req.Content != "C" || req.UserId != 7 {
+				t.Fatalf("create=%+v", req)
+			}
+			got = append([]string{}, req.Attachments...)
+			return &pbSupport.NoteResponse{
+				Id: 2, Title: req.Title, Content: req.Content,
+				Attachments: req.Attachments, Date: "1403/01/01", Time: "11:00:00",
+			}, nil
+		},
+	}
+	storage := &stubFileStorage{}
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, storage, "http://app")
+	mux := newSupportMux(h, withUser(7))
+
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, multipartNoteCreateRequest(t, "attachments[]", "a.pdf", "b.docx", "c.jpg", "d.jpeg", "e.png"))
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if len(got) != 5 || storage.calls != 5 {
+		t.Fatalf("attachments=%v calls=%d", got, storage.calls)
+	}
+	for _, url := range got {
+		if !strings.Contains(rr.Body.String(), url) {
+			t.Fatalf("missing %s in %s", url, rr.Body.String())
+		}
+	}
+
+	storage = &stubFileStorage{}
+	h = handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, storage, "http://app")
+	mux = newSupportMux(h, withUser(7))
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, multipartNoteCreateRequest(t, "attachment", "one.pdf", "two.docx"))
+	if rr.Code != http.StatusCreated || len(got) != 2 || storage.calls != 2 {
+		t.Fatalf("code=%d attachments=%v calls=%d body=%s", rr.Code, got, storage.calls, rr.Body.String())
+	}
+
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, multipartNoteCreateRequest(t, "attachments[]", "1.pdf", "2.pdf", "3.pdf", "4.pdf", "5.pdf", "6.pdf"))
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "more than 5") {
+		t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHTTP_CreateNoteJSONAttachments(t *testing.T) {
+	var got []string
+	notes := &mockNoteAPI{
+		CreateNoteFunc: func(_ context.Context, req *pbSupport.CreateNoteRequest) (*pbSupport.NoteResponse, error) {
+			got = append([]string{}, req.Attachments...)
+			return &pbSupport.NoteResponse{
+				Id: 2, Title: req.Title, Content: req.Content,
+				Attachments: req.Attachments, Date: "1403/01/01", Time: "11:00:00",
+			}, nil
+		},
+	}
+	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, nil, "http://app")
+	mux := newSupportMux(h, withUser(7))
+
+	body := `{"title":"T","content":"C","attachments":["http://a.pdf","http://b.docx","http://c.jpg","http://d.jpeg","http://e.png"]}`
+	rr := doJSON(mux, http.MethodPost, "/api/notes", body)
+	if rr.Code != http.StatusCreated || len(got) != 5 || got[4] != "http://e.png" {
+		t.Fatalf("code=%d attachments=%v body=%s", rr.Code, got, rr.Body.String())
+	}
+
+	tooMany := `{"title":"T","content":"C","attachments":["1","2","3","4","5","6"]}`
+	rr = doJSON(mux, http.MethodPost, "/api/notes", tooMany)
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "more than 5") {
+		t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestHTTP_NoteAttachmentAddAndDelete(t *testing.T) {
 	notes := &mockNoteAPI{
 		AddNoteAttachmentsFunc: func(_ context.Context, noteID, userID uint64, attachments []string) (*pbSupport.NoteResponse, error) {

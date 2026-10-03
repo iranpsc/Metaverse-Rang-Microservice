@@ -10,6 +10,38 @@ import (
 	"metarang/support-service/tests/internal/testutil"
 )
 
+func TestNoteService_CreateNote_StoresUpToFiveAttachments(t *testing.T) {
+	var stored *models.Note
+	created := 0
+	repo := &testutil.MockNoteRepo{
+		CreateFunc: func(ctx context.Context, note *models.Note) (*models.Note, error) {
+			created++
+			n := *note
+			n.ID = 8
+			n.Attachments = append([]string{}, note.Attachments...)
+			stored = &n
+			return &n, nil
+		},
+		GetByIDFunc: func(ctx context.Context, noteID uint64) (*models.Note, error) {
+			return stored, nil
+		},
+	}
+	svc := service.NewNoteService(repo)
+	atts := []string{"1.pdf", "2.docx", "3.jpg", "4.jpeg", "5.png"}
+	got, err := svc.CreateNote(context.Background(), 9, "t", "c", atts)
+	if err != nil || len(got.Attachments) != 5 || got.Attachments[4] != "5.png" {
+		t.Fatalf("got=%v err=%v", got, err)
+	}
+
+	_, err = svc.CreateNote(context.Background(), 9, "t", "c", append(atts, "6.pdf"))
+	if err == nil || !strings.Contains(err.Error(), "more than 5") {
+		t.Fatalf("err=%v", err)
+	}
+	if created != 1 {
+		t.Fatalf("create calls=%d", created)
+	}
+}
+
 func TestNoteService_AddNoteAttachments_AppendsAndSkipsDuplicates(t *testing.T) {
 	note := &models.Note{ID: 3, UserID: 9, Title: "t", Content: "c", Attachments: []string{"http://a.pdf"}}
 	repo := &testutil.MockNoteRepo{
