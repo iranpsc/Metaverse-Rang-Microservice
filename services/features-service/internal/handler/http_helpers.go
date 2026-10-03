@@ -19,28 +19,6 @@ import (
 	featurespb "metarang/shared/pb/features"
 )
 
-func effectiveHTTPMethod(r *http.Request) string {
-	if r.Method != http.MethodPost {
-		return r.Method
-	}
-	if value := r.URL.Query().Get("_method"); value != "" {
-		return strings.ToUpper(strings.TrimSpace(value))
-	}
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") {
-		_ = r.ParseMultipartForm(32 << 20)
-		if r.MultipartForm != nil && len(r.MultipartForm.Value["_method"]) > 0 {
-			return strings.ToUpper(strings.TrimSpace(r.MultipartForm.Value["_method"][0]))
-		}
-	} else if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") || contentType == "" {
-		_ = r.ParseForm()
-		if value := r.PostForm.Get("_method"); value != "" {
-			return strings.ToUpper(strings.TrimSpace(value))
-		}
-	}
-	return r.Method
-}
-
 // requestHasBody reports whether the request may carry a body.
 // ContentLength -1 (chunked / unset) is common for API clients and must not be treated as empty.
 func requestHasBody(r *http.Request) bool {
@@ -230,13 +208,6 @@ func emptyToNil(value string) interface{} {
 		return nil
 	}
 	return value
-}
-
-func optionalFloat64(value *float64) interface{} {
-	if value == nil {
-		return nil
-	}
-	return *value
 }
 
 func toProtoCitizenChartPoints(points []models.CitizenChartPoint) []*featurespb.CitizenChartPoint {

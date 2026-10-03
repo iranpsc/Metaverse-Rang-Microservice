@@ -14,7 +14,7 @@ RUN go build -trimpath -ldflags="-s -w" -o /migrate ./cmd/migrate
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata busybox-extras
+RUN apk add --no-cache --upgrade ca-certificates tzdata busybox-extras libcrypto3 libssl3
 
 COPY --from=builder /migrate /usr/local/bin/migrate
 COPY scripts/migrations /migrations

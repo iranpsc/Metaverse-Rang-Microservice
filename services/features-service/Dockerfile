@@ -38,7 +38,7 @@ RUN go build -trimpath -ldflags="-s -w" -o /app/features-service ./cmd/server &&
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata wget && \
+RUN apk add --no-cache --upgrade ca-certificates tzdata wget libcrypto3 libssl3 && \
     addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser
 
