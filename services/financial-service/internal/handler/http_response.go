@@ -14,7 +14,7 @@ func writeJSON(w http.ResponseWriter, status int, data interface{}, skipWrap ...
 	if data == nil {
 		data = map[string]interface{}{}
 	}
-	if !(len(skipWrap) > 0 && skipWrap[0]) && !payloadAlreadyShaped(data) {
+	if (len(skipWrap) == 0 || !skipWrap[0]) && !payloadAlreadyShaped(data) {
 		data = map[string]interface{}{"data": data}
 	}
 
