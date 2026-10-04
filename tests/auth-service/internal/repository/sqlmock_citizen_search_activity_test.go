@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -236,4 +239,48 @@ func TestActivityRepository_MoreSQLMock(t *testing.T) {
 
 	mock.ExpectExec("UPDATE user_logs").WillReturnResult(sqlmock.NewResult(0, 1))
 	require.NoError(t, repo.IncrementLogField(ctx, 1, "score", 1))
+}
+
+func TestCitizenRepository_PersianReferralSearchUsesKYCName(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherFunc(
+		func(expectedSQL, actualSQL string) error {
+			if strings.Contains(actualSQL, "LOWER(") {
+				return fmt.Errorf("LOWER() drops Persian LIKE matches: %s", actualSQL)
+			}
+			expect, err := regexp.Compile(expectedSQL)
+			if err != nil {
+				return err
+			}
+			if !expect.MatchString(actualSQL) {
+				return fmt.Errorf("could not match actual sql: %q with expected regexp %q", actualSQL, expectedSQL)
+			}
+			return nil
+		},
+	)))
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := repository.NewCitizenRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+	const pattern = "%عباس%"
+
+	mock.ExpectQuery("k.fname").
+		WithArgs(uint64(7), pattern, pattern, pattern, pattern, pattern).
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("k.fname").
+		WithArgs(uint64(7), pattern, pattern, pattern, pattern, pattern, 10, 0).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "created_at"}).
+			AddRow(uint64(9), "hm-9", "john", now))
+	mock.ExpectQuery("FROM kycs").WithArgs(uint64(9)).
+		WillReturnRows(sqlmock.NewRows([]string{"fname", "lname"}).AddRow("عباس", "رضایی"))
+	mock.ExpectQuery("FROM images").WithArgs(uint64(9)).
+		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("/a.jpg"))
+
+	refs, meta, err := repo.GetCitizenReferrals(ctx, 7, "  عباس  ", 1, 10)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	require.Equal(t, "عباس رضایی", refs[0].Name)
+	require.Equal(t, int32(1), meta.CurrentPage)
+	require.NoError(t, mock.ExpectationsWereMet())
 }

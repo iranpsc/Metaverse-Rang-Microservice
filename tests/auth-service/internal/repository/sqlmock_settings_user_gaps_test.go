@@ -84,7 +84,7 @@ func TestSettingsAndUserRepoGaps_SQLMock(t *testing.T) {
 
 	// Referrals with a row exercises KYC/photo lookups
 	citizen := repository.NewCitizenRepository(db)
-	mock.ExpectQuery("SELECT COUNT").WithArgs(uint64(1), "%ali%", "%ali%").
+	mock.ExpectQuery("SELECT COUNT").WithArgs(uint64(1), "%ali%", "%ali%", "%ali%", "%ali%", "%ali%").
 		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
 	mock.ExpectQuery("FROM users u").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "created_at"}).
