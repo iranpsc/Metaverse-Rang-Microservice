@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"time"
 
 	"metarang/notifications-service/internal/errs"
 	"metarang/notifications-service/internal/models"
@@ -15,6 +16,7 @@ type SMSChannelConfig struct {
 	Provider string // e.g. "kavenegar"
 	APIKey   string
 	Sender   string
+	Timeout  time.Duration
 }
 
 // NewSMSChannel creates an SMS channel from the given config (e.g. from main after loading config.env).
@@ -36,7 +38,7 @@ func NewSMSChannel(cfg SMSChannelConfig) SMSChannel {
 			sender = "10008663"
 		}
 		log.Printf("Initializing Kavenegar SMS channel with sender: %s", sender)
-		return NewKavenegarSMSChannel(apiKey, sender)
+		return newKavenegarSMSChannel(apiKey, sender, cfg.Timeout)
 	default:
 		if provider == "" {
 			log.Println("Warning: SMS_PROVIDER is not set, using noop channel")

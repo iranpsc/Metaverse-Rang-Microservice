@@ -77,6 +77,7 @@ func loadSMSChannelConfig() service.SMSChannelConfig {
 		Provider: getEnv("SMS_PROVIDER", getEnv("KAVENEGAR_PROVIDER", "kavenegar")),
 		APIKey:   service.ResolveSMSAPIKey(),
 		Sender:   service.ResolveSMSSender(getEnv("SMS_SENDER", "10008663")),
+		Timeout:  getEnvAsDuration("SMS_CALL_TIMEOUT", 8*time.Second),
 	}
 }
 
@@ -98,6 +99,7 @@ func loadEmailChannelConfig() service.EmailChannelConfig {
 		Password:  getEnv("SMTP_PASSWORD", ""),
 		FromName:  getEnv("SMTP_FROM_NAME", "metarang Notifications"),
 		FromEmail: getEnv("SMTP_FROM_EMAIL", ""),
+		Timeout:   getEnvAsDuration("SMTP_CALL_TIMEOUT", 10*time.Second),
 	}
 }
 
@@ -131,13 +133,7 @@ func setupDatabase() (*sql.DB, error) {
 		return nil, fmt.Errorf("invalid DB_PORT value: %w", err)
 	}
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
-		getEnv("DB_USER", "root"),
-		getEnv("DB_PASSWORD", ""),
-		getEnv("DB_HOST", "localhost"),
-		port,
-		getEnv("DB_DATABASE", "metarang_db"),
-	)
+	dsn := databaseDSN(port)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -146,6 +142,16 @@ func setupDatabase() (*sql.DB, error) {
 
 	configureDBPool(db)
 	return db, nil
+}
+
+func databaseDSN(port int) string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local&timeout=5s&readTimeout=10s&writeTimeout=10s",
+		getEnv("DB_USER", "root"),
+		getEnv("DB_PASSWORD", ""),
+		getEnv("DB_HOST", "localhost"),
+		port,
+		getEnv("DB_DATABASE", "metarang_db"),
+	)
 }
 
 func pingDatabase(db *sql.DB) error {

@@ -3,12 +3,16 @@ package service
 import (
 	"context"
 	"errors"
+	"net"
 	"net/smtp"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"metarang/notifications-service/internal/errs"
 	"metarang/notifications-service/internal/models"
+	"metarang/notifications-service/internal/resilience"
 )
 
 func TestNewEmailChannelFromConfig_NoopWhenUnconfigured(t *testing.T) {
@@ -106,6 +110,117 @@ func TestSMTPEmailChannel_RejectsHeaderInjection(t *testing.T) {
 		if _, err := ch.SendEmail(context.Background(), payload); err == nil {
 			t.Fatalf("expected rejection for payload to=%q cc=%v bcc=%v", payload.To, payload.CC, payload.BCC)
 		}
+	}
+}
+
+func TestSMTPEmailChannel_RetriesDialOnce(t *testing.T) {
+	var dials int
+	ch := &smtpEmailChannel{
+		cfg: EmailChannelConfig{
+			Host:      "smtp.example.com",
+			Port:      "25",
+			FromEmail: "from@example.com",
+		},
+		timeout: time.Second,
+		breaker: resilience.NewBreaker(5, time.Minute),
+		dial: func(context.Context, string, string) (net.Conn, error) {
+			dials++
+			return nil, errors.New("connection refused")
+		},
+	}
+
+	_, err := ch.SendEmail(context.Background(), models.EmailPayload{To: "a@b.com", Subject: "s", Body: "b"})
+	if err == nil {
+		t.Fatal("expected dial error")
+	}
+	if dials != 2 {
+		t.Fatalf("dials=%d", dials)
+	}
+}
+
+func TestSMTPEmailChannel_OpenBreakerSkipsDial(t *testing.T) {
+	var dials int
+	ch := &smtpEmailChannel{
+		cfg: EmailChannelConfig{
+			Host:      "smtp.example.com",
+			Port:      "25",
+			FromEmail: "from@example.com",
+		},
+		timeout: time.Second,
+		breaker: resilience.NewBreaker(1, time.Minute),
+		dial: func(context.Context, string, string) (net.Conn, error) {
+			dials++
+			return nil, errors.New("connection refused")
+		},
+	}
+	payload := models.EmailPayload{To: "a@b.com", Subject: "s", Body: "b"}
+	if _, err := ch.SendEmail(context.Background(), payload); err == nil {
+		t.Fatal("expected dial error")
+	}
+	if _, err := ch.SendEmail(context.Background(), payload); !errors.Is(err, resilience.ErrCircuitOpen) {
+		t.Fatalf("err=%v", err)
+	}
+	if dials != 2 {
+		t.Fatalf("dials=%d", dials)
+	}
+}
+
+func TestSMTPEmailChannel_CancelClosesConnection(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			return
+		}
+		accepted <- conn
+		_, _ = conn.Read(make([]byte, 1))
+	}()
+
+	tcpAddr := ln.Addr().(*net.TCPAddr)
+	ch := NewEmailChannelFromConfig(EmailChannelConfig{
+		Host:      tcpAddr.IP.String(),
+		Port:      strconv.Itoa(tcpAddr.Port),
+		FromEmail: "from@example.com",
+		Timeout:   5 * time.Second,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		_, sendErr := ch.SendEmail(ctx, models.EmailPayload{To: "a@b.com", Subject: "s", Body: "b"})
+		errCh <- sendErr
+	}()
+
+	var conn net.Conn
+	select {
+	case conn = <-accepted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("smtp connection was not accepted")
+	}
+	defer conn.Close()
+
+	cancel()
+
+	select {
+	case err := <-errCh:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("err=%v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("smtp send did not return after cancel")
+	}
+
+	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+	_, err = conn.Read(make([]byte, 1))
+	var netErr net.Error
+	if err == nil || (errors.As(err, &netErr) && netErr.Timeout()) {
+		t.Fatalf("expected server connection to close, got %v", err)
 	}
 }
 

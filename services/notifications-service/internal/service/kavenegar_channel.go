@@ -2,39 +2,114 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"strings"
+	"time"
 
 	"metarang/notifications-service/internal/models"
+	"metarang/notifications-service/internal/resilience"
 
 	"github.com/kavenegar/kavenegar-go"
 )
 
-const kavenegarOTPTemplate = "verify"
+const (
+	kavenegarOTPTemplate = "verify"
+	defaultSMSTimeout    = 8 * time.Second
+	kavenegarDialTimeout = 5 * time.Second
+)
+
+var errEmptyKavenegarResponse = errors.New("no response entries from Kavenegar")
 
 type kavenegarSMSChannel struct {
-	api    *kavenegar.Kavenegar
-	sender string
+	apiKey    string
+	sender    string
+	timeout   time.Duration
+	transport http.RoundTripper
+	breaker   *resilience.Breaker
 }
 
 // NewKavenegarSMSChannel creates a new Kavenegar SMS channel implementation.
 func NewKavenegarSMSChannel(apiKey, sender string) SMSChannel {
+	return newKavenegarSMSChannel(apiKey, sender, defaultSMSTimeout)
+}
+
+func newKavenegarSMSChannel(apiKey, sender string, timeout time.Duration) SMSChannel {
 	if apiKey == "" {
 		log.Println("Warning: Kavenegar API key is empty, SMS sending will fail")
 		return &noopSMSChannel{}
 	}
-
-	api := kavenegar.New(apiKey)
+	if timeout <= 0 {
+		timeout = defaultSMSTimeout
+	}
 	return &kavenegarSMSChannel{
-		api:    api,
-		sender: sender,
+		apiKey:    apiKey,
+		sender:    sender,
+		timeout:   timeout,
+		transport: newKavenegarTransport(timeout),
+		breaker:   resilience.NewBreaker(resilience.DefaultFailureThreshold, resilience.DefaultOpenCooldown),
 	}
 }
 
-func (c *kavenegarSMSChannel) verifyLookup(receptor, template, token string, params *kavenegar.VerifyLookupParam) (kavenegar.Message, error) {
-	// Pass nil for params so the SDK does not add empty Token2/Token3/Type fields.
-	return c.api.Verify.Lookup(receptor, template, token, params)
+func newKavenegarTransport(timeout time.Duration) http.RoundTripper {
+	dialTimeout := kavenegarDialTimeout
+	if timeout > 0 && timeout < dialTimeout {
+		dialTimeout = timeout
+	}
+	return &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   dialTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          10,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   dialTimeout,
+		ResponseHeaderTimeout: timeout,
+		ExpectContinueTimeout: time.Second,
+	}
+}
+
+type contextRoundTripper struct {
+	ctx  context.Context
+	base http.RoundTripper
+}
+
+func (t contextRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	ctx := t.ctx
+	if ctx == nil {
+		ctx = req.Context()
+	}
+	return base.RoundTrip(req.WithContext(ctx))
+}
+
+func (c *kavenegarSMSChannel) client(ctx context.Context) *kavenegar.Kavenegar {
+	kc := kavenegar.NewClient(c.apiKey)
+	kc.BaseClient = &http.Client{Transport: contextRoundTripper{ctx: ctx, base: c.transport}}
+	return kavenegar.NewWithClient(kc)
+}
+
+func (c *kavenegarSMSChannel) call(ctx context.Context, fn func(api *kavenegar.Kavenegar) error) error {
+	if c.breaker == nil {
+		c.breaker = resilience.NewBreaker(resilience.DefaultFailureThreshold, resilience.DefaultOpenCooldown)
+	}
+	timeout := c.timeout
+	if timeout <= 0 {
+		timeout = defaultSMSTimeout
+	}
+	return c.breaker.Execute(func() error {
+		callCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return fn(c.client(callCtx))
+	}, kavenegarFailure)
 }
 
 func (c *kavenegarSMSChannel) SendSMS(ctx context.Context, payload models.SMSPayload) (string, error) {
@@ -42,29 +117,36 @@ func (c *kavenegarSMSChannel) SendSMS(ctx context.Context, payload models.SMSPay
 		return "", fmt.Errorf("phone number is required")
 	}
 
-	if payload.Template != "" {
-		token := extractTemplateToken(payload.Tokens)
-		res, err := c.verifyLookup(payload.Phone, payload.Template, token, buildVerifyLookupParam(payload.Tokens))
-		if err != nil {
-			return "", mapKavenegarError(err)
-		}
-		return fmt.Sprintf("%d", res.MessageID), nil
-	}
-
-	if payload.Message == "" {
+	if payload.Template == "" && payload.Message == "" {
 		return "", fmt.Errorf("message is required when template is not provided")
 	}
 
-	res, err := c.api.Message.Send(c.sender, []string{payload.Phone}, payload.Message, nil)
+	var messageID string
+	err := c.call(ctx, func(api *kavenegar.Kavenegar) error {
+		if payload.Template != "" {
+			token := extractTemplateToken(payload.Tokens)
+			res, err := api.Verify.Lookup(payload.Phone, payload.Template, token, buildVerifyLookupParam(payload.Tokens))
+			if err != nil {
+				return err
+			}
+			messageID = fmt.Sprintf("%d", res.MessageID)
+			return nil
+		}
+
+		res, err := api.Message.Send(c.sender, []string{payload.Phone}, payload.Message, nil)
+		if err != nil {
+			return err
+		}
+		if len(res) == 0 {
+			return errEmptyKavenegarResponse
+		}
+		messageID = fmt.Sprintf("%d", res[0].MessageID)
+		return nil
+	})
 	if err != nil {
-		return "", mapKavenegarError(err)
+		return "", normalizeKavenegarErr(err)
 	}
-
-	if len(res) == 0 {
-		return "", fmt.Errorf("no response entries from Kavenegar")
-	}
-
-	return fmt.Sprintf("%d", res[0].MessageID), nil
+	return messageID, nil
 }
 
 func (c *kavenegarSMSChannel) SendOTP(ctx context.Context, payload models.OTPPayload) (string, error) {
@@ -75,12 +157,63 @@ func (c *kavenegarSMSChannel) SendOTP(ctx context.Context, payload models.OTPPay
 		return "", fmt.Errorf("OTP code is required")
 	}
 
-	res, err := c.verifyLookup(payload.Phone, kavenegarOTPTemplate, payload.Code, nil)
+	var messageID string
+	err := c.call(ctx, func(api *kavenegar.Kavenegar) error {
+		res, err := api.Verify.Lookup(payload.Phone, kavenegarOTPTemplate, payload.Code, nil)
+		if err != nil {
+			return err
+		}
+		messageID = fmt.Sprintf("%d", res.MessageID)
+		return nil
+	})
 	if err != nil {
-		return "", mapKavenegarError(err)
+		return "", normalizeKavenegarErr(err)
 	}
+	return messageID, nil
+}
 
-	return fmt.Sprintf("%d", res.MessageID), nil
+func normalizeKavenegarErr(err error) error {
+	if errors.Is(err, resilience.ErrCircuitOpen) || errors.Is(err, errEmptyKavenegarResponse) {
+		return err
+	}
+	if kavenegarDeadline(err) {
+		return context.DeadlineExceeded
+	}
+	return mapKavenegarError(err)
+}
+
+func kavenegarDeadline(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var httpErr *kavenegar.HTTPError
+	if errors.As(err, &httpErr) && httpErr.Err != nil && (errors.Is(httpErr.Err, context.DeadlineExceeded) || isNetTimeout(httpErr.Err)) {
+		return true
+	}
+	return isNetTimeout(err)
+}
+
+func isNetTimeout(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+func kavenegarFailure(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, resilience.ErrCircuitOpen) {
+		return false
+	}
+	var apiErr *kavenegar.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.Status >= 500
+	}
+	var httpErr *kavenegar.HTTPError
+	if errors.As(err, &httpErr) {
+		return httpErr.Status >= 500 || httpErr.Status == 0
+	}
+	if errors.Is(err, errEmptyKavenegarResponse) {
+		return false
+	}
+	return true
 }
 
 func extractTemplateToken(tokens map[string]string) string {

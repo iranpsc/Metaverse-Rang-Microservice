@@ -15,6 +15,7 @@ import (
 	"metarang/notifications-service/internal/handler"
 	"metarang/notifications-service/internal/middleware"
 	"metarang/notifications-service/internal/repository"
+	"metarang/notifications-service/internal/resilience"
 	"metarang/notifications-service/internal/service"
 	authpb "metarang/shared/pb/auth"
 	grpcutil "metarang/shared/pkg/grpc"
@@ -71,7 +72,10 @@ func main() {
 
 	httpHandler := handler.NewHTTPNotificationHandler(notificationHandler)
 	httpPort := getEnv("HTTP_PORT", "8063")
-	authMW := middleware.AuthMiddleware(authClient)
+	authMW := middleware.AuthMiddlewareWithPolicy(authClient, middleware.AuthPolicy{
+		Timeout: getEnvAsDuration("AUTH_CALL_TIMEOUT", 2*time.Second),
+		Breaker: resilience.NewBreaker(resilience.DefaultFailureThreshold, resilience.DefaultOpenCooldown),
+	})
 
 	log.Printf("HTTP server listening on port %s", httpPort)
 	go func() {
@@ -95,6 +99,7 @@ func newGRPCServer() (*grpc.Server, error) {
 		grpc.ChainUnaryInterceptor(
 			sentry.UnaryServerInterceptor(),
 			metrics.UnaryServerInterceptor(serviceMetrics),
+			unaryDeadlineInterceptor(grpcReadTimeout, grpcSendTimeout),
 		),
 	)
 	if err != nil {

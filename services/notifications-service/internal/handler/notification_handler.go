@@ -16,6 +16,7 @@ import (
 
 	"metarang/notifications-service/internal/errs"
 	"metarang/notifications-service/internal/models"
+	"metarang/notifications-service/internal/resilience"
 	"metarang/notifications-service/internal/service"
 	"metarang/shared/pkg/helpers"
 )
@@ -188,6 +189,9 @@ func convertNotification(notification models.Notification) *pb.Notification {
 }
 
 func handleServiceError(err error) error {
+	if mapped := mapDownstreamError(err); mapped != nil {
+		return mapped
+	}
 	if errors.Is(err, errs.ErrNotImplemented) {
 		return status.Error(codes.Unimplemented, err.Error())
 	}
@@ -195,4 +199,11 @@ func handleServiceError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	}
 	return status.Errorf(codes.Internal, "service error: %v", err)
+}
+
+func mapDownstreamError(err error) error {
+	if errors.Is(err, resilience.ErrCircuitOpen) || errors.Is(err, context.DeadlineExceeded) {
+		return status.Error(codes.Unavailable, "downstream service unavailable")
+	}
+	return nil
 }
