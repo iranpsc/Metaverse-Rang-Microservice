@@ -86,8 +86,8 @@ func (s *noteService) UpdateNote(ctx context.Context, noteID, userID uint64, tit
 	note.Title = title
 	note.Content = content
 	if replaceAttachments {
-		switch {
-		case attachments == nil:
+		switch attachments {
+		case nil:
 			// Leave stored attachments unchanged.
 		default:
 			// The provided list is the full set. Links the client removed are dropped.
