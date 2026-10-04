@@ -18,8 +18,6 @@ type NoteService interface {
 	GetNote(ctx context.Context, noteID, userID uint64) (*models.Note, error)
 	UpdateNote(ctx context.Context, noteID, userID uint64, title, content string, attachments []string, replaceAttachments bool) (*models.Note, error)
 	DeleteNote(ctx context.Context, noteID, userID uint64) error
-	AddNoteAttachments(ctx context.Context, noteID, userID uint64, attachments []string) (*models.Note, error)
-	DeleteNoteAttachment(ctx context.Context, noteID, userID uint64, attachment string) (*models.Note, error)
 }
 
 type noteService struct {
@@ -91,14 +89,13 @@ func (s *noteService) UpdateNote(ctx context.Context, noteID, userID uint64, tit
 		switch {
 		case attachments == nil:
 			// Leave stored attachments unchanged.
-		case len(attachments) == 0:
-			note.Attachments = []string{}
 		default:
-			merged, mergeErr := MergeNoteAttachments(note.Attachments, attachments)
-			if mergeErr != nil {
-				return nil, mergeErr
+			// The provided list is the full set. Links the client removed are dropped.
+			cleaned, normErr := normalizeNoteAttachments(attachments)
+			if normErr != nil {
+				return nil, normErr
 			}
-			note.Attachments = merged
+			note.Attachments = cleaned
 		}
 	}
 
@@ -110,64 +107,12 @@ func (s *noteService) UpdateNote(ctx context.Context, noteID, userID uint64, tit
 	return s.noteRepo.GetByID(ctx, noteID)
 }
 
-func (s *noteService) AddNoteAttachments(ctx context.Context, noteID, userID uint64, attachments []string) (*models.Note, error) {
-	note, err := s.ownedNote(ctx, noteID, userID, "update")
-	if err != nil {
-		return nil, err
-	}
-
-	merged, err := MergeNoteAttachments(note.Attachments, attachments)
-	if err != nil {
-		return nil, err
-	}
-
-	note.Attachments = merged
-	if err := s.noteRepo.Update(ctx, note); err != nil {
-		return nil, fmt.Errorf("failed to update note: %w", err)
-	}
-	return s.noteRepo.GetByID(ctx, noteID)
-}
-
-func (s *noteService) DeleteNoteAttachment(ctx context.Context, noteID, userID uint64, attachment string) (*models.Note, error) {
-	attachment = strings.TrimSpace(attachment)
-	if attachment == "" {
-		return nil, fmt.Errorf("attachment is required")
-	}
-
-	note, err := s.ownedNote(ctx, noteID, userID, "update")
-	if err != nil {
-		return nil, err
-	}
-
-	next := make([]string, 0, len(note.Attachments))
-	found := false
-	for _, existing := range note.Attachments {
-		if !found && existing == attachment {
-			found = true
-			continue
-		}
-		next = append(next, existing)
-	}
-	if !found {
-		return nil, fmt.Errorf("attachment not found")
-	}
-
-	note.Attachments = next
-	if err := s.noteRepo.Update(ctx, note); err != nil {
-		return nil, fmt.Errorf("failed to update note: %w", err)
-	}
-	return s.noteRepo.GetByID(ctx, noteID)
-}
-
-// MergeNoteAttachments appends new attachment URLs onto the ones already stored.
-// Duplicate and blank values are skipped. The combined list cannot exceed 5 items.
-func MergeNoteAttachments(existing, additional []string) ([]string, error) {
-	merged := append([]string{}, existing...)
-	seen := make(map[string]struct{}, len(merged)+len(additional))
-	for _, item := range merged {
-		seen[item] = struct{}{}
-	}
-	for _, attachment := range additional {
+// normalizeNoteAttachments trims, drops blanks, and keeps the first copy of each URL.
+// The result replaces the stored list and cannot exceed 5 items.
+func normalizeNoteAttachments(attachments []string) ([]string, error) {
+	cleaned := make([]string, 0, len(attachments))
+	seen := make(map[string]struct{}, len(attachments))
+	for _, attachment := range attachments {
 		attachment = strings.TrimSpace(attachment)
 		if attachment == "" {
 			continue
@@ -175,13 +120,13 @@ func MergeNoteAttachments(existing, additional []string) ([]string, error) {
 		if _, ok := seen[attachment]; ok {
 			continue
 		}
-		merged = append(merged, attachment)
 		seen[attachment] = struct{}{}
+		cleaned = append(cleaned, attachment)
 	}
-	if err := validateNoteAttachmentLimit(merged); err != nil {
+	if err := validateNoteAttachmentLimit(cleaned); err != nil {
 		return nil, err
 	}
-	return merged, nil
+	return cleaned, nil
 }
 
 func validateNoteAttachmentLimit(attachments []string) error {
@@ -189,25 +134,6 @@ func validateNoteAttachmentLimit(attachments []string) error {
 		return fmt.Errorf("attachments must not have more than 5 items")
 	}
 	return nil
-}
-
-func (s *noteService) ownedNote(ctx context.Context, noteID, userID uint64, action string) (*models.Note, error) {
-	owned, err := s.noteRepo.CheckUserOwnership(ctx, noteID, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check ownership: %w", err)
-	}
-	if !owned {
-		return nil, fmt.Errorf("unauthorized: you don't have permission to %s this note", action)
-	}
-
-	note, err := s.noteRepo.GetByID(ctx, noteID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get note: %w", err)
-	}
-	if note == nil {
-		return nil, fmt.Errorf("note not found")
-	}
-	return note, nil
 }
 
 func (s *noteService) DeleteNote(ctx context.Context, noteID, userID uint64) error {

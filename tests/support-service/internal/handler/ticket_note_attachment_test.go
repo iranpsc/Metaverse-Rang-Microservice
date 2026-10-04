@@ -12,9 +12,6 @@ import (
 
 	pbSupport "metarang/shared/pb/support"
 	"metarang/support-service/internal/handler"
-	"metarang/support-service/internal/models"
-	"metarang/support-service/internal/service"
-	"metarang/support-service/tests/internal/testutil"
 )
 
 func multipartAttachmentRequest(t *testing.T, field string, names ...string) *http.Request {
@@ -247,108 +244,87 @@ func multipartNoteUpdateRequest(t *testing.T, field string, names ...string) *ht
 	return req
 }
 
-func TestHTTP_UpdateNoteAppendsFilesUntilFive(t *testing.T) {
-	existing := []string{"http://1.pdf", "http://2.docx", "http://3.jpg"}
+func multipartNoteUpdateWithLinks(t *testing.T, links []string, files ...string) *http.Request {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	if err := w.WriteField("title", "T"); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteField("content", "C"); err != nil {
+		t.Fatal(err)
+	}
+	for _, link := range links {
+		if err := w.WriteField("attachments[]", link); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range files {
+		part, err := w.CreateFormFile("attachments[]", name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := part.Write([]byte("file-" + name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPut, "/api/notes/4", &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	return req
+}
+
+func TestHTTP_UpdateNoteReplacesAttachmentsAndDropsRemovedLinks(t *testing.T) {
 	var got []string
 	updated := 0
 	notes := &mockNoteAPI{
-		GetNoteFunc: func(context.Context, *pbSupport.GetNoteRequest) (*pbSupport.NoteResponse, error) {
-			return &pbSupport.NoteResponse{Id: 4, Title: "T", Content: "C", Attachments: append([]string{}, existing...)}, nil
-		},
 		UpdateNoteFunc: func(_ context.Context, req *pbSupport.UpdateNoteRequest) (*pbSupport.NoteResponse, error) {
 			updated++
 			got = append([]string{}, req.Attachments...)
-			return &pbSupport.NoteResponse{Id: 4, Title: req.Title, Content: req.Content, Attachments: req.Attachments}, nil
+			atts := req.Attachments
+			if atts == nil {
+				atts = []string{}
+			}
+			return &pbSupport.NoteResponse{Id: 4, Title: req.Title, Content: req.Content, Attachments: atts}, nil
 		},
 	}
 	storage := &stubFileStorage{}
 	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, storage, "http://app")
 	mux := newSupportMux(h, withUser(7))
 
-	rr := httptest.NewRecorder()
-	mux.ServeHTTP(rr, multipartNoteUpdateRequest(t, "attachments[]", "4.jpeg", "5.png"))
-	if rr.Code != http.StatusOK || updated != 1 || len(got) != 2 || storage.calls != 2 {
-		t.Fatalf("code=%d updated=%d attachments=%v calls=%d body=%s", rr.Code, updated, got, storage.calls, rr.Body.String())
+	body := `{"title":"T2","content":"C2","attachments":["http://1.pdf"]}`
+	rr := doJSON(mux, http.MethodPut, "/api/notes/4", body)
+	if rr.Code != http.StatusOK || updated != 1 || len(got) != 1 || got[0] != "http://1.pdf" {
+		t.Fatalf("json code=%d updated=%d attachments=%v body=%s", rr.Code, updated, got, rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), `"attachment":`) {
+		t.Fatalf("note responses must not include attachment: %s", rr.Body.String())
 	}
 
 	rr = httptest.NewRecorder()
-	mux.ServeHTTP(rr, multipartNoteUpdateRequest(t, "attachment", "6.pdf", "7.docx", "8.jpg"))
-	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "more than 5") || updated != 1 {
-		t.Fatalf("code=%d updated=%d body=%s", rr.Code, updated, rr.Body.String())
+	mux.ServeHTTP(rr, multipartNoteUpdateWithLinks(t, []string{"http://1.pdf", "http://1.pdf"}, "5.png"))
+	if rr.Code != http.StatusOK || updated != 2 || storage.calls != 1 || len(got) != 2 || got[0] != "http://1.pdf" || got[1] != "http://app/uploads/notes/stored-5.png" {
+		t.Fatalf("mix code=%d updated=%d attachments=%v calls=%d body=%s", rr.Code, updated, got, storage.calls, rr.Body.String())
 	}
 
-	body := `{"title":"T2","content":"C2","attachments":["http://4.jpeg","http://5.png"]}`
-	rr = doJSON(mux, http.MethodPut, "/api/notes/4", body)
-	if rr.Code != http.StatusOK || len(got) != 2 || got[0] != "http://4.jpeg" || got[1] != "http://5.png" {
-		t.Fatalf("json code=%d attachments=%v body=%s", rr.Code, got, rr.Body.String())
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, multipartNoteUpdateWithLinks(t, []string{"http://1.pdf", "http://2.pdf", "http://3.pdf", "http://4.pdf"}, "a.png", "b.png"))
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "more than 5") || updated != 2 || storage.calls != 1 {
+		t.Fatalf("limit code=%d updated=%d calls=%d body=%s", rr.Code, updated, storage.calls, rr.Body.String())
 	}
 
-	tooMany := `{"title":"T2","content":"C2","attachments":["http://6.pdf","http://7.docx","http://8.jpg"]}`
+	tooMany := `{"title":"T2","content":"C2","attachments":["1","2","3","4","5","6"]}`
 	rr = doJSON(mux, http.MethodPut, "/api/notes/4", tooMany)
-	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "more than 5") {
-		t.Fatalf("json limit code=%d body=%s", rr.Code, rr.Body.String())
-	}
-}
-
-func TestHTTP_NoteAttachmentAddAndDelete(t *testing.T) {
-	notes := &mockNoteAPI{
-		AddNoteAttachmentsFunc: func(_ context.Context, noteID, userID uint64, attachments []string) (*pbSupport.NoteResponse, error) {
-			if noteID != 4 || userID != 7 || len(attachments) != 1 || attachments[0] != "http://a.pdf" {
-				t.Fatalf("add note=%d user=%d attachments=%v", noteID, userID, attachments)
-			}
-			return &pbSupport.NoteResponse{Id: noteID, Title: "T", Content: "C", Attachments: attachments, Date: "1403/01/01", Time: "10:00:00"}, nil
-		},
-		DeleteNoteAttachmentFunc: func(_ context.Context, noteID, userID uint64, attachment string) (*pbSupport.NoteResponse, error) {
-			if noteID != 4 || userID != 7 || attachment != "http://a.pdf" {
-				t.Fatalf("delete note=%d user=%d attachment=%s", noteID, userID, attachment)
-			}
-			return &pbSupport.NoteResponse{Id: noteID, Title: "T", Content: "C", Attachments: []string{}, Date: "1403/01/01", Time: "10:00:00"}, nil
-		},
-	}
-	h := handler.NewHTTPSupportHandler(&mockTicketAPI{}, &mockReportAPI{}, notes, nil, "http://app")
-	mux := newSupportMux(h, withUser(7))
-
-	rr := doJSON(mux, http.MethodPost, "/api/notes/4/attachments", `{"attachment":"http://a.pdf"}`)
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "http://a.pdf") {
-		t.Fatalf("add code=%d body=%s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "more than 5") || updated != 2 {
+		t.Fatalf("json limit code=%d updated=%d body=%s", rr.Code, updated, rr.Body.String())
 	}
 
-	rr = doJSON(mux, http.MethodDelete, "/api/notes/4/attachments", `{"attachment":"http://a.pdf"}`)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("delete code=%d body=%s", rr.Code, rr.Body.String())
-	}
-
-	rr = doJSON(mux, http.MethodGet, "/api/notes/4/attachments", "")
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("method code=%d", rr.Code)
-	}
-}
-
-func TestNoteHandler_AddAndDeleteAttachments(t *testing.T) {
-	note := &models.Note{ID: 4, UserID: 7, Title: "T", Content: "C", Attachments: []string{"http://a.pdf"}}
-	repo := &testutil.MockNoteRepo{
-		CheckUserOwnershipFunc: func(ctx context.Context, noteID, userID uint64) (bool, error) {
-			return true, nil
-		},
-		GetByIDFunc: func(ctx context.Context, noteID uint64) (*models.Note, error) {
-			return note, nil
-		},
-		UpdateFunc: func(ctx context.Context, n *models.Note) error {
-			note.Attachments = append([]string{}, n.Attachments...)
-			return nil
-		},
-	}
-	h := handler.NewNoteHandler(service.NewNoteService(repo))
-	resp, err := h.AddNoteAttachments(context.Background(), 4, 7, []string{"http://b.docx"})
-	if err != nil || len(resp.Attachments) != 2 {
-		t.Fatalf("resp=%v err=%v", resp, err)
-	}
-	resp, err = h.DeleteNoteAttachment(context.Background(), 4, 7, "http://a.pdf")
-	if err != nil || len(resp.Attachments) != 1 || resp.Attachments[0] != "http://b.docx" {
-		t.Fatalf("resp=%v err=%v", resp, err)
-	}
-	if _, err := h.AddNoteAttachments(context.Background(), 4, 7, []string{"1", "2", "3", "4", "5", "6"}); err == nil {
-		t.Fatal("expected validation error")
+	rr = httptest.NewRecorder()
+	mux.ServeHTTP(rr, multipartNoteUpdateWithLinks(t, []string{""}))
+	if rr.Code != http.StatusOK || updated != 3 || len(got) != 0 {
+		t.Fatalf("clear code=%d updated=%d attachments=%v body=%s", rr.Code, updated, got, rr.Body.String())
 	}
 }
 

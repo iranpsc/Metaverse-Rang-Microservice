@@ -166,13 +166,13 @@ func TestHTTPContract_MultipartCreateTicketStorageNotConfigured(t *testing.T) {
 }
 
 func TestHTTPContract_NoteUpdateKeepsAttachmentsWhenMultipartHasNoFile(t *testing.T) {
-	var kept []string
+	var attachmentsOmitted bool
 	notes := &mockNoteAPI{
 		GetNoteFunc: func(context.Context, *pbSupport.GetNoteRequest) (*pbSupport.NoteResponse, error) {
 			return &pbSupport.NoteResponse{Id: 2, Title: "old", Content: "old", Attachments: []string{"keep.png"}}, nil
 		},
 		UpdateNoteFunc: func(_ context.Context, req *pbSupport.UpdateNoteRequest) (*pbSupport.NoteResponse, error) {
-			kept = append([]string{}, req.Attachments...)
+			attachmentsOmitted = req.Attachments == nil
 			return &pbSupport.NoteResponse{Id: req.NoteId, Title: req.Title, Content: req.Content, Attachments: req.Attachments}, nil
 		},
 	}
@@ -191,8 +191,8 @@ func TestHTTPContract_NoteUpdateKeepsAttachmentsWhenMultipartHasNoFile(t *testin
 	if rr.Code != http.StatusOK {
 		t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
 	}
-	if len(kept) != 1 || kept[0] != "keep.png" {
-		t.Fatalf("kept=%v", kept)
+	if !attachmentsOmitted {
+		t.Fatal("omitted attachment fields must leave stored attachments unchanged")
 	}
 }
 

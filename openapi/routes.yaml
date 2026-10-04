@@ -1072,11 +1072,6 @@ routes:
     tag: Support
     summary: Manage note
     security: bearer
-  - path: /api/notes/{id}/attachments
-    methods: [post, delete]
-    tag: Support
-    summary: Add or delete note attachments
-    security: bearer
 
   # --- Notifications ---
   - path: /api/notifications

@@ -110,7 +110,7 @@ func TestNoteService_UpdateDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Attachments) != 2 || got.Attachments[0] != "u1" || got.Attachments[1] != "u2" {
+	if len(got.Attachments) != 1 || got.Attachments[0] != "u2" {
 		t.Fatalf("attachments=%v", got.Attachments)
 	}
 	if err := svc.DeleteNote(context.Background(), 1, 2); err != nil {

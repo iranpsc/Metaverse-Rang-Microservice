@@ -90,13 +90,11 @@ func (m *mockReportAPI) GetReport(ctx context.Context, req *pbSupport.GetReportR
 }
 
 type mockNoteAPI struct {
-	GetNotesFunc             func(context.Context, *pbSupport.GetNotesRequest) (*pbSupport.NotesResponse, error)
-	CreateNoteFunc           func(context.Context, *pbSupport.CreateNoteRequest) (*pbSupport.NoteResponse, error)
-	GetNoteFunc              func(context.Context, *pbSupport.GetNoteRequest) (*pbSupport.NoteResponse, error)
-	UpdateNoteFunc           func(context.Context, *pbSupport.UpdateNoteRequest) (*pbSupport.NoteResponse, error)
-	DeleteNoteFunc           func(context.Context, *pbSupport.DeleteNoteRequest) (*pbCommon.Empty, error)
-	AddNoteAttachmentsFunc   func(context.Context, uint64, uint64, []string) (*pbSupport.NoteResponse, error)
-	DeleteNoteAttachmentFunc func(context.Context, uint64, uint64, string) (*pbSupport.NoteResponse, error)
+	GetNotesFunc   func(context.Context, *pbSupport.GetNotesRequest) (*pbSupport.NotesResponse, error)
+	CreateNoteFunc func(context.Context, *pbSupport.CreateNoteRequest) (*pbSupport.NoteResponse, error)
+	GetNoteFunc    func(context.Context, *pbSupport.GetNoteRequest) (*pbSupport.NoteResponse, error)
+	UpdateNoteFunc func(context.Context, *pbSupport.UpdateNoteRequest) (*pbSupport.NoteResponse, error)
+	DeleteNoteFunc func(context.Context, *pbSupport.DeleteNoteRequest) (*pbCommon.Empty, error)
 }
 
 func (m *mockNoteAPI) GetNotes(ctx context.Context, req *pbSupport.GetNotesRequest) (*pbSupport.NotesResponse, error) {
@@ -128,18 +126,6 @@ func (m *mockNoteAPI) DeleteNote(ctx context.Context, req *pbSupport.DeleteNoteR
 		return m.DeleteNoteFunc(ctx, req)
 	}
 	return &pbCommon.Empty{}, nil
-}
-func (m *mockNoteAPI) AddNoteAttachments(ctx context.Context, noteID, userID uint64, attachments []string) (*pbSupport.NoteResponse, error) {
-	if m.AddNoteAttachmentsFunc != nil {
-		return m.AddNoteAttachmentsFunc(ctx, noteID, userID, attachments)
-	}
-	return &pbSupport.NoteResponse{}, nil
-}
-func (m *mockNoteAPI) DeleteNoteAttachment(ctx context.Context, noteID, userID uint64, attachment string) (*pbSupport.NoteResponse, error) {
-	if m.DeleteNoteAttachmentFunc != nil {
-		return m.DeleteNoteAttachmentFunc(ctx, noteID, userID, attachment)
-	}
-	return &pbSupport.NoteResponse{}, nil
 }
 
 func identityMW(next http.Handler) http.Handler { return next }
@@ -468,6 +454,9 @@ func TestHTTPContract_NotesCRUDAndMethodSpoof(t *testing.T) {
 	rr := doJSON(mux, http.MethodGet, "/api/notes", "")
 	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"n.png"`) {
 		t.Fatalf("list code=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), `"attachment":`) {
+		t.Fatalf("note responses must not include attachment: %s", rr.Body.String())
 	}
 
 	rr = doJSON(mux, http.MethodPost, "/api/notes", `{"title":"T","content":"C","attachment":"n.png"}`)

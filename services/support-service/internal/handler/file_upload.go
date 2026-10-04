@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -222,6 +223,88 @@ func collectAttachmentFileHeaders(r *http.Request) []*multipart.FileHeader {
 		}
 	}
 	return headers
+}
+
+// noteUpdateAttachmentInput separates kept links from new files on a note edit.
+// present is true when the form included an attachment field or a file, including
+// an empty attachments[] value that clears the list.
+func noteUpdateAttachmentInput(r *http.Request) (links []string, files []*multipart.FileHeader, present bool) {
+	if r == nil || r.MultipartForm == nil {
+		return nil, nil, false
+	}
+	files = collectAttachmentFileHeaders(r)
+	if len(files) > 0 {
+		present = true
+	}
+	values := make([]string, 0)
+	for _, key := range []string{"attachments[]", "attachments", "attachment", "current_attachments[]"} {
+		if items, ok := r.MultipartForm.Value[key]; ok {
+			present = true
+			values = append(values, items...)
+		}
+	}
+	indexed := make([]string, 0)
+	for key := range r.MultipartForm.Value {
+		if !isIndexedAttachmentKey(key) {
+			continue
+		}
+		present = true
+		indexed = append(indexed, key)
+	}
+	sort.Strings(indexed)
+	for _, key := range indexed {
+		values = append(values, r.MultipartForm.Value[key]...)
+	}
+	return dedupeNonEmpty(values), files, present
+}
+
+func isIndexedAttachmentKey(key string) bool {
+	if key == "attachments[]" || key == "current_attachments[]" {
+		return false
+	}
+	return strings.HasPrefix(key, "attachments[") || strings.HasPrefix(key, "current_attachments[")
+}
+
+func dedupeNonEmpty(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// uploadNoteFileHeaders uploads an already counted set of note files.
+func uploadNoteFileHeaders(r *http.Request, storage fileStorageUploader, appURL string, headers []*multipart.FileHeader) ([]string, error) {
+	if len(headers) == 0 {
+		return nil, nil
+	}
+	if storage == nil {
+		return nil, fmt.Errorf("storage service not configured")
+	}
+	urls := make([]string, 0, len(headers))
+	for _, header := range headers {
+		fileURL, err := uploadMultipartFileHeader(r.Context(), storage, appURL, "notes", header)
+		if err != nil {
+			return nil, err
+		}
+		urls = append(urls, fileURL)
+	}
+	return urls, nil
 }
 
 func prependPublicURL(appURL, path string) string {
