@@ -21,10 +21,10 @@ func TestSadadIPGLogsRequestBeforeSendAndResponseAfterReceive(t *testing.T) {
 	const responseBody = `{"ResCode":"0","Token":"stage-token","Description":"ok"}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		written := logs.String()
-		if !strings.Contains(written, "Sadad IPG request") || !strings.Contains(written, `"OrderId":77`) {
+		if !strings.Contains(written, "Sadad IPG payment request") || !strings.Contains(written, `"OrderId":77`) {
 			t.Fatalf("request body was not logged before send: %s", written)
 		}
-		if strings.Contains(written, "Sadad IPG response") {
+		if strings.Contains(written, "Sadad IPG payment response") {
 			t.Fatal("response was logged before the gateway answered")
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -59,7 +59,7 @@ func TestSadadIPGLogsRequestBeforeSendAndResponseAfterReceive(t *testing.T) {
 	}
 
 	written := logs.String()
-	if !strings.Contains(written, "Sadad IPG response") || !strings.Contains(written, responseBody) || !strings.Contains(written, "status=200") {
+	if !strings.Contains(written, "Sadad IPG payment response") || !strings.Contains(written, responseBody) || !strings.Contains(written, "status=200") {
 		t.Fatalf("response was not logged after receive: %s", written)
 	}
 	if !strings.Contains(written, server.URL) {
@@ -68,7 +68,7 @@ func TestSadadIPGLogsRequestBeforeSendAndResponseAfterReceive(t *testing.T) {
 
 	logs.Reset()
 	verifyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(logs.String(), `"Token":"pay-token"`) {
+		if !strings.Contains(logs.String(), "Sadad IPG verify request") || !strings.Contains(logs.String(), `"Token":"pay-token"`) {
 			t.Fatalf("verify request was not logged before send: %s", logs.String())
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -90,7 +90,7 @@ func TestSadadIPGLogsRequestBeforeSendAndResponseAfterReceive(t *testing.T) {
 	if verified.RetrivalRefNo != "9988" {
 		t.Fatalf("rrn=%q", verified.RetrivalRefNo)
 	}
-	if !strings.Contains(logs.String(), "Sadad IPG response") || !strings.Contains(logs.String(), "9988") {
+	if !strings.Contains(logs.String(), "Sadad IPG verify response") || !strings.Contains(logs.String(), "9988") {
 		t.Fatalf("verify response was not logged: %s", logs.String())
 	}
 }

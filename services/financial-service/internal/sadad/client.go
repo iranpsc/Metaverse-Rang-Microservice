@@ -253,7 +253,7 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	respBody, err := c.postJSON(c.endpoints.PaymentRequestURL, payload, 1, "failed to send request")
+	respBody, err := c.postJSON("payment", c.endpoints.PaymentRequestURL, payload, 1, "failed to send request")
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	respBody, err := c.postJSON(c.endpoints.VerifyURL, payload, sadadVerifyAttempts, "failed to send verification request")
+	respBody, err := c.postJSON("verify", c.endpoints.VerifyURL, payload, sadadVerifyAttempts, "failed to send verification request")
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +320,7 @@ func verifyResponseFromBody(body []byte) verifyAPIResponse {
 
 // postJSON sends a JSON POST. attempts is the total number of tries.
 // A later try runs only when the previous try fails to connect.
-func (c *Client) postJSON(endpoint string, payload []byte, attempts int, sendFailure string) ([]byte, error) {
+func (c *Client) postJSON(operation, endpoint string, payload []byte, attempts int, sendFailure string) ([]byte, error) {
 	if attempts < 1 {
 		attempts = 1
 	}
@@ -332,38 +332,38 @@ func (c *Client) postJSON(endpoint string, payload []byte, attempts int, sendFai
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 		setSadadHeaders(req)
-		logSadadIPGRequest(endpoint, payload)
+		logSadadIPGRequest(operation, endpoint, payload)
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastConnectErr = err
-			logSadadIPGTransportError(endpoint, err)
+			logSadadIPGTransportError(operation, endpoint, err)
 			continue
 		}
 
 		respBody, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if readErr != nil {
-			logSadadIPGTransportError(endpoint, readErr)
+			logSadadIPGTransportError(operation, endpoint, readErr)
 			return nil, fmt.Errorf("failed to read response: %w", readErr)
 		}
-		logSadadIPGResponse(endpoint, resp.StatusCode, respBody)
+		logSadadIPGResponse(operation, endpoint, resp.StatusCode, respBody)
 		return respBody, nil
 	}
 
 	return nil, fmt.Errorf("%s: %w", sendFailure, lastConnectErr)
 }
 
-func logSadadIPGRequest(endpoint string, payload []byte) {
-	log.Printf("financial-service: Sadad IPG request url=%s body=%s", endpoint, payload)
+func logSadadIPGRequest(operation, endpoint string, payload []byte) {
+	log.Printf("financial-service: Sadad IPG %s request url=%s body=%s", operation, endpoint, payload)
 }
 
-func logSadadIPGResponse(endpoint string, statusCode int, body []byte) {
-	log.Printf("financial-service: Sadad IPG response url=%s status=%d body=%s", endpoint, statusCode, body)
+func logSadadIPGResponse(operation, endpoint string, statusCode int, body []byte) {
+	log.Printf("financial-service: Sadad IPG %s response url=%s status=%d body=%s", operation, endpoint, statusCode, body)
 }
 
-func logSadadIPGTransportError(endpoint string, err error) {
-	log.Printf("financial-service: Sadad IPG request failed url=%s error=%v", endpoint, err)
+func logSadadIPGTransportError(operation, endpoint string, err error) {
+	log.Printf("financial-service: Sadad IPG %s request failed url=%s error=%v", operation, endpoint, err)
 }
 
 func setSadadHeaders(req *http.Request) {
