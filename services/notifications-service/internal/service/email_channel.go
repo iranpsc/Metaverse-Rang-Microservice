@@ -229,7 +229,7 @@ func (c *smtpEmailChannel) sendOnce(ctx context.Context, addr string, auth smtp.
 		}
 		return err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		if err := client.StartTLS(&tls.Config{ServerName: c.cfg.Host}); err != nil {

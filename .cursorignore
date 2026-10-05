@@ -5,9 +5,5 @@ services/**/bin/
 services/**/tmp/
 coverage/
 *.log
-.env
-.env.*
-config.env
-services/**/config.env
 uploads/**
 scripts/metarang_db.sql
