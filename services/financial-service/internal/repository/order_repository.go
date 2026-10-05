@@ -15,6 +15,9 @@ type OrderRepository interface {
 	FindByIDWithUser(ctx context.Context, id uint64) (*models.Order, *models.User, error)
 	Update(ctx context.Context, order *models.Order) error
 	UpdateWithTx(ctx context.Context, tx *sql.Tx, order *models.Order) error
+	// ClaimUnpaidWithTx marks the order paid only while it is not already paid.
+	// A false result means another callback already claimed the payment.
+	ClaimUnpaidWithTx(ctx context.Context, tx *sql.Tx, orderID uint64, paidStatus int32) (bool, error)
 	Delete(ctx context.Context, id uint64) error
 }
 
@@ -126,6 +129,23 @@ func (r *orderRepository) UpdateWithTx(ctx context.Context, tx *sql.Tx, order *m
 		return fmt.Errorf("failed to update order: %w", err)
 	}
 	return nil
+}
+
+func (r *orderRepository) ClaimUnpaidWithTx(ctx context.Context, tx *sql.Tx, orderID uint64, paidStatus int32) (bool, error) {
+	query := `
+		UPDATE orders
+		SET status = ?, updated_at = ?
+		WHERE id = ? AND status <> ?
+	`
+	result, err := tx.ExecContext(ctx, query, paidStatus, time.Now(), orderID, paidStatus)
+	if err != nil {
+		return false, fmt.Errorf("failed to claim unpaid order: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to read claim result: %w", err)
+	}
+	return affected > 0, nil
 }
 
 func (r *orderRepository) Delete(ctx context.Context, id uint64) error {

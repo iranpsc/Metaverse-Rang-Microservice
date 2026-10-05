@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"regexp"
 	"testing"
 	"time"
@@ -115,6 +116,41 @@ func TestOrderRepository_UpdateAndDelete(t *testing.T) {
 		WithArgs(uint64(1)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	require.NoError(t, repo.Delete(ctx, 1))
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestOrderRepository_ClaimUnpaidWithTx(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := repository.NewOrderRepository(db)
+	ctx := context.Background()
+
+	mock.ExpectBegin()
+	tx, err := db.Begin()
+	require.NoError(t, err)
+
+	claimSQL := "UPDATE orders SET status = \\?, updated_at = \\? WHERE id = \\? AND status <> \\?"
+	mock.ExpectExec(claimSQL).
+		WithArgs(int32(0), sqlmock.AnyArg(), uint64(7), int32(0)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	claimed, err := repo.ClaimUnpaidWithTx(ctx, tx, 7, 0)
+	require.NoError(t, err)
+	assert.True(t, claimed)
+
+	mock.ExpectExec(claimSQL).
+		WithArgs(int32(0), sqlmock.AnyArg(), uint64(7), int32(0)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	claimed, err = repo.ClaimUnpaidWithTx(ctx, tx, 7, 0)
+	require.NoError(t, err)
+	assert.False(t, claimed)
+
+	mock.ExpectExec(claimSQL).
+		WillReturnError(errors.New("claim fail"))
+	_, err = repo.ClaimUnpaidWithTx(ctx, tx, 7, 0)
+	require.Error(t, err)
 
 	require.NoError(t, mock.ExpectationsWereMet())
 }

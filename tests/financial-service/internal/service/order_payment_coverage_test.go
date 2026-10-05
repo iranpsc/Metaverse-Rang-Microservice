@@ -318,6 +318,9 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 		if _, err := svc.HandleCallback(ctx, order.ID, "", "0", nil); err != nil {
 			t.Fatal(err)
 		}
+		if sadadClient.verifyCalls != 1 || sadadClient.lastVerify.Token != "777" {
+			t.Fatalf("verify calls=%d token=%q", sadadClient.verifyCalls, sadadClient.lastVerify.Token)
+		}
 	})
 
 	t.Run("card pan from PrimaryAccNo then CardMaskPan then card_pan", func(t *testing.T) {
@@ -338,7 +341,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 					&mockSadadClient{verifyResponse: &sadad.VerificationResponse{ResCode: "0", RetrivalRefNo: "9"}},
 					&mockOrderPolicy{}, &mockJalaliConverter{},
 					&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, defaultOrderConfig())
-				if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", tc.params); err != nil {
+				if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", tc.params); err != nil {
 					t.Fatal(err)
 				}
 			})
@@ -354,7 +357,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{canGetBonus: true}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: wallet}, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err != nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
 			t.Fatal(err)
 		}
 		if first.count != 1 {
@@ -373,20 +376,34 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{canGetBonusErr: errors.New("bonus check failed")}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected bonus error")
 		}
 	})
 
-	t.Run("payment create error", func(t *testing.T) {
+	t.Run("payment create error reverses wallet and keeps order pending", func(t *testing.T) {
 		orderRepo, txRepo, order := seedCallbackOrder(t, "psc", 10, 1)
+		wallet := &mockWalletClient{}
 		svc := service.NewOrderService(nil, orderRepo, txRepo, &mockPaymentRepo{createErr: errors.New("pay insert")},
 			&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
-			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+			&grpcclients.WalletAdapter{Client: wallet}, nil, nil, defaultOrderConfig())
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected payment create error")
+		}
+		if len(wallet.addBalanceCalls) != 1 || len(wallet.deductBalanceCalls) != 1 {
+			t.Fatalf("add=%d deduct=%d", len(wallet.addBalanceCalls), len(wallet.deductBalanceCalls))
+		}
+		if wallet.deductBalanceCalls[0].Amount != wallet.addBalanceCalls[0].Amount {
+			t.Fatalf("reversal amount=%v credit=%v", wallet.deductBalanceCalls[0].Amount, wallet.addBalanceCalls[0].Amount)
+		}
+		if order.Status != constants.OrderStatusPending {
+			t.Fatalf("order status=%d, want pending", order.Status)
+		}
+		updatedTx, err := txRepo.FindByPayable(ctx, constants.OrderPayableType, order.ID)
+		if err != nil || updatedTx == nil || updatedTx.Status != constants.TransactionStatusPending || updatedTx.RefID != nil {
+			t.Fatalf("transaction status=%v ref=%v err=%v", updatedTx, updatedTx, err)
 		}
 	})
 
@@ -397,7 +414,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{canGetBonus: true}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected first order create error")
 		}
 	})
@@ -409,21 +426,28 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			nil, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected wallet client error")
 		}
 	})
 
 	t.Run("wallet add fails", func(t *testing.T) {
 		orderRepo, txRepo, order := seedCallbackOrder(t, "psc", 10, 1)
+		wallet := &mockWalletClient{addErr: errors.New("wallet down")}
 		svc := service.NewOrderService(nil, orderRepo, txRepo, &mockPaymentRepo{},
 			&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
-			&grpcclients.WalletAdapter{Client: &mockWalletClient{addErr: errors.New("wallet down")}},
+			&grpcclients.WalletAdapter{Client: wallet},
 			nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected wallet error")
+		}
+		if len(wallet.deductBalanceCalls) != 0 {
+			t.Fatal("expected no reversal when the credit itself failed")
+		}
+		if order.Status != constants.OrderStatusPending {
+			t.Fatalf("order status=%d, want pending so the callback can be retried", order.Status)
 		}
 	})
 
@@ -435,7 +459,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, ref, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err != nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
 			t.Fatal(err)
 		}
 		if !ref.called {
@@ -449,8 +473,22 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, ref, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err != nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
 			t.Fatal(err)
+		}
+
+		orderRepo, txRepo, order = seedCallbackOrder(t, "irr", 10, 1)
+		ref = &mockReferralProcessor{}
+		svc = service.NewOrderService(nil, orderRepo, txRepo, &mockPaymentRepo{},
+			&mockVariableRepo{rates: map[string]float64{"irr": 1}}, &mockFirstOrderRepo{},
+			&mockSadadClient{verifyResponse: verifyOK},
+			&mockOrderPolicy{}, &mockJalaliConverter{},
+			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, ref, nil, defaultOrderConfig())
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
+			t.Fatal(err)
+		}
+		if ref.called {
+			t.Fatal("IRR purchases must not call referral processing")
 		}
 	})
 
@@ -464,7 +502,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, sms, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err != nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
 			t.Fatal(err)
 		}
 		if sms.lastRequest != nil {
@@ -478,7 +516,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, sms, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err != nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
 			t.Fatal(err)
 		}
 
@@ -489,7 +527,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, sms, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err != nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
 			t.Fatal(err)
 		}
 		if sms.lastRequest.Tokens["token10"] != "ریال" {
@@ -503,7 +541,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, sms, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err != nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
 			t.Fatal(err)
 		}
 		if sms.lastRequest.Tokens["token10"] != "custom-asset" {
@@ -520,7 +558,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, cfg)
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected frontend URL error")
 		}
 	})
@@ -532,7 +570,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
 			&mockSadadClient{verifyError: errors.New("verify timeout")},
 			&mockOrderPolicy{}, &mockJalaliConverter{}, nil, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected combined verify/mark error")
 		}
 	})
@@ -544,7 +582,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
 			&mockSadadClient{verifyResponse: &sadad.VerificationResponse{ResCode: ""}},
 			&mockOrderPolicy{}, &mockJalaliConverter{}, nil, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected mark error after decline")
 		}
 	})
@@ -555,7 +593,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockVariableRepo{rates: map[string]float64{}}, &mockFirstOrderRepo{},
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{}, nil, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected rate error")
 		}
 	})
@@ -576,7 +614,7 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{canGetBonus: true}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err != nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
 			t.Fatal(err)
 		}
 		if err := mock.ExpectationsWereMet(); err != nil {
@@ -598,8 +636,135 @@ func TestHandleCallback_additionalBranches(t *testing.T) {
 			&mockSadadClient{verifyResponse: verifyOK},
 			&mockOrderPolicy{}, &mockJalaliConverter{},
 			&grpcclients.WalletAdapter{Client: &mockWalletClient{}}, nil, nil, defaultOrderConfig())
-		if _, err := svc.HandleCallback(ctx, order.ID, "tok", "0", nil); err == nil {
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
 			t.Fatal("expected begin error")
+		}
+	})
+
+	t.Run("duplicate success callback does not credit again or mark failed", func(t *testing.T) {
+		orderRepo, txRepo, order := seedCallbackOrder(t, "psc", 10, 1)
+		wallet := &mockWalletClient{}
+		sadadClient := &mockSadadClient{verifyResponse: verifyOK}
+		svc := service.NewOrderService(nil, orderRepo, txRepo, &mockPaymentRepo{},
+			&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
+			sadadClient, &mockOrderPolicy{}, &mockJalaliConverter{},
+			&grpcclients.WalletAdapter{Client: wallet}, nil, nil, defaultOrderConfig())
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err != nil {
+			t.Fatal(err)
+		}
+
+		sadadClient.verifyError = errors.New("token already verified")
+		redirectURL, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(redirectURL, "ResCode=0") {
+			t.Fatalf("redirect=%s", redirectURL)
+		}
+		failedURL, err := svc.HandleCallback(ctx, order.ID, "1", "101", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(failedURL, "ResCode=0") {
+			t.Fatalf("failed redirect=%s", failedURL)
+		}
+		if len(wallet.addBalanceCalls) != 1 {
+			t.Fatalf("wallet credits=%d", len(wallet.addBalanceCalls))
+		}
+		if sadadClient.verifyCalls != 1 {
+			t.Fatalf("verify calls=%d", sadadClient.verifyCalls)
+		}
+		if order.Status != constants.StatusSuccess {
+			t.Fatalf("status=%d", order.Status)
+		}
+	})
+
+	t.Run("callback token mismatch rejects without crediting wallet", func(t *testing.T) {
+		orderRepo, txRepo, order := seedCallbackOrder(t, "psc", 10, 555)
+		wallet := &mockWalletClient{}
+		sadadClient := &mockSadadClient{verifyResponse: verifyOK}
+		svc := service.NewOrderService(nil, orderRepo, txRepo, &mockPaymentRepo{},
+			&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
+			sadadClient, &mockOrderPolicy{}, &mockJalaliConverter{},
+			&grpcclients.WalletAdapter{Client: wallet}, nil, nil, defaultOrderConfig())
+		redirectURL, err := svc.HandleCallback(ctx, order.ID, "999", "0", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(redirectURL, "ResCode=-1") {
+			t.Fatalf("redirect=%s", redirectURL)
+		}
+		if sadadClient.verifyCalls != 0 || len(wallet.addBalanceCalls) != 0 {
+			t.Fatalf("verify=%d credits=%d", sadadClient.verifyCalls, len(wallet.addBalanceCalls))
+		}
+		if order.Status != constants.StatusUnknown {
+			t.Fatalf("status=%d", order.Status)
+		}
+	})
+
+	t.Run("commit failure reverses the wallet credit", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		mock.ExpectBegin()
+		mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
+
+		orderRepo, txRepo, order := seedCallbackOrder(t, "psc", 10, 1)
+		wallet := &mockWalletClient{}
+		svc := service.NewOrderService(db, orderRepo, txRepo, &mockPaymentRepo{},
+			&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
+			&mockSadadClient{verifyResponse: verifyOK},
+			&mockOrderPolicy{}, &mockJalaliConverter{},
+			&grpcclients.WalletAdapter{Client: wallet}, nil, nil, defaultOrderConfig())
+		if _, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil); err == nil {
+			t.Fatal("expected commit error")
+		}
+		if len(wallet.addBalanceCalls) != 1 || len(wallet.deductBalanceCalls) != 1 {
+			t.Fatalf("add=%d deduct=%d", len(wallet.addBalanceCalls), len(wallet.deductBalanceCalls))
+		}
+		if wallet.addBalanceCalls[0].Amount != 10 || wallet.deductBalanceCalls[0].Amount != 10 {
+			t.Fatalf("credit=%v reversal=%v", wallet.addBalanceCalls[0].Amount, wallet.deductBalanceCalls[0].Amount)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("lost claim returns success without a second credit", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer db.Close()
+		mock.ExpectBegin()
+		mock.ExpectRollback()
+
+		orderRepo, txRepo, order := seedCallbackOrder(t, "psc", 10, 1)
+		orderRepo.forceUnclaimed = true
+		wallet := &mockWalletClient{}
+		ref := &mockReferralProcessor{}
+		svc := service.NewOrderService(db, orderRepo, txRepo, &mockPaymentRepo{},
+			&mockVariableRepo{rates: map[string]float64{"psc": 1}}, &mockFirstOrderRepo{},
+			&mockSadadClient{verifyResponse: verifyOK},
+			&mockOrderPolicy{}, &mockJalaliConverter{},
+			&grpcclients.WalletAdapter{Client: wallet}, ref, nil, defaultOrderConfig())
+		redirectURL, err := svc.HandleCallback(ctx, order.ID, "1", "0", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(redirectURL, "ResCode=0") {
+			t.Fatalf("redirect=%s", redirectURL)
+		}
+		if len(wallet.addBalanceCalls) != 0 || ref.called {
+			t.Fatalf("credits=%d referral=%v", len(wallet.addBalanceCalls), ref.called)
+		}
+		if order.Status != constants.OrderStatusPending {
+			t.Fatalf("status=%d", order.Status)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatal(err)
 		}
 	})
 }

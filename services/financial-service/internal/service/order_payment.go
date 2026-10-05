@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -161,6 +162,12 @@ func (s *orderService) HandleCallback(ctx context.Context, orderID uint64, token
 		return "", err
 	}
 
+	// A completed payment must stay successful. Sadad retries the return POST, and a
+	// later verify attempt is rejected by the gateway once the token is consumed.
+	if order.Status == constants.StatusSuccess {
+		return s.buildPaymentVerifyRedirectURL(orderID, sadadResCodeSuccess)
+	}
+
 	redirectCode := resCode
 	if resCode == sadadResCodeSuccess {
 		redirectCode, err = s.handleSuccessfulSadadCallback(ctx, order, user, transaction, token, additionalParams)
@@ -219,6 +226,9 @@ func (s *orderService) handleSuccessfulSadadCallback(ctx context.Context, order 
 
 	refID := parseInt64OrZero(verifyResponse.RetrivalRefNo)
 	if err := s.finalizeSuccessfulPayment(ctx, order, transaction, refID, rate, cardPanFromCallback(additionalParams)); err != nil {
+		if errors.Is(err, ErrOrderAlreadyPaid) {
+			return sadadResCodeSuccess, nil
+		}
 		return "", err
 	}
 
@@ -244,13 +254,15 @@ func (s *orderService) finalizeSuccessfulPayment(ctx context.Context, order *mod
 	}
 
 	firstOrder, walletAmount := s.firstOrderReward(order, canGetBonus)
-	markPaymentSuccessful(order, transaction, refID)
-	payment := newSadadPayment(order, refID, cardPan, rate)
 
 	if s.db != nil {
-		return s.finalizeSuccessfulPaymentTx(ctx, order, transaction, payment, firstOrder, walletAmount)
+		return s.finalizeSuccessfulPaymentTx(ctx, order, transaction, refID, cardPan, rate, firstOrder, walletAmount)
 	}
+
 	// Callers without a database connection, including unit tests, persist each row on its own.
+	// Credit the wallet before those writes so a wallet failure leaves the order pending.
+	markPaymentSuccessful(order, transaction, refID)
+	payment := newSadadPayment(order, refID, cardPan, rate)
 	return s.persistSuccessfulPayment(ctx, order, transaction, payment, firstOrder, walletAmount)
 }
 
@@ -287,33 +299,81 @@ func newSadadPayment(order *models.Order, refID int64, cardPan string, rate floa
 }
 
 func (s *orderService) persistSuccessfulPayment(ctx context.Context, order *models.Order, transaction *models.Transaction, payment *models.Payment, firstOrder *models.FirstOrder, walletAmount float64) error {
+	if err := s.addWalletBalance(ctx, order.UserID, order.Asset, walletAmount); err != nil {
+		restorePendingPayment(order, transaction)
+		return err
+	}
+
+	orderWritten := false
+	transactionWritten := false
+	fail := func(err error) error {
+		s.compensateUncommittedCredit(ctx, order, transaction, walletAmount, orderWritten, transactionWritten)
+		return err
+	}
+
 	if err := s.orderRepo.Update(ctx, order); err != nil {
-		return fmt.Errorf("failed to update order: %w", err)
+		return fail(fmt.Errorf("failed to update order: %w", err))
 	}
+	orderWritten = true
 	if err := s.transactionRepo.Update(ctx, transaction); err != nil {
-		return fmt.Errorf("failed to update transaction: %w", err)
+		return fail(fmt.Errorf("failed to update transaction: %w", err))
 	}
+	transactionWritten = true
 	if err := s.paymentRepo.Create(ctx, payment); err != nil {
-		return fmt.Errorf("failed to create payment record: %w", err)
+		return fail(fmt.Errorf("failed to create payment record: %w", err))
 	}
 	if firstOrder != nil {
 		if err := s.firstOrderRepo.Create(ctx, firstOrder); err != nil {
-			return fmt.Errorf("failed to create first order record: %w", err)
+			return fail(fmt.Errorf("failed to create first order record: %w", err))
 		}
 	}
-	return s.addWalletBalance(ctx, order.UserID, order.Asset, walletAmount)
+	return nil
 }
 
-func (s *orderService) finalizeSuccessfulPaymentTx(ctx context.Context, order *models.Order, transaction *models.Transaction, payment *models.Payment, firstOrder *models.FirstOrder, walletAmount float64) error {
+func (s *orderService) compensateUncommittedCredit(ctx context.Context, order *models.Order, transaction *models.Transaction, walletAmount float64, orderWritten, transactionWritten bool) {
+	if err := s.reverseWalletCredit(ctx, order.UserID, order.Asset, walletAmount); err != nil {
+		logPaymentWarning("wallet credited for order %d but payment was not saved and reversal failed: %v", order.ID, err)
+	}
+	restorePendingPayment(order, transaction)
+	if orderWritten {
+		if err := s.orderRepo.Update(ctx, order); err != nil {
+			logPaymentWarning("failed to restore pending order %d after payment persist failure: %v", order.ID, err)
+		}
+	}
+	if transactionWritten {
+		if err := s.transactionRepo.Update(ctx, transaction); err != nil {
+			logPaymentWarning("failed to restore pending transaction %s after payment persist failure: %v", transaction.ID, err)
+		}
+	}
+}
+
+func restorePendingPayment(order *models.Order, transaction *models.Transaction) {
+	order.Status = constants.OrderStatusPending
+	transaction.Status = constants.TransactionStatusPending
+	transaction.RefID = nil
+}
+
+func (s *orderService) finalizeSuccessfulPaymentTx(ctx context.Context, order *models.Order, transaction *models.Transaction, refID int64, cardPan string, rate float64, firstOrder *models.FirstOrder, walletAmount float64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin payment transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if err := s.orderRepo.UpdateWithTx(ctx, tx, order); err != nil {
+	// Claim the pending order inside the transaction so a concurrent callback
+	// cannot credit the wallet a second time. The row lock waits until the
+	// winner commits or rolls back.
+	claimed, err := s.orderRepo.ClaimUnpaidWithTx(ctx, tx, order.ID, constants.StatusSuccess)
+	if err != nil {
 		return err
 	}
+	if !claimed {
+		return ErrOrderAlreadyPaid
+	}
+
+	markPaymentSuccessful(order, transaction, refID)
+	payment := newSadadPayment(order, refID, cardPan, rate)
+
 	if err := s.transactionRepo.UpdateWithTx(ctx, tx, transaction); err != nil {
 		return err
 	}
@@ -333,7 +393,11 @@ func (s *orderService) finalizeSuccessfulPaymentTx(ctx context.Context, order *m
 	}
 
 	if err := tx.Commit(); err != nil {
-		logPaymentWarning("wallet credited for order %d but database commit failed: %v", order.ID, err)
+		if revErr := s.reverseWalletCredit(ctx, order.UserID, order.Asset, walletAmount); revErr != nil {
+			logPaymentWarning("wallet credited for order %d but database commit failed and reversal failed: commit=%v reversal=%v", order.ID, err, revErr)
+			return fmt.Errorf("failed to commit payment transaction: %w; wallet reversal: %v", err, revErr)
+		}
+		logPaymentWarning("wallet credit reversed after commit failure for order %d: %v", order.ID, err)
 		return fmt.Errorf("failed to commit payment transaction: %w", err)
 	}
 
@@ -341,7 +405,12 @@ func (s *orderService) finalizeSuccessfulPaymentTx(ctx context.Context, order *m
 }
 
 func (s *orderService) verifySadadPayment(transaction *models.Transaction, token string) (*sadad.VerificationResponse, error) {
-	verifyToken := token
+	callbackToken := strings.TrimSpace(token)
+	if transaction.Token != nil && callbackToken != "" && !callbackTokenMatches(*transaction.Token, callbackToken) {
+		return nil, fmt.Errorf("callback token does not match stored payment token")
+	}
+
+	verifyToken := callbackToken
 	if verifyToken == "" && transaction.Token != nil {
 		verifyToken = strconv.FormatInt(*transaction.Token, 10)
 	}
@@ -352,8 +421,16 @@ func (s *orderService) verifySadadPayment(transaction *models.Transaction, token
 	})
 }
 
+func callbackTokenMatches(stored int64, callbackToken string) bool {
+	parsed, err := strconv.ParseInt(strings.TrimSpace(callbackToken), 10, 64)
+	if err != nil {
+		return false
+	}
+	return parsed == stored
+}
+
 func (s *orderService) processReferral(ctx context.Context, order *models.Order) {
-	if s.referralProcessor == nil {
+	if s.referralProcessor == nil || order.Asset == constants.AssetIRR {
 		return
 	}
 	if err := s.referralProcessor.ProcessReferral(ctx, order.UserID, order.ID, order.Asset, order.Amount); err != nil {
@@ -463,6 +540,16 @@ func (s *orderService) addWalletBalance(ctx context.Context, userID uint64, asse
 		return fmt.Errorf("wallet AddBalance failed: %w", err)
 	}
 
+	return nil
+}
+
+func (s *orderService) reverseWalletCredit(ctx context.Context, userID uint64, asset string, amount float64) error {
+	if s.walletTopUp == nil {
+		return fmt.Errorf("wallet client not configured")
+	}
+	if err := s.walletTopUp.ReverseBalance(ctx, userID, asset, amount); err != nil {
+		return fmt.Errorf("wallet credit reversal failed: %w", err)
+	}
 	return nil
 }
 
