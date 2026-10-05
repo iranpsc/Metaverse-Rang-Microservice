@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -331,22 +332,38 @@ func (c *Client) postJSON(endpoint string, payload []byte, attempts int, sendFai
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 		setSadadHeaders(req)
+		logSadadIPGRequest(endpoint, payload)
 
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			lastConnectErr = err
+			logSadadIPGTransportError(endpoint, err)
 			continue
 		}
 
 		respBody, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if readErr != nil {
+			logSadadIPGTransportError(endpoint, readErr)
 			return nil, fmt.Errorf("failed to read response: %w", readErr)
 		}
+		logSadadIPGResponse(endpoint, resp.StatusCode, respBody)
 		return respBody, nil
 	}
 
 	return nil, fmt.Errorf("%s: %w", sendFailure, lastConnectErr)
+}
+
+func logSadadIPGRequest(endpoint string, payload []byte) {
+	log.Printf("financial-service: Sadad IPG request url=%s body=%s", endpoint, payload)
+}
+
+func logSadadIPGResponse(endpoint string, statusCode int, body []byte) {
+	log.Printf("financial-service: Sadad IPG response url=%s status=%d body=%s", endpoint, statusCode, body)
+}
+
+func logSadadIPGTransportError(endpoint string, err error) {
+	log.Printf("financial-service: Sadad IPG request failed url=%s error=%v", endpoint, err)
 }
 
 func setSadadHeaders(req *http.Request) {
