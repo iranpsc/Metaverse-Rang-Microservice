@@ -377,6 +377,27 @@ func TestVerifyPaymentSignRetryAndAlreadyVerified(t *testing.T) {
 		}
 	})
 
+	t.Run("accepts string amount and order id from production verify", func(t *testing.T) {
+		const body = `{"ResCode":"0","Description":"عملیات با موفقیت انجام شد","Amount":"30000","RetrivalRefNo":"324581557185","SystemTraceNo":"000096","OrderId":"714","SwitchResCode":"00","TransactionDate":"10/6/2026 9:28:49 AM","AdditionalData":null,"CardHolderFullName":null}`
+		client := sadad.NewClientWithHTTPClient(sadad.Endpoints{VerifyURL: "https://sadad.shaparak.ir/api/v0/Advice/Verify"}, &http.Client{
+			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     make(http.Header),
+				}, nil
+			}),
+		})
+
+		resp, err := client.VerifyPayment(sadad.VerificationParams{Token: "gateway-token", SignData: testKey})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !resp.Success() || resp.ResCode != "0" || resp.Amount != 30000 || resp.OrderID != 714 || resp.RetrivalRefNo != "324581557185" || resp.SystemTraceNo != "000096" {
+			t.Fatalf("string verify fields were not decoded: %+v", resp)
+		}
+	})
+
 	t.Run("does not retry an http error body", func(t *testing.T) {
 		var calls int
 		client := sadad.NewClientWithHTTPClient(sadad.Endpoints{VerifyURL: "https://sadad.shaparak.ir/api/v0/Advice/Verify"}, &http.Client{

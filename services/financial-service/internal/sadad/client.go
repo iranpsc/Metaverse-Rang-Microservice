@@ -206,13 +206,14 @@ type verifyRequestBody struct {
 }
 
 // verifyAPIResponse mirrors the documented Verify JSON response (VPG Help v1.10, section 6.6).
+// Amount and OrderId are documented as numbers, but production Sadad returns them as strings.
 type verifyAPIResponse struct {
 	ResCode            json.RawMessage `json:"ResCode"`
-	Amount             int64           `json:"Amount"`
+	Amount             jsonInt64       `json:"Amount"`
 	SystemTraceNo      string          `json:"SystemTraceNo"`
 	RetrivalRefNo      string          `json:"RetrivalRefNo"`
 	Description        string          `json:"Description"`
-	OrderID            int64           `json:"OrderId"`
+	OrderID            jsonInt64       `json:"OrderId"`
 	TransactionDate    string          `json:"TransactionDate"`
 	CardHolderFullName string          `json:"CardHolderFullName"`
 }
@@ -300,11 +301,11 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 	apiResp := verifyResponseFromBody(respBody)
 	return &VerificationResponse{
 		ResCode:            parseResCode(apiResp.ResCode),
-		Amount:             apiResp.Amount,
+		Amount:             int64(apiResp.Amount),
 		SystemTraceNo:      apiResp.SystemTraceNo,
 		RetrivalRefNo:      apiResp.RetrivalRefNo,
 		Description:        apiResp.Description,
-		OrderID:            apiResp.OrderID,
+		OrderID:            int64(apiResp.OrderID),
 		TransactionDate:    apiResp.TransactionDate,
 		CardHolderFullName: apiResp.CardHolderFullName,
 	}, nil
@@ -465,6 +466,43 @@ func pkcs7Pad(data []byte, blockSize int) []byte {
 	padding := blockSize - len(data)%blockSize
 	padText := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(data, padText...)
+}
+
+// jsonInt64 decodes a JSON number or a numeric string. Sadad Verify returns
+// Amount and OrderId as strings ("30000", "714") even when the call succeeds.
+type jsonInt64 int64
+
+func (n *jsonInt64) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 || bytes.Equal(data, []byte("null")) {
+		*n = 0
+		return nil
+	}
+
+	if data[0] == '"' {
+		var text string
+		if err := json.Unmarshal(data, &text); err != nil {
+			return err
+		}
+		text = strings.TrimSpace(text)
+		if text == "" {
+			*n = 0
+			return nil
+		}
+		parsed, err := strconv.ParseInt(text, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid integer string %q: %w", text, err)
+		}
+		*n = jsonInt64(parsed)
+		return nil
+	}
+
+	var parsed int64
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return err
+	}
+	*n = jsonInt64(parsed)
+	return nil
 }
 
 func parseResCode(raw json.RawMessage) string {
