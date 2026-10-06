@@ -13,8 +13,8 @@ import (
 )
 
 type fakePersonalInfoRepository struct {
-	info *models.PersonalInfo
-	err  error
+	info      *models.PersonalInfo
+	err       error
 	upsertErr error
 }
 
@@ -80,7 +80,7 @@ func TestPersonalInfoService(t *testing.T) {
 		if !errors.Is(err, service.ErrInvalidEducation) {
 			t.Fatalf("err=%v", err)
 		}
-		err = svc.UpdatePersonalInfo(ctx, 1, "", "", strings.Repeat("a", 2001), "", "", "", "", "", "", nil)
+		err = svc.UpdatePersonalInfo(ctx, 1, "", "", strings.Repeat("a", 10001), "", "", "", "", "", "", nil)
 		if !errors.Is(err, service.ErrInvalidMemory) {
 			t.Fatalf("err=%v", err)
 		}
@@ -96,7 +96,7 @@ func TestPersonalInfoService(t *testing.T) {
 		if !errors.Is(err, service.ErrInvalidLovedLanguage) {
 			t.Fatalf("err=%v", err)
 		}
-		err = svc.UpdatePersonalInfo(ctx, 1, "", "", "", "", "", "", strings.Repeat("a", 2001), "", "", nil)
+		err = svc.UpdatePersonalInfo(ctx, 1, "", "", "", "", "", "", strings.Repeat("a", 10001), "", "", nil)
 		if !errors.Is(err, service.ErrInvalidProblemSolving) {
 			t.Fatalf("err=%v", err)
 		}
