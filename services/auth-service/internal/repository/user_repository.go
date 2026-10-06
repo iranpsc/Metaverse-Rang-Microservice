@@ -253,7 +253,7 @@ func (r *userRepository) ListUserIDsByLastSeen(ctx context.Context, after, until
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users by last_seen: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	users := make([]LastSeenUser, 0, limit)
 	for rows.Next() {
