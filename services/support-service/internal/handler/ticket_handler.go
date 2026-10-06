@@ -40,7 +40,7 @@ func (h *TicketHandler) CreateTicket(ctx context.Context, req *pb.CreateTicketRe
 		ValidateRequired("title", req.Title, locale),
 		ValidateRequired("content", req.Content, locale),
 		ValidateMaxLen("title", req.Title, 250, locale),
-		ValidateMaxLen("content", req.Content, 500, locale),
+		ValidateMaxLen("content", req.Content, 2000, locale),
 	)
 	if req.ReceiverId == 0 && req.Department == "" {
 		validationErrors = mergeValidationErrors(validationErrors, map[string]string{
@@ -146,7 +146,7 @@ func (h *TicketHandler) UpdateTicket(ctx context.Context, req *pb.UpdateTicketRe
 		ValidateRequired("title", req.Title, locale),
 		ValidateRequired("content", req.Content, locale),
 		ValidateMaxLen("title", req.Title, 250, locale),
-		ValidateMaxLen("content", req.Content, 500, locale),
+		ValidateMaxLen("content", req.Content, 2000, locale),
 	)
 	if len(validationErrors) > 0 {
 		return nil, returnValidationError(validationErrors)
@@ -166,7 +166,7 @@ func (h *TicketHandler) AddResponse(ctx context.Context, req *pb.AddResponseRequ
 		ValidateRequired("ticket_id", req.TicketId, locale),
 		ValidateRequired("user_id", req.UserId, locale),
 		ValidateRequired("response", req.Response, locale),
-		ValidateMaxLen("response", req.Response, 500, locale),
+		ValidateMaxLen("response", req.Response, 2000, locale),
 	)
 	if len(validationErrors) > 0 {
 		return nil, returnValidationError(validationErrors)
