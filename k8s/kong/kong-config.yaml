@@ -7,8 +7,11 @@ services:
     protocol: http
     routes:
       - name: features-search-api
+        # Regex so this wins over auth-api, which is a regex route and is
+        # evaluated before plain prefixes such as /api/search/users.
         paths:
-          - /api/search/features
+          - ~/api/search/features/?$
+        regex_priority: 200
         methods:
           - GET
           - POST
@@ -52,7 +55,8 @@ services:
           - /api/user/profile
           - ~/api/user/[^/]+/level$
           - ~/api/user$
-          - /api/search
+          - /api/search/users
+          - /api/search/isic-codes
           - /api/kyc
           - /api/bank-accounts
           - /api/personal-info

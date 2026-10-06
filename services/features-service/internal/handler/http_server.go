@@ -67,7 +67,11 @@ func newPublicHTTPHandler(
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"}, true)
 	})
-	mux.Handle("/api/search/features", optionalAuth(http.HandlerFunc(handlers.Features.SearchFeatures)))
+	// Exact path and the trailing-slash form. Go's mux does not redirect POST
+	// /api/search/features/ onto the path without the slash; it returns 404.
+	searchFeatures := optionalAuth(http.HandlerFunc(handlers.Features.SearchFeatures))
+	mux.Handle("/api/search/features", searchFeatures)
+	mux.Handle("/api/search/features/{$}", searchFeatures)
 	mux.Handle("GET /api/features", optionalAuth(http.HandlerFunc(handlers.Features.ListFeatures)))
 	mux.Handle("GET /api/features/{feature}/trade-history", http.HandlerFunc(handlers.Features.TradeHistory))
 	mux.Handle("GET /api/features/{feature}/sell-requests", http.HandlerFunc(handlers.Features.FeatureSellRequests))

@@ -241,6 +241,34 @@ routes:
             ssl: false
             ssl_verify: false
 
+  # Feature search must not fall through to auth-api's /api/search prefix.
+  # auth-api is a regex route (priority 97) and is evaluated before plain prefixes,
+  # so this route is a regex with a higher priority than auth-api.
+  - name: features-search-api
+    service: features-service
+    paths:
+      - ~/api/search/features/?$
+    strip_path: false
+    preserve_host: false
+    regex_priority: 200
+    protocols:
+      - http
+      - https
+    methods:
+      - GET
+      - POST
+      - OPTIONS
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: redis
+          redis:
+            host: redis
+            port: 6379
+            ssl: false
+            ssl_verify: false
+
   # Features API — higher priority than catch-all /api → grpc-gateway.
   # Include OPTIONS so preflight always matches this route (PATCH must be allowed).
   # Kong CORS (priority 2000) answers OPTIONS before rate-limiting (901).
@@ -249,7 +277,6 @@ routes:
     service: features-service
     paths:
       - /api/features
-      - /api/search/features
       - /api/isic-codes
       - /api/my-features
       - /api/buy-requests
@@ -497,7 +524,8 @@ routes:
       - /api/user/profile
       - ~/api/user/[^/]+/level$
       - ~/api/user$
-      - /api/search
+      - /api/search/users
+      - /api/search/isic-codes
       - /api/kyc
       - /api/bank-accounts
       - /api/personal-info
