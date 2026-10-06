@@ -205,10 +205,14 @@ func TestAuthHandler_RegisterRedirectCallbackGetMeLogoutValidate(t *testing.T) {
 		tokenRepo.validateTokenSessionFunc = func(context.Context, string) (*repository.ValidatedToken, error) {
 			return nil, errors.New("bad")
 		}
-		h := handler.NewAuthHandler(&mockAuthService{}, tokenRepo, photo, "en")
+		presence := &recordingPresence{}
+		h := handler.NewAuthHandler(&mockAuthService{}, tokenRepo, photo, "en", handler.WithPresenceTracker(presence))
 		resp, err := h.ValidateToken(context.Background(), &pb.ValidateTokenRequest{Token: "x"})
 		if err != nil || resp.Valid {
 			t.Fatalf("resp=%v err=%v", resp, err)
+		}
+		if len(presence.ids) != 0 {
+			t.Fatalf("invalid token touched presence: %v", presence.ids)
 		}
 		tokenRepo.validateTokenSessionFunc = func(context.Context, string) (*repository.ValidatedToken, error) {
 			return &repository.ValidatedToken{
@@ -220,6 +224,9 @@ func TestAuthHandler_RegisterRedirectCallbackGetMeLogoutValidate(t *testing.T) {
 		if err != nil || !resp.Valid || resp.UserId != 5 || !resp.WalletLogin {
 			t.Fatalf("resp=%v err=%v", resp, err)
 		}
+		if len(presence.ids) != 1 || presence.ids[0] != 5 {
+			t.Fatalf("expected Touch(5), got %v", presence.ids)
+		}
 	})
 
 	t.Run("register handler wires server", func(t *testing.T) {
@@ -230,4 +237,12 @@ func TestAuthHandler_RegisterRedirectCallbackGetMeLogoutValidate(t *testing.T) {
 			t.Fatal("nil handler")
 		}
 	})
+}
+
+type recordingPresence struct {
+	ids []uint64
+}
+
+func (r *recordingPresence) Touch(userID uint64) {
+	r.ids = append(r.ids, userID)
 }

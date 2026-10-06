@@ -2212,7 +2212,8 @@ CREATE TABLE `users` (
   UNIQUE KEY `users_email_unique` (`email`),
   UNIQUE KEY `users_wallet_address_unique` (`wallet_address`),
   KEY `users_code_index` (`code`),
-  KEY `users_name_index` (`name`)
+  KEY `users_name_index` (`name`),
+  KEY `users_last_seen_index` (`last_seen`)
 ) ENGINE=InnoDB AUTO_INCREMENT=670 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

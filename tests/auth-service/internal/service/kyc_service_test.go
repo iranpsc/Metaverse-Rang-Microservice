@@ -172,6 +172,14 @@ func (r *fakeKYCUserRepository) UpdateLastSeen(ctx context.Context, userID uint6
 	return nil
 }
 
+func (r *fakeKYCUserRepository) SetLastSeen(ctx context.Context, userID uint64, at time.Time) error {
+	return nil
+}
+
+func (r *fakeKYCUserRepository) ListUserIDsByLastSeen(context.Context, time.Time, time.Time, time.Time, uint64, int) ([]repository.LastSeenUser, error) {
+	return nil, nil
+}
+
 func (r *fakeKYCUserRepository) UpdateScore(ctx context.Context, userID uint64, score int32) error {
 	return nil
 }

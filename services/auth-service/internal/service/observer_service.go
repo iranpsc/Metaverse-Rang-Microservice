@@ -206,11 +206,13 @@ func (s *observerService) OnUserLogout(ctx context.Context, user *models.User, i
 		fmt.Printf("failed to calculate score on logout: %v\n", err)
 	}
 
-	// 4. Set last_seen to 2 minutes ago (marks as offline)
-	// We'll update the user directly since we need a special time
-	// Note: This is a special case where we can't use UpdateLastSeen
-	// TODO: Add UpdateLastSeenWithTime method to repository
+	// 4. Persist last_seen far enough in the past that the user counts as offline.
+	// The offline dedupe key is set by PublishUserStatusChanged, so the sweeper
+	// does not announce the same logout again.
 	twoMinutesAgo := time.Now().Add(-2 * time.Minute)
+	if err := s.userRepo.SetLastSeen(ctx, user.ID, twoMinutesAgo); err != nil {
+		fmt.Printf("failed to set last seen on logout: %v\n", err)
+	}
 	user.LastSeen = sql.NullTime{Time: twoMinutesAgo, Valid: true}
 
 	// 5. Create logout event
@@ -226,9 +228,10 @@ func (s *observerService) OnUserLogout(ctx context.Context, user *models.User, i
 	}
 
 	// 6. Broadcast offline status
-	if err := s.publisher.PublishUserStatusChanged(ctx, user.ID, false); err != nil {
-		// Log error but don't fail the logout
-		fmt.Printf("failed to publish user offline status: %v\n", err)
+	if s.publisher != nil {
+		if err := s.publisher.PublishUserStatusChanged(ctx, user.ID, false); err != nil {
+			fmt.Printf("failed to publish user offline status: %v\n", err)
+		}
 	}
 
 	return nil

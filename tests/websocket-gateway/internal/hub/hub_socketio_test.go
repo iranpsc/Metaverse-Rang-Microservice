@@ -234,6 +234,19 @@ func TestBroadcastUserStatusAndNotification(t *testing.T) {
 		t.Fatalf("user-status payload = %#v", statusPayload)
 	}
 
+	h.BroadcastUserStatus(map[string]any{
+		"data": map[string]any{"user_id": "42", "online": false},
+	})
+	wrapped := waitForEvent(t, conn, "user-status-changed", 3*time.Second)
+	var wrappedPayload map[string]any
+	if err := json.Unmarshal(wrapped.data, &wrappedPayload); err != nil {
+		t.Fatalf("decode wrapped user-status payload: %v", err)
+	}
+	inner, ok := wrappedPayload["data"].(map[string]any)
+	if !ok || inner["user_id"] != "42" || inner["online"] != false {
+		t.Fatalf("wrapped user-status payload = %#v", wrappedPayload)
+	}
+
 	h.BroadcastNotification(map[string]any{
 		"user_id": float64(42),
 		"id":      "n-1",

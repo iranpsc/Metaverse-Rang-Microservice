@@ -51,6 +51,9 @@ func TestObserverService_LogoutCreatedScore(t *testing.T) {
 		if len(pub.calls) == 0 || pub.calls[len(pub.calls)-1] {
 			t.Fatalf("expected offline publish, calls=%v", pub.calls)
 		}
+		if !user.LastSeen.Valid || time.Since(user.LastSeen.Time) < time.Minute {
+			t.Fatalf("expected last_seen about 2 minutes ago, got %+v", user.LastSeen)
+		}
 	})
 
 	t.Run("created", func(t *testing.T) {
@@ -246,4 +249,3 @@ func TestObserverService_LoginNotificationPayload(t *testing.T) {
 		}
 	})
 }
-

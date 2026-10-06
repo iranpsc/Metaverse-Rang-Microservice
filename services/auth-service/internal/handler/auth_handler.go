@@ -21,12 +21,18 @@ import (
 	"metarang/shared/pkg/helpers"
 )
 
+// PresenceToucher records that a validated token belongs to an active user.
+type PresenceToucher interface {
+	Touch(userID uint64)
+}
+
 type authHandler struct {
 	pb.UnimplementedAuthServiceServer
 	authService            service.AuthService
 	accountSecurityService service.AccountSecurityService
 	tokenRepo              repository.TokenRepository
 	profilePhotoService    service.ProfilePhotoService
+	presence               PresenceToucher
 	locale                 string
 }
 
@@ -37,6 +43,15 @@ type AuthHandlerOption func(*authHandler)
 func WithAccountSecurityService(svc service.AccountSecurityService) AuthHandlerOption {
 	return func(h *authHandler) {
 		h.accountSecurityService = svc
+	}
+}
+
+// WithPresenceTracker records last_seen when ValidateToken succeeds.
+// Other services authenticate through this RPC, so their auth middleware
+// updates presence without writing the users table themselves.
+func WithPresenceTracker(tracker PresenceToucher) AuthHandlerOption {
+	return func(h *authHandler) {
+		h.presence = tracker
 	}
 }
 
@@ -174,6 +189,10 @@ func (h *authHandler) ValidateToken(ctx context.Context, req *pb.ValidateTokenRe
 		return &pb.ValidateTokenResponse{
 			Valid: false,
 		}, nil
+	}
+
+	if h.presence != nil {
+		h.presence.Touch(session.User.ID)
 	}
 
 	return &pb.ValidateTokenResponse{

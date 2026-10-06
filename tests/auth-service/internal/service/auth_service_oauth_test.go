@@ -1466,12 +1466,20 @@ func (f *extendedFakeUserRepository) MarkEmailAsVerified(_ context.Context, user
 	return nil
 }
 
-func (f *extendedFakeUserRepository) UpdateLastSeen(_ context.Context, userID uint64) error {
+func (f *extendedFakeUserRepository) UpdateLastSeen(ctx context.Context, userID uint64) error {
+	return f.SetLastSeen(ctx, userID, time.Now())
+}
+
+func (f *extendedFakeUserRepository) SetLastSeen(_ context.Context, userID uint64, at time.Time) error {
 	f.lastSeenUpdated = true
 	if user, ok := f.users[userID]; ok {
-		user.LastSeen = sql.NullTime{Time: time.Now(), Valid: true}
+		user.LastSeen = sql.NullTime{Time: at, Valid: true}
 	}
 	return nil
+}
+
+func (f *extendedFakeUserRepository) ListUserIDsByLastSeen(context.Context, time.Time, time.Time, time.Time, uint64, int) ([]repository.LastSeenUser, error) {
+	return nil, nil
 }
 
 func (f *extendedFakeUserRepository) CreateSettings(context.Context, *models.Settings) error {

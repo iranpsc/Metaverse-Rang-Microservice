@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -272,11 +273,10 @@ func (h *Hub) Stats() (connections int, users int) {
 }
 
 // BroadcastUserStatus sends a user-status event to the public user-status room.
+// Payloads may be flat ({user_id, online}) or wrapped ({data: {user_id, online}}).
 func (h *Hub) BroadcastUserStatus(data map[string]any) {
-	if _, ok := numericID(data["user_id"]); !ok {
-		if _, ok = numericID(data["id"]); !ok {
-			return
-		}
+	if _, ok := userStatusID(data); !ok {
+		return
 	}
 	_ = h.server.To(socket.Room(publicUserRoom)).Emit("user-status-changed", data)
 }
@@ -329,6 +329,23 @@ func merge(base map[string]any, extra map[string]any) map[string]any {
 	return out
 }
 
+func userStatusID(data map[string]any) (uint64, bool) {
+	if id, ok := numericID(data["user_id"]); ok {
+		return id, true
+	}
+	if id, ok := numericID(data["id"]); ok {
+		return id, true
+	}
+	inner, ok := data["data"].(map[string]any)
+	if !ok {
+		return 0, false
+	}
+	if id, ok := numericID(inner["user_id"]); ok {
+		return id, true
+	}
+	return numericID(inner["id"])
+}
+
 func numericID(value any) (uint64, bool) {
 	switch v := value.(type) {
 	case float64:
@@ -342,6 +359,9 @@ func numericID(value any) (uint64, bool) {
 		return uint64(v), true
 	case uint64:
 		return v, true
+	case string:
+		n, err := strconv.ParseUint(v, 10, 64)
+		return n, err == nil
 	default:
 		return 0, false
 	}
