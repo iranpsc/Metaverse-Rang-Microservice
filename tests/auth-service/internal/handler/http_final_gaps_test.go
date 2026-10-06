@@ -96,14 +96,6 @@ func TestHTTPPersonalInfoKYCSearchWalletErrors(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("search users code=%d body=%s", rr.Code, rr.Body.String())
 	}
-	body = bytes.NewBufferString(`{"searchTerm":"feat"}`)
-	r = withUser(httptest.NewRequest(http.MethodPost, "/api/search/features", body), 1)
-	r.Header.Set("Content-Type", "application/json")
-	rr = httptest.NewRecorder()
-	httpH.SearchFeatures(rr, r)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("search features code=%d", rr.Code)
-	}
 	body = bytes.NewBufferString(`{"searchTerm":"isic"}`)
 	r = withUser(httptest.NewRequest(http.MethodPost, "/api/search/isic-codes", body), 1)
 	r.Header.Set("Content-Type", "application/json")

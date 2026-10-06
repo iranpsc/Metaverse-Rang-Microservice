@@ -32,13 +32,6 @@ func (stubSearchService) SearchUsers(context.Context, string) ([]*service.Search
 		ID: 1, Code: "hm-1", Name: "Ali", Followers: 3, Level: &lvl, Photo: &photo,
 	}}, nil
 }
-func (stubSearchService) SearchFeatures(context.Context, string) ([]*service.SearchFeatureResult, error) {
-	return []*service.SearchFeatureResult{{
-		ID: 1, FeaturePropertiesID: "1", Address: "addr", Karbari: "m",
-		PricePsc: "1", PriceIrr: "2", OwnerCode: "hm-1",
-		Coordinates: []*service.FeatureCoordinate{{ID: 1, X: 1.1, Y: 2.2}},
-	}}, nil
-}
 func (stubSearchService) SearchIsicCodes(context.Context, string) ([]*service.IsicCodeResult, error) {
 	return []*service.IsicCodeResult{{ID: 1, Name: "code", Code: 11}}, nil
 }
@@ -164,12 +157,6 @@ func TestHTTPAuthHandler_SettingsKYCSearch(t *testing.T) {
 		r := withUser(httptest.NewRequest(http.MethodGet, "/api/search/users?q=a", nil), 1)
 		rr := httptest.NewRecorder()
 		httpH.SearchUsers(rr, r)
-		if rr.Code != http.StatusOK {
-			t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
-		}
-		r = withUser(httptest.NewRequest(http.MethodGet, "/api/search/features?q=a", nil), 1)
-		rr = httptest.NewRecorder()
-		httpH.SearchFeatures(rr, r)
 		if rr.Code != http.StatusOK {
 			t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
 		}

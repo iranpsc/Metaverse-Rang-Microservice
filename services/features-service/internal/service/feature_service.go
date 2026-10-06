@@ -609,3 +609,104 @@ func sellRequestToPB(req *models.SellFeatureRequest) *pb.SellRequestResponse {
 func formatCoordValue(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
+
+// SearchFeatures searches feature properties by id and address.
+// Each result includes the newest pending (status = 0) sell request when one exists.
+func (s *FeatureService) SearchFeatures(ctx context.Context, searchTerm string) ([]*pb.SearchFeatureResult, error) {
+	searchTerm = strings.TrimSpace(searchTerm)
+	if searchTerm == "" {
+		return []*pb.SearchFeatureResult{}, nil
+	}
+	if s.featureRepo == nil {
+		return nil, fmt.Errorf("feature repository not initialized")
+	}
+
+	rows, err := s.featureRepo.SearchByIDOrAddress(ctx, searchTerm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search features: %w", err)
+	}
+	if len(rows) == 0 {
+		return []*pb.SearchFeatureResult{}, nil
+	}
+
+	ids := make([]uint64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.FeatureID)
+	}
+
+	coordsByFeature := map[uint64][]*models.Coordinate{}
+	if s.geometryRepo != nil {
+		coordsByFeature, err = s.geometryRepo.GetCoordinatesByFeatureIDs(ctx, ids)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get coordinates: %w", err)
+		}
+	}
+
+	pendingByFeature := map[uint64]*models.SellFeatureRequest{}
+	if s.sellRequestRepo != nil {
+		pendingByFeature, err = s.sellRequestRepo.GetLatestOpenByFeatureIDs(ctx, ids)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get pending sell requests: %w", err)
+		}
+	}
+
+	results := make([]*pb.SearchFeatureResult, 0, len(rows))
+	for _, row := range rows {
+		item := &pb.SearchFeatureResult{
+			Id:                  row.FeatureID,
+			FeaturePropertiesId: strings.ToUpper(row.FeaturePropertiesID),
+			Address:             row.Address,
+			Karbari:             searchKarbariTitle(row.Karbari),
+			PricePsc:            row.PricePSC,
+			PriceIrr:            row.PriceIRR,
+			OwnerCode:           strings.ToUpper(row.OwnerCode),
+			Coordinates:         make([]*pb.SearchFeatureCoordinate, 0, len(coordsByFeature[row.FeatureID])),
+		}
+		for _, coord := range coordsByFeature[row.FeatureID] {
+			if coord == nil {
+				continue
+			}
+			item.Coordinates = append(item.Coordinates, &pb.SearchFeatureCoordinate{
+				Id: coord.ID,
+				X:  coord.X,
+				Y:  coord.Y,
+			})
+		}
+		if req := pendingByFeature[row.FeatureID]; req != nil {
+			item.LatestSellRequest = sellRequestToPB(req)
+		}
+		results = append(results, item)
+	}
+	return results, nil
+}
+
+// searchKarbariTitle maps a karbari code to the Persian title used by feature search.
+// Unknown values are returned unchanged so stored titles stay intact.
+func searchKarbariTitle(karbari string) string {
+	switch strings.ToLower(karbari) {
+	case "m":
+		return "مسکونی"
+	case "t":
+		return "تجاری"
+	case "a":
+		return "آموزشی"
+	case "e":
+		return "اداری"
+	case "b":
+		return "بهداشتی"
+	case "f":
+		return "فضای سبز"
+	case "c":
+		return "فرهنگی"
+	case "p":
+		return "پارکینگ"
+	case "z":
+		return "مذهبی"
+	case "n":
+		return "نمایشگاه"
+	case "g":
+		return "گردشگری"
+	default:
+		return karbari
+	}
+}

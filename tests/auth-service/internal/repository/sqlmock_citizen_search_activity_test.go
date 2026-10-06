@@ -188,17 +188,6 @@ func TestSearchRepository_SQLMock(t *testing.T) {
 	require.Len(t, users, 1)
 	require.Equal(t, int32(2), users[0].Followers)
 
-	mock.ExpectQuery("FROM feature_properties").
-		WillReturnRows(sqlmock.NewRows([]string{
-			"feature_properties_id", "address", "price_psc", "price_irr", "karbari", "feature_id", "owner_code",
-		}).AddRow(uint64(1), "addr", "1", "2", "m", uint64(7), "hm-1"))
-	mock.ExpectQuery("FROM coordinates").WithArgs(uint64(7)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "x", "y"}).AddRow(uint64(1), 1.1, 2.2))
-	feats, err := repo.SearchFeatures(ctx, "addr")
-	require.NoError(t, err)
-	require.Len(t, feats, 1)
-	require.Len(t, feats[0].Coordinates, 1)
-
 	mock.ExpectQuery("FROM isic_codes").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "code"}).AddRow(uint64(1), "code", int64(11)))
 	isic, err := repo.SearchIsicCodes(ctx, "co")

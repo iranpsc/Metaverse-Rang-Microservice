@@ -62,52 +62,6 @@ func (h *searchHandler) SearchUsers(ctx context.Context, req *pb.SearchUsersRequ
 	}, nil
 }
 
-// SearchFeatures handles feature search requests
-func (h *searchHandler) SearchFeatures(ctx context.Context, req *pb.SearchFeaturesRequest) (*pb.SearchFeaturesResponse, error) {
-	// Validate request
-	if req.SearchTerm == "" {
-		return &pb.SearchFeaturesResponse{
-			Data: []*pb.SearchFeatureResult{},
-		}, nil
-	}
-
-	// Call service
-	results, err := h.searchService.SearchFeatures(ctx, req.SearchTerm)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "search failed: %v", err)
-	}
-
-	// Convert service results to protobuf
-	pbResults := make([]*pb.SearchFeatureResult, 0, len(results))
-	for _, result := range results {
-		pbResult := &pb.SearchFeatureResult{
-			Id:                  result.ID,
-			FeaturePropertiesId: result.FeaturePropertiesID,
-			Address:             result.Address,
-			Karbari:             result.Karbari,
-			PricePsc:            result.PricePsc,
-			PriceIrr:            result.PriceIrr,
-			OwnerCode:           result.OwnerCode,
-		}
-
-		// Convert coordinates
-		pbResult.Coordinates = make([]*pb.Coordinate, 0, len(result.Coordinates))
-		for _, coord := range result.Coordinates {
-			pbResult.Coordinates = append(pbResult.Coordinates, &pb.Coordinate{
-				Id: coord.ID,
-				X:  coord.X,
-				Y:  coord.Y,
-			})
-		}
-
-		pbResults = append(pbResults, pbResult)
-	}
-
-	return &pb.SearchFeaturesResponse{
-		Data: pbResults,
-	}, nil
-}
-
 // SearchIsicCodes handles ISIC code search requests
 func (h *searchHandler) SearchIsicCodes(ctx context.Context, req *pb.SearchIsicCodesRequest) (*pb.SearchIsicCodesResponse, error) {
 	// Validate request

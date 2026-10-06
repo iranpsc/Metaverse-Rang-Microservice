@@ -10,7 +10,6 @@ import (
 
 type SearchService interface {
 	SearchUsers(ctx context.Context, searchTerm string) ([]*SearchUserResult, error)
-	SearchFeatures(ctx context.Context, searchTerm string) ([]*SearchFeatureResult, error)
 	SearchIsicCodes(ctx context.Context, searchTerm string) ([]*IsicCodeResult, error)
 }
 
@@ -32,25 +31,6 @@ type SearchUserResult struct {
 	Followers int32
 	Level     *string // nullable
 	Photo     *string // nullable
-}
-
-// SearchFeatureResult represents a feature search result
-type SearchFeatureResult struct {
-	ID                  uint64
-	FeaturePropertiesID string
-	Address             string
-	Karbari             string
-	PricePsc            string
-	PriceIrr            string
-	OwnerCode           string
-	Coordinates         []*FeatureCoordinate
-}
-
-// FeatureCoordinate represents a feature coordinate
-type FeatureCoordinate struct {
-	ID uint64
-	X  float64
-	Y  float64
 }
 
 // IsicCodeResult represents an ISIC code search result
@@ -105,83 +85,6 @@ func (s *searchService) SearchUsers(ctx context.Context, searchTerm string) ([]*
 	}
 
 	return results, nil
-}
-
-// SearchFeatures searches feature properties by id and address
-func (s *searchService) SearchFeatures(ctx context.Context, searchTerm string) ([]*SearchFeatureResult, error) {
-	// Validate search term is not empty
-	searchTerm = strings.TrimSpace(searchTerm)
-	if searchTerm == "" {
-		return []*SearchFeatureResult{}, nil
-	}
-
-	// Call repository
-	repoResults, err := s.searchRepo.SearchFeatures(ctx, searchTerm)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search features: %w", err)
-	}
-
-	// Convert repository results to service results
-	results := make([]*SearchFeatureResult, 0, len(repoResults))
-	for _, repoResult := range repoResults {
-		result := &SearchFeatureResult{
-			ID:                  repoResult.FeatureID,
-			FeaturePropertiesID: strings.ToUpper(repoResult.FeaturePropertiesID), // Uppercase ID
-			Address:             repoResult.Address,
-			PricePsc:            repoResult.PricePsc,
-			PriceIrr:            repoResult.PriceIrr,
-			OwnerCode:           strings.ToUpper(repoResult.OwnerCode), // Uppercase owner code
-		}
-
-		// Map karbari to Persian title (getApplicationTitle equivalent)
-		result.Karbari = MapKarbariToTitle(repoResult.Karbari)
-
-		// Convert coordinates
-		result.Coordinates = make([]*FeatureCoordinate, 0, len(repoResult.Coordinates))
-		for _, coord := range repoResult.Coordinates {
-			result.Coordinates = append(result.Coordinates, &FeatureCoordinate{
-				ID: coord.ID,
-				X:  coord.X,
-				Y:  coord.Y,
-			})
-		}
-
-		results = append(results, result)
-	}
-
-	return results, nil
-}
-
-// MapKarbariToTitle maps karbari code to Persian title
-func MapKarbariToTitle(karbari string) string {
-	// Map single-letter codes to Persian titles
-	switch strings.ToLower(karbari) {
-	case "m":
-		return "مسکونی"
-	case "t":
-		return "تجاری"
-	case "a":
-		return "آموزشی"
-	case "e":
-		return "اداری"
-	case "b":
-		return "بهداشتی"
-	case "f":
-		return "فضای سبز"
-	case "c":
-		return "فرهنگی"
-	case "p":
-		return "پارکینگ"
-	case "z":
-		return "مذهبی"
-	case "n":
-		return "نمایشگاه"
-	case "g":
-		return "گردشگری"
-	default:
-		// If karbari is already a title or unknown, return as-is
-		return karbari
-	}
 }
 
 // SearchIsicCodes searches ISIC codes by name

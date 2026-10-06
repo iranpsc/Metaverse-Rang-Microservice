@@ -22,6 +22,8 @@ service FeatureService {
   rpc UpdateMyFeature(UpdateMyFeatureRequest) returns (UpdateMyFeatureResponse);
   // Trade history for a feature (owner-only)
   rpc GetFeatureTradeHistory(GetFeatureTradeHistoryRequest) returns (GetFeatureTradeHistoryResponse);
+  // Search features by properties id or address (POST/GET /api/search/features)
+  rpc SearchFeatures(SearchFeaturesRequest) returns (SearchFeaturesResponse);
 }
 
 // FeatureMarketplaceService handles buying/selling features
@@ -165,6 +167,37 @@ message FeatureTradeHistoryPaginationMeta {
   int32 per_page = 5;
   optional int32 to = 6;
   int32 total = 7;
+}
+
+// SearchFeaturesRequest - /api/search/features
+message SearchFeaturesRequest {
+  string search_term = 1;
+}
+
+// SearchFeaturesResponse - feature search results
+message SearchFeaturesResponse {
+  repeated SearchFeatureResult data = 1;
+}
+
+// SearchFeatureResult - individual feature search result
+message SearchFeatureResult {
+  uint64 id = 1;                        // Feature ID
+  string feature_properties_id = 2;     // Uppercased FeatureProperties.id
+  string address = 3;
+  string karbari = 4;                   // Application title from feature
+  string price_psc = 5;
+  string price_irr = 6;
+  string owner_code = 7;                // Uppercased owner code
+  repeated SearchFeatureCoordinate coordinates = 8;
+  // Newest open sell request (status = 0). Unset when none is pending.
+  SellRequestResponse latest_sell_request = 9;
+}
+
+// SearchFeatureCoordinate keeps search x/y as numbers, matching the public JSON contract.
+message SearchFeatureCoordinate {
+  uint64 id = 1;
+  double x = 2;
+  double y = 3;
 }
 
 // Pagination messages (simple pagination - no total counts)

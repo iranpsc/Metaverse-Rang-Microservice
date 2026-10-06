@@ -131,7 +131,6 @@ func TestLocalClients_AllMethods(t *testing.T) {
 
 	// Search
 	_, _ = clients.Search.SearchUsers(ctx, &pb.SearchUsersRequest{})
-	_, _ = clients.Search.SearchFeatures(ctx, &pb.SearchFeaturesRequest{})
 	_, _ = clients.Search.SearchIsicCodes(ctx, &pb.SearchIsicCodesRequest{})
 
 	// Wallet

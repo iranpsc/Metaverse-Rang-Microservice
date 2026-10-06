@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -25,6 +26,7 @@ type featureHTTPAPI interface {
 	RemoveMyFeatureImage(context.Context, *featurespb.RemoveMyFeatureImageRequest) (*emptypb.Empty, error)
 	UpdateMyFeature(context.Context, *featurespb.UpdateMyFeatureRequest) (*featurespb.UpdateMyFeatureResponse, error)
 	GetFeatureTradeHistory(context.Context, *featurespb.GetFeatureTradeHistoryRequest) (*featurespb.GetFeatureTradeHistoryResponse, error)
+	SearchFeatures(context.Context, *featurespb.SearchFeaturesRequest) (*featurespb.SearchFeaturesResponse, error)
 }
 type marketplaceHTTPAPI interface {
 	BuyFeature(context.Context, *featurespb.BuyFeatureRequest) (*featurespb.BuyFeatureResponse, error)
@@ -50,6 +52,80 @@ type HTTPFeaturesHandler struct {
 
 func NewHTTPFeaturesHandler(feature featureHTTPAPI, market marketplaceHTTPAPI, auth authpb.AuthServiceClient) *HTTPFeaturesHandler {
 	return &HTTPFeaturesHandler{feature: feature, market: market, auth: auth}
+}
+
+func (h *HTTPFeaturesHandler) SearchFeatures(w http.ResponseWriter, r *http.Request) {
+	term, err := readSearchTerm(r)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			writeError(w, http.StatusBadRequest, "request body is required")
+			return
+		}
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	resp, err := h.feature.SearchFeatures(r.Context(), &featurespb.SearchFeaturesRequest{SearchTerm: term})
+	if err != nil {
+		writeGRPCError(w, err)
+		return
+	}
+	responseData := make([]map[string]interface{}, 0)
+	if resp != nil {
+		responseData = make([]map[string]interface{}, 0, len(resp.Data))
+		for _, result := range resp.Data {
+			if result == nil {
+				continue
+			}
+			coordinates := make([]map[string]interface{}, 0, len(result.Coordinates))
+			for _, coord := range result.Coordinates {
+				if coord == nil {
+					continue
+				}
+				coordinates = append(coordinates, map[string]interface{}{
+					"id": coord.Id,
+					"x":  coord.X,
+					"y":  coord.Y,
+				})
+			}
+			item := map[string]interface{}{
+				"id":                    result.Id,
+				"feature_properties_id": result.FeaturePropertiesId,
+				"address":               result.Address,
+				"karbari":               result.Karbari,
+				"price_psc":             result.PricePsc,
+				"price_irr":             result.PriceIrr,
+				"owner_code":            result.OwnerCode,
+				"coordinates":           coordinates,
+				"latest_sell_request":   nil,
+			}
+			if result.LatestSellRequest != nil {
+				item["latest_sell_request"] = sellRequestMap(result.LatestSellRequest)
+			}
+			responseData = append(responseData, item)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"data": responseData})
+}
+
+func readSearchTerm(r *http.Request) (string, error) {
+	var body struct {
+		SearchTerm string `json:"searchTerm"`
+	}
+	if requestHasBody(r) {
+		if err := decodeBody(r, &body); err != nil {
+			if q := strings.TrimSpace(r.URL.Query().Get("searchTerm")); q != "" {
+				return q, nil
+			}
+			return "", err
+		}
+		if strings.TrimSpace(body.SearchTerm) == "" {
+			if q := strings.TrimSpace(r.URL.Query().Get("searchTerm")); q != "" {
+				return q, nil
+			}
+		}
+		return body.SearchTerm, nil
+	}
+	return strings.TrimSpace(r.URL.Query().Get("searchTerm")), nil
 }
 
 func (h *HTTPFeaturesHandler) ListFeatures(w http.ResponseWriter, r *http.Request) {

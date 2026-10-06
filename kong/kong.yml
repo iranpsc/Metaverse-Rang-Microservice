@@ -249,6 +249,7 @@ routes:
     service: features-service
     paths:
       - /api/features
+      - /api/search/features
       - /api/isic-codes
       - /api/my-features
       - /api/buy-requests

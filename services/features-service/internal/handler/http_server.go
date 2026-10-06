@@ -67,6 +67,7 @@ func newPublicHTTPHandler(
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"}, true)
 	})
+	mux.Handle("/api/search/features", optionalAuth(http.HandlerFunc(handlers.Features.SearchFeatures)))
 	mux.Handle("GET /api/features", optionalAuth(http.HandlerFunc(handlers.Features.ListFeatures)))
 	mux.Handle("GET /api/features/{feature}/trade-history", http.HandlerFunc(handlers.Features.TradeHistory))
 	mux.Handle("GET /api/features/{feature}/sell-requests", http.HandlerFunc(handlers.Features.FeatureSellRequests))

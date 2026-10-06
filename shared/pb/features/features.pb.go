@@ -1241,6 +1241,267 @@ func (x *FeatureTradeHistoryPaginationMeta) GetTotal() int32 {
 	return 0
 }
 
+// SearchFeaturesRequest - /api/search/features
+type SearchFeaturesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SearchTerm    string                 `protobuf:"bytes,1,opt,name=search_term,json=searchTerm,proto3" json:"search_term,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchFeaturesRequest) Reset() {
+	*x = SearchFeaturesRequest{}
+	mi := &file_features_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchFeaturesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchFeaturesRequest) ProtoMessage() {}
+
+func (x *SearchFeaturesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchFeaturesRequest.ProtoReflect.Descriptor instead.
+func (*SearchFeaturesRequest) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *SearchFeaturesRequest) GetSearchTerm() string {
+	if x != nil {
+		return x.SearchTerm
+	}
+	return ""
+}
+
+// SearchFeaturesResponse - feature search results
+type SearchFeaturesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []*SearchFeatureResult `protobuf:"bytes,1,rep,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchFeaturesResponse) Reset() {
+	*x = SearchFeaturesResponse{}
+	mi := &file_features_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchFeaturesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchFeaturesResponse) ProtoMessage() {}
+
+func (x *SearchFeaturesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchFeaturesResponse.ProtoReflect.Descriptor instead.
+func (*SearchFeaturesResponse) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *SearchFeaturesResponse) GetData() []*SearchFeatureResult {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+// SearchFeatureResult - individual feature search result
+type SearchFeatureResult struct {
+	state               protoimpl.MessageState     `protogen:"open.v1"`
+	Id                  uint64                     `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`                                                               // Feature ID
+	FeaturePropertiesId string                     `protobuf:"bytes,2,opt,name=feature_properties_id,json=featurePropertiesId,proto3" json:"feature_properties_id,omitempty"` // Uppercased FeatureProperties.id
+	Address             string                     `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	Karbari             string                     `protobuf:"bytes,4,opt,name=karbari,proto3" json:"karbari,omitempty"` // Application title from feature
+	PricePsc            string                     `protobuf:"bytes,5,opt,name=price_psc,json=pricePsc,proto3" json:"price_psc,omitempty"`
+	PriceIrr            string                     `protobuf:"bytes,6,opt,name=price_irr,json=priceIrr,proto3" json:"price_irr,omitempty"`
+	OwnerCode           string                     `protobuf:"bytes,7,opt,name=owner_code,json=ownerCode,proto3" json:"owner_code,omitempty"` // Uppercased owner code
+	Coordinates         []*SearchFeatureCoordinate `protobuf:"bytes,8,rep,name=coordinates,proto3" json:"coordinates,omitempty"`
+	// Newest open sell request (status = 0). Unset when none is pending.
+	LatestSellRequest *SellRequestResponse `protobuf:"bytes,9,opt,name=latest_sell_request,json=latestSellRequest,proto3" json:"latest_sell_request,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *SearchFeatureResult) Reset() {
+	*x = SearchFeatureResult{}
+	mi := &file_features_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchFeatureResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchFeatureResult) ProtoMessage() {}
+
+func (x *SearchFeatureResult) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchFeatureResult.ProtoReflect.Descriptor instead.
+func (*SearchFeatureResult) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *SearchFeatureResult) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *SearchFeatureResult) GetFeaturePropertiesId() string {
+	if x != nil {
+		return x.FeaturePropertiesId
+	}
+	return ""
+}
+
+func (x *SearchFeatureResult) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *SearchFeatureResult) GetKarbari() string {
+	if x != nil {
+		return x.Karbari
+	}
+	return ""
+}
+
+func (x *SearchFeatureResult) GetPricePsc() string {
+	if x != nil {
+		return x.PricePsc
+	}
+	return ""
+}
+
+func (x *SearchFeatureResult) GetPriceIrr() string {
+	if x != nil {
+		return x.PriceIrr
+	}
+	return ""
+}
+
+func (x *SearchFeatureResult) GetOwnerCode() string {
+	if x != nil {
+		return x.OwnerCode
+	}
+	return ""
+}
+
+func (x *SearchFeatureResult) GetCoordinates() []*SearchFeatureCoordinate {
+	if x != nil {
+		return x.Coordinates
+	}
+	return nil
+}
+
+func (x *SearchFeatureResult) GetLatestSellRequest() *SellRequestResponse {
+	if x != nil {
+		return x.LatestSellRequest
+	}
+	return nil
+}
+
+// SearchFeatureCoordinate keeps search x/y as numbers, matching the public JSON contract.
+type SearchFeatureCoordinate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	X             float64                `protobuf:"fixed64,2,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float64                `protobuf:"fixed64,3,opt,name=y,proto3" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SearchFeatureCoordinate) Reset() {
+	*x = SearchFeatureCoordinate{}
+	mi := &file_features_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SearchFeatureCoordinate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SearchFeatureCoordinate) ProtoMessage() {}
+
+func (x *SearchFeatureCoordinate) ProtoReflect() protoreflect.Message {
+	mi := &file_features_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SearchFeatureCoordinate.ProtoReflect.Descriptor instead.
+func (*SearchFeatureCoordinate) Descriptor() ([]byte, []int) {
+	return file_features_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *SearchFeatureCoordinate) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *SearchFeatureCoordinate) GetX() float64 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *SearchFeatureCoordinate) GetY() float64 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
 // Pagination messages (simple pagination - no total counts)
 type PaginationLinks struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1254,7 +1515,7 @@ type PaginationLinks struct {
 
 func (x *PaginationLinks) Reset() {
 	*x = PaginationLinks{}
-	mi := &file_features_proto_msgTypes[20]
+	mi := &file_features_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1266,7 +1527,7 @@ func (x *PaginationLinks) String() string {
 func (*PaginationLinks) ProtoMessage() {}
 
 func (x *PaginationLinks) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[20]
+	mi := &file_features_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1279,7 +1540,7 @@ func (x *PaginationLinks) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaginationLinks.ProtoReflect.Descriptor instead.
 func (*PaginationLinks) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{20}
+	return file_features_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *PaginationLinks) GetFirst() string {
@@ -1321,7 +1582,7 @@ type SimplePaginationMeta struct {
 
 func (x *SimplePaginationMeta) Reset() {
 	*x = SimplePaginationMeta{}
-	mi := &file_features_proto_msgTypes[21]
+	mi := &file_features_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1333,7 +1594,7 @@ func (x *SimplePaginationMeta) String() string {
 func (*SimplePaginationMeta) ProtoMessage() {}
 
 func (x *SimplePaginationMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[21]
+	mi := &file_features_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1346,7 +1607,7 @@ func (x *SimplePaginationMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SimplePaginationMeta.ProtoReflect.Descriptor instead.
 func (*SimplePaginationMeta) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{21}
+	return file_features_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SimplePaginationMeta) GetCurrentPage() int32 {
@@ -1392,7 +1653,7 @@ type Feature struct {
 
 func (x *Feature) Reset() {
 	*x = Feature{}
-	mi := &file_features_proto_msgTypes[22]
+	mi := &file_features_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1404,7 +1665,7 @@ func (x *Feature) String() string {
 func (*Feature) ProtoMessage() {}
 
 func (x *Feature) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[22]
+	mi := &file_features_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1417,7 +1678,7 @@ func (x *Feature) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Feature.ProtoReflect.Descriptor instead.
 func (*Feature) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{22}
+	return file_features_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Feature) GetId() uint64 {
@@ -1522,7 +1783,7 @@ type Seller struct {
 
 func (x *Seller) Reset() {
 	*x = Seller{}
-	mi := &file_features_proto_msgTypes[23]
+	mi := &file_features_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1534,7 +1795,7 @@ func (x *Seller) String() string {
 func (*Seller) ProtoMessage() {}
 
 func (x *Seller) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[23]
+	mi := &file_features_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1547,7 +1808,7 @@ func (x *Seller) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Seller.ProtoReflect.Descriptor instead.
 func (*Seller) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{23}
+	return file_features_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Seller) GetId() uint64 {
@@ -1594,7 +1855,7 @@ type FeatureProperties struct {
 
 func (x *FeatureProperties) Reset() {
 	*x = FeatureProperties{}
-	mi := &file_features_proto_msgTypes[24]
+	mi := &file_features_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1606,7 +1867,7 @@ func (x *FeatureProperties) String() string {
 func (*FeatureProperties) ProtoMessage() {}
 
 func (x *FeatureProperties) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[24]
+	mi := &file_features_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1619,7 +1880,7 @@ func (x *FeatureProperties) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FeatureProperties.ProtoReflect.Descriptor instead.
 func (*FeatureProperties) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{24}
+	return file_features_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *FeatureProperties) GetId() string {
@@ -1739,7 +2000,7 @@ type Geometry struct {
 
 func (x *Geometry) Reset() {
 	*x = Geometry{}
-	mi := &file_features_proto_msgTypes[25]
+	mi := &file_features_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1751,7 +2012,7 @@ func (x *Geometry) String() string {
 func (*Geometry) ProtoMessage() {}
 
 func (x *Geometry) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[25]
+	mi := &file_features_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1764,7 +2025,7 @@ func (x *Geometry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Geometry.ProtoReflect.Descriptor instead.
 func (*Geometry) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{25}
+	return file_features_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Geometry) GetId() uint64 {
@@ -1807,7 +2068,7 @@ type Coordinate struct {
 
 func (x *Coordinate) Reset() {
 	*x = Coordinate{}
-	mi := &file_features_proto_msgTypes[26]
+	mi := &file_features_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1819,7 +2080,7 @@ func (x *Coordinate) String() string {
 func (*Coordinate) ProtoMessage() {}
 
 func (x *Coordinate) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[26]
+	mi := &file_features_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1832,7 +2093,7 @@ func (x *Coordinate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Coordinate.ProtoReflect.Descriptor instead.
 func (*Coordinate) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{26}
+	return file_features_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Coordinate) GetId() uint64 {
@@ -1873,7 +2134,7 @@ type Image struct {
 
 func (x *Image) Reset() {
 	*x = Image{}
-	mi := &file_features_proto_msgTypes[27]
+	mi := &file_features_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1885,7 +2146,7 @@ func (x *Image) String() string {
 func (*Image) ProtoMessage() {}
 
 func (x *Image) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[27]
+	mi := &file_features_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1898,7 +2159,7 @@ func (x *Image) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Image.ProtoReflect.Descriptor instead.
 func (*Image) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{27}
+	return file_features_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Image) GetId() uint64 {
@@ -1927,7 +2188,7 @@ type BuyFeatureRequest struct {
 
 func (x *BuyFeatureRequest) Reset() {
 	*x = BuyFeatureRequest{}
-	mi := &file_features_proto_msgTypes[28]
+	mi := &file_features_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1939,7 +2200,7 @@ func (x *BuyFeatureRequest) String() string {
 func (*BuyFeatureRequest) ProtoMessage() {}
 
 func (x *BuyFeatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[28]
+	mi := &file_features_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1952,7 +2213,7 @@ func (x *BuyFeatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuyFeatureRequest.ProtoReflect.Descriptor instead.
 func (*BuyFeatureRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{28}
+	return file_features_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *BuyFeatureRequest) GetFeatureId() uint64 {
@@ -1994,7 +2255,7 @@ type BuyFeatureResponse struct {
 
 func (x *BuyFeatureResponse) Reset() {
 	*x = BuyFeatureResponse{}
-	mi := &file_features_proto_msgTypes[29]
+	mi := &file_features_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2006,7 +2267,7 @@ func (x *BuyFeatureResponse) String() string {
 func (*BuyFeatureResponse) ProtoMessage() {}
 
 func (x *BuyFeatureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[29]
+	mi := &file_features_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2019,7 +2280,7 @@ func (x *BuyFeatureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuyFeatureResponse.ProtoReflect.Descriptor instead.
 func (*BuyFeatureResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{29}
+	return file_features_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *BuyFeatureResponse) GetSuccess() bool {
@@ -2056,7 +2317,7 @@ type SendBuyRequestRequest struct {
 
 func (x *SendBuyRequestRequest) Reset() {
 	*x = SendBuyRequestRequest{}
-	mi := &file_features_proto_msgTypes[30]
+	mi := &file_features_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2068,7 +2329,7 @@ func (x *SendBuyRequestRequest) String() string {
 func (*SendBuyRequestRequest) ProtoMessage() {}
 
 func (x *SendBuyRequestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[30]
+	mi := &file_features_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2081,7 +2342,7 @@ func (x *SendBuyRequestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendBuyRequestRequest.ProtoReflect.Descriptor instead.
 func (*SendBuyRequestRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{30}
+	return file_features_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *SendBuyRequestRequest) GetFeatureId() uint64 {
@@ -2139,7 +2400,7 @@ type BuyRequestResponse struct {
 
 func (x *BuyRequestResponse) Reset() {
 	*x = BuyRequestResponse{}
-	mi := &file_features_proto_msgTypes[31]
+	mi := &file_features_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2151,7 +2412,7 @@ func (x *BuyRequestResponse) String() string {
 func (*BuyRequestResponse) ProtoMessage() {}
 
 func (x *BuyRequestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[31]
+	mi := &file_features_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2164,7 +2425,7 @@ func (x *BuyRequestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuyRequestResponse.ProtoReflect.Descriptor instead.
 func (*BuyRequestResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{31}
+	return file_features_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *BuyRequestResponse) GetId() uint64 {
@@ -2262,7 +2523,7 @@ type BuyerInfo struct {
 
 func (x *BuyerInfo) Reset() {
 	*x = BuyerInfo{}
-	mi := &file_features_proto_msgTypes[32]
+	mi := &file_features_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2274,7 +2535,7 @@ func (x *BuyerInfo) String() string {
 func (*BuyerInfo) ProtoMessage() {}
 
 func (x *BuyerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[32]
+	mi := &file_features_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2287,7 +2548,7 @@ func (x *BuyerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuyerInfo.ProtoReflect.Descriptor instead.
 func (*BuyerInfo) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{32}
+	return file_features_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *BuyerInfo) GetId() uint64 {
@@ -2321,7 +2582,7 @@ type SellerInfo struct {
 
 func (x *SellerInfo) Reset() {
 	*x = SellerInfo{}
-	mi := &file_features_proto_msgTypes[33]
+	mi := &file_features_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2333,7 +2594,7 @@ func (x *SellerInfo) String() string {
 func (*SellerInfo) ProtoMessage() {}
 
 func (x *SellerInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[33]
+	mi := &file_features_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2346,7 +2607,7 @@ func (x *SellerInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SellerInfo.ProtoReflect.Descriptor instead.
 func (*SellerInfo) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{33}
+	return file_features_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *SellerInfo) GetId() uint64 {
@@ -2372,7 +2633,7 @@ type ListBuyRequestsRequest struct {
 
 func (x *ListBuyRequestsRequest) Reset() {
 	*x = ListBuyRequestsRequest{}
-	mi := &file_features_proto_msgTypes[34]
+	mi := &file_features_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2384,7 +2645,7 @@ func (x *ListBuyRequestsRequest) String() string {
 func (*ListBuyRequestsRequest) ProtoMessage() {}
 
 func (x *ListBuyRequestsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[34]
+	mi := &file_features_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2397,7 +2658,7 @@ func (x *ListBuyRequestsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBuyRequestsRequest.ProtoReflect.Descriptor instead.
 func (*ListBuyRequestsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{34}
+	return file_features_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListBuyRequestsRequest) GetBuyerId() uint64 {
@@ -2416,7 +2677,7 @@ type ListReceivedBuyRequestsRequest struct {
 
 func (x *ListReceivedBuyRequestsRequest) Reset() {
 	*x = ListReceivedBuyRequestsRequest{}
-	mi := &file_features_proto_msgTypes[35]
+	mi := &file_features_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2428,7 +2689,7 @@ func (x *ListReceivedBuyRequestsRequest) String() string {
 func (*ListReceivedBuyRequestsRequest) ProtoMessage() {}
 
 func (x *ListReceivedBuyRequestsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[35]
+	mi := &file_features_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2441,7 +2702,7 @@ func (x *ListReceivedBuyRequestsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReceivedBuyRequestsRequest.ProtoReflect.Descriptor instead.
 func (*ListReceivedBuyRequestsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{35}
+	return file_features_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListReceivedBuyRequestsRequest) GetSellerId() uint64 {
@@ -2460,7 +2721,7 @@ type BuyRequestsResponse struct {
 
 func (x *BuyRequestsResponse) Reset() {
 	*x = BuyRequestsResponse{}
-	mi := &file_features_proto_msgTypes[36]
+	mi := &file_features_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2472,7 +2733,7 @@ func (x *BuyRequestsResponse) String() string {
 func (*BuyRequestsResponse) ProtoMessage() {}
 
 func (x *BuyRequestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[36]
+	mi := &file_features_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2485,7 +2746,7 @@ func (x *BuyRequestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuyRequestsResponse.ProtoReflect.Descriptor instead.
 func (*BuyRequestsResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{36}
+	return file_features_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *BuyRequestsResponse) GetBuyRequests() []*BuyRequestResponse {
@@ -2505,7 +2766,7 @@ type RejectBuyRequestRequest struct {
 
 func (x *RejectBuyRequestRequest) Reset() {
 	*x = RejectBuyRequestRequest{}
-	mi := &file_features_proto_msgTypes[37]
+	mi := &file_features_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2517,7 +2778,7 @@ func (x *RejectBuyRequestRequest) String() string {
 func (*RejectBuyRequestRequest) ProtoMessage() {}
 
 func (x *RejectBuyRequestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[37]
+	mi := &file_features_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2530,7 +2791,7 @@ func (x *RejectBuyRequestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RejectBuyRequestRequest.ProtoReflect.Descriptor instead.
 func (*RejectBuyRequestRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{37}
+	return file_features_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *RejectBuyRequestRequest) GetRequestId() uint64 {
@@ -2557,7 +2818,7 @@ type DeleteBuyRequestRequest struct {
 
 func (x *DeleteBuyRequestRequest) Reset() {
 	*x = DeleteBuyRequestRequest{}
-	mi := &file_features_proto_msgTypes[38]
+	mi := &file_features_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2569,7 +2830,7 @@ func (x *DeleteBuyRequestRequest) String() string {
 func (*DeleteBuyRequestRequest) ProtoMessage() {}
 
 func (x *DeleteBuyRequestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[38]
+	mi := &file_features_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2582,7 +2843,7 @@ func (x *DeleteBuyRequestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBuyRequestRequest.ProtoReflect.Descriptor instead.
 func (*DeleteBuyRequestRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{38}
+	return file_features_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *DeleteBuyRequestRequest) GetRequestId() uint64 {
@@ -2610,7 +2871,7 @@ type UpdateGracePeriodRequest struct {
 
 func (x *UpdateGracePeriodRequest) Reset() {
 	*x = UpdateGracePeriodRequest{}
-	mi := &file_features_proto_msgTypes[39]
+	mi := &file_features_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2622,7 +2883,7 @@ func (x *UpdateGracePeriodRequest) String() string {
 func (*UpdateGracePeriodRequest) ProtoMessage() {}
 
 func (x *UpdateGracePeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[39]
+	mi := &file_features_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2635,7 +2896,7 @@ func (x *UpdateGracePeriodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateGracePeriodRequest.ProtoReflect.Descriptor instead.
 func (*UpdateGracePeriodRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{39}
+	return file_features_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *UpdateGracePeriodRequest) GetRequestId() uint64 {
@@ -2669,7 +2930,7 @@ type AcceptBuyRequestRequest struct {
 
 func (x *AcceptBuyRequestRequest) Reset() {
 	*x = AcceptBuyRequestRequest{}
-	mi := &file_features_proto_msgTypes[40]
+	mi := &file_features_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2681,7 +2942,7 @@ func (x *AcceptBuyRequestRequest) String() string {
 func (*AcceptBuyRequestRequest) ProtoMessage() {}
 
 func (x *AcceptBuyRequestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[40]
+	mi := &file_features_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2694,7 +2955,7 @@ func (x *AcceptBuyRequestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptBuyRequestRequest.ProtoReflect.Descriptor instead.
 func (*AcceptBuyRequestRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{40}
+	return file_features_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *AcceptBuyRequestRequest) GetRequestId() uint64 {
@@ -2724,7 +2985,7 @@ type CreateSellRequestRequest struct {
 
 func (x *CreateSellRequestRequest) Reset() {
 	*x = CreateSellRequestRequest{}
-	mi := &file_features_proto_msgTypes[41]
+	mi := &file_features_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2736,7 +2997,7 @@ func (x *CreateSellRequestRequest) String() string {
 func (*CreateSellRequestRequest) ProtoMessage() {}
 
 func (x *CreateSellRequestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[41]
+	mi := &file_features_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2749,7 +3010,7 @@ func (x *CreateSellRequestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSellRequestRequest.ProtoReflect.Descriptor instead.
 func (*CreateSellRequestRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{41}
+	return file_features_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *CreateSellRequestRequest) GetFeatureId() uint64 {
@@ -2796,7 +3057,7 @@ type ListSellRequestsRequest struct {
 
 func (x *ListSellRequestsRequest) Reset() {
 	*x = ListSellRequestsRequest{}
-	mi := &file_features_proto_msgTypes[42]
+	mi := &file_features_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2808,7 +3069,7 @@ func (x *ListSellRequestsRequest) String() string {
 func (*ListSellRequestsRequest) ProtoMessage() {}
 
 func (x *ListSellRequestsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[42]
+	mi := &file_features_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2821,7 +3082,7 @@ func (x *ListSellRequestsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSellRequestsRequest.ProtoReflect.Descriptor instead.
 func (*ListSellRequestsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{42}
+	return file_features_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListSellRequestsRequest) GetSellerId() uint64 {
@@ -2840,7 +3101,7 @@ type ListFeatureSellRequestsRequest struct {
 
 func (x *ListFeatureSellRequestsRequest) Reset() {
 	*x = ListFeatureSellRequestsRequest{}
-	mi := &file_features_proto_msgTypes[43]
+	mi := &file_features_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2852,7 +3113,7 @@ func (x *ListFeatureSellRequestsRequest) String() string {
 func (*ListFeatureSellRequestsRequest) ProtoMessage() {}
 
 func (x *ListFeatureSellRequestsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[43]
+	mi := &file_features_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2865,7 +3126,7 @@ func (x *ListFeatureSellRequestsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFeatureSellRequestsRequest.ProtoReflect.Descriptor instead.
 func (*ListFeatureSellRequestsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{43}
+	return file_features_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListFeatureSellRequestsRequest) GetFeatureId() uint64 {
@@ -2885,7 +3146,7 @@ type DeleteSellRequestRequest struct {
 
 func (x *DeleteSellRequestRequest) Reset() {
 	*x = DeleteSellRequestRequest{}
-	mi := &file_features_proto_msgTypes[44]
+	mi := &file_features_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2897,7 +3158,7 @@ func (x *DeleteSellRequestRequest) String() string {
 func (*DeleteSellRequestRequest) ProtoMessage() {}
 
 func (x *DeleteSellRequestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[44]
+	mi := &file_features_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2910,7 +3171,7 @@ func (x *DeleteSellRequestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSellRequestRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSellRequestRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{44}
+	return file_features_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *DeleteSellRequestRequest) GetSellRequestId() uint64 {
@@ -2944,7 +3205,7 @@ type SellRequestResponse struct {
 
 func (x *SellRequestResponse) Reset() {
 	*x = SellRequestResponse{}
-	mi := &file_features_proto_msgTypes[45]
+	mi := &file_features_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2956,7 +3217,7 @@ func (x *SellRequestResponse) String() string {
 func (*SellRequestResponse) ProtoMessage() {}
 
 func (x *SellRequestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[45]
+	mi := &file_features_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2969,7 +3230,7 @@ func (x *SellRequestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SellRequestResponse.ProtoReflect.Descriptor instead.
 func (*SellRequestResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{45}
+	return file_features_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *SellRequestResponse) GetId() uint64 {
@@ -3044,7 +3305,7 @@ type SellRequestsResponse struct {
 
 func (x *SellRequestsResponse) Reset() {
 	*x = SellRequestsResponse{}
-	mi := &file_features_proto_msgTypes[46]
+	mi := &file_features_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3056,7 +3317,7 @@ func (x *SellRequestsResponse) String() string {
 func (*SellRequestsResponse) ProtoMessage() {}
 
 func (x *SellRequestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[46]
+	mi := &file_features_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3069,7 +3330,7 @@ func (x *SellRequestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SellRequestsResponse.ProtoReflect.Descriptor instead.
 func (*SellRequestsResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{46}
+	return file_features_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *SellRequestsResponse) GetSellRequests() []*SellRequestResponse {
@@ -3090,7 +3351,7 @@ type RequestGracePeriodRequest struct {
 
 func (x *RequestGracePeriodRequest) Reset() {
 	*x = RequestGracePeriodRequest{}
-	mi := &file_features_proto_msgTypes[47]
+	mi := &file_features_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3102,7 +3363,7 @@ func (x *RequestGracePeriodRequest) String() string {
 func (*RequestGracePeriodRequest) ProtoMessage() {}
 
 func (x *RequestGracePeriodRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[47]
+	mi := &file_features_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3115,7 +3376,7 @@ func (x *RequestGracePeriodRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestGracePeriodRequest.ProtoReflect.Descriptor instead.
 func (*RequestGracePeriodRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{47}
+	return file_features_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *RequestGracePeriodRequest) GetRequestId() uint64 {
@@ -3149,7 +3410,7 @@ type GracePeriodResponse struct {
 
 func (x *GracePeriodResponse) Reset() {
 	*x = GracePeriodResponse{}
-	mi := &file_features_proto_msgTypes[48]
+	mi := &file_features_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3161,7 +3422,7 @@ func (x *GracePeriodResponse) String() string {
 func (*GracePeriodResponse) ProtoMessage() {}
 
 func (x *GracePeriodResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[48]
+	mi := &file_features_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3174,7 +3435,7 @@ func (x *GracePeriodResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GracePeriodResponse.ProtoReflect.Descriptor instead.
 func (*GracePeriodResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{48}
+	return file_features_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *GracePeriodResponse) GetApproved() bool {
@@ -3202,7 +3463,7 @@ type GetHourlyProfitsRequest struct {
 
 func (x *GetHourlyProfitsRequest) Reset() {
 	*x = GetHourlyProfitsRequest{}
-	mi := &file_features_proto_msgTypes[49]
+	mi := &file_features_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3214,7 +3475,7 @@ func (x *GetHourlyProfitsRequest) String() string {
 func (*GetHourlyProfitsRequest) ProtoMessage() {}
 
 func (x *GetHourlyProfitsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[49]
+	mi := &file_features_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3227,7 +3488,7 @@ func (x *GetHourlyProfitsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHourlyProfitsRequest.ProtoReflect.Descriptor instead.
 func (*GetHourlyProfitsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{49}
+	return file_features_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *GetHourlyProfitsRequest) GetUserId() uint64 {
@@ -3264,7 +3525,7 @@ type HourlyProfitsResponse struct {
 
 func (x *HourlyProfitsResponse) Reset() {
 	*x = HourlyProfitsResponse{}
-	mi := &file_features_proto_msgTypes[50]
+	mi := &file_features_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3276,7 +3537,7 @@ func (x *HourlyProfitsResponse) String() string {
 func (*HourlyProfitsResponse) ProtoMessage() {}
 
 func (x *HourlyProfitsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[50]
+	mi := &file_features_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3289,7 +3550,7 @@ func (x *HourlyProfitsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HourlyProfitsResponse.ProtoReflect.Descriptor instead.
 func (*HourlyProfitsResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{50}
+	return file_features_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *HourlyProfitsResponse) GetProfits() []*HourlyProfit {
@@ -3345,7 +3606,7 @@ type HourlyProfit struct {
 
 func (x *HourlyProfit) Reset() {
 	*x = HourlyProfit{}
-	mi := &file_features_proto_msgTypes[51]
+	mi := &file_features_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3357,7 +3618,7 @@ func (x *HourlyProfit) String() string {
 func (*HourlyProfit) ProtoMessage() {}
 
 func (x *HourlyProfit) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[51]
+	mi := &file_features_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3370,7 +3631,7 @@ func (x *HourlyProfit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HourlyProfit.ProtoReflect.Descriptor instead.
 func (*HourlyProfit) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{51}
+	return file_features_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *HourlyProfit) GetId() uint64 {
@@ -3453,7 +3714,7 @@ type GetSingleProfitRequest struct {
 
 func (x *GetSingleProfitRequest) Reset() {
 	*x = GetSingleProfitRequest{}
-	mi := &file_features_proto_msgTypes[52]
+	mi := &file_features_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3465,7 +3726,7 @@ func (x *GetSingleProfitRequest) String() string {
 func (*GetSingleProfitRequest) ProtoMessage() {}
 
 func (x *GetSingleProfitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[52]
+	mi := &file_features_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3478,7 +3739,7 @@ func (x *GetSingleProfitRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSingleProfitRequest.ProtoReflect.Descriptor instead.
 func (*GetSingleProfitRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{52}
+	return file_features_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *GetSingleProfitRequest) GetProfitId() uint64 {
@@ -3505,7 +3766,7 @@ type HourlyProfitResponse struct {
 
 func (x *HourlyProfitResponse) Reset() {
 	*x = HourlyProfitResponse{}
-	mi := &file_features_proto_msgTypes[53]
+	mi := &file_features_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3517,7 +3778,7 @@ func (x *HourlyProfitResponse) String() string {
 func (*HourlyProfitResponse) ProtoMessage() {}
 
 func (x *HourlyProfitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[53]
+	mi := &file_features_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3530,7 +3791,7 @@ func (x *HourlyProfitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HourlyProfitResponse.ProtoReflect.Descriptor instead.
 func (*HourlyProfitResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{53}
+	return file_features_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *HourlyProfitResponse) GetProfit() *HourlyProfit {
@@ -3557,7 +3818,7 @@ type GetProfitsByApplicationRequest struct {
 
 func (x *GetProfitsByApplicationRequest) Reset() {
 	*x = GetProfitsByApplicationRequest{}
-	mi := &file_features_proto_msgTypes[54]
+	mi := &file_features_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3569,7 +3830,7 @@ func (x *GetProfitsByApplicationRequest) String() string {
 func (*GetProfitsByApplicationRequest) ProtoMessage() {}
 
 func (x *GetProfitsByApplicationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[54]
+	mi := &file_features_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3582,7 +3843,7 @@ func (x *GetProfitsByApplicationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetProfitsByApplicationRequest.ProtoReflect.Descriptor instead.
 func (*GetProfitsByApplicationRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{54}
+	return file_features_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *GetProfitsByApplicationRequest) GetUserId() uint64 {
@@ -3609,7 +3870,7 @@ type ProfitsByApplicationResponse struct {
 
 func (x *ProfitsByApplicationResponse) Reset() {
 	*x = ProfitsByApplicationResponse{}
-	mi := &file_features_proto_msgTypes[55]
+	mi := &file_features_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3621,7 +3882,7 @@ func (x *ProfitsByApplicationResponse) String() string {
 func (*ProfitsByApplicationResponse) ProtoMessage() {}
 
 func (x *ProfitsByApplicationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[55]
+	mi := &file_features_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3634,7 +3895,7 @@ func (x *ProfitsByApplicationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProfitsByApplicationResponse.ProtoReflect.Descriptor instead.
 func (*ProfitsByApplicationResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{55}
+	return file_features_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ProfitsByApplicationResponse) GetTotalAmount() string {
@@ -3660,7 +3921,7 @@ type GetHourlyProfitTimePercentageRequest struct {
 
 func (x *GetHourlyProfitTimePercentageRequest) Reset() {
 	*x = GetHourlyProfitTimePercentageRequest{}
-	mi := &file_features_proto_msgTypes[56]
+	mi := &file_features_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3672,7 +3933,7 @@ func (x *GetHourlyProfitTimePercentageRequest) String() string {
 func (*GetHourlyProfitTimePercentageRequest) ProtoMessage() {}
 
 func (x *GetHourlyProfitTimePercentageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[56]
+	mi := &file_features_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3685,7 +3946,7 @@ func (x *GetHourlyProfitTimePercentageRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use GetHourlyProfitTimePercentageRequest.ProtoReflect.Descriptor instead.
 func (*GetHourlyProfitTimePercentageRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{56}
+	return file_features_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *GetHourlyProfitTimePercentageRequest) GetUserId() uint64 {
@@ -3704,7 +3965,7 @@ type GetHourlyProfitTimePercentageResponse struct {
 
 func (x *GetHourlyProfitTimePercentageResponse) Reset() {
 	*x = GetHourlyProfitTimePercentageResponse{}
-	mi := &file_features_proto_msgTypes[57]
+	mi := &file_features_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3716,7 +3977,7 @@ func (x *GetHourlyProfitTimePercentageResponse) String() string {
 func (*GetHourlyProfitTimePercentageResponse) ProtoMessage() {}
 
 func (x *GetHourlyProfitTimePercentageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[57]
+	mi := &file_features_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3729,7 +3990,7 @@ func (x *GetHourlyProfitTimePercentageResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use GetHourlyProfitTimePercentageResponse.ProtoReflect.Descriptor instead.
 func (*GetHourlyProfitTimePercentageResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{57}
+	return file_features_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *GetHourlyProfitTimePercentageResponse) GetPercentage() float64 {
@@ -3749,7 +4010,7 @@ type GetBuildPackageRequest struct {
 
 func (x *GetBuildPackageRequest) Reset() {
 	*x = GetBuildPackageRequest{}
-	mi := &file_features_proto_msgTypes[58]
+	mi := &file_features_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3761,7 +4022,7 @@ func (x *GetBuildPackageRequest) String() string {
 func (*GetBuildPackageRequest) ProtoMessage() {}
 
 func (x *GetBuildPackageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[58]
+	mi := &file_features_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3774,7 +4035,7 @@ func (x *GetBuildPackageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBuildPackageRequest.ProtoReflect.Descriptor instead.
 func (*GetBuildPackageRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{58}
+	return file_features_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *GetBuildPackageRequest) GetFeatureId() uint64 {
@@ -3801,7 +4062,7 @@ type BuildPackageResponse struct {
 
 func (x *BuildPackageResponse) Reset() {
 	*x = BuildPackageResponse{}
-	mi := &file_features_proto_msgTypes[59]
+	mi := &file_features_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3813,7 +4074,7 @@ func (x *BuildPackageResponse) String() string {
 func (*BuildPackageResponse) ProtoMessage() {}
 
 func (x *BuildPackageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[59]
+	mi := &file_features_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3826,7 +4087,7 @@ func (x *BuildPackageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildPackageResponse.ProtoReflect.Descriptor instead.
 func (*BuildPackageResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{59}
+	return file_features_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *BuildPackageResponse) GetModels() []*BuildingModel {
@@ -3859,7 +4120,7 @@ type BuildingModel struct {
 
 func (x *BuildingModel) Reset() {
 	*x = BuildingModel{}
-	mi := &file_features_proto_msgTypes[60]
+	mi := &file_features_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3871,7 +4132,7 @@ func (x *BuildingModel) String() string {
 func (*BuildingModel) ProtoMessage() {}
 
 func (x *BuildingModel) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[60]
+	mi := &file_features_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3884,7 +4145,7 @@ func (x *BuildingModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildingModel.ProtoReflect.Descriptor instead.
 func (*BuildingModel) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{60}
+	return file_features_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *BuildingModel) GetId() uint64 {
@@ -3957,7 +4218,7 @@ type BuildFeatureRequest struct {
 
 func (x *BuildFeatureRequest) Reset() {
 	*x = BuildFeatureRequest{}
-	mi := &file_features_proto_msgTypes[61]
+	mi := &file_features_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3969,7 +4230,7 @@ func (x *BuildFeatureRequest) String() string {
 func (*BuildFeatureRequest) ProtoMessage() {}
 
 func (x *BuildFeatureRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[61]
+	mi := &file_features_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3982,7 +4243,7 @@ func (x *BuildFeatureRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildFeatureRequest.ProtoReflect.Descriptor instead.
 func (*BuildFeatureRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{61}
+	return file_features_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *BuildFeatureRequest) GetFeatureId() uint64 {
@@ -4041,7 +4302,7 @@ type BuildingInformation struct {
 
 func (x *BuildingInformation) Reset() {
 	*x = BuildingInformation{}
-	mi := &file_features_proto_msgTypes[62]
+	mi := &file_features_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4053,7 +4314,7 @@ func (x *BuildingInformation) String() string {
 func (*BuildingInformation) ProtoMessage() {}
 
 func (x *BuildingInformation) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[62]
+	mi := &file_features_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4066,7 +4327,7 @@ func (x *BuildingInformation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildingInformation.ProtoReflect.Descriptor instead.
 func (*BuildingInformation) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{62}
+	return file_features_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *BuildingInformation) GetActivityLine() string {
@@ -4120,7 +4381,7 @@ type BuildFeatureResponse struct {
 
 func (x *BuildFeatureResponse) Reset() {
 	*x = BuildFeatureResponse{}
-	mi := &file_features_proto_msgTypes[63]
+	mi := &file_features_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4132,7 +4393,7 @@ func (x *BuildFeatureResponse) String() string {
 func (*BuildFeatureResponse) ProtoMessage() {}
 
 func (x *BuildFeatureResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[63]
+	mi := &file_features_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4145,7 +4406,7 @@ func (x *BuildFeatureResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildFeatureResponse.ProtoReflect.Descriptor instead.
 func (*BuildFeatureResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{63}
+	return file_features_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *BuildFeatureResponse) GetFeature() *Feature {
@@ -4164,7 +4425,7 @@ type GetBuildingsRequest struct {
 
 func (x *GetBuildingsRequest) Reset() {
 	*x = GetBuildingsRequest{}
-	mi := &file_features_proto_msgTypes[64]
+	mi := &file_features_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4176,7 +4437,7 @@ func (x *GetBuildingsRequest) String() string {
 func (*GetBuildingsRequest) ProtoMessage() {}
 
 func (x *GetBuildingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[64]
+	mi := &file_features_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4189,7 +4450,7 @@ func (x *GetBuildingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBuildingsRequest.ProtoReflect.Descriptor instead.
 func (*GetBuildingsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{64}
+	return file_features_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *GetBuildingsRequest) GetFeatureId() uint64 {
@@ -4208,7 +4469,7 @@ type BuildingsResponse struct {
 
 func (x *BuildingsResponse) Reset() {
 	*x = BuildingsResponse{}
-	mi := &file_features_proto_msgTypes[65]
+	mi := &file_features_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4220,7 +4481,7 @@ func (x *BuildingsResponse) String() string {
 func (*BuildingsResponse) ProtoMessage() {}
 
 func (x *BuildingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[65]
+	mi := &file_features_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4233,7 +4494,7 @@ func (x *BuildingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildingsResponse.ProtoReflect.Descriptor instead.
 func (*BuildingsResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{65}
+	return file_features_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *BuildingsResponse) GetBuildings() []*Building {
@@ -4260,7 +4521,7 @@ type Building struct {
 
 func (x *Building) Reset() {
 	*x = Building{}
-	mi := &file_features_proto_msgTypes[66]
+	mi := &file_features_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4272,7 +4533,7 @@ func (x *Building) String() string {
 func (*Building) ProtoMessage() {}
 
 func (x *Building) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[66]
+	mi := &file_features_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4285,7 +4546,7 @@ func (x *Building) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Building.ProtoReflect.Descriptor instead.
 func (*Building) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{66}
+	return file_features_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *Building) GetId() uint64 {
@@ -4365,7 +4626,7 @@ type UpdateBuildingRequest struct {
 
 func (x *UpdateBuildingRequest) Reset() {
 	*x = UpdateBuildingRequest{}
-	mi := &file_features_proto_msgTypes[67]
+	mi := &file_features_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4377,7 +4638,7 @@ func (x *UpdateBuildingRequest) String() string {
 func (*UpdateBuildingRequest) ProtoMessage() {}
 
 func (x *UpdateBuildingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[67]
+	mi := &file_features_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4390,7 +4651,7 @@ func (x *UpdateBuildingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBuildingRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBuildingRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{67}
+	return file_features_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *UpdateBuildingRequest) GetFeatureId() uint64 {
@@ -4446,7 +4707,7 @@ type UpdateBuildingInformationRequest struct {
 
 func (x *UpdateBuildingInformationRequest) Reset() {
 	*x = UpdateBuildingInformationRequest{}
-	mi := &file_features_proto_msgTypes[68]
+	mi := &file_features_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4458,7 +4719,7 @@ func (x *UpdateBuildingInformationRequest) String() string {
 func (*UpdateBuildingInformationRequest) ProtoMessage() {}
 
 func (x *UpdateBuildingInformationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[68]
+	mi := &file_features_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4471,7 +4732,7 @@ func (x *UpdateBuildingInformationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBuildingInformationRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBuildingInformationRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{68}
+	return file_features_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *UpdateBuildingInformationRequest) GetFeatureId() uint64 {
@@ -4504,7 +4765,7 @@ type UpdateBuildingInformationResponse struct {
 
 func (x *UpdateBuildingInformationResponse) Reset() {
 	*x = UpdateBuildingInformationResponse{}
-	mi := &file_features_proto_msgTypes[69]
+	mi := &file_features_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4516,7 +4777,7 @@ func (x *UpdateBuildingInformationResponse) String() string {
 func (*UpdateBuildingInformationResponse) ProtoMessage() {}
 
 func (x *UpdateBuildingInformationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[69]
+	mi := &file_features_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4529,7 +4790,7 @@ func (x *UpdateBuildingInformationResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use UpdateBuildingInformationResponse.ProtoReflect.Descriptor instead.
 func (*UpdateBuildingInformationResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{69}
+	return file_features_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *UpdateBuildingInformationResponse) GetInformation() *BuildingInformation {
@@ -4550,7 +4811,7 @@ type BuildingResponse struct {
 
 func (x *BuildingResponse) Reset() {
 	*x = BuildingResponse{}
-	mi := &file_features_proto_msgTypes[70]
+	mi := &file_features_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4562,7 +4823,7 @@ func (x *BuildingResponse) String() string {
 func (*BuildingResponse) ProtoMessage() {}
 
 func (x *BuildingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[70]
+	mi := &file_features_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4575,7 +4836,7 @@ func (x *BuildingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildingResponse.ProtoReflect.Descriptor instead.
 func (*BuildingResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{70}
+	return file_features_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *BuildingResponse) GetSuccess() bool {
@@ -4609,7 +4870,7 @@ type DestroyBuildingRequest struct {
 
 func (x *DestroyBuildingRequest) Reset() {
 	*x = DestroyBuildingRequest{}
-	mi := &file_features_proto_msgTypes[71]
+	mi := &file_features_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4621,7 +4882,7 @@ func (x *DestroyBuildingRequest) String() string {
 func (*DestroyBuildingRequest) ProtoMessage() {}
 
 func (x *DestroyBuildingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[71]
+	mi := &file_features_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4634,7 +4895,7 @@ func (x *DestroyBuildingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DestroyBuildingRequest.ProtoReflect.Descriptor instead.
 func (*DestroyBuildingRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{71}
+	return file_features_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *DestroyBuildingRequest) GetFeatureId() uint64 {
@@ -4666,7 +4927,7 @@ type BuildingEntryConfig struct {
 
 func (x *BuildingEntryConfig) Reset() {
 	*x = BuildingEntryConfig{}
-	mi := &file_features_proto_msgTypes[72]
+	mi := &file_features_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4678,7 +4939,7 @@ func (x *BuildingEntryConfig) String() string {
 func (*BuildingEntryConfig) ProtoMessage() {}
 
 func (x *BuildingEntryConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[72]
+	mi := &file_features_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4691,7 +4952,7 @@ func (x *BuildingEntryConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildingEntryConfig.ProtoReflect.Descriptor instead.
 func (*BuildingEntryConfig) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{72}
+	return file_features_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *BuildingEntryConfig) GetFeatureId() uint64 {
@@ -4758,7 +5019,7 @@ type SetBuildingEntryConfigRequest struct {
 
 func (x *SetBuildingEntryConfigRequest) Reset() {
 	*x = SetBuildingEntryConfigRequest{}
-	mi := &file_features_proto_msgTypes[73]
+	mi := &file_features_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4770,7 +5031,7 @@ func (x *SetBuildingEntryConfigRequest) String() string {
 func (*SetBuildingEntryConfigRequest) ProtoMessage() {}
 
 func (x *SetBuildingEntryConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[73]
+	mi := &file_features_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4783,7 +5044,7 @@ func (x *SetBuildingEntryConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetBuildingEntryConfigRequest.ProtoReflect.Descriptor instead.
 func (*SetBuildingEntryConfigRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{73}
+	return file_features_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *SetBuildingEntryConfigRequest) GetFeatureId() uint64 {
@@ -4844,7 +5105,7 @@ type SetBuildingEntryConfigResponse struct {
 
 func (x *SetBuildingEntryConfigResponse) Reset() {
 	*x = SetBuildingEntryConfigResponse{}
-	mi := &file_features_proto_msgTypes[74]
+	mi := &file_features_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4856,7 +5117,7 @@ func (x *SetBuildingEntryConfigResponse) String() string {
 func (*SetBuildingEntryConfigResponse) ProtoMessage() {}
 
 func (x *SetBuildingEntryConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[74]
+	mi := &file_features_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4869,7 +5130,7 @@ func (x *SetBuildingEntryConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetBuildingEntryConfigResponse.ProtoReflect.Descriptor instead.
 func (*SetBuildingEntryConfigResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{74}
+	return file_features_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *SetBuildingEntryConfigResponse) GetConfig() *BuildingEntryConfig {
@@ -4888,7 +5149,7 @@ type GetBuildingEntryConfigRequest struct {
 
 func (x *GetBuildingEntryConfigRequest) Reset() {
 	*x = GetBuildingEntryConfigRequest{}
-	mi := &file_features_proto_msgTypes[75]
+	mi := &file_features_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4900,7 +5161,7 @@ func (x *GetBuildingEntryConfigRequest) String() string {
 func (*GetBuildingEntryConfigRequest) ProtoMessage() {}
 
 func (x *GetBuildingEntryConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[75]
+	mi := &file_features_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4913,7 +5174,7 @@ func (x *GetBuildingEntryConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBuildingEntryConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetBuildingEntryConfigRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{75}
+	return file_features_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *GetBuildingEntryConfigRequest) GetFeatureId() uint64 {
@@ -4932,7 +5193,7 @@ type GetBuildingEntryConfigResponse struct {
 
 func (x *GetBuildingEntryConfigResponse) Reset() {
 	*x = GetBuildingEntryConfigResponse{}
-	mi := &file_features_proto_msgTypes[76]
+	mi := &file_features_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4944,7 +5205,7 @@ func (x *GetBuildingEntryConfigResponse) String() string {
 func (*GetBuildingEntryConfigResponse) ProtoMessage() {}
 
 func (x *GetBuildingEntryConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[76]
+	mi := &file_features_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4957,7 +5218,7 @@ func (x *GetBuildingEntryConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBuildingEntryConfigResponse.ProtoReflect.Descriptor instead.
 func (*GetBuildingEntryConfigResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{76}
+	return file_features_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *GetBuildingEntryConfigResponse) GetConfig() *BuildingEntryConfig {
@@ -4981,7 +5242,7 @@ type BuildingEntryCoupon struct {
 
 func (x *BuildingEntryCoupon) Reset() {
 	*x = BuildingEntryCoupon{}
-	mi := &file_features_proto_msgTypes[77]
+	mi := &file_features_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4993,7 +5254,7 @@ func (x *BuildingEntryCoupon) String() string {
 func (*BuildingEntryCoupon) ProtoMessage() {}
 
 func (x *BuildingEntryCoupon) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[77]
+	mi := &file_features_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5006,7 +5267,7 @@ func (x *BuildingEntryCoupon) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildingEntryCoupon.ProtoReflect.Descriptor instead.
 func (*BuildingEntryCoupon) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{77}
+	return file_features_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *BuildingEntryCoupon) GetId() uint64 {
@@ -5063,7 +5324,7 @@ type CreateBuildingEntryCouponRequest struct {
 
 func (x *CreateBuildingEntryCouponRequest) Reset() {
 	*x = CreateBuildingEntryCouponRequest{}
-	mi := &file_features_proto_msgTypes[78]
+	mi := &file_features_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5075,7 +5336,7 @@ func (x *CreateBuildingEntryCouponRequest) String() string {
 func (*CreateBuildingEntryCouponRequest) ProtoMessage() {}
 
 func (x *CreateBuildingEntryCouponRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[78]
+	mi := &file_features_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5088,7 +5349,7 @@ func (x *CreateBuildingEntryCouponRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBuildingEntryCouponRequest.ProtoReflect.Descriptor instead.
 func (*CreateBuildingEntryCouponRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{78}
+	return file_features_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *CreateBuildingEntryCouponRequest) GetFeatureId() uint64 {
@@ -5128,7 +5389,7 @@ type BuildingEntryCouponResponse struct {
 
 func (x *BuildingEntryCouponResponse) Reset() {
 	*x = BuildingEntryCouponResponse{}
-	mi := &file_features_proto_msgTypes[79]
+	mi := &file_features_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5140,7 +5401,7 @@ func (x *BuildingEntryCouponResponse) String() string {
 func (*BuildingEntryCouponResponse) ProtoMessage() {}
 
 func (x *BuildingEntryCouponResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[79]
+	mi := &file_features_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5153,7 +5414,7 @@ func (x *BuildingEntryCouponResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BuildingEntryCouponResponse.ProtoReflect.Descriptor instead.
 func (*BuildingEntryCouponResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{79}
+	return file_features_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *BuildingEntryCouponResponse) GetCoupon() *BuildingEntryCoupon {
@@ -5172,7 +5433,7 @@ type ListBuildingEntryCouponsRequest struct {
 
 func (x *ListBuildingEntryCouponsRequest) Reset() {
 	*x = ListBuildingEntryCouponsRequest{}
-	mi := &file_features_proto_msgTypes[80]
+	mi := &file_features_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5184,7 +5445,7 @@ func (x *ListBuildingEntryCouponsRequest) String() string {
 func (*ListBuildingEntryCouponsRequest) ProtoMessage() {}
 
 func (x *ListBuildingEntryCouponsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[80]
+	mi := &file_features_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5197,7 +5458,7 @@ func (x *ListBuildingEntryCouponsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBuildingEntryCouponsRequest.ProtoReflect.Descriptor instead.
 func (*ListBuildingEntryCouponsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{80}
+	return file_features_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *ListBuildingEntryCouponsRequest) GetFeatureId() uint64 {
@@ -5216,7 +5477,7 @@ type ListBuildingEntryCouponsResponse struct {
 
 func (x *ListBuildingEntryCouponsResponse) Reset() {
 	*x = ListBuildingEntryCouponsResponse{}
-	mi := &file_features_proto_msgTypes[81]
+	mi := &file_features_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5228,7 +5489,7 @@ func (x *ListBuildingEntryCouponsResponse) String() string {
 func (*ListBuildingEntryCouponsResponse) ProtoMessage() {}
 
 func (x *ListBuildingEntryCouponsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[81]
+	mi := &file_features_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5241,7 +5502,7 @@ func (x *ListBuildingEntryCouponsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBuildingEntryCouponsResponse.ProtoReflect.Descriptor instead.
 func (*ListBuildingEntryCouponsResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{81}
+	return file_features_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *ListBuildingEntryCouponsResponse) GetCoupons() []*BuildingEntryCoupon {
@@ -5261,7 +5522,7 @@ type EnterBuildingRequest struct {
 
 func (x *EnterBuildingRequest) Reset() {
 	*x = EnterBuildingRequest{}
-	mi := &file_features_proto_msgTypes[82]
+	mi := &file_features_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5273,7 +5534,7 @@ func (x *EnterBuildingRequest) String() string {
 func (*EnterBuildingRequest) ProtoMessage() {}
 
 func (x *EnterBuildingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[82]
+	mi := &file_features_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5286,7 +5547,7 @@ func (x *EnterBuildingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnterBuildingRequest.ProtoReflect.Descriptor instead.
 func (*EnterBuildingRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{82}
+	return file_features_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *EnterBuildingRequest) GetFeatureId() uint64 {
@@ -5313,7 +5574,7 @@ type EnterBuildingResponse struct {
 
 func (x *EnterBuildingResponse) Reset() {
 	*x = EnterBuildingResponse{}
-	mi := &file_features_proto_msgTypes[83]
+	mi := &file_features_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5325,7 +5586,7 @@ func (x *EnterBuildingResponse) String() string {
 func (*EnterBuildingResponse) ProtoMessage() {}
 
 func (x *EnterBuildingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[83]
+	mi := &file_features_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5338,7 +5599,7 @@ func (x *EnterBuildingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnterBuildingResponse.ProtoReflect.Descriptor instead.
 func (*EnterBuildingResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{83}
+	return file_features_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *EnterBuildingResponse) GetSuccess() bool {
@@ -5364,7 +5625,7 @@ type ExitBuildingRequest struct {
 
 func (x *ExitBuildingRequest) Reset() {
 	*x = ExitBuildingRequest{}
-	mi := &file_features_proto_msgTypes[84]
+	mi := &file_features_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5376,7 +5637,7 @@ func (x *ExitBuildingRequest) String() string {
 func (*ExitBuildingRequest) ProtoMessage() {}
 
 func (x *ExitBuildingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[84]
+	mi := &file_features_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5389,7 +5650,7 @@ func (x *ExitBuildingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExitBuildingRequest.ProtoReflect.Descriptor instead.
 func (*ExitBuildingRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{84}
+	return file_features_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *ExitBuildingRequest) GetFeatureId() uint64 {
@@ -5409,7 +5670,7 @@ type ExitBuildingResponse struct {
 
 func (x *ExitBuildingResponse) Reset() {
 	*x = ExitBuildingResponse{}
-	mi := &file_features_proto_msgTypes[85]
+	mi := &file_features_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5421,7 +5682,7 @@ func (x *ExitBuildingResponse) String() string {
 func (*ExitBuildingResponse) ProtoMessage() {}
 
 func (x *ExitBuildingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[85]
+	mi := &file_features_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5434,7 +5695,7 @@ func (x *ExitBuildingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExitBuildingResponse.ProtoReflect.Descriptor instead.
 func (*ExitBuildingResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{85}
+	return file_features_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *ExitBuildingResponse) GetSuccess() bool {
@@ -5461,7 +5722,7 @@ type ListCompletedBuildingsRequest struct {
 
 func (x *ListCompletedBuildingsRequest) Reset() {
 	*x = ListCompletedBuildingsRequest{}
-	mi := &file_features_proto_msgTypes[86]
+	mi := &file_features_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5473,7 +5734,7 @@ func (x *ListCompletedBuildingsRequest) String() string {
 func (*ListCompletedBuildingsRequest) ProtoMessage() {}
 
 func (x *ListCompletedBuildingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[86]
+	mi := &file_features_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5486,7 +5747,7 @@ func (x *ListCompletedBuildingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCompletedBuildingsRequest.ProtoReflect.Descriptor instead.
 func (*ListCompletedBuildingsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{86}
+	return file_features_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *ListCompletedBuildingsRequest) GetPage() int32 {
@@ -5507,7 +5768,7 @@ type ListCompletedBuildingsResponse struct {
 
 func (x *ListCompletedBuildingsResponse) Reset() {
 	*x = ListCompletedBuildingsResponse{}
-	mi := &file_features_proto_msgTypes[87]
+	mi := &file_features_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5519,7 +5780,7 @@ func (x *ListCompletedBuildingsResponse) String() string {
 func (*ListCompletedBuildingsResponse) ProtoMessage() {}
 
 func (x *ListCompletedBuildingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[87]
+	mi := &file_features_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5532,7 +5793,7 @@ func (x *ListCompletedBuildingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCompletedBuildingsResponse.ProtoReflect.Descriptor instead.
 func (*ListCompletedBuildingsResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{87}
+	return file_features_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *ListCompletedBuildingsResponse) GetData() []*CompletedBuilding {
@@ -5571,7 +5832,7 @@ type CompletedBuilding struct {
 
 func (x *CompletedBuilding) Reset() {
 	*x = CompletedBuilding{}
-	mi := &file_features_proto_msgTypes[88]
+	mi := &file_features_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5583,7 +5844,7 @@ func (x *CompletedBuilding) String() string {
 func (*CompletedBuilding) ProtoMessage() {}
 
 func (x *CompletedBuilding) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[88]
+	mi := &file_features_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5596,7 +5857,7 @@ func (x *CompletedBuilding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompletedBuilding.ProtoReflect.Descriptor instead.
 func (*CompletedBuilding) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{88}
+	return file_features_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *CompletedBuilding) GetId() uint64 {
@@ -5656,7 +5917,7 @@ type ListMapsRequest struct {
 
 func (x *ListMapsRequest) Reset() {
 	*x = ListMapsRequest{}
-	mi := &file_features_proto_msgTypes[89]
+	mi := &file_features_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5668,7 +5929,7 @@ func (x *ListMapsRequest) String() string {
 func (*ListMapsRequest) ProtoMessage() {}
 
 func (x *ListMapsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[89]
+	mi := &file_features_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5681,7 +5942,7 @@ func (x *ListMapsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMapsRequest.ProtoReflect.Descriptor instead.
 func (*ListMapsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{89}
+	return file_features_proto_rawDescGZIP(), []int{93}
 }
 
 type GetMapRequest struct {
@@ -5693,7 +5954,7 @@ type GetMapRequest struct {
 
 func (x *GetMapRequest) Reset() {
 	*x = GetMapRequest{}
-	mi := &file_features_proto_msgTypes[90]
+	mi := &file_features_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5705,7 +5966,7 @@ func (x *GetMapRequest) String() string {
 func (*GetMapRequest) ProtoMessage() {}
 
 func (x *GetMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[90]
+	mi := &file_features_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5718,7 +5979,7 @@ func (x *GetMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMapRequest.ProtoReflect.Descriptor instead.
 func (*GetMapRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{90}
+	return file_features_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *GetMapRequest) GetMapId() uint64 {
@@ -5737,7 +5998,7 @@ type ListMapsResponse struct {
 
 func (x *ListMapsResponse) Reset() {
 	*x = ListMapsResponse{}
-	mi := &file_features_proto_msgTypes[91]
+	mi := &file_features_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5749,7 +6010,7 @@ func (x *ListMapsResponse) String() string {
 func (*ListMapsResponse) ProtoMessage() {}
 
 func (x *ListMapsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[91]
+	mi := &file_features_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5762,7 +6023,7 @@ func (x *ListMapsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMapsResponse.ProtoReflect.Descriptor instead.
 func (*ListMapsResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{91}
+	return file_features_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *ListMapsResponse) GetMaps() []*Map {
@@ -5781,7 +6042,7 @@ type GetMapResponse struct {
 
 func (x *GetMapResponse) Reset() {
 	*x = GetMapResponse{}
-	mi := &file_features_proto_msgTypes[92]
+	mi := &file_features_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5793,7 +6054,7 @@ func (x *GetMapResponse) String() string {
 func (*GetMapResponse) ProtoMessage() {}
 
 func (x *GetMapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[92]
+	mi := &file_features_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5806,7 +6067,7 @@ func (x *GetMapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMapResponse.ProtoReflect.Descriptor instead.
 func (*GetMapResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{92}
+	return file_features_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *GetMapResponse) GetMap() *Map {
@@ -5825,7 +6086,7 @@ type GetMapBorderResponse struct {
 
 func (x *GetMapBorderResponse) Reset() {
 	*x = GetMapBorderResponse{}
-	mi := &file_features_proto_msgTypes[93]
+	mi := &file_features_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5837,7 +6098,7 @@ func (x *GetMapBorderResponse) String() string {
 func (*GetMapBorderResponse) ProtoMessage() {}
 
 func (x *GetMapBorderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[93]
+	mi := &file_features_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5850,7 +6111,7 @@ func (x *GetMapBorderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMapBorderResponse.ProtoReflect.Descriptor instead.
 func (*GetMapBorderResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{93}
+	return file_features_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *GetMapBorderResponse) GetData() *MapBorderData {
@@ -5869,7 +6130,7 @@ type MapBorderData struct {
 
 func (x *MapBorderData) Reset() {
 	*x = MapBorderData{}
-	mi := &file_features_proto_msgTypes[94]
+	mi := &file_features_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5881,7 +6142,7 @@ func (x *MapBorderData) String() string {
 func (*MapBorderData) ProtoMessage() {}
 
 func (x *MapBorderData) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[94]
+	mi := &file_features_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5894,7 +6155,7 @@ func (x *MapBorderData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MapBorderData.ProtoReflect.Descriptor instead.
 func (*MapBorderData) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{94}
+	return file_features_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *MapBorderData) GetBorderCoordinates() string {
@@ -5923,7 +6184,7 @@ type Map struct {
 
 func (x *Map) Reset() {
 	*x = Map{}
-	mi := &file_features_proto_msgTypes[95]
+	mi := &file_features_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5935,7 +6196,7 @@ func (x *Map) String() string {
 func (*Map) ProtoMessage() {}
 
 func (x *Map) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[95]
+	mi := &file_features_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5948,7 +6209,7 @@ func (x *Map) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Map.ProtoReflect.Descriptor instead.
 func (*Map) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{95}
+	return file_features_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *Map) GetId() uint64 {
@@ -6032,7 +6293,7 @@ type MapFeatures struct {
 
 func (x *MapFeatures) Reset() {
 	*x = MapFeatures{}
-	mi := &file_features_proto_msgTypes[96]
+	mi := &file_features_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6044,7 +6305,7 @@ func (x *MapFeatures) String() string {
 func (*MapFeatures) ProtoMessage() {}
 
 func (x *MapFeatures) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[96]
+	mi := &file_features_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6057,7 +6318,7 @@ func (x *MapFeatures) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MapFeatures.ProtoReflect.Descriptor instead.
 func (*MapFeatures) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{96}
+	return file_features_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *MapFeatures) GetMaskoni() *MapFeatureCount {
@@ -6090,7 +6351,7 @@ type MapFeatureCount struct {
 
 func (x *MapFeatureCount) Reset() {
 	*x = MapFeatureCount{}
-	mi := &file_features_proto_msgTypes[97]
+	mi := &file_features_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6102,7 +6363,7 @@ func (x *MapFeatureCount) String() string {
 func (*MapFeatureCount) ProtoMessage() {}
 
 func (x *MapFeatureCount) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[97]
+	mi := &file_features_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6115,7 +6376,7 @@ func (x *MapFeatureCount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MapFeatureCount.ProtoReflect.Descriptor instead.
 func (*MapFeatureCount) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{97}
+	return file_features_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *MapFeatureCount) GetSold() int32 {
@@ -6136,7 +6397,7 @@ type GetCitizenFeatureSummaryRequest struct {
 
 func (x *GetCitizenFeatureSummaryRequest) Reset() {
 	*x = GetCitizenFeatureSummaryRequest{}
-	mi := &file_features_proto_msgTypes[98]
+	mi := &file_features_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6148,7 +6409,7 @@ func (x *GetCitizenFeatureSummaryRequest) String() string {
 func (*GetCitizenFeatureSummaryRequest) ProtoMessage() {}
 
 func (x *GetCitizenFeatureSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[98]
+	mi := &file_features_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6161,7 +6422,7 @@ func (x *GetCitizenFeatureSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCitizenFeatureSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetCitizenFeatureSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{98}
+	return file_features_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *GetCitizenFeatureSummaryRequest) GetUserId() uint64 {
@@ -6195,7 +6456,7 @@ type GetCitizenFeatureSummaryResponse struct {
 
 func (x *GetCitizenFeatureSummaryResponse) Reset() {
 	*x = GetCitizenFeatureSummaryResponse{}
-	mi := &file_features_proto_msgTypes[99]
+	mi := &file_features_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6207,7 +6468,7 @@ func (x *GetCitizenFeatureSummaryResponse) String() string {
 func (*GetCitizenFeatureSummaryResponse) ProtoMessage() {}
 
 func (x *GetCitizenFeatureSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[99]
+	mi := &file_features_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6220,7 +6481,7 @@ func (x *GetCitizenFeatureSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCitizenFeatureSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetCitizenFeatureSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{99}
+	return file_features_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *GetCitizenFeatureSummaryResponse) GetData() []*CitizenFeatureSummaryItem {
@@ -6250,7 +6511,7 @@ type CitizenFeatureSummaryItem struct {
 
 func (x *CitizenFeatureSummaryItem) Reset() {
 	*x = CitizenFeatureSummaryItem{}
-	mi := &file_features_proto_msgTypes[100]
+	mi := &file_features_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6262,7 +6523,7 @@ func (x *CitizenFeatureSummaryItem) String() string {
 func (*CitizenFeatureSummaryItem) ProtoMessage() {}
 
 func (x *CitizenFeatureSummaryItem) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[100]
+	mi := &file_features_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6275,7 +6536,7 @@ func (x *CitizenFeatureSummaryItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenFeatureSummaryItem.ProtoReflect.Descriptor instead.
 func (*CitizenFeatureSummaryItem) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{100}
+	return file_features_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *CitizenFeatureSummaryItem) GetKarbari() string {
@@ -6324,7 +6585,7 @@ type GetCitizenFeatureChartRequest struct {
 
 func (x *GetCitizenFeatureChartRequest) Reset() {
 	*x = GetCitizenFeatureChartRequest{}
-	mi := &file_features_proto_msgTypes[101]
+	mi := &file_features_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6336,7 +6597,7 @@ func (x *GetCitizenFeatureChartRequest) String() string {
 func (*GetCitizenFeatureChartRequest) ProtoMessage() {}
 
 func (x *GetCitizenFeatureChartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[101]
+	mi := &file_features_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6349,7 +6610,7 @@ func (x *GetCitizenFeatureChartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCitizenFeatureChartRequest.ProtoReflect.Descriptor instead.
 func (*GetCitizenFeatureChartRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{101}
+	return file_features_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *GetCitizenFeatureChartRequest) GetUserId() uint64 {
@@ -6383,7 +6644,7 @@ type GetCitizenFeatureChartResponse struct {
 
 func (x *GetCitizenFeatureChartResponse) Reset() {
 	*x = GetCitizenFeatureChartResponse{}
-	mi := &file_features_proto_msgTypes[102]
+	mi := &file_features_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6395,7 +6656,7 @@ func (x *GetCitizenFeatureChartResponse) String() string {
 func (*GetCitizenFeatureChartResponse) ProtoMessage() {}
 
 func (x *GetCitizenFeatureChartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[102]
+	mi := &file_features_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6408,7 +6669,7 @@ func (x *GetCitizenFeatureChartResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCitizenFeatureChartResponse.ProtoReflect.Descriptor instead.
 func (*GetCitizenFeatureChartResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{102}
+	return file_features_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *GetCitizenFeatureChartResponse) GetData() *CitizenFeatureChartData {
@@ -6436,7 +6697,7 @@ type CitizenChartPoint struct {
 
 func (x *CitizenChartPoint) Reset() {
 	*x = CitizenChartPoint{}
-	mi := &file_features_proto_msgTypes[103]
+	mi := &file_features_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6448,7 +6709,7 @@ func (x *CitizenChartPoint) String() string {
 func (*CitizenChartPoint) ProtoMessage() {}
 
 func (x *CitizenChartPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[103]
+	mi := &file_features_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6461,7 +6722,7 @@ func (x *CitizenChartPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenChartPoint.ProtoReflect.Descriptor instead.
 func (*CitizenChartPoint) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{103}
+	return file_features_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *CitizenChartPoint) GetKarbari() string {
@@ -6495,7 +6756,7 @@ type CitizenFeatureChartData struct {
 
 func (x *CitizenFeatureChartData) Reset() {
 	*x = CitizenFeatureChartData{}
-	mi := &file_features_proto_msgTypes[104]
+	mi := &file_features_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6507,7 +6768,7 @@ func (x *CitizenFeatureChartData) String() string {
 func (*CitizenFeatureChartData) ProtoMessage() {}
 
 func (x *CitizenFeatureChartData) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[104]
+	mi := &file_features_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6520,7 +6781,7 @@ func (x *CitizenFeatureChartData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenFeatureChartData.ProtoReflect.Descriptor instead.
 func (*CitizenFeatureChartData) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{104}
+	return file_features_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *CitizenFeatureChartData) GetBought() []*CitizenChartPoint {
@@ -6550,7 +6811,7 @@ type ListCitizenFeaturesRequest struct {
 
 func (x *ListCitizenFeaturesRequest) Reset() {
 	*x = ListCitizenFeaturesRequest{}
-	mi := &file_features_proto_msgTypes[105]
+	mi := &file_features_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6562,7 +6823,7 @@ func (x *ListCitizenFeaturesRequest) String() string {
 func (*ListCitizenFeaturesRequest) ProtoMessage() {}
 
 func (x *ListCitizenFeaturesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[105]
+	mi := &file_features_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6575,7 +6836,7 @@ func (x *ListCitizenFeaturesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCitizenFeaturesRequest.ProtoReflect.Descriptor instead.
 func (*ListCitizenFeaturesRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{105}
+	return file_features_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *ListCitizenFeaturesRequest) GetUserId() uint64 {
@@ -6625,7 +6886,7 @@ type ListCitizenFeaturesResponse struct {
 
 func (x *ListCitizenFeaturesResponse) Reset() {
 	*x = ListCitizenFeaturesResponse{}
-	mi := &file_features_proto_msgTypes[106]
+	mi := &file_features_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6637,7 +6898,7 @@ func (x *ListCitizenFeaturesResponse) String() string {
 func (*ListCitizenFeaturesResponse) ProtoMessage() {}
 
 func (x *ListCitizenFeaturesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[106]
+	mi := &file_features_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6650,7 +6911,7 @@ func (x *ListCitizenFeaturesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCitizenFeaturesResponse.ProtoReflect.Descriptor instead.
 func (*ListCitizenFeaturesResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{106}
+	return file_features_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *ListCitizenFeaturesResponse) GetData() []*CitizenFeatureItem {
@@ -6701,7 +6962,7 @@ type CitizenFeatureItem struct {
 
 func (x *CitizenFeatureItem) Reset() {
 	*x = CitizenFeatureItem{}
-	mi := &file_features_proto_msgTypes[107]
+	mi := &file_features_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6713,7 +6974,7 @@ func (x *CitizenFeatureItem) String() string {
 func (*CitizenFeatureItem) ProtoMessage() {}
 
 func (x *CitizenFeatureItem) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[107]
+	mi := &file_features_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6726,7 +6987,7 @@ func (x *CitizenFeatureItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenFeatureItem.ProtoReflect.Descriptor instead.
 func (*CitizenFeatureItem) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{107}
+	return file_features_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *CitizenFeatureItem) GetId() uint64 {
@@ -6823,7 +7084,7 @@ type CitizenFeatureCenter struct {
 
 func (x *CitizenFeatureCenter) Reset() {
 	*x = CitizenFeatureCenter{}
-	mi := &file_features_proto_msgTypes[108]
+	mi := &file_features_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6835,7 +7096,7 @@ func (x *CitizenFeatureCenter) String() string {
 func (*CitizenFeatureCenter) ProtoMessage() {}
 
 func (x *CitizenFeatureCenter) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[108]
+	mi := &file_features_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6848,7 +7109,7 @@ func (x *CitizenFeatureCenter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenFeatureCenter.ProtoReflect.Descriptor instead.
 func (*CitizenFeatureCenter) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{108}
+	return file_features_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *CitizenFeatureCenter) GetX() float64 {
@@ -6876,7 +7137,7 @@ type CitizenFeatureMapMarker struct {
 
 func (x *CitizenFeatureMapMarker) Reset() {
 	*x = CitizenFeatureMapMarker{}
-	mi := &file_features_proto_msgTypes[109]
+	mi := &file_features_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6888,7 +7149,7 @@ func (x *CitizenFeatureMapMarker) String() string {
 func (*CitizenFeatureMapMarker) ProtoMessage() {}
 
 func (x *CitizenFeatureMapMarker) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[109]
+	mi := &file_features_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6901,7 +7162,7 @@ func (x *CitizenFeatureMapMarker) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenFeatureMapMarker.ProtoReflect.Descriptor instead.
 func (*CitizenFeatureMapMarker) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{109}
+	return file_features_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *CitizenFeatureMapMarker) GetId() uint64 {
@@ -6935,7 +7196,7 @@ type GetCitizenBuildingSummaryRequest struct {
 
 func (x *GetCitizenBuildingSummaryRequest) Reset() {
 	*x = GetCitizenBuildingSummaryRequest{}
-	mi := &file_features_proto_msgTypes[110]
+	mi := &file_features_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6947,7 +7208,7 @@ func (x *GetCitizenBuildingSummaryRequest) String() string {
 func (*GetCitizenBuildingSummaryRequest) ProtoMessage() {}
 
 func (x *GetCitizenBuildingSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[110]
+	mi := &file_features_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6960,7 +7221,7 @@ func (x *GetCitizenBuildingSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCitizenBuildingSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetCitizenBuildingSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{110}
+	return file_features_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *GetCitizenBuildingSummaryRequest) GetUserId() uint64 {
@@ -6986,7 +7247,7 @@ type GetCitizenBuildingSummaryResponse struct {
 
 func (x *GetCitizenBuildingSummaryResponse) Reset() {
 	*x = GetCitizenBuildingSummaryResponse{}
-	mi := &file_features_proto_msgTypes[111]
+	mi := &file_features_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6998,7 +7259,7 @@ func (x *GetCitizenBuildingSummaryResponse) String() string {
 func (*GetCitizenBuildingSummaryResponse) ProtoMessage() {}
 
 func (x *GetCitizenBuildingSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[111]
+	mi := &file_features_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7011,7 +7272,7 @@ func (x *GetCitizenBuildingSummaryResponse) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetCitizenBuildingSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetCitizenBuildingSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{111}
+	return file_features_proto_rawDescGZIP(), []int{115}
 }
 
 func (x *GetCitizenBuildingSummaryResponse) GetData() []*CitizenBuildingSummaryItem {
@@ -7032,7 +7293,7 @@ type CitizenBuildingSummaryItem struct {
 
 func (x *CitizenBuildingSummaryItem) Reset() {
 	*x = CitizenBuildingSummaryItem{}
-	mi := &file_features_proto_msgTypes[112]
+	mi := &file_features_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7044,7 +7305,7 @@ func (x *CitizenBuildingSummaryItem) String() string {
 func (*CitizenBuildingSummaryItem) ProtoMessage() {}
 
 func (x *CitizenBuildingSummaryItem) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[112]
+	mi := &file_features_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7057,7 +7318,7 @@ func (x *CitizenBuildingSummaryItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenBuildingSummaryItem.ProtoReflect.Descriptor instead.
 func (*CitizenBuildingSummaryItem) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{112}
+	return file_features_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *CitizenBuildingSummaryItem) GetKarbari() string {
@@ -7092,7 +7353,7 @@ type GetCitizenBuildingChartRequest struct {
 
 func (x *GetCitizenBuildingChartRequest) Reset() {
 	*x = GetCitizenBuildingChartRequest{}
-	mi := &file_features_proto_msgTypes[113]
+	mi := &file_features_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7104,7 +7365,7 @@ func (x *GetCitizenBuildingChartRequest) String() string {
 func (*GetCitizenBuildingChartRequest) ProtoMessage() {}
 
 func (x *GetCitizenBuildingChartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[113]
+	mi := &file_features_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7117,7 +7378,7 @@ func (x *GetCitizenBuildingChartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCitizenBuildingChartRequest.ProtoReflect.Descriptor instead.
 func (*GetCitizenBuildingChartRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{113}
+	return file_features_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *GetCitizenBuildingChartRequest) GetUserId() uint64 {
@@ -7151,7 +7412,7 @@ type GetCitizenBuildingChartResponse struct {
 
 func (x *GetCitizenBuildingChartResponse) Reset() {
 	*x = GetCitizenBuildingChartResponse{}
-	mi := &file_features_proto_msgTypes[114]
+	mi := &file_features_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7163,7 +7424,7 @@ func (x *GetCitizenBuildingChartResponse) String() string {
 func (*GetCitizenBuildingChartResponse) ProtoMessage() {}
 
 func (x *GetCitizenBuildingChartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[114]
+	mi := &file_features_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7176,7 +7437,7 @@ func (x *GetCitizenBuildingChartResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCitizenBuildingChartResponse.ProtoReflect.Descriptor instead.
 func (*GetCitizenBuildingChartResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{114}
+	return file_features_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *GetCitizenBuildingChartResponse) GetData() *CitizenBuildingChartData {
@@ -7202,7 +7463,7 @@ type CitizenBuildingChartData struct {
 
 func (x *CitizenBuildingChartData) Reset() {
 	*x = CitizenBuildingChartData{}
-	mi := &file_features_proto_msgTypes[115]
+	mi := &file_features_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7214,7 +7475,7 @@ func (x *CitizenBuildingChartData) String() string {
 func (*CitizenBuildingChartData) ProtoMessage() {}
 
 func (x *CitizenBuildingChartData) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[115]
+	mi := &file_features_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7227,7 +7488,7 @@ func (x *CitizenBuildingChartData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenBuildingChartData.ProtoReflect.Descriptor instead.
 func (*CitizenBuildingChartData) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{115}
+	return file_features_proto_rawDescGZIP(), []int{119}
 }
 
 func (x *CitizenBuildingChartData) GetCompleted() []*CitizenChartPoint {
@@ -7248,7 +7509,7 @@ type ListCitizenBuildingsRequest struct {
 
 func (x *ListCitizenBuildingsRequest) Reset() {
 	*x = ListCitizenBuildingsRequest{}
-	mi := &file_features_proto_msgTypes[116]
+	mi := &file_features_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7260,7 +7521,7 @@ func (x *ListCitizenBuildingsRequest) String() string {
 func (*ListCitizenBuildingsRequest) ProtoMessage() {}
 
 func (x *ListCitizenBuildingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[116]
+	mi := &file_features_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7273,7 +7534,7 @@ func (x *ListCitizenBuildingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCitizenBuildingsRequest.ProtoReflect.Descriptor instead.
 func (*ListCitizenBuildingsRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{116}
+	return file_features_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *ListCitizenBuildingsRequest) GetUserId() uint64 {
@@ -7308,7 +7569,7 @@ type ListCitizenBuildingsResponse struct {
 
 func (x *ListCitizenBuildingsResponse) Reset() {
 	*x = ListCitizenBuildingsResponse{}
-	mi := &file_features_proto_msgTypes[117]
+	mi := &file_features_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7320,7 +7581,7 @@ func (x *ListCitizenBuildingsResponse) String() string {
 func (*ListCitizenBuildingsResponse) ProtoMessage() {}
 
 func (x *ListCitizenBuildingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[117]
+	mi := &file_features_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7333,7 +7594,7 @@ func (x *ListCitizenBuildingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCitizenBuildingsResponse.ProtoReflect.Descriptor instead.
 func (*ListCitizenBuildingsResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{117}
+	return file_features_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *ListCitizenBuildingsResponse) GetData() []*CitizenBuildingItem {
@@ -7373,7 +7634,7 @@ type CitizenBuildingItem struct {
 
 func (x *CitizenBuildingItem) Reset() {
 	*x = CitizenBuildingItem{}
-	mi := &file_features_proto_msgTypes[118]
+	mi := &file_features_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7385,7 +7646,7 @@ func (x *CitizenBuildingItem) String() string {
 func (*CitizenBuildingItem) ProtoMessage() {}
 
 func (x *CitizenBuildingItem) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[118]
+	mi := &file_features_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7398,7 +7659,7 @@ func (x *CitizenBuildingItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CitizenBuildingItem.ProtoReflect.Descriptor instead.
 func (*CitizenBuildingItem) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{118}
+	return file_features_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *CitizenBuildingItem) GetBuildingId() string {
@@ -7467,7 +7728,7 @@ type ListIsicCodesRequest struct {
 
 func (x *ListIsicCodesRequest) Reset() {
 	*x = ListIsicCodesRequest{}
-	mi := &file_features_proto_msgTypes[119]
+	mi := &file_features_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7479,7 +7740,7 @@ func (x *ListIsicCodesRequest) String() string {
 func (*ListIsicCodesRequest) ProtoMessage() {}
 
 func (x *ListIsicCodesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[119]
+	mi := &file_features_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7492,7 +7753,7 @@ func (x *ListIsicCodesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIsicCodesRequest.ProtoReflect.Descriptor instead.
 func (*ListIsicCodesRequest) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{119}
+	return file_features_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *ListIsicCodesRequest) GetPage() int32 {
@@ -7520,7 +7781,7 @@ type ListIsicCodesResponse struct {
 
 func (x *ListIsicCodesResponse) Reset() {
 	*x = ListIsicCodesResponse{}
-	mi := &file_features_proto_msgTypes[120]
+	mi := &file_features_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7532,7 +7793,7 @@ func (x *ListIsicCodesResponse) String() string {
 func (*ListIsicCodesResponse) ProtoMessage() {}
 
 func (x *ListIsicCodesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[120]
+	mi := &file_features_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7545,7 +7806,7 @@ func (x *ListIsicCodesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIsicCodesResponse.ProtoReflect.Descriptor instead.
 func (*ListIsicCodesResponse) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{120}
+	return file_features_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *ListIsicCodesResponse) GetData() []*IsicCode {
@@ -7581,7 +7842,7 @@ type IsicCode struct {
 
 func (x *IsicCode) Reset() {
 	*x = IsicCode{}
-	mi := &file_features_proto_msgTypes[121]
+	mi := &file_features_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7593,7 +7854,7 @@ func (x *IsicCode) String() string {
 func (*IsicCode) ProtoMessage() {}
 
 func (x *IsicCode) ProtoReflect() protoreflect.Message {
-	mi := &file_features_proto_msgTypes[121]
+	mi := &file_features_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7606,7 +7867,7 @@ func (x *IsicCode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IsicCode.ProtoReflect.Descriptor instead.
 func (*IsicCode) Descriptor() ([]byte, []int) {
-	return file_features_proto_rawDescGZIP(), []int{121}
+	return file_features_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *IsicCode) GetId() uint64 {
@@ -7748,7 +8009,27 @@ const file_features_proto_rawDesc = "" +
 	"\x02to\x18\x06 \x01(\x05H\x01R\x02to\x88\x01\x01\x12\x14\n" +
 	"\x05total\x18\a \x01(\x05R\x05totalB\a\n" +
 	"\x05_fromB\x05\n" +
-	"\x03_to\"c\n" +
+	"\x03_to\"8\n" +
+	"\x15SearchFeaturesRequest\x12\x1f\n" +
+	"\vsearch_term\x18\x01 \x01(\tR\n" +
+	"searchTerm\"K\n" +
+	"\x16SearchFeaturesResponse\x121\n" +
+	"\x04data\x18\x01 \x03(\v2\x1d.features.SearchFeatureResultR\x04data\"\xfa\x02\n" +
+	"\x13SearchFeatureResult\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x122\n" +
+	"\x15feature_properties_id\x18\x02 \x01(\tR\x13featurePropertiesId\x12\x18\n" +
+	"\aaddress\x18\x03 \x01(\tR\aaddress\x12\x18\n" +
+	"\akarbari\x18\x04 \x01(\tR\akarbari\x12\x1b\n" +
+	"\tprice_psc\x18\x05 \x01(\tR\bpricePsc\x12\x1b\n" +
+	"\tprice_irr\x18\x06 \x01(\tR\bpriceIrr\x12\x1d\n" +
+	"\n" +
+	"owner_code\x18\a \x01(\tR\townerCode\x12C\n" +
+	"\vcoordinates\x18\b \x03(\v2!.features.SearchFeatureCoordinateR\vcoordinates\x12M\n" +
+	"\x13latest_sell_request\x18\t \x01(\v2\x1d.features.SellRequestResponseR\x11latestSellRequest\"E\n" +
+	"\x17SearchFeatureCoordinate\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\f\n" +
+	"\x01x\x18\x02 \x01(\x01R\x01x\x12\f\n" +
+	"\x01y\x18\x03 \x01(\x01R\x01y\"c\n" +
 	"\x0fPaginationLinks\x12\x14\n" +
 	"\x05first\x18\x01 \x01(\tR\x05first\x12\x12\n" +
 	"\x04last\x18\x02 \x01(\tR\x04last\x12\x12\n" +
@@ -8255,7 +8536,7 @@ const file_features_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n" +
 	"\x04code\x18\x03 \x01(\x04H\x00R\x04code\x88\x01\x01\x12\x1a\n" +
 	"\bverified\x18\x04 \x01(\bR\bverifiedB\a\n" +
-	"\x05_code2\x9d\a\n" +
+	"\x05_code2\xf2\a\n" +
 	"\x0eFeatureService\x12I\n" +
 	"\fListFeatures\x12\x1d.features.ListFeaturesRequest\x1a\x1a.features.FeaturesResponse\x12D\n" +
 	"\n" +
@@ -8268,7 +8549,8 @@ const file_features_proto_rawDesc = "" +
 	"\x12AddMyFeatureImages\x12#.features.AddMyFeatureImagesRequest\x1a\x19.features.FeatureResponse\x12U\n" +
 	"\x14RemoveMyFeatureImage\x12%.features.RemoveMyFeatureImageRequest\x1a\x16.google.protobuf.Empty\x12V\n" +
 	"\x0fUpdateMyFeature\x12 .features.UpdateMyFeatureRequest\x1a!.features.UpdateMyFeatureResponse\x12k\n" +
-	"\x16GetFeatureTradeHistory\x12'.features.GetFeatureTradeHistoryRequest\x1a(.features.GetFeatureTradeHistoryResponse2\xf0\b\n" +
+	"\x16GetFeatureTradeHistory\x12'.features.GetFeatureTradeHistoryRequest\x1a(.features.GetFeatureTradeHistoryResponse\x12S\n" +
+	"\x0eSearchFeatures\x12\x1f.features.SearchFeaturesRequest\x1a .features.SearchFeaturesResponse2\xf0\b\n" +
 	"\x19FeatureMarketplaceService\x12G\n" +
 	"\n" +
 	"BuyFeature\x12\x1b.features.BuyFeatureRequest\x1a\x1c.features.BuyFeatureResponse\x12O\n" +
@@ -8330,7 +8612,7 @@ func file_features_proto_rawDescGZIP() []byte {
 	return file_features_proto_rawDescData
 }
 
-var file_features_proto_msgTypes = make([]protoimpl.MessageInfo, 122)
+var file_features_proto_msgTypes = make([]protoimpl.MessageInfo, 126)
 var file_features_proto_goTypes = []any{
 	(*ListFeaturesRequest)(nil),                   // 0: features.ListFeaturesRequest
 	(*FeaturesResponse)(nil),                      // 1: features.FeaturesResponse
@@ -8352,291 +8634,300 @@ var file_features_proto_goTypes = []any{
 	(*FeatureTradeHistoryDateTime)(nil),           // 17: features.FeatureTradeHistoryDateTime
 	(*FeatureTradeHistoryPrice)(nil),              // 18: features.FeatureTradeHistoryPrice
 	(*FeatureTradeHistoryPaginationMeta)(nil),     // 19: features.FeatureTradeHistoryPaginationMeta
-	(*PaginationLinks)(nil),                       // 20: features.PaginationLinks
-	(*SimplePaginationMeta)(nil),                  // 21: features.SimplePaginationMeta
-	(*Feature)(nil),                               // 22: features.Feature
-	(*Seller)(nil),                                // 23: features.Seller
-	(*FeatureProperties)(nil),                     // 24: features.FeatureProperties
-	(*Geometry)(nil),                              // 25: features.Geometry
-	(*Coordinate)(nil),                            // 26: features.Coordinate
-	(*Image)(nil),                                 // 27: features.Image
-	(*BuyFeatureRequest)(nil),                     // 28: features.BuyFeatureRequest
-	(*BuyFeatureResponse)(nil),                    // 29: features.BuyFeatureResponse
-	(*SendBuyRequestRequest)(nil),                 // 30: features.SendBuyRequestRequest
-	(*BuyRequestResponse)(nil),                    // 31: features.BuyRequestResponse
-	(*BuyerInfo)(nil),                             // 32: features.BuyerInfo
-	(*SellerInfo)(nil),                            // 33: features.SellerInfo
-	(*ListBuyRequestsRequest)(nil),                // 34: features.ListBuyRequestsRequest
-	(*ListReceivedBuyRequestsRequest)(nil),        // 35: features.ListReceivedBuyRequestsRequest
-	(*BuyRequestsResponse)(nil),                   // 36: features.BuyRequestsResponse
-	(*RejectBuyRequestRequest)(nil),               // 37: features.RejectBuyRequestRequest
-	(*DeleteBuyRequestRequest)(nil),               // 38: features.DeleteBuyRequestRequest
-	(*UpdateGracePeriodRequest)(nil),              // 39: features.UpdateGracePeriodRequest
-	(*AcceptBuyRequestRequest)(nil),               // 40: features.AcceptBuyRequestRequest
-	(*CreateSellRequestRequest)(nil),              // 41: features.CreateSellRequestRequest
-	(*ListSellRequestsRequest)(nil),               // 42: features.ListSellRequestsRequest
-	(*ListFeatureSellRequestsRequest)(nil),        // 43: features.ListFeatureSellRequestsRequest
-	(*DeleteSellRequestRequest)(nil),              // 44: features.DeleteSellRequestRequest
-	(*SellRequestResponse)(nil),                   // 45: features.SellRequestResponse
-	(*SellRequestsResponse)(nil),                  // 46: features.SellRequestsResponse
-	(*RequestGracePeriodRequest)(nil),             // 47: features.RequestGracePeriodRequest
-	(*GracePeriodResponse)(nil),                   // 48: features.GracePeriodResponse
-	(*GetHourlyProfitsRequest)(nil),               // 49: features.GetHourlyProfitsRequest
-	(*HourlyProfitsResponse)(nil),                 // 50: features.HourlyProfitsResponse
-	(*HourlyProfit)(nil),                          // 51: features.HourlyProfit
-	(*GetSingleProfitRequest)(nil),                // 52: features.GetSingleProfitRequest
-	(*HourlyProfitResponse)(nil),                  // 53: features.HourlyProfitResponse
-	(*GetProfitsByApplicationRequest)(nil),        // 54: features.GetProfitsByApplicationRequest
-	(*ProfitsByApplicationResponse)(nil),          // 55: features.ProfitsByApplicationResponse
-	(*GetHourlyProfitTimePercentageRequest)(nil),  // 56: features.GetHourlyProfitTimePercentageRequest
-	(*GetHourlyProfitTimePercentageResponse)(nil), // 57: features.GetHourlyProfitTimePercentageResponse
-	(*GetBuildPackageRequest)(nil),                // 58: features.GetBuildPackageRequest
-	(*BuildPackageResponse)(nil),                  // 59: features.BuildPackageResponse
-	(*BuildingModel)(nil),                         // 60: features.BuildingModel
-	(*BuildFeatureRequest)(nil),                   // 61: features.BuildFeatureRequest
-	(*BuildingInformation)(nil),                   // 62: features.BuildingInformation
-	(*BuildFeatureResponse)(nil),                  // 63: features.BuildFeatureResponse
-	(*GetBuildingsRequest)(nil),                   // 64: features.GetBuildingsRequest
-	(*BuildingsResponse)(nil),                     // 65: features.BuildingsResponse
-	(*Building)(nil),                              // 66: features.Building
-	(*UpdateBuildingRequest)(nil),                 // 67: features.UpdateBuildingRequest
-	(*UpdateBuildingInformationRequest)(nil),      // 68: features.UpdateBuildingInformationRequest
-	(*UpdateBuildingInformationResponse)(nil),     // 69: features.UpdateBuildingInformationResponse
-	(*BuildingResponse)(nil),                      // 70: features.BuildingResponse
-	(*DestroyBuildingRequest)(nil),                // 71: features.DestroyBuildingRequest
-	(*BuildingEntryConfig)(nil),                   // 72: features.BuildingEntryConfig
-	(*SetBuildingEntryConfigRequest)(nil),         // 73: features.SetBuildingEntryConfigRequest
-	(*SetBuildingEntryConfigResponse)(nil),        // 74: features.SetBuildingEntryConfigResponse
-	(*GetBuildingEntryConfigRequest)(nil),         // 75: features.GetBuildingEntryConfigRequest
-	(*GetBuildingEntryConfigResponse)(nil),        // 76: features.GetBuildingEntryConfigResponse
-	(*BuildingEntryCoupon)(nil),                   // 77: features.BuildingEntryCoupon
-	(*CreateBuildingEntryCouponRequest)(nil),      // 78: features.CreateBuildingEntryCouponRequest
-	(*BuildingEntryCouponResponse)(nil),           // 79: features.BuildingEntryCouponResponse
-	(*ListBuildingEntryCouponsRequest)(nil),       // 80: features.ListBuildingEntryCouponsRequest
-	(*ListBuildingEntryCouponsResponse)(nil),      // 81: features.ListBuildingEntryCouponsResponse
-	(*EnterBuildingRequest)(nil),                  // 82: features.EnterBuildingRequest
-	(*EnterBuildingResponse)(nil),                 // 83: features.EnterBuildingResponse
-	(*ExitBuildingRequest)(nil),                   // 84: features.ExitBuildingRequest
-	(*ExitBuildingResponse)(nil),                  // 85: features.ExitBuildingResponse
-	(*ListCompletedBuildingsRequest)(nil),         // 86: features.ListCompletedBuildingsRequest
-	(*ListCompletedBuildingsResponse)(nil),        // 87: features.ListCompletedBuildingsResponse
-	(*CompletedBuilding)(nil),                     // 88: features.CompletedBuilding
-	(*ListMapsRequest)(nil),                       // 89: features.ListMapsRequest
-	(*GetMapRequest)(nil),                         // 90: features.GetMapRequest
-	(*ListMapsResponse)(nil),                      // 91: features.ListMapsResponse
-	(*GetMapResponse)(nil),                        // 92: features.GetMapResponse
-	(*GetMapBorderResponse)(nil),                  // 93: features.GetMapBorderResponse
-	(*MapBorderData)(nil),                         // 94: features.MapBorderData
-	(*Map)(nil),                                   // 95: features.Map
-	(*MapFeatures)(nil),                           // 96: features.MapFeatures
-	(*MapFeatureCount)(nil),                       // 97: features.MapFeatureCount
-	(*GetCitizenFeatureSummaryRequest)(nil),       // 98: features.GetCitizenFeatureSummaryRequest
-	(*GetCitizenFeatureSummaryResponse)(nil),      // 99: features.GetCitizenFeatureSummaryResponse
-	(*CitizenFeatureSummaryItem)(nil),             // 100: features.CitizenFeatureSummaryItem
-	(*GetCitizenFeatureChartRequest)(nil),         // 101: features.GetCitizenFeatureChartRequest
-	(*GetCitizenFeatureChartResponse)(nil),        // 102: features.GetCitizenFeatureChartResponse
-	(*CitizenChartPoint)(nil),                     // 103: features.CitizenChartPoint
-	(*CitizenFeatureChartData)(nil),               // 104: features.CitizenFeatureChartData
-	(*ListCitizenFeaturesRequest)(nil),            // 105: features.ListCitizenFeaturesRequest
-	(*ListCitizenFeaturesResponse)(nil),           // 106: features.ListCitizenFeaturesResponse
-	(*CitizenFeatureItem)(nil),                    // 107: features.CitizenFeatureItem
-	(*CitizenFeatureCenter)(nil),                  // 108: features.CitizenFeatureCenter
-	(*CitizenFeatureMapMarker)(nil),               // 109: features.CitizenFeatureMapMarker
-	(*GetCitizenBuildingSummaryRequest)(nil),      // 110: features.GetCitizenBuildingSummaryRequest
-	(*GetCitizenBuildingSummaryResponse)(nil),     // 111: features.GetCitizenBuildingSummaryResponse
-	(*CitizenBuildingSummaryItem)(nil),            // 112: features.CitizenBuildingSummaryItem
-	(*GetCitizenBuildingChartRequest)(nil),        // 113: features.GetCitizenBuildingChartRequest
-	(*GetCitizenBuildingChartResponse)(nil),       // 114: features.GetCitizenBuildingChartResponse
-	(*CitizenBuildingChartData)(nil),              // 115: features.CitizenBuildingChartData
-	(*ListCitizenBuildingsRequest)(nil),           // 116: features.ListCitizenBuildingsRequest
-	(*ListCitizenBuildingsResponse)(nil),          // 117: features.ListCitizenBuildingsResponse
-	(*CitizenBuildingItem)(nil),                   // 118: features.CitizenBuildingItem
-	(*ListIsicCodesRequest)(nil),                  // 119: features.ListIsicCodesRequest
-	(*ListIsicCodesResponse)(nil),                 // 120: features.ListIsicCodesResponse
-	(*IsicCode)(nil),                              // 121: features.IsicCode
-	(*emptypb.Empty)(nil),                         // 122: google.protobuf.Empty
+	(*SearchFeaturesRequest)(nil),                 // 20: features.SearchFeaturesRequest
+	(*SearchFeaturesResponse)(nil),                // 21: features.SearchFeaturesResponse
+	(*SearchFeatureResult)(nil),                   // 22: features.SearchFeatureResult
+	(*SearchFeatureCoordinate)(nil),               // 23: features.SearchFeatureCoordinate
+	(*PaginationLinks)(nil),                       // 24: features.PaginationLinks
+	(*SimplePaginationMeta)(nil),                  // 25: features.SimplePaginationMeta
+	(*Feature)(nil),                               // 26: features.Feature
+	(*Seller)(nil),                                // 27: features.Seller
+	(*FeatureProperties)(nil),                     // 28: features.FeatureProperties
+	(*Geometry)(nil),                              // 29: features.Geometry
+	(*Coordinate)(nil),                            // 30: features.Coordinate
+	(*Image)(nil),                                 // 31: features.Image
+	(*BuyFeatureRequest)(nil),                     // 32: features.BuyFeatureRequest
+	(*BuyFeatureResponse)(nil),                    // 33: features.BuyFeatureResponse
+	(*SendBuyRequestRequest)(nil),                 // 34: features.SendBuyRequestRequest
+	(*BuyRequestResponse)(nil),                    // 35: features.BuyRequestResponse
+	(*BuyerInfo)(nil),                             // 36: features.BuyerInfo
+	(*SellerInfo)(nil),                            // 37: features.SellerInfo
+	(*ListBuyRequestsRequest)(nil),                // 38: features.ListBuyRequestsRequest
+	(*ListReceivedBuyRequestsRequest)(nil),        // 39: features.ListReceivedBuyRequestsRequest
+	(*BuyRequestsResponse)(nil),                   // 40: features.BuyRequestsResponse
+	(*RejectBuyRequestRequest)(nil),               // 41: features.RejectBuyRequestRequest
+	(*DeleteBuyRequestRequest)(nil),               // 42: features.DeleteBuyRequestRequest
+	(*UpdateGracePeriodRequest)(nil),              // 43: features.UpdateGracePeriodRequest
+	(*AcceptBuyRequestRequest)(nil),               // 44: features.AcceptBuyRequestRequest
+	(*CreateSellRequestRequest)(nil),              // 45: features.CreateSellRequestRequest
+	(*ListSellRequestsRequest)(nil),               // 46: features.ListSellRequestsRequest
+	(*ListFeatureSellRequestsRequest)(nil),        // 47: features.ListFeatureSellRequestsRequest
+	(*DeleteSellRequestRequest)(nil),              // 48: features.DeleteSellRequestRequest
+	(*SellRequestResponse)(nil),                   // 49: features.SellRequestResponse
+	(*SellRequestsResponse)(nil),                  // 50: features.SellRequestsResponse
+	(*RequestGracePeriodRequest)(nil),             // 51: features.RequestGracePeriodRequest
+	(*GracePeriodResponse)(nil),                   // 52: features.GracePeriodResponse
+	(*GetHourlyProfitsRequest)(nil),               // 53: features.GetHourlyProfitsRequest
+	(*HourlyProfitsResponse)(nil),                 // 54: features.HourlyProfitsResponse
+	(*HourlyProfit)(nil),                          // 55: features.HourlyProfit
+	(*GetSingleProfitRequest)(nil),                // 56: features.GetSingleProfitRequest
+	(*HourlyProfitResponse)(nil),                  // 57: features.HourlyProfitResponse
+	(*GetProfitsByApplicationRequest)(nil),        // 58: features.GetProfitsByApplicationRequest
+	(*ProfitsByApplicationResponse)(nil),          // 59: features.ProfitsByApplicationResponse
+	(*GetHourlyProfitTimePercentageRequest)(nil),  // 60: features.GetHourlyProfitTimePercentageRequest
+	(*GetHourlyProfitTimePercentageResponse)(nil), // 61: features.GetHourlyProfitTimePercentageResponse
+	(*GetBuildPackageRequest)(nil),                // 62: features.GetBuildPackageRequest
+	(*BuildPackageResponse)(nil),                  // 63: features.BuildPackageResponse
+	(*BuildingModel)(nil),                         // 64: features.BuildingModel
+	(*BuildFeatureRequest)(nil),                   // 65: features.BuildFeatureRequest
+	(*BuildingInformation)(nil),                   // 66: features.BuildingInformation
+	(*BuildFeatureResponse)(nil),                  // 67: features.BuildFeatureResponse
+	(*GetBuildingsRequest)(nil),                   // 68: features.GetBuildingsRequest
+	(*BuildingsResponse)(nil),                     // 69: features.BuildingsResponse
+	(*Building)(nil),                              // 70: features.Building
+	(*UpdateBuildingRequest)(nil),                 // 71: features.UpdateBuildingRequest
+	(*UpdateBuildingInformationRequest)(nil),      // 72: features.UpdateBuildingInformationRequest
+	(*UpdateBuildingInformationResponse)(nil),     // 73: features.UpdateBuildingInformationResponse
+	(*BuildingResponse)(nil),                      // 74: features.BuildingResponse
+	(*DestroyBuildingRequest)(nil),                // 75: features.DestroyBuildingRequest
+	(*BuildingEntryConfig)(nil),                   // 76: features.BuildingEntryConfig
+	(*SetBuildingEntryConfigRequest)(nil),         // 77: features.SetBuildingEntryConfigRequest
+	(*SetBuildingEntryConfigResponse)(nil),        // 78: features.SetBuildingEntryConfigResponse
+	(*GetBuildingEntryConfigRequest)(nil),         // 79: features.GetBuildingEntryConfigRequest
+	(*GetBuildingEntryConfigResponse)(nil),        // 80: features.GetBuildingEntryConfigResponse
+	(*BuildingEntryCoupon)(nil),                   // 81: features.BuildingEntryCoupon
+	(*CreateBuildingEntryCouponRequest)(nil),      // 82: features.CreateBuildingEntryCouponRequest
+	(*BuildingEntryCouponResponse)(nil),           // 83: features.BuildingEntryCouponResponse
+	(*ListBuildingEntryCouponsRequest)(nil),       // 84: features.ListBuildingEntryCouponsRequest
+	(*ListBuildingEntryCouponsResponse)(nil),      // 85: features.ListBuildingEntryCouponsResponse
+	(*EnterBuildingRequest)(nil),                  // 86: features.EnterBuildingRequest
+	(*EnterBuildingResponse)(nil),                 // 87: features.EnterBuildingResponse
+	(*ExitBuildingRequest)(nil),                   // 88: features.ExitBuildingRequest
+	(*ExitBuildingResponse)(nil),                  // 89: features.ExitBuildingResponse
+	(*ListCompletedBuildingsRequest)(nil),         // 90: features.ListCompletedBuildingsRequest
+	(*ListCompletedBuildingsResponse)(nil),        // 91: features.ListCompletedBuildingsResponse
+	(*CompletedBuilding)(nil),                     // 92: features.CompletedBuilding
+	(*ListMapsRequest)(nil),                       // 93: features.ListMapsRequest
+	(*GetMapRequest)(nil),                         // 94: features.GetMapRequest
+	(*ListMapsResponse)(nil),                      // 95: features.ListMapsResponse
+	(*GetMapResponse)(nil),                        // 96: features.GetMapResponse
+	(*GetMapBorderResponse)(nil),                  // 97: features.GetMapBorderResponse
+	(*MapBorderData)(nil),                         // 98: features.MapBorderData
+	(*Map)(nil),                                   // 99: features.Map
+	(*MapFeatures)(nil),                           // 100: features.MapFeatures
+	(*MapFeatureCount)(nil),                       // 101: features.MapFeatureCount
+	(*GetCitizenFeatureSummaryRequest)(nil),       // 102: features.GetCitizenFeatureSummaryRequest
+	(*GetCitizenFeatureSummaryResponse)(nil),      // 103: features.GetCitizenFeatureSummaryResponse
+	(*CitizenFeatureSummaryItem)(nil),             // 104: features.CitizenFeatureSummaryItem
+	(*GetCitizenFeatureChartRequest)(nil),         // 105: features.GetCitizenFeatureChartRequest
+	(*GetCitizenFeatureChartResponse)(nil),        // 106: features.GetCitizenFeatureChartResponse
+	(*CitizenChartPoint)(nil),                     // 107: features.CitizenChartPoint
+	(*CitizenFeatureChartData)(nil),               // 108: features.CitizenFeatureChartData
+	(*ListCitizenFeaturesRequest)(nil),            // 109: features.ListCitizenFeaturesRequest
+	(*ListCitizenFeaturesResponse)(nil),           // 110: features.ListCitizenFeaturesResponse
+	(*CitizenFeatureItem)(nil),                    // 111: features.CitizenFeatureItem
+	(*CitizenFeatureCenter)(nil),                  // 112: features.CitizenFeatureCenter
+	(*CitizenFeatureMapMarker)(nil),               // 113: features.CitizenFeatureMapMarker
+	(*GetCitizenBuildingSummaryRequest)(nil),      // 114: features.GetCitizenBuildingSummaryRequest
+	(*GetCitizenBuildingSummaryResponse)(nil),     // 115: features.GetCitizenBuildingSummaryResponse
+	(*CitizenBuildingSummaryItem)(nil),            // 116: features.CitizenBuildingSummaryItem
+	(*GetCitizenBuildingChartRequest)(nil),        // 117: features.GetCitizenBuildingChartRequest
+	(*GetCitizenBuildingChartResponse)(nil),       // 118: features.GetCitizenBuildingChartResponse
+	(*CitizenBuildingChartData)(nil),              // 119: features.CitizenBuildingChartData
+	(*ListCitizenBuildingsRequest)(nil),           // 120: features.ListCitizenBuildingsRequest
+	(*ListCitizenBuildingsResponse)(nil),          // 121: features.ListCitizenBuildingsResponse
+	(*CitizenBuildingItem)(nil),                   // 122: features.CitizenBuildingItem
+	(*ListIsicCodesRequest)(nil),                  // 123: features.ListIsicCodesRequest
+	(*ListIsicCodesResponse)(nil),                 // 124: features.ListIsicCodesResponse
+	(*IsicCode)(nil),                              // 125: features.IsicCode
+	(*emptypb.Empty)(nil),                         // 126: google.protobuf.Empty
 }
 var file_features_proto_depIdxs = []int32{
-	22,  // 0: features.FeaturesResponse.features:type_name -> features.Feature
-	22,  // 1: features.FeatureResponse.feature:type_name -> features.Feature
-	24,  // 2: features.UpdateFeatureRequest.properties:type_name -> features.FeatureProperties
-	22,  // 3: features.ListMyFeaturesResponse.data:type_name -> features.Feature
-	20,  // 4: features.ListMyFeaturesResponse.links:type_name -> features.PaginationLinks
-	21,  // 5: features.ListMyFeaturesResponse.meta:type_name -> features.SimplePaginationMeta
+	26,  // 0: features.FeaturesResponse.features:type_name -> features.Feature
+	26,  // 1: features.FeatureResponse.feature:type_name -> features.Feature
+	28,  // 2: features.UpdateFeatureRequest.properties:type_name -> features.FeatureProperties
+	26,  // 3: features.ListMyFeaturesResponse.data:type_name -> features.Feature
+	24,  // 4: features.ListMyFeaturesResponse.links:type_name -> features.PaginationLinks
+	25,  // 5: features.ListMyFeaturesResponse.meta:type_name -> features.SimplePaginationMeta
 	16,  // 6: features.GetFeatureTradeHistoryResponse.data:type_name -> features.FeatureTradeHistoryItem
-	20,  // 7: features.GetFeatureTradeHistoryResponse.links:type_name -> features.PaginationLinks
+	24,  // 7: features.GetFeatureTradeHistoryResponse.links:type_name -> features.PaginationLinks
 	19,  // 8: features.GetFeatureTradeHistoryResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
 	17,  // 9: features.FeatureTradeHistoryItem.date_time:type_name -> features.FeatureTradeHistoryDateTime
 	18,  // 10: features.FeatureTradeHistoryItem.price:type_name -> features.FeatureTradeHistoryPrice
-	24,  // 11: features.Feature.properties:type_name -> features.FeatureProperties
-	25,  // 12: features.Feature.geometry:type_name -> features.Geometry
-	27,  // 13: features.Feature.images:type_name -> features.Image
-	23,  // 14: features.Feature.seller:type_name -> features.Seller
-	66,  // 15: features.Feature.building_models:type_name -> features.Building
-	45,  // 16: features.Feature.latest_sell_request:type_name -> features.SellRequestResponse
-	26,  // 17: features.Geometry.coordinates:type_name -> features.Coordinate
-	22,  // 18: features.BuyFeatureResponse.feature:type_name -> features.Feature
-	32,  // 19: features.BuyRequestResponse.buyer:type_name -> features.BuyerInfo
-	33,  // 20: features.BuyRequestResponse.seller:type_name -> features.SellerInfo
-	24,  // 21: features.BuyRequestResponse.feature_properties:type_name -> features.FeatureProperties
-	26,  // 22: features.BuyRequestResponse.feature_coordinates:type_name -> features.Coordinate
-	31,  // 23: features.BuyRequestsResponse.buy_requests:type_name -> features.BuyRequestResponse
-	24,  // 24: features.SellRequestResponse.feature_properties:type_name -> features.FeatureProperties
-	26,  // 25: features.SellRequestResponse.feature_coordinates:type_name -> features.Coordinate
-	45,  // 26: features.SellRequestsResponse.sell_requests:type_name -> features.SellRequestResponse
-	51,  // 27: features.HourlyProfitsResponse.profits:type_name -> features.HourlyProfit
-	51,  // 28: features.HourlyProfitResponse.profit:type_name -> features.HourlyProfit
-	60,  // 29: features.BuildPackageResponse.models:type_name -> features.BuildingModel
-	62,  // 30: features.BuildFeatureRequest.information:type_name -> features.BuildingInformation
-	22,  // 31: features.BuildFeatureResponse.feature:type_name -> features.Feature
-	66,  // 32: features.BuildingsResponse.buildings:type_name -> features.Building
-	60,  // 33: features.Building.model:type_name -> features.BuildingModel
-	62,  // 34: features.UpdateBuildingRequest.information:type_name -> features.BuildingInformation
-	62,  // 35: features.UpdateBuildingInformationRequest.information:type_name -> features.BuildingInformation
-	62,  // 36: features.UpdateBuildingInformationResponse.information:type_name -> features.BuildingInformation
-	66,  // 37: features.BuildingResponse.building:type_name -> features.Building
-	72,  // 38: features.SetBuildingEntryConfigResponse.config:type_name -> features.BuildingEntryConfig
-	72,  // 39: features.GetBuildingEntryConfigResponse.config:type_name -> features.BuildingEntryConfig
-	77,  // 40: features.BuildingEntryCouponResponse.coupon:type_name -> features.BuildingEntryCoupon
-	77,  // 41: features.ListBuildingEntryCouponsResponse.coupons:type_name -> features.BuildingEntryCoupon
-	88,  // 42: features.ListCompletedBuildingsResponse.data:type_name -> features.CompletedBuilding
-	20,  // 43: features.ListCompletedBuildingsResponse.links:type_name -> features.PaginationLinks
-	19,  // 44: features.ListCompletedBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	95,  // 45: features.ListMapsResponse.maps:type_name -> features.Map
-	95,  // 46: features.GetMapResponse.map:type_name -> features.Map
-	94,  // 47: features.GetMapBorderResponse.data:type_name -> features.MapBorderData
-	96,  // 48: features.Map.features:type_name -> features.MapFeatures
-	97,  // 49: features.MapFeatures.maskoni:type_name -> features.MapFeatureCount
-	97,  // 50: features.MapFeatures.tejari:type_name -> features.MapFeatureCount
-	97,  // 51: features.MapFeatures.amoozeshi:type_name -> features.MapFeatureCount
-	100, // 52: features.GetCitizenFeatureSummaryResponse.data:type_name -> features.CitizenFeatureSummaryItem
-	104, // 53: features.GetCitizenFeatureChartResponse.data:type_name -> features.CitizenFeatureChartData
-	103, // 54: features.CitizenFeatureChartData.bought:type_name -> features.CitizenChartPoint
-	103, // 55: features.CitizenFeatureChartData.sold:type_name -> features.CitizenChartPoint
-	107, // 56: features.ListCitizenFeaturesResponse.data:type_name -> features.CitizenFeatureItem
-	20,  // 57: features.ListCitizenFeaturesResponse.links:type_name -> features.PaginationLinks
-	19,  // 58: features.ListCitizenFeaturesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	109, // 59: features.ListCitizenFeaturesResponse.map_markers:type_name -> features.CitizenFeatureMapMarker
-	108, // 60: features.CitizenFeatureItem.center:type_name -> features.CitizenFeatureCenter
-	27,  // 61: features.CitizenFeatureItem.images:type_name -> features.Image
-	108, // 62: features.CitizenFeatureMapMarker.center:type_name -> features.CitizenFeatureCenter
-	112, // 63: features.GetCitizenBuildingSummaryResponse.data:type_name -> features.CitizenBuildingSummaryItem
-	115, // 64: features.GetCitizenBuildingChartResponse.data:type_name -> features.CitizenBuildingChartData
-	103, // 65: features.CitizenBuildingChartData.completed:type_name -> features.CitizenChartPoint
-	118, // 66: features.ListCitizenBuildingsResponse.data:type_name -> features.CitizenBuildingItem
-	20,  // 67: features.ListCitizenBuildingsResponse.links:type_name -> features.PaginationLinks
-	19,  // 68: features.ListCitizenBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	27,  // 69: features.CitizenBuildingItem.images:type_name -> features.Image
-	121, // 70: features.ListIsicCodesResponse.data:type_name -> features.IsicCode
-	20,  // 71: features.ListIsicCodesResponse.links:type_name -> features.PaginationLinks
-	19,  // 72: features.ListIsicCodesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
-	0,   // 73: features.FeatureService.ListFeatures:input_type -> features.ListFeaturesRequest
-	2,   // 74: features.FeatureService.GetFeature:input_type -> features.GetFeatureRequest
-	4,   // 75: features.FeatureService.UpdateFeature:input_type -> features.UpdateFeatureRequest
-	5,   // 76: features.FeatureService.AddFeatureImages:input_type -> features.AddFeatureImagesRequest
-	6,   // 77: features.FeatureService.GetMyFeatures:input_type -> features.GetMyFeaturesRequest
-	7,   // 78: features.FeatureService.ListMyFeatures:input_type -> features.ListMyFeaturesRequest
-	9,   // 79: features.FeatureService.GetMyFeature:input_type -> features.GetMyFeatureRequest
-	10,  // 80: features.FeatureService.AddMyFeatureImages:input_type -> features.AddMyFeatureImagesRequest
-	11,  // 81: features.FeatureService.RemoveMyFeatureImage:input_type -> features.RemoveMyFeatureImageRequest
-	12,  // 82: features.FeatureService.UpdateMyFeature:input_type -> features.UpdateMyFeatureRequest
-	14,  // 83: features.FeatureService.GetFeatureTradeHistory:input_type -> features.GetFeatureTradeHistoryRequest
-	28,  // 84: features.FeatureMarketplaceService.BuyFeature:input_type -> features.BuyFeatureRequest
-	30,  // 85: features.FeatureMarketplaceService.SendBuyRequest:input_type -> features.SendBuyRequestRequest
-	40,  // 86: features.FeatureMarketplaceService.AcceptBuyRequest:input_type -> features.AcceptBuyRequestRequest
-	41,  // 87: features.FeatureMarketplaceService.CreateSellRequest:input_type -> features.CreateSellRequestRequest
-	42,  // 88: features.FeatureMarketplaceService.ListSellRequests:input_type -> features.ListSellRequestsRequest
-	43,  // 89: features.FeatureMarketplaceService.ListFeatureSellRequests:input_type -> features.ListFeatureSellRequestsRequest
-	44,  // 90: features.FeatureMarketplaceService.DeleteSellRequest:input_type -> features.DeleteSellRequestRequest
-	47,  // 91: features.FeatureMarketplaceService.RequestGracePeriod:input_type -> features.RequestGracePeriodRequest
-	34,  // 92: features.FeatureMarketplaceService.ListBuyRequests:input_type -> features.ListBuyRequestsRequest
-	35,  // 93: features.FeatureMarketplaceService.ListReceivedBuyRequests:input_type -> features.ListReceivedBuyRequestsRequest
-	37,  // 94: features.FeatureMarketplaceService.RejectBuyRequest:input_type -> features.RejectBuyRequestRequest
-	38,  // 95: features.FeatureMarketplaceService.DeleteBuyRequest:input_type -> features.DeleteBuyRequestRequest
-	39,  // 96: features.FeatureMarketplaceService.UpdateGracePeriod:input_type -> features.UpdateGracePeriodRequest
-	49,  // 97: features.FeatureProfitService.GetHourlyProfits:input_type -> features.GetHourlyProfitsRequest
-	52,  // 98: features.FeatureProfitService.GetSingleProfit:input_type -> features.GetSingleProfitRequest
-	54,  // 99: features.FeatureProfitService.GetProfitsByApplication:input_type -> features.GetProfitsByApplicationRequest
-	56,  // 100: features.FeatureProfitService.GetHourlyProfitTimePercentage:input_type -> features.GetHourlyProfitTimePercentageRequest
-	58,  // 101: features.BuildingService.GetBuildPackage:input_type -> features.GetBuildPackageRequest
-	61,  // 102: features.BuildingService.BuildFeature:input_type -> features.BuildFeatureRequest
-	64,  // 103: features.BuildingService.GetBuildings:input_type -> features.GetBuildingsRequest
-	67,  // 104: features.BuildingService.UpdateBuilding:input_type -> features.UpdateBuildingRequest
-	68,  // 105: features.BuildingService.UpdateBuildingInformation:input_type -> features.UpdateBuildingInformationRequest
-	71,  // 106: features.BuildingService.DestroyBuilding:input_type -> features.DestroyBuildingRequest
-	86,  // 107: features.BuildingService.ListCompletedBuildings:input_type -> features.ListCompletedBuildingsRequest
-	73,  // 108: features.BuildingService.SetBuildingEntryConfig:input_type -> features.SetBuildingEntryConfigRequest
-	75,  // 109: features.BuildingService.GetBuildingEntryConfig:input_type -> features.GetBuildingEntryConfigRequest
-	78,  // 110: features.BuildingService.CreateBuildingEntryCoupon:input_type -> features.CreateBuildingEntryCouponRequest
-	80,  // 111: features.BuildingService.ListBuildingEntryCoupons:input_type -> features.ListBuildingEntryCouponsRequest
-	82,  // 112: features.BuildingService.EnterBuilding:input_type -> features.EnterBuildingRequest
-	84,  // 113: features.BuildingService.ExitBuilding:input_type -> features.ExitBuildingRequest
-	89,  // 114: features.MapsService.ListMaps:input_type -> features.ListMapsRequest
-	90,  // 115: features.MapsService.GetMap:input_type -> features.GetMapRequest
-	90,  // 116: features.MapsService.GetMapBorder:input_type -> features.GetMapRequest
-	98,  // 117: features.CitizenFeaturesService.GetCitizenFeatureSummary:input_type -> features.GetCitizenFeatureSummaryRequest
-	101, // 118: features.CitizenFeaturesService.GetCitizenFeatureChart:input_type -> features.GetCitizenFeatureChartRequest
-	105, // 119: features.CitizenFeaturesService.ListCitizenFeatures:input_type -> features.ListCitizenFeaturesRequest
-	110, // 120: features.CitizenBuildingsService.GetCitizenBuildingSummary:input_type -> features.GetCitizenBuildingSummaryRequest
-	113, // 121: features.CitizenBuildingsService.GetCitizenBuildingChart:input_type -> features.GetCitizenBuildingChartRequest
-	116, // 122: features.CitizenBuildingsService.ListCitizenBuildings:input_type -> features.ListCitizenBuildingsRequest
-	119, // 123: features.IsicCodeService.ListIsicCodes:input_type -> features.ListIsicCodesRequest
-	1,   // 124: features.FeatureService.ListFeatures:output_type -> features.FeaturesResponse
-	3,   // 125: features.FeatureService.GetFeature:output_type -> features.FeatureResponse
-	3,   // 126: features.FeatureService.UpdateFeature:output_type -> features.FeatureResponse
-	3,   // 127: features.FeatureService.AddFeatureImages:output_type -> features.FeatureResponse
-	1,   // 128: features.FeatureService.GetMyFeatures:output_type -> features.FeaturesResponse
-	8,   // 129: features.FeatureService.ListMyFeatures:output_type -> features.ListMyFeaturesResponse
-	3,   // 130: features.FeatureService.GetMyFeature:output_type -> features.FeatureResponse
-	3,   // 131: features.FeatureService.AddMyFeatureImages:output_type -> features.FeatureResponse
-	122, // 132: features.FeatureService.RemoveMyFeatureImage:output_type -> google.protobuf.Empty
-	13,  // 133: features.FeatureService.UpdateMyFeature:output_type -> features.UpdateMyFeatureResponse
-	15,  // 134: features.FeatureService.GetFeatureTradeHistory:output_type -> features.GetFeatureTradeHistoryResponse
-	29,  // 135: features.FeatureMarketplaceService.BuyFeature:output_type -> features.BuyFeatureResponse
-	31,  // 136: features.FeatureMarketplaceService.SendBuyRequest:output_type -> features.BuyRequestResponse
-	31,  // 137: features.FeatureMarketplaceService.AcceptBuyRequest:output_type -> features.BuyRequestResponse
-	45,  // 138: features.FeatureMarketplaceService.CreateSellRequest:output_type -> features.SellRequestResponse
-	46,  // 139: features.FeatureMarketplaceService.ListSellRequests:output_type -> features.SellRequestsResponse
-	46,  // 140: features.FeatureMarketplaceService.ListFeatureSellRequests:output_type -> features.SellRequestsResponse
-	122, // 141: features.FeatureMarketplaceService.DeleteSellRequest:output_type -> google.protobuf.Empty
-	48,  // 142: features.FeatureMarketplaceService.RequestGracePeriod:output_type -> features.GracePeriodResponse
-	36,  // 143: features.FeatureMarketplaceService.ListBuyRequests:output_type -> features.BuyRequestsResponse
-	36,  // 144: features.FeatureMarketplaceService.ListReceivedBuyRequests:output_type -> features.BuyRequestsResponse
-	122, // 145: features.FeatureMarketplaceService.RejectBuyRequest:output_type -> google.protobuf.Empty
-	122, // 146: features.FeatureMarketplaceService.DeleteBuyRequest:output_type -> google.protobuf.Empty
-	122, // 147: features.FeatureMarketplaceService.UpdateGracePeriod:output_type -> google.protobuf.Empty
-	50,  // 148: features.FeatureProfitService.GetHourlyProfits:output_type -> features.HourlyProfitsResponse
-	53,  // 149: features.FeatureProfitService.GetSingleProfit:output_type -> features.HourlyProfitResponse
-	55,  // 150: features.FeatureProfitService.GetProfitsByApplication:output_type -> features.ProfitsByApplicationResponse
-	57,  // 151: features.FeatureProfitService.GetHourlyProfitTimePercentage:output_type -> features.GetHourlyProfitTimePercentageResponse
-	59,  // 152: features.BuildingService.GetBuildPackage:output_type -> features.BuildPackageResponse
-	63,  // 153: features.BuildingService.BuildFeature:output_type -> features.BuildFeatureResponse
-	65,  // 154: features.BuildingService.GetBuildings:output_type -> features.BuildingsResponse
-	70,  // 155: features.BuildingService.UpdateBuilding:output_type -> features.BuildingResponse
-	69,  // 156: features.BuildingService.UpdateBuildingInformation:output_type -> features.UpdateBuildingInformationResponse
-	70,  // 157: features.BuildingService.DestroyBuilding:output_type -> features.BuildingResponse
-	87,  // 158: features.BuildingService.ListCompletedBuildings:output_type -> features.ListCompletedBuildingsResponse
-	74,  // 159: features.BuildingService.SetBuildingEntryConfig:output_type -> features.SetBuildingEntryConfigResponse
-	76,  // 160: features.BuildingService.GetBuildingEntryConfig:output_type -> features.GetBuildingEntryConfigResponse
-	79,  // 161: features.BuildingService.CreateBuildingEntryCoupon:output_type -> features.BuildingEntryCouponResponse
-	81,  // 162: features.BuildingService.ListBuildingEntryCoupons:output_type -> features.ListBuildingEntryCouponsResponse
-	83,  // 163: features.BuildingService.EnterBuilding:output_type -> features.EnterBuildingResponse
-	85,  // 164: features.BuildingService.ExitBuilding:output_type -> features.ExitBuildingResponse
-	91,  // 165: features.MapsService.ListMaps:output_type -> features.ListMapsResponse
-	92,  // 166: features.MapsService.GetMap:output_type -> features.GetMapResponse
-	93,  // 167: features.MapsService.GetMapBorder:output_type -> features.GetMapBorderResponse
-	99,  // 168: features.CitizenFeaturesService.GetCitizenFeatureSummary:output_type -> features.GetCitizenFeatureSummaryResponse
-	102, // 169: features.CitizenFeaturesService.GetCitizenFeatureChart:output_type -> features.GetCitizenFeatureChartResponse
-	106, // 170: features.CitizenFeaturesService.ListCitizenFeatures:output_type -> features.ListCitizenFeaturesResponse
-	111, // 171: features.CitizenBuildingsService.GetCitizenBuildingSummary:output_type -> features.GetCitizenBuildingSummaryResponse
-	114, // 172: features.CitizenBuildingsService.GetCitizenBuildingChart:output_type -> features.GetCitizenBuildingChartResponse
-	117, // 173: features.CitizenBuildingsService.ListCitizenBuildings:output_type -> features.ListCitizenBuildingsResponse
-	120, // 174: features.IsicCodeService.ListIsicCodes:output_type -> features.ListIsicCodesResponse
-	124, // [124:175] is the sub-list for method output_type
-	73,  // [73:124] is the sub-list for method input_type
-	73,  // [73:73] is the sub-list for extension type_name
-	73,  // [73:73] is the sub-list for extension extendee
-	0,   // [0:73] is the sub-list for field type_name
+	22,  // 11: features.SearchFeaturesResponse.data:type_name -> features.SearchFeatureResult
+	23,  // 12: features.SearchFeatureResult.coordinates:type_name -> features.SearchFeatureCoordinate
+	49,  // 13: features.SearchFeatureResult.latest_sell_request:type_name -> features.SellRequestResponse
+	28,  // 14: features.Feature.properties:type_name -> features.FeatureProperties
+	29,  // 15: features.Feature.geometry:type_name -> features.Geometry
+	31,  // 16: features.Feature.images:type_name -> features.Image
+	27,  // 17: features.Feature.seller:type_name -> features.Seller
+	70,  // 18: features.Feature.building_models:type_name -> features.Building
+	49,  // 19: features.Feature.latest_sell_request:type_name -> features.SellRequestResponse
+	30,  // 20: features.Geometry.coordinates:type_name -> features.Coordinate
+	26,  // 21: features.BuyFeatureResponse.feature:type_name -> features.Feature
+	36,  // 22: features.BuyRequestResponse.buyer:type_name -> features.BuyerInfo
+	37,  // 23: features.BuyRequestResponse.seller:type_name -> features.SellerInfo
+	28,  // 24: features.BuyRequestResponse.feature_properties:type_name -> features.FeatureProperties
+	30,  // 25: features.BuyRequestResponse.feature_coordinates:type_name -> features.Coordinate
+	35,  // 26: features.BuyRequestsResponse.buy_requests:type_name -> features.BuyRequestResponse
+	28,  // 27: features.SellRequestResponse.feature_properties:type_name -> features.FeatureProperties
+	30,  // 28: features.SellRequestResponse.feature_coordinates:type_name -> features.Coordinate
+	49,  // 29: features.SellRequestsResponse.sell_requests:type_name -> features.SellRequestResponse
+	55,  // 30: features.HourlyProfitsResponse.profits:type_name -> features.HourlyProfit
+	55,  // 31: features.HourlyProfitResponse.profit:type_name -> features.HourlyProfit
+	64,  // 32: features.BuildPackageResponse.models:type_name -> features.BuildingModel
+	66,  // 33: features.BuildFeatureRequest.information:type_name -> features.BuildingInformation
+	26,  // 34: features.BuildFeatureResponse.feature:type_name -> features.Feature
+	70,  // 35: features.BuildingsResponse.buildings:type_name -> features.Building
+	64,  // 36: features.Building.model:type_name -> features.BuildingModel
+	66,  // 37: features.UpdateBuildingRequest.information:type_name -> features.BuildingInformation
+	66,  // 38: features.UpdateBuildingInformationRequest.information:type_name -> features.BuildingInformation
+	66,  // 39: features.UpdateBuildingInformationResponse.information:type_name -> features.BuildingInformation
+	70,  // 40: features.BuildingResponse.building:type_name -> features.Building
+	76,  // 41: features.SetBuildingEntryConfigResponse.config:type_name -> features.BuildingEntryConfig
+	76,  // 42: features.GetBuildingEntryConfigResponse.config:type_name -> features.BuildingEntryConfig
+	81,  // 43: features.BuildingEntryCouponResponse.coupon:type_name -> features.BuildingEntryCoupon
+	81,  // 44: features.ListBuildingEntryCouponsResponse.coupons:type_name -> features.BuildingEntryCoupon
+	92,  // 45: features.ListCompletedBuildingsResponse.data:type_name -> features.CompletedBuilding
+	24,  // 46: features.ListCompletedBuildingsResponse.links:type_name -> features.PaginationLinks
+	19,  // 47: features.ListCompletedBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	99,  // 48: features.ListMapsResponse.maps:type_name -> features.Map
+	99,  // 49: features.GetMapResponse.map:type_name -> features.Map
+	98,  // 50: features.GetMapBorderResponse.data:type_name -> features.MapBorderData
+	100, // 51: features.Map.features:type_name -> features.MapFeatures
+	101, // 52: features.MapFeatures.maskoni:type_name -> features.MapFeatureCount
+	101, // 53: features.MapFeatures.tejari:type_name -> features.MapFeatureCount
+	101, // 54: features.MapFeatures.amoozeshi:type_name -> features.MapFeatureCount
+	104, // 55: features.GetCitizenFeatureSummaryResponse.data:type_name -> features.CitizenFeatureSummaryItem
+	108, // 56: features.GetCitizenFeatureChartResponse.data:type_name -> features.CitizenFeatureChartData
+	107, // 57: features.CitizenFeatureChartData.bought:type_name -> features.CitizenChartPoint
+	107, // 58: features.CitizenFeatureChartData.sold:type_name -> features.CitizenChartPoint
+	111, // 59: features.ListCitizenFeaturesResponse.data:type_name -> features.CitizenFeatureItem
+	24,  // 60: features.ListCitizenFeaturesResponse.links:type_name -> features.PaginationLinks
+	19,  // 61: features.ListCitizenFeaturesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	113, // 62: features.ListCitizenFeaturesResponse.map_markers:type_name -> features.CitizenFeatureMapMarker
+	112, // 63: features.CitizenFeatureItem.center:type_name -> features.CitizenFeatureCenter
+	31,  // 64: features.CitizenFeatureItem.images:type_name -> features.Image
+	112, // 65: features.CitizenFeatureMapMarker.center:type_name -> features.CitizenFeatureCenter
+	116, // 66: features.GetCitizenBuildingSummaryResponse.data:type_name -> features.CitizenBuildingSummaryItem
+	119, // 67: features.GetCitizenBuildingChartResponse.data:type_name -> features.CitizenBuildingChartData
+	107, // 68: features.CitizenBuildingChartData.completed:type_name -> features.CitizenChartPoint
+	122, // 69: features.ListCitizenBuildingsResponse.data:type_name -> features.CitizenBuildingItem
+	24,  // 70: features.ListCitizenBuildingsResponse.links:type_name -> features.PaginationLinks
+	19,  // 71: features.ListCitizenBuildingsResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	31,  // 72: features.CitizenBuildingItem.images:type_name -> features.Image
+	125, // 73: features.ListIsicCodesResponse.data:type_name -> features.IsicCode
+	24,  // 74: features.ListIsicCodesResponse.links:type_name -> features.PaginationLinks
+	19,  // 75: features.ListIsicCodesResponse.meta:type_name -> features.FeatureTradeHistoryPaginationMeta
+	0,   // 76: features.FeatureService.ListFeatures:input_type -> features.ListFeaturesRequest
+	2,   // 77: features.FeatureService.GetFeature:input_type -> features.GetFeatureRequest
+	4,   // 78: features.FeatureService.UpdateFeature:input_type -> features.UpdateFeatureRequest
+	5,   // 79: features.FeatureService.AddFeatureImages:input_type -> features.AddFeatureImagesRequest
+	6,   // 80: features.FeatureService.GetMyFeatures:input_type -> features.GetMyFeaturesRequest
+	7,   // 81: features.FeatureService.ListMyFeatures:input_type -> features.ListMyFeaturesRequest
+	9,   // 82: features.FeatureService.GetMyFeature:input_type -> features.GetMyFeatureRequest
+	10,  // 83: features.FeatureService.AddMyFeatureImages:input_type -> features.AddMyFeatureImagesRequest
+	11,  // 84: features.FeatureService.RemoveMyFeatureImage:input_type -> features.RemoveMyFeatureImageRequest
+	12,  // 85: features.FeatureService.UpdateMyFeature:input_type -> features.UpdateMyFeatureRequest
+	14,  // 86: features.FeatureService.GetFeatureTradeHistory:input_type -> features.GetFeatureTradeHistoryRequest
+	20,  // 87: features.FeatureService.SearchFeatures:input_type -> features.SearchFeaturesRequest
+	32,  // 88: features.FeatureMarketplaceService.BuyFeature:input_type -> features.BuyFeatureRequest
+	34,  // 89: features.FeatureMarketplaceService.SendBuyRequest:input_type -> features.SendBuyRequestRequest
+	44,  // 90: features.FeatureMarketplaceService.AcceptBuyRequest:input_type -> features.AcceptBuyRequestRequest
+	45,  // 91: features.FeatureMarketplaceService.CreateSellRequest:input_type -> features.CreateSellRequestRequest
+	46,  // 92: features.FeatureMarketplaceService.ListSellRequests:input_type -> features.ListSellRequestsRequest
+	47,  // 93: features.FeatureMarketplaceService.ListFeatureSellRequests:input_type -> features.ListFeatureSellRequestsRequest
+	48,  // 94: features.FeatureMarketplaceService.DeleteSellRequest:input_type -> features.DeleteSellRequestRequest
+	51,  // 95: features.FeatureMarketplaceService.RequestGracePeriod:input_type -> features.RequestGracePeriodRequest
+	38,  // 96: features.FeatureMarketplaceService.ListBuyRequests:input_type -> features.ListBuyRequestsRequest
+	39,  // 97: features.FeatureMarketplaceService.ListReceivedBuyRequests:input_type -> features.ListReceivedBuyRequestsRequest
+	41,  // 98: features.FeatureMarketplaceService.RejectBuyRequest:input_type -> features.RejectBuyRequestRequest
+	42,  // 99: features.FeatureMarketplaceService.DeleteBuyRequest:input_type -> features.DeleteBuyRequestRequest
+	43,  // 100: features.FeatureMarketplaceService.UpdateGracePeriod:input_type -> features.UpdateGracePeriodRequest
+	53,  // 101: features.FeatureProfitService.GetHourlyProfits:input_type -> features.GetHourlyProfitsRequest
+	56,  // 102: features.FeatureProfitService.GetSingleProfit:input_type -> features.GetSingleProfitRequest
+	58,  // 103: features.FeatureProfitService.GetProfitsByApplication:input_type -> features.GetProfitsByApplicationRequest
+	60,  // 104: features.FeatureProfitService.GetHourlyProfitTimePercentage:input_type -> features.GetHourlyProfitTimePercentageRequest
+	62,  // 105: features.BuildingService.GetBuildPackage:input_type -> features.GetBuildPackageRequest
+	65,  // 106: features.BuildingService.BuildFeature:input_type -> features.BuildFeatureRequest
+	68,  // 107: features.BuildingService.GetBuildings:input_type -> features.GetBuildingsRequest
+	71,  // 108: features.BuildingService.UpdateBuilding:input_type -> features.UpdateBuildingRequest
+	72,  // 109: features.BuildingService.UpdateBuildingInformation:input_type -> features.UpdateBuildingInformationRequest
+	75,  // 110: features.BuildingService.DestroyBuilding:input_type -> features.DestroyBuildingRequest
+	90,  // 111: features.BuildingService.ListCompletedBuildings:input_type -> features.ListCompletedBuildingsRequest
+	77,  // 112: features.BuildingService.SetBuildingEntryConfig:input_type -> features.SetBuildingEntryConfigRequest
+	79,  // 113: features.BuildingService.GetBuildingEntryConfig:input_type -> features.GetBuildingEntryConfigRequest
+	82,  // 114: features.BuildingService.CreateBuildingEntryCoupon:input_type -> features.CreateBuildingEntryCouponRequest
+	84,  // 115: features.BuildingService.ListBuildingEntryCoupons:input_type -> features.ListBuildingEntryCouponsRequest
+	86,  // 116: features.BuildingService.EnterBuilding:input_type -> features.EnterBuildingRequest
+	88,  // 117: features.BuildingService.ExitBuilding:input_type -> features.ExitBuildingRequest
+	93,  // 118: features.MapsService.ListMaps:input_type -> features.ListMapsRequest
+	94,  // 119: features.MapsService.GetMap:input_type -> features.GetMapRequest
+	94,  // 120: features.MapsService.GetMapBorder:input_type -> features.GetMapRequest
+	102, // 121: features.CitizenFeaturesService.GetCitizenFeatureSummary:input_type -> features.GetCitizenFeatureSummaryRequest
+	105, // 122: features.CitizenFeaturesService.GetCitizenFeatureChart:input_type -> features.GetCitizenFeatureChartRequest
+	109, // 123: features.CitizenFeaturesService.ListCitizenFeatures:input_type -> features.ListCitizenFeaturesRequest
+	114, // 124: features.CitizenBuildingsService.GetCitizenBuildingSummary:input_type -> features.GetCitizenBuildingSummaryRequest
+	117, // 125: features.CitizenBuildingsService.GetCitizenBuildingChart:input_type -> features.GetCitizenBuildingChartRequest
+	120, // 126: features.CitizenBuildingsService.ListCitizenBuildings:input_type -> features.ListCitizenBuildingsRequest
+	123, // 127: features.IsicCodeService.ListIsicCodes:input_type -> features.ListIsicCodesRequest
+	1,   // 128: features.FeatureService.ListFeatures:output_type -> features.FeaturesResponse
+	3,   // 129: features.FeatureService.GetFeature:output_type -> features.FeatureResponse
+	3,   // 130: features.FeatureService.UpdateFeature:output_type -> features.FeatureResponse
+	3,   // 131: features.FeatureService.AddFeatureImages:output_type -> features.FeatureResponse
+	1,   // 132: features.FeatureService.GetMyFeatures:output_type -> features.FeaturesResponse
+	8,   // 133: features.FeatureService.ListMyFeatures:output_type -> features.ListMyFeaturesResponse
+	3,   // 134: features.FeatureService.GetMyFeature:output_type -> features.FeatureResponse
+	3,   // 135: features.FeatureService.AddMyFeatureImages:output_type -> features.FeatureResponse
+	126, // 136: features.FeatureService.RemoveMyFeatureImage:output_type -> google.protobuf.Empty
+	13,  // 137: features.FeatureService.UpdateMyFeature:output_type -> features.UpdateMyFeatureResponse
+	15,  // 138: features.FeatureService.GetFeatureTradeHistory:output_type -> features.GetFeatureTradeHistoryResponse
+	21,  // 139: features.FeatureService.SearchFeatures:output_type -> features.SearchFeaturesResponse
+	33,  // 140: features.FeatureMarketplaceService.BuyFeature:output_type -> features.BuyFeatureResponse
+	35,  // 141: features.FeatureMarketplaceService.SendBuyRequest:output_type -> features.BuyRequestResponse
+	35,  // 142: features.FeatureMarketplaceService.AcceptBuyRequest:output_type -> features.BuyRequestResponse
+	49,  // 143: features.FeatureMarketplaceService.CreateSellRequest:output_type -> features.SellRequestResponse
+	50,  // 144: features.FeatureMarketplaceService.ListSellRequests:output_type -> features.SellRequestsResponse
+	50,  // 145: features.FeatureMarketplaceService.ListFeatureSellRequests:output_type -> features.SellRequestsResponse
+	126, // 146: features.FeatureMarketplaceService.DeleteSellRequest:output_type -> google.protobuf.Empty
+	52,  // 147: features.FeatureMarketplaceService.RequestGracePeriod:output_type -> features.GracePeriodResponse
+	40,  // 148: features.FeatureMarketplaceService.ListBuyRequests:output_type -> features.BuyRequestsResponse
+	40,  // 149: features.FeatureMarketplaceService.ListReceivedBuyRequests:output_type -> features.BuyRequestsResponse
+	126, // 150: features.FeatureMarketplaceService.RejectBuyRequest:output_type -> google.protobuf.Empty
+	126, // 151: features.FeatureMarketplaceService.DeleteBuyRequest:output_type -> google.protobuf.Empty
+	126, // 152: features.FeatureMarketplaceService.UpdateGracePeriod:output_type -> google.protobuf.Empty
+	54,  // 153: features.FeatureProfitService.GetHourlyProfits:output_type -> features.HourlyProfitsResponse
+	57,  // 154: features.FeatureProfitService.GetSingleProfit:output_type -> features.HourlyProfitResponse
+	59,  // 155: features.FeatureProfitService.GetProfitsByApplication:output_type -> features.ProfitsByApplicationResponse
+	61,  // 156: features.FeatureProfitService.GetHourlyProfitTimePercentage:output_type -> features.GetHourlyProfitTimePercentageResponse
+	63,  // 157: features.BuildingService.GetBuildPackage:output_type -> features.BuildPackageResponse
+	67,  // 158: features.BuildingService.BuildFeature:output_type -> features.BuildFeatureResponse
+	69,  // 159: features.BuildingService.GetBuildings:output_type -> features.BuildingsResponse
+	74,  // 160: features.BuildingService.UpdateBuilding:output_type -> features.BuildingResponse
+	73,  // 161: features.BuildingService.UpdateBuildingInformation:output_type -> features.UpdateBuildingInformationResponse
+	74,  // 162: features.BuildingService.DestroyBuilding:output_type -> features.BuildingResponse
+	91,  // 163: features.BuildingService.ListCompletedBuildings:output_type -> features.ListCompletedBuildingsResponse
+	78,  // 164: features.BuildingService.SetBuildingEntryConfig:output_type -> features.SetBuildingEntryConfigResponse
+	80,  // 165: features.BuildingService.GetBuildingEntryConfig:output_type -> features.GetBuildingEntryConfigResponse
+	83,  // 166: features.BuildingService.CreateBuildingEntryCoupon:output_type -> features.BuildingEntryCouponResponse
+	85,  // 167: features.BuildingService.ListBuildingEntryCoupons:output_type -> features.ListBuildingEntryCouponsResponse
+	87,  // 168: features.BuildingService.EnterBuilding:output_type -> features.EnterBuildingResponse
+	89,  // 169: features.BuildingService.ExitBuilding:output_type -> features.ExitBuildingResponse
+	95,  // 170: features.MapsService.ListMaps:output_type -> features.ListMapsResponse
+	96,  // 171: features.MapsService.GetMap:output_type -> features.GetMapResponse
+	97,  // 172: features.MapsService.GetMapBorder:output_type -> features.GetMapBorderResponse
+	103, // 173: features.CitizenFeaturesService.GetCitizenFeatureSummary:output_type -> features.GetCitizenFeatureSummaryResponse
+	106, // 174: features.CitizenFeaturesService.GetCitizenFeatureChart:output_type -> features.GetCitizenFeatureChartResponse
+	110, // 175: features.CitizenFeaturesService.ListCitizenFeatures:output_type -> features.ListCitizenFeaturesResponse
+	115, // 176: features.CitizenBuildingsService.GetCitizenBuildingSummary:output_type -> features.GetCitizenBuildingSummaryResponse
+	118, // 177: features.CitizenBuildingsService.GetCitizenBuildingChart:output_type -> features.GetCitizenBuildingChartResponse
+	121, // 178: features.CitizenBuildingsService.ListCitizenBuildings:output_type -> features.ListCitizenBuildingsResponse
+	124, // 179: features.IsicCodeService.ListIsicCodes:output_type -> features.ListIsicCodesResponse
+	128, // [128:180] is the sub-list for method output_type
+	76,  // [76:128] is the sub-list for method input_type
+	76,  // [76:76] is the sub-list for extension type_name
+	76,  // [76:76] is the sub-list for extension extendee
+	0,   // [0:76] is the sub-list for field type_name
 }
 
 func init() { file_features_proto_init() }
@@ -8647,16 +8938,16 @@ func file_features_proto_init() {
 	file_features_proto_msgTypes[16].OneofWrappers = []any{}
 	file_features_proto_msgTypes[18].OneofWrappers = []any{}
 	file_features_proto_msgTypes[19].OneofWrappers = []any{}
-	file_features_proto_msgTypes[88].OneofWrappers = []any{}
-	file_features_proto_msgTypes[118].OneofWrappers = []any{}
-	file_features_proto_msgTypes[121].OneofWrappers = []any{}
+	file_features_proto_msgTypes[92].OneofWrappers = []any{}
+	file_features_proto_msgTypes[122].OneofWrappers = []any{}
+	file_features_proto_msgTypes[125].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_features_proto_rawDesc), len(file_features_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   122,
+			NumMessages:   126,
 			NumExtensions: 0,
 			NumServices:   8,
 		},

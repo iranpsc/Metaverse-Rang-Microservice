@@ -243,9 +243,6 @@ type localSearchClient struct{ pb.SearchServiceServer }
 func (c *localSearchClient) SearchUsers(ctx context.Context, in *pb.SearchUsersRequest, _ ...grpc.CallOption) (*pb.SearchUsersResponse, error) {
 	return c.SearchServiceServer.SearchUsers(ctx, in)
 }
-func (c *localSearchClient) SearchFeatures(ctx context.Context, in *pb.SearchFeaturesRequest, _ ...grpc.CallOption) (*pb.SearchFeaturesResponse, error) {
-	return c.SearchServiceServer.SearchFeatures(ctx, in)
-}
 func (c *localSearchClient) SearchIsicCodes(ctx context.Context, in *pb.SearchIsicCodesRequest, _ ...grpc.CallOption) (*pb.SearchIsicCodesResponse, error) {
 	return c.SearchServiceServer.SearchIsicCodes(ctx, in)
 }

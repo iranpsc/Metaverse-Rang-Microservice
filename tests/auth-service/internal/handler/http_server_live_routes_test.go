@@ -206,7 +206,6 @@ func TestStartHTTPServer_LiveRouteCoverage(t *testing.T) {
 	get("/api/citizen/hm-1/referrals")
 	get("/api/citizen/hm-1/referrals/chart?range=daily")
 	postJSON("/api/search/users", `{"searchTerm":"a"}`)
-	postJSON("/api/search/features", `{"searchTerm":"a"}`)
 	postJSON("/api/search/isic-codes", `{"searchTerm":"a"}`)
 	get("/api/kyc")
 	get("/api/bank-accounts")

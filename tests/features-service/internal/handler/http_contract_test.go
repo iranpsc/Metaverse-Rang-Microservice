@@ -23,6 +23,7 @@ type mockHTTPFeatureAPI struct {
 	getFeature     func(context.Context, *pb.GetFeatureRequest) (*pb.FeatureResponse, error)
 	getMyFeature   func(context.Context, *pb.GetMyFeatureRequest) (*pb.FeatureResponse, error)
 	addImages      func(context.Context, *pb.AddMyFeatureImagesRequest) (*pb.FeatureResponse, error)
+	searchFeatures func(context.Context, *pb.SearchFeaturesRequest) (*pb.SearchFeaturesResponse, error)
 }
 
 func (m *mockHTTPFeatureAPI) ListFeatures(ctx context.Context, req *pb.ListFeaturesRequest) (*pb.FeaturesResponse, error) {
@@ -66,6 +67,12 @@ func (m *mockHTTPFeatureAPI) GetFeatureTradeHistory(ctx context.Context, req *pb
 		return m.tradeHistory(ctx, req)
 	}
 	return &pb.GetFeatureTradeHistoryResponse{}, nil
+}
+func (m *mockHTTPFeatureAPI) SearchFeatures(ctx context.Context, req *pb.SearchFeaturesRequest) (*pb.SearchFeaturesResponse, error) {
+	if m.searchFeatures != nil {
+		return m.searchFeatures(ctx, req)
+	}
+	return &pb.SearchFeaturesResponse{Data: []*pb.SearchFeatureResult{}}, nil
 }
 
 type mockHTTPMarketplaceAPI struct{}
@@ -255,8 +262,6 @@ func TestHTTPListFeaturesBuildingModels(t *testing.T) {
 	assert.NotContains(t, building, "launched_satisfaction")
 	assert.NotContains(t, building, "bubble_diameter")
 }
-
-
 
 func TestHTTPGetSingleProfit_ExpectedResourceShape(t *testing.T) {
 	profit := &mockHTTPProfitAPI{single: func(_ context.Context, req *pb.GetSingleProfitRequest) (*pb.HourlyProfitResponse, error) {

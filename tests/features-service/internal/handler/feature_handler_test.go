@@ -27,6 +27,7 @@ type mockFeaturePort struct {
 	addMyImages     func(ctx context.Context, userID, featureID uint64, imageData [][]byte, filenames, contentTypes []string) (*pb.Feature, error)
 	removeMyImage   func(ctx context.Context, userID, featureID, imageID uint64) error
 	updateMyFeature func(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error)
+	searchFeatures  func(ctx context.Context, searchTerm string) ([]*pb.SearchFeatureResult, error)
 }
 
 func (m *mockFeaturePort) ListFeatures(ctx context.Context, points []string, loadBuildings bool, userFeaturesLocation bool, authUserID uint64) ([]*pb.Feature, error) {
@@ -95,6 +96,13 @@ func (m *mockFeaturePort) RemoveMyFeatureImage(ctx context.Context, userID, feat
 func (m *mockFeaturePort) UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error) {
 	if m.updateMyFeature != nil {
 		return m.updateMyFeature(ctx, userID, featureID, minimumPricePercentage)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockFeaturePort) SearchFeatures(ctx context.Context, searchTerm string) ([]*pb.SearchFeatureResult, error) {
+	if m.searchFeatures != nil {
+		return m.searchFeatures(ctx, searchTerm)
 	}
 	return nil, errors.New("not implemented")
 }
