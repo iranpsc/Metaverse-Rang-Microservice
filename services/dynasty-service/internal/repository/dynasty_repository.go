@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"metarang/dynasty-service/internal/models"
@@ -239,13 +240,14 @@ func (r *DynastyRepository) GetVariableRate(ctx context.Context, asset string) (
 	return price, nil
 }
 
-// CheckFeatureHasPendingRequest checks if feature has pending join requests
+// CheckFeatureHasPendingRequest reports a pending sell request owned by the feature owner.
+// Matches Feature::hasPendingRequests (seller_id = owner_id AND status = 0).
 func (r *DynastyRepository) CheckFeatureHasPendingRequest(ctx context.Context, featureID uint64) (bool, error) {
 	query := `
 		SELECT EXISTS(
-			SELECT 1 FROM join_requests jr
-			INNER JOIN dynasties d ON d.user_id = jr.from_user
-			WHERE d.feature_id = ? AND jr.status = 0
+			SELECT 1 FROM sell_feature_requests sfr
+			INNER JOIN features f ON f.id = sfr.feature_id
+			WHERE sfr.feature_id = ? AND sfr.seller_id = f.owner_id AND sfr.status = 0
 		)
 	`
 
@@ -256,6 +258,54 @@ func (r *DynastyRepository) CheckFeatureHasPendingRequest(ctx context.Context, f
 	}
 
 	return exists, nil
+}
+
+// GetFeatureEligibility returns the feature owner and karbari used by dynasty create/update rules.
+func (r *DynastyRepository) GetFeatureEligibility(ctx context.Context, featureID uint64) (ownerID uint64, karbari string, err error) {
+	const q = `
+		SELECT f.owner_id, fp.karbari
+		FROM features f
+		JOIN feature_properties fp ON fp.feature_id = f.id
+		WHERE f.id = ?
+		LIMIT 1
+	`
+	err = r.db.QueryRowContext(ctx, q, featureID).Scan(&ownerID, &karbari)
+	if err == sql.ErrNoRows {
+		return 0, "", fmt.Errorf("feature not found")
+	}
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to get feature eligibility: %w", err)
+	}
+	return ownerID, karbari, nil
+}
+
+// UserIsVerified reports whether the user has an approved KYC record (kycs.status = 1).
+func (r *DynastyRepository) UserIsVerified(ctx context.Context, userID uint64) (bool, error) {
+	const q = `SELECT status = 1 FROM kycs WHERE user_id = ? LIMIT 1`
+	var verified bool
+	err := r.db.QueryRowContext(ctx, q, userID).Scan(&verified)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check kyc status: %w", err)
+	}
+	return verified, nil
+}
+
+// UserHasVerifiedPhone reports whether SMS can be sent (phone present and phone_verified_at set).
+func (r *DynastyRepository) UserHasVerifiedPhone(ctx context.Context, userID uint64) (bool, error) {
+	const q = `SELECT phone, phone_verified_at FROM users WHERE id = ? LIMIT 1`
+	var phone sql.NullString
+	var verifiedAt sql.NullTime
+	err := r.db.QueryRowContext(ctx, q, userID).Scan(&phone, &verifiedAt)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check verified phone: %w", err)
+	}
+	return strings.TrimSpace(phone.String) != "" && verifiedAt.Valid, nil
 }
 
 // GetFeaturePenaltyData returns karbari + stability used for dynasty feature-change penalties.

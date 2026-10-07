@@ -54,13 +54,18 @@ func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, to
 		return nil, err
 	}
 
-	// Offspring permissions may only be set for users under 18.
-	if relationship == "offspring" && permissions != nil {
+	if relationship == "offspring" {
 		isUnder18, err := s.joinRequestRepo.CheckUserAge(ctx, toUserID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check user age: %w", err)
 		}
-		if !isUnder18 {
+		if isUnder18 && permissions == nil {
+			return nil, &validation.ValidationError{
+				Message: "دسترسی‌های فرزند الزامی است.",
+				Code:    400,
+			}
+		}
+		if !isUnder18 && permissions != nil {
 			return nil, fmt.Errorf("cannot set permissions for offspring over 18")
 		}
 	}
@@ -91,9 +96,10 @@ func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, to
 		return nil, fmt.Errorf("failed to create join request: %w", err)
 	}
 
-	// If permissions provided for offspring, store them
+	// If permissions provided for offspring, store them unverified until the child accepts.
 	if relationship == "offspring" && permissions != nil {
 		permissions.UserID = toUserID
+		permissions.Verified = false
 		if err := s.joinRequestRepo.CreateChildPermission(ctx, permissions); err != nil {
 			return nil, fmt.Errorf("failed to create child permissions: %w", err)
 		}
@@ -185,9 +191,12 @@ func (s *JoinRequestService) AcceptJoinRequest(ctx context.Context, requestID, u
 		return fmt.Errorf("join request not found")
 	}
 
-	// Authorize: only receiver can accept
+	// Authorize: only receiver can accept, and only while the request is pending.
 	if request.ToUser != userID {
 		return fmt.Errorf("unauthorized to accept this request")
+	}
+	if err := ensurePendingJoinRequest(request); err != nil {
+		return err
 	}
 
 	// Update request status to accepted
@@ -258,10 +267,9 @@ func (s *JoinRequestService) AcceptJoinRequest(ctx context.Context, requestID, u
 	if s.prizeRepo != nil {
 		prize, err := s.prizeRepo.GetPrizeByRelationship(ctx, request.Relationship)
 		if err == nil && prize != nil {
-			// Create message for prize
-			message := fmt.Sprintf("پاداش اضافه شدن به سلسله به عنوان %s", request.Relationship)
-			// Award prize to the user who accepted (the new family member)
-			if err := s.prizeRepo.AwardPrize(ctx, userID, prize.ID, message); err != nil {
+			message := s.requesterAcceptPrizeMessage(ctx, request)
+			// Laravel awards the dynasty prize to the requester (from_user).
+			if err := s.prizeRepo.AwardPrize(ctx, requestedUser, prize.ID, message); err != nil {
 				// Log error but don't fail the entire operation
 				fmt.Printf("Warning: failed to award prize: %v\n", err)
 			}
@@ -269,7 +277,7 @@ func (s *JoinRequestService) AcceptJoinRequest(ctx context.Context, requestID, u
 	}
 
 	// Send accept notifications (best effort)
-	s.notifyJoinRequestAccepted(ctx, request.FromUser, request.ToUser, request.Relationship)
+	s.notifyJoinRequestAccepted(ctx, request.FromUser, request.ToUser, request.Relationship, request.CreatedAt)
 
 	return nil
 }
@@ -285,9 +293,12 @@ func (s *JoinRequestService) RejectJoinRequest(ctx context.Context, requestID, u
 		return fmt.Errorf("join request not found")
 	}
 
-	// Authorize: only receiver can reject
+	// Authorize: only receiver can reject, and only while the request is pending.
 	if request.ToUser != userID {
 		return fmt.Errorf("unauthorized to reject this request")
+	}
+	if err := ensurePendingJoinRequest(request); err != nil {
+		return err
 	}
 
 	// Update request status to rejected (-1 per API spec)
@@ -312,9 +323,12 @@ func (s *JoinRequestService) DeleteJoinRequest(ctx context.Context, requestID, u
 		return fmt.Errorf("join request not found")
 	}
 
-	// Authorize: only sender can delete
+	// Authorize: only the sender can delete a still-pending request.
 	if request.FromUser != userID {
 		return fmt.Errorf("unauthorized to delete this request")
+	}
+	if err := ensurePendingJoinRequest(request); err != nil {
+		return err
 	}
 
 	// Delete request
@@ -474,7 +488,34 @@ func (s *JoinRequestService) joinRequestNotifyChannels(ctx context.Context, user
 	return s.joinRequestRepo.GetUserNotificationChannels(ctx, userID)
 }
 
-func (s *JoinRequestService) notifyJoinRequestAccepted(ctx context.Context, requesterID, receiverID uint64, relationship string) {
+func (s *JoinRequestService) requesterAcceptPrizeMessage(ctx context.Context, request *models.JoinRequest) string {
+	fallback := fmt.Sprintf("پاداش اضافه شدن به سلسله به عنوان %s", request.Relationship)
+	if s.dynastyRepo == nil || request == nil {
+		return fallback
+	}
+	template, err := s.dynastyRepo.GetDynastyMessage(ctx, "requester_accept_message")
+	if err != nil || template == "" {
+		return fallback
+	}
+	sender, _ := s.joinRequestRepo.GetUserBasicInfo(ctx, request.FromUser)
+	receiver, _ := s.joinRequestRepo.GetUserBasicInfo(ctx, request.ToUser)
+	if filled := s.fillDynastyTemplate(template, sender, receiver, request.Relationship, request.CreatedAt); filled != "" {
+		return filled
+	}
+	return fallback
+}
+
+func ensurePendingJoinRequest(request *models.JoinRequest) error {
+	if request == nil || request.Status != 0 {
+		return &validation.ValidationError{
+			Message: "این درخواست دیگر در انتظار تایید نیست.",
+			Code:    403,
+		}
+	}
+	return nil
+}
+
+func (s *JoinRequestService) notifyJoinRequestAccepted(ctx context.Context, requesterID, receiverID uint64, relationship string, createdAt time.Time) {
 	if s.notificationClient == nil {
 		return
 	}
@@ -505,15 +546,17 @@ func (s *JoinRequestService) notifyJoinRequestAccepted(ctx context.Context, requ
 	if receiverTemplate == "" {
 		receiverTemplate = "درخواست پیوستن به سلسله از طرف [sender-code] توسط شما تأیید شد."
 	}
-	now := time.Now()
-	requesterMsg := s.fillDynastyTemplate(requesterTemplate, requesterInfo, receiverInfo, relationship, now)
-	receiverMsg := s.fillDynastyTemplate(receiverTemplate, requesterInfo, receiverInfo, relationship, now)
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	requesterMsg := s.fillDynastyTemplate(requesterTemplate, requesterInfo, receiverInfo, relationship, createdAt)
+	receiverMsg := s.fillDynastyTemplate(receiverTemplate, requesterInfo, receiverInfo, relationship, createdAt)
 	requesterSMS, requesterEmail := s.joinRequestNotifyChannels(ctx, requesterID)
 	receiverSMS, receiverEmail := s.joinRequestNotifyChannels(ctx, receiverID)
 
 	dynastyName := firstNonEmpty(requesterInfo.Name, "خاندان "+requesterInfo.Code)
 	dynastyCode := firstNonEmpty(requesterInfo.Code, fmt.Sprintf("%d", requesterInfo.ID))
-	acceptedAt := helpers.FormatJalaliDateTime(now)
+	acceptedAt := helpers.FormatJalaliDateTime(time.Now())
 	relationshipTitle := s.getRelationshipTitle(relationship)
 	baseURL := dynastyAppBaseURL()
 

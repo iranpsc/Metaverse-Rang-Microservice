@@ -8,6 +8,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 
 	"metarang/dynasty-service/internal/service"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -136,6 +137,18 @@ func TestJoinRequestService_AcceptJoinRequest(t *testing.T) {
 		mock.ExpectExec("UPDATE children_permissions").
 			WithArgs(sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), toUserID).
 			WillReturnResult(sqlmock.NewResult(0, 1))
+
+		now := time.Now()
+		mock.ExpectQuery("FROM dynasty_prizes").
+			WithArgs("offspring").
+			WillReturnRows(sqlmock.NewRows([]string{"id", "member", "satisfaction", "introduction_profit_increase", "accumulated_capital_reserve", "data_storage", "psc", "created_at", "updated_at"}).
+				AddRow(8, "offspring", 0.1, 0.2, 0.3, 0.4, 1000, now, now))
+		mock.ExpectQuery("SELECT message FROM dynasty_messages").
+			WithArgs("requester_accept_message").
+			WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow(""))
+		mock.ExpectExec("INSERT INTO received_prizes").
+			WithArgs(fromUserID, uint64(8), sqlmock.AnyArg()).
+			WillReturnResult(sqlmock.NewResult(1, 1))
 
 		err := service.AcceptJoinRequest(ctx, requestID, toUserID)
 		require.NoError(t, err)

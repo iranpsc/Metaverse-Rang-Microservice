@@ -206,6 +206,21 @@ func buildJoinRequestUserHTTP(user *commonpb.UserBasic) map[string]interface{} {
 	return result
 }
 
+func buildReceivedPrizeHTTP(resp *dynastypb.PrizeResponse) map[string]interface{} {
+	if resp == nil || resp.Prize == nil {
+		return map[string]interface{}{}
+	}
+	prize := resp.Prize
+	return map[string]interface{}{
+		"id":                            prize.Id,
+		"psc":                           prize.Psc,
+		"satisfaction":                  prize.Satisfaction,
+		"introducation_profit_increase": prize.IntroductionProfitIncrease,
+		"accumulated_capital_reserve":   prize.AccumulatedCapitalReserve,
+		"data_storage":                  prize.DataStorage,
+	}
+}
+
 func buildJoinRequestPrizeHTTP(prize *dynastypb.DynastyPrize) map[string]interface{} {
 	if prize == nil {
 		return nil

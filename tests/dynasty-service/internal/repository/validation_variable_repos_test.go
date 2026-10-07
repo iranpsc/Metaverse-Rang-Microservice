@@ -56,17 +56,17 @@ func TestValidationRepository(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, ok)
 
-	mock.ExpectQuery("SELECT verified AND DM").WithArgs(uint64(6)).
-		WillReturnRows(sqlmock.NewRows([]string{"perm"}).AddRow(true))
+	mock.ExpectQuery("SELECT verified, DM").WithArgs(uint64(6)).
+		WillReturnRows(sqlmock.NewRows([]string{"verified", "DM"}).AddRow(false, true))
 	ok, err = repo.CheckUserDMPermission(ctx, 6)
 	require.NoError(t, err)
 	assert.True(t, ok)
 
-	mock.ExpectQuery("SELECT verified AND DM").WithArgs(uint64(7)).
+	mock.ExpectQuery("SELECT verified, DM").WithArgs(uint64(7)).
 		WillReturnError(sql.ErrNoRows)
 	ok, err = repo.CheckUserDMPermission(ctx, 7)
 	require.NoError(t, err)
-	assert.False(t, ok)
+	assert.True(t, ok)
 
 	mock.ExpectQuery("SELECT EXISTS").WithArgs(uint64(1), uint64(2)).
 		WillReturnError(errors.New("db"))

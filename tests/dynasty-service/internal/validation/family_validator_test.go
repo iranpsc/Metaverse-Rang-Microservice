@@ -46,7 +46,9 @@ func TestFamilyValidator_ValidateRelationshipLimits(t *testing.T) {
 	familyID := uint64(1)
 
 	t.Run("SingleParent_Father", func(t *testing.T) {
-		// Count existing fathers
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members WHERE family_id = \?$`).
+			WithArgs(familyID).
+			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(1))
 		mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM family_members").
 			WithArgs(familyID, "father").
 			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(0))
@@ -56,6 +58,9 @@ func TestFamilyValidator_ValidateRelationshipLimits(t *testing.T) {
 	})
 
 	t.Run("SingleParent_Mother", func(t *testing.T) {
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members WHERE family_id = \?$`).
+			WithArgs(familyID).
+			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(1))
 		mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM family_members").
 			WithArgs(familyID, "mother").
 			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(0))
@@ -65,6 +70,9 @@ func TestFamilyValidator_ValidateRelationshipLimits(t *testing.T) {
 	})
 
 	t.Run("SingleSpouse_Husband", func(t *testing.T) {
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members WHERE family_id = \?$`).
+			WithArgs(familyID).
+			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(1))
 		mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM family_members").
 			WithArgs(familyID, "husband").
 			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(0))
@@ -74,27 +82,34 @@ func TestFamilyValidator_ValidateRelationshipLimits(t *testing.T) {
 	})
 
 	t.Run("MaxSpouse_Wife", func(t *testing.T) {
-		// Already have 4 wives
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members WHERE family_id = \?$`).
+			WithArgs(familyID).
+			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(2))
 		mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM family_members").
 			WithArgs(familyID, "wife").
-			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(4))
+			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(1))
 
 		err := validator.ValidateRelationshipLimits(ctx, familyID, "wife")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "همسر")
 	})
 
-	t.Run("BrotherSister_NoLimit", func(t *testing.T) {
-		// Brother/sister don't have limits in current implementation
+	t.Run("BrotherSister_CombinedLimit", func(t *testing.T) {
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members WHERE family_id = \?$`).
+			WithArgs(familyID).
+			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(5))
+		mock.ExpectQuery("relationship IN").
+			WithArgs(familyID).
+			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(4))
 		err := validator.ValidateRelationshipLimits(ctx, familyID, "brother")
-		assert.NoError(t, err)
-
-		err = validator.ValidateRelationshipLimits(ctx, familyID, "sister")
-		assert.NoError(t, err)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "4")
 	})
 
 	t.Run("MaxOffspring", func(t *testing.T) {
-		// Already have 4 offspring
+		mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members WHERE family_id = \?$`).
+			WithArgs(familyID).
+			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(5))
 		mock.ExpectQuery("SELECT COUNT\\(\\*\\) FROM family_members").
 			WithArgs(familyID, "offspring").
 			WillReturnRows(sqlmock.NewRows([]string{"COUNT(*)"}).AddRow(4))
@@ -136,6 +151,9 @@ func TestFamilyValidator_ValidateAddFamilyMember(t *testing.T) {
 		mock.ExpectQuery("SELECT EXISTS").
 			WithArgs(toUserID).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+		mock.ExpectQuery("SELECT u.code").
+			WithArgs(toUserID).
+			WillReturnRows(sqlmock.NewRows([]string{"code", "verified"}).AddRow("U2", true))
 
 		err := validator.ValidateAddFamilyMember(ctx, fromUserID, toUserID, "offspring", false)
 		assert.NoError(t, err)

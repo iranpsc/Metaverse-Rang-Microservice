@@ -51,7 +51,9 @@ func (h *PrizeHandler) GetPrizes(ctx context.Context, req *dynastypb.GetPrizesRe
 	var protoPrizes []*dynastypb.DynastyPrize
 	for _, prize := range prizes {
 		if prize.Prize != nil {
-			protoPrizes = append(protoPrizes, buildDynastyPrize(prize.Prize))
+			item := buildDynastyPrize(prize.Prize)
+			item.Id = prize.ID
+			protoPrizes = append(protoPrizes, item)
 		}
 	}
 
@@ -81,8 +83,10 @@ func (h *PrizeHandler) GetPrize(ctx context.Context, req *dynastypb.GetPrizeRequ
 		return nil, status.Errorf(codes.NotFound, "prize not found")
 	}
 
+	prize := buildDynastyPrize(receivedPrize.Prize)
+	prize.Id = receivedPrize.ID
 	return &dynastypb.PrizeResponse{
-		Prize: buildDynastyPrize(receivedPrize.Prize),
+		Prize: prize,
 	}, nil
 }
 

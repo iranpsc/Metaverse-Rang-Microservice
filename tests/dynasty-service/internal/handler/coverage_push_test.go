@@ -201,7 +201,7 @@ func TestJoinRequestHandler_AcceptAndSearchAndDefaults(t *testing.T) {
 
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%ali%", "%ali%", "%ali%", 20).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).AddRow(1, "A", "Ali", "Ali Test"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(1, "A", "Ali"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrNoRows)
@@ -294,6 +294,7 @@ func TestDynastyService_FeatureColorVariants(t *testing.T) {
 			WithArgs(uint64(1)).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(1, 10, 100, now, now.Add(-time.Hour)))
+		expectUpdateFeatureGate(mock, 10, 200)
 		mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 			WithArgs(uint64(100)).
 			WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow(tc.karbari, 10000.0))

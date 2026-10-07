@@ -324,10 +324,10 @@ func (r *JoinRequestRepository) GetDynastyPermission(ctx context.Context) (*mode
 	return &perm, nil
 }
 
-// CheckUserAge checks if user is under 18 based on birthdate
+// CheckUserAge reports whether the user is a verified minor (KYC status 1 and age < 18).
 func (r *JoinRequestRepository) CheckUserAge(ctx context.Context, userID uint64) (bool, error) {
 	query := `
-		SELECT TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) < 18 as is_under_18
+		SELECT TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) < 18 AND status = 1 as is_under_18
 		FROM kycs 
 		WHERE user_id = ?
 		LIMIT 1

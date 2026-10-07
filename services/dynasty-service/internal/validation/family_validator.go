@@ -98,15 +98,47 @@ func (v *FamilyValidator) ValidateAddFamilyMember(ctx context.Context, senderID,
 		}
 	}
 
-	// RULE 7 & 8: Relationship-specific limits
-	// Get sender's dynasty and family
-	// This will be checked in the service layer with actual family ID
+	verified, code, err := v.validationRepo.CheckReceiverVerified(ctx, receiverID)
+	if err != nil {
+		return fmt.Errorf("failed to check receiver verification: %w", err)
+	}
+	if !verified {
+		return &ValidationError{
+			Message: fmt.Sprintf("کاربر %s احراز هویت نکرده است.", code),
+			Code:    403,
+		}
+	}
 
 	return nil
 }
 
 // ValidateRelationshipLimits validates relationship-specific member limits
 func (v *FamilyValidator) ValidateRelationshipLimits(ctx context.Context, familyID uint64, relationship string) error {
+	total, err := v.validationRepo.CountFamilyMembers(ctx, familyID)
+	if err != nil {
+		return fmt.Errorf("failed to count family members: %w", err)
+	}
+	if total >= 11 {
+		return &ValidationError{
+			Message: "شما قبلا بیش از 10 عضو در سلسله خود دارید.",
+			Code:    403,
+		}
+	}
+
+	if relationship == "brother" || relationship == "sister" {
+		siblings, err := v.validationRepo.CountSiblingMembers(ctx, familyID)
+		if err != nil {
+			return fmt.Errorf("failed to count sibling members: %w", err)
+		}
+		if siblings >= 4 {
+			return &ValidationError{
+				Message: "شما قبلا بیش از 4 عضو در سلسله خود دارید.",
+				Code:    403,
+			}
+		}
+		return nil
+	}
+
 	// Define limits for each relationship type
 	limits := map[string]struct {
 		Max     int
@@ -125,8 +157,8 @@ func (v *FamilyValidator) ValidateRelationshipLimits(ctx context.Context, family
 			Message: "شما فقط می توانید یک همسر داشته باشید.",
 		},
 		"wife": {
-			Max:     4,
-			Message: "شما فقط می توانید چهار همسر داشته باشید.",
+			Max:     1,
+			Message: "شما فقط می توانید یک همسر داشته باشید.",
 		},
 		"offspring": {
 			Max:     4,

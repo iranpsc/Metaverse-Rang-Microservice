@@ -64,6 +64,8 @@ func TestUserSearchService_SearchUsers_EnrichesVerifiedAgeAndLevels(t *testing.T
 	kyc := &stubKYCPort{
 		resp: &authpb.KYCResponse{
 			Status:    1,
+			Fname:     "Ali",
+			Lname:     "Test",
 			Birthdate: jalaliBirth,
 		},
 	}
@@ -91,8 +93,8 @@ func TestUserSearchService_SearchUsers_EnrichesVerifiedAgeAndLevels(t *testing.T
 
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%ali%", "%ali%", "%ali%", 20).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).
-			AddRow(1, "U100", "Ali", "Ali Test"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).
+			AddRow(1, "U100", "Ali"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("https://img"))
@@ -141,8 +143,8 @@ func TestUserSearchService_SearchUsers_UnverifiedKYCAndLevelsFailure(t *testing.
 
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%bob%", "%bob%", "%bob%", 10).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).
-			AddRow(2, "U200", "Bob", "Bob User"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).
+			AddRow(2, "U200", "Bob"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(2)).
 		WillReturnError(assert.AnError)
@@ -151,7 +153,8 @@ func TestUserSearchService_SearchUsers_UnverifiedKYCAndLevelsFailure(t *testing.
 	require.NoError(t, err)
 	require.Len(t, results, 1)
 	assert.False(t, results[0].Verified)
-	assert.Greater(t, results[0].Age, int32(0))
+	assert.Equal(t, "Bob", results[0].Name)
+	assert.Equal(t, int32(0), results[0].Age)
 	assert.Empty(t, results[0].Level)
 	assert.Empty(t, results[0].Levels)
 	assert.Nil(t, results[0].Image)
@@ -169,8 +172,8 @@ func TestUserSearchService_SearchUsers_NilClients_StillReturnsBaseFields(t *test
 
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%ali%", "%ali%", "%ali%", 20).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).
-			AddRow(1, "U100", "Ali", "Ali Test"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).
+			AddRow(1, "U100", "Ali"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("https://img"))
@@ -178,7 +181,7 @@ func TestUserSearchService_SearchUsers_NilClients_StillReturnsBaseFields(t *test
 	results, err := svc.SearchUsers(ctx, "ali", 20)
 	require.NoError(t, err)
 	require.Len(t, results, 1)
-	assert.Equal(t, "Ali Test", results[0].Name)
+	assert.Equal(t, "Ali", results[0].Name)
 	assert.False(t, results[0].Verified)
 	assert.Equal(t, int32(0), results[0].Age)
 	assert.Empty(t, results[0].Levels)
@@ -218,8 +221,8 @@ func TestUserSearchService_SearchUsers_KYCErrorDoesNotFailSearch(t *testing.T) {
 
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%x%", "%x%", "%x%", 5).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).
-			AddRow(9, "U9", "X", "X User"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).
+			AddRow(9, "U9", "X"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(9)).
 		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("https://x"))
@@ -244,8 +247,8 @@ func TestUserSearchService_SearchUsers_ScanError(t *testing.T) {
 	svc := service.NewUserSearchService(db, nil, nil)
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%bad%", "%bad%", "%bad%", 5).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).
-			AddRow("not-a-uint", "U", "N", "D"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).
+			AddRow("not-a-uint", "U", "N"))
 	_, err = svc.SearchUsers(context.Background(), "bad", 5)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to scan user")
@@ -286,8 +289,8 @@ func TestUserSearchService_SearchUsers_BirthdateAndLevelVariants(t *testing.T) {
 
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%z%", "%z%", "%z%", 5).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).
-			AddRow(3, "U3", "Z", "Z User"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).
+			AddRow(3, "U3", "Z"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(3)).
 		WillReturnError(sql.ErrNoRows)
@@ -329,8 +332,8 @@ func TestUserSearchService_SearchUsers_InvalidAndEmptyBirthdates(t *testing.T) {
 			svc := service.NewUserSearchService(db, kyc, &stubLevelsPort{resp: nil})
 			mock.ExpectQuery("FROM users u").
 				WithArgs("%q%", "%q%", "%q%", 3).
-				WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).
-					AddRow(4, "U4", "Q", "Q User"))
+				WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).
+					AddRow(4, "U4", "Q"))
 			mock.ExpectQuery("SELECT url FROM images").
 				WithArgs(uint64(4)).
 				WillReturnError(sql.ErrNoRows)
@@ -362,8 +365,8 @@ func TestUserSearchService_SearchUsers_NilKYCAndGetLevelGemError(t *testing.T) {
 	svc := service.NewUserSearchService(db, kyc, levels)
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%n%", "%n%", "%n%", 2).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).
-			AddRow(8, "U8", "N", "N User"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).
+			AddRow(8, "U8", "N"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(8)).
 		WillReturnError(sql.ErrNoRows)

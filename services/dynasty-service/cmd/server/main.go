@@ -147,6 +147,7 @@ func main() {
 
 	// Initialize services
 	dynastyService := service.NewDynastyService(dynastyRepo, familyRepo, prizeRepo, notificationServiceAddr)
+	dynastyService.SetNotifier(notificationPort)
 	joinRequestService := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, validation.NewFamilyValidator(validationRepo), notificationPort, notificationServiceAddr)
 	familyService := service.NewFamilyService(familyRepo, dynastyRepo, levelsPort)
 	prizeService := service.NewPrizeService(db, prizeRepo, variableRepo, userVariableRepo, walletPort)
