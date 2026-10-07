@@ -221,6 +221,7 @@ message FamilyMember {
   string relationship = 3;
   common.UserBasic user_info = 4;
   string created_at = 5; // Jalali formatted
+  bool online = 6; // true when the user's last_seen is within the last 2 minutes
 }
 
 message SetChildPermissionsRequest {

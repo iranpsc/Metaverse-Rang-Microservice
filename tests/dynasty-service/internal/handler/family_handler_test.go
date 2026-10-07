@@ -71,9 +71,9 @@ func TestFamilyHandler_GetFamilyMembers_IncludesUserLevel(t *testing.T) {
 		WithArgs(uint64(11), int32(10), int32(0)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "family_id", "user_id", "relationship", "created_at", "updated_at"}).
 			AddRow(3, 11, 42, "offspring", now, now))
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(42, "U42", "Child"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(42, "U42", "Child", now.Add(-time.Minute)))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(42)).
 		WillReturnError(sql.ErrNoRows)
@@ -89,5 +89,6 @@ func TestFamilyHandler_GetFamilyMembers_IncludesUserLevel(t *testing.T) {
 	assert.Equal(t, "U42", resp.Members[0].UserInfo.Code)
 	assert.Equal(t, "Child", resp.Members[0].UserInfo.Name)
 	assert.Equal(t, "Silver", resp.Members[0].UserInfo.Level)
+	assert.True(t, resp.Members[0].Online)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

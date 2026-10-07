@@ -236,9 +236,9 @@ func TestFamilyHandler_GetFamilyAndMembersHappyPath(t *testing.T) {
 		WithArgs(uint64(1), int32(1000), int32(0)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "family_id", "user_id", "relationship", "created_at", "updated_at"}).
 			AddRow(1, 1, 5, "owner", now, now))
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(5)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "O", "Owner"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "O", "Owner", nil))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(5)).
 		WillReturnError(sql.ErrNoRows)
@@ -257,9 +257,9 @@ func TestFamilyHandler_GetFamilyAndMembersHappyPath(t *testing.T) {
 		WithArgs(uint64(1), int32(10), int32(0)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "family_id", "user_id", "relationship", "created_at", "updated_at"}).
 			AddRow(1, 1, 5, "owner", now, now))
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(5)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "O", "Owner"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "O", "Owner", nil))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(5)).
 		WillReturnError(sql.ErrNoRows)

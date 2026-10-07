@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/repository"
 	levelspb "metarang/shared/pb/levels"
 )
+
+const familyMemberOnlineWindow = 2 * time.Minute
 
 type FamilyService struct {
 	familyRepo  *repository.FamilyRepository
@@ -76,7 +79,16 @@ func (s *FamilyService) GetUserBasicInfo(ctx context.Context, userID uint64) (*m
 		return user, err
 	}
 	user.Level = s.latestLevelName(ctx, userID)
+	user.Online = recentlySeen(user.LastSeen, time.Now())
 	return user, nil
+}
+
+// recentlySeen reports whether lastSeen is strictly less than 2 minutes before now.
+func recentlySeen(lastSeen *time.Time, now time.Time) bool {
+	if lastSeen == nil {
+		return false
+	}
+	return now.Sub(*lastSeen) < familyMemberOnlineWindow
 }
 
 func (s *FamilyService) latestLevelName(ctx context.Context, userID uint64) string {

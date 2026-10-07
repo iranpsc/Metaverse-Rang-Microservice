@@ -98,7 +98,7 @@ func buildFamilyMembersHTTPResponse(resp *dynastypb.FamilyResponse) []map[string
 	for _, member := range resp.Members {
 		item := map[string]interface{}{
 			"relationship": member.Relationship,
-			"online":       false,
+			"online":       member.Online,
 		}
 
 		if member.UserInfo != nil {

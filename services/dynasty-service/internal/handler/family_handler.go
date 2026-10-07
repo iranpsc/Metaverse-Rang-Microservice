@@ -198,11 +198,15 @@ func (h *FamilyHandler) UpdateNamedChildPermission(ctx context.Context, parentUs
 
 func (h *FamilyHandler) toProtoFamilyMember(ctx context.Context, m *models.FamilyMember) *dynastypb.FamilyMember {
 	userInfo, _ := h.familyService.GetUserBasicInfo(ctx, m.UserID)
-	return &dynastypb.FamilyMember{
+	member := &dynastypb.FamilyMember{
 		Id:           m.ID,
 		UserId:       m.UserID,
 		Relationship: m.Relationship,
 		UserInfo:     buildUserBasic(userInfo),
 		CreatedAt:    formatJalaliDate(m.CreatedAt),
 	}
+	if userInfo != nil {
+		member.Online = userInfo.Online
+	}
+	return member
 }

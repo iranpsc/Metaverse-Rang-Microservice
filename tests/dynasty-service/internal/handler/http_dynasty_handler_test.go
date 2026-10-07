@@ -126,7 +126,7 @@ func (f *fakeFamilyAPI) GetFamily(ctx context.Context, req *dynastypb.GetFamilyR
 		return f.GetFamilyFunc(ctx, req)
 	}
 	return &dynastypb.FamilyResponse{Members: []*dynastypb.FamilyMember{
-		{UserId: 1, Relationship: "owner", UserInfo: &commonpb.UserBasic{Id: 1, Code: "O1", ProfilePhoto: "p.jpg", Level: "Gold"}},
+		{UserId: 1, Relationship: "owner", Online: true, UserInfo: &commonpb.UserBasic{Id: 1, Code: "O1", ProfilePhoto: "p.jpg", Level: "Gold"}},
 	}}, nil
 }
 func (f *fakeFamilyAPI) SetChildPermissions(ctx context.Context, req *dynastypb.SetChildPermissionsRequest) (*commonpb.Empty, error) {
@@ -380,6 +380,7 @@ func TestHTTPDynastyHandler_UpdateAndFamily(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"relationship"`)
 	assert.Contains(t, rr.Body.String(), `"level":"Gold"`)
+	assert.Contains(t, rr.Body.String(), `"online":true`)
 
 	rr = httptest.NewRecorder()
 	h.GetFamily(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/x/family/3", nil)))
