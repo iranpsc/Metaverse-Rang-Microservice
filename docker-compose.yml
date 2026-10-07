@@ -901,7 +901,29 @@ services:
       retries: 3
       start_period: 10s
 
-  # Swagger UI - regenerates openapi/openapi.yaml from routes.yaml on every start
+  # Regenerates openapi/openapi.yaml once the API services are up.
+  # `make openapi` is the same command used on the host. Swagger UI starts after this exits.
+  openapi-generate:
+    <<: *service-defaults
+    image: golang:1.25
+    working_dir: /workspace
+    environment:
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      GOWORK: "off"
+    volumes:
+      - ./Makefile:/workspace/Makefile:ro
+      - ./scripts/gen-openapi:/workspace/scripts/gen-openapi:ro
+      - ./openapi:/workspace/openapi
+      - ./services/support-service/internal/handler:/workspace/services/support-service/internal/handler:ro
+    command: ["make", "openapi"]
+    depends_on:
+      kong:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - metarang-network
+
+  # Swagger UI - serves the spec written by openapi-generate
   swagger-ui:
     <<: *service-defaults
     build:
@@ -918,6 +940,9 @@ services:
       - ./openapi:/workspace/openapi
       # handler discovery (query/path params) for support-service routes
       - ./services/support-service/internal/handler:/workspace/services/support-service/internal/handler:ro
+    depends_on:
+      openapi-generate:
+        condition: service_completed_successfully
     networks:
       - metarang-network
       - dokploy-network
