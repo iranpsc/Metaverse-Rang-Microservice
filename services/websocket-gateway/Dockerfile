@@ -4,9 +4,10 @@
 FROM golang:1.25-alpine AS builder
 
 ENV CGO_ENABLED=0
-# proxy.golang.org is often blocked; goproxy.io is a public non-Iranian fallback.
-ENV GOPROXY=https://goproxy.io,direct
-ENV GOSUMDB=off
+# Module zips from proxy.golang.org redirect to storage.googleapis.com, which returns 403
+# on this network. goproxy.cn serves the archives directly.
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GOSUMDB=sum.golang.google.cn
 
 # protobuf-dev provides the well-known google/protobuf includes that protoc imports.
 RUN apk add --no-cache git protoc protobuf-dev
