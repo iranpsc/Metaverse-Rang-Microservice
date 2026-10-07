@@ -41,6 +41,15 @@ x-db-environment: &db-environment
   DB_PASSWORD: ${MYSQL_PASSWORD:-metarang_password}
   TZ: ${TZ:-Asia/Tehran}
 
+# PID 1 init forwards signals and reaps zombies. json-file logs do not rotate unless max-size is set.
+x-service-defaults: &service-defaults
+  init: true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 services:
   # ============================================================================
   # Infrastructure Services
@@ -49,6 +58,7 @@ services:
   # Populates the grpc_certs volume from ./certs/grpc on the host, or generates
   # new certificates when GRPC_TLS_ENABLED=true and none are present.
   grpc-certs-init:
+    <<: *service-defaults
     image: alpine:3.21
     environment:
       GRPC_TLS_ENABLED: ${GRPC_TLS_ENABLED:-false}
@@ -63,6 +73,7 @@ services:
   
   # MySQL Database (shared with the Laravel admin panel via metarang-shared)
   mysql:
+    <<: *service-defaults
     image: mysql:8.0.43
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
@@ -94,12 +105,18 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+    # Default stop timeout is 10s, which can SIGKILL mysqld before InnoDB finishes.
+    stop_grace_period: 1m
 
   # Redis (for pub/sub and caching). Keep off metarang-shared — the admin panel has its own Redis.
   redis:
+    <<: *service-defaults
     image: redis:7.4-alpine
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    # Named volume: the Redis image writes RDB snapshots to /data.
+    volumes:
+      - redis_data:/data
     networks:
       - metarang-network
     healthcheck:
@@ -107,6 +124,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
     restart: unless-stopped
 
   # One-shot SQL migrator (scripts/migrations). Runs before DB-backed services start.
@@ -114,6 +132,7 @@ services:
   #   docker compose up -d --force-recreate --no-deps migrate
   # or: docker compose run --rm migrate
   migrate:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./scripts/docker/migrate/Dockerfile
@@ -154,6 +173,7 @@ services:
 
   # Auth Service - Authentication & User Management
   auth-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/auth-service/Dockerfile
@@ -175,8 +195,10 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       redis:
         condition: service_healthy
+        restart: true
       commercial-service:
         condition: service_healthy
     volumes:
@@ -203,6 +225,7 @@ services:
 
   # Commercial Service - Wallets & Transactions
   commercial-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/commercial-service/Dockerfile
@@ -219,6 +242,7 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8067/health"]
       interval: 10s
@@ -243,6 +267,7 @@ services:
 
   # Features Service - Feature/Land Management
   features-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/features-service/Dockerfile
@@ -263,12 +288,14 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       redis:
         condition: service_healthy
+        restart: true
       commercial-service:
-        condition: service_started
+        condition: service_healthy
       auth-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - *grpc-certs-mount
     networks:
@@ -293,6 +320,7 @@ services:
 
   # Levels Service - User Progression & Activities
   levels-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/levels-service/Dockerfile
@@ -308,6 +336,7 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
     volumes:
       - *grpc-certs-mount
     networks:
@@ -332,6 +361,7 @@ services:
 
   # Buildings Service - Feature buildings & citizen building APIs
   buildings-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/buildings-service/Dockerfile
@@ -349,12 +379,13 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       commercial-service:
-        condition: service_started
+        condition: service_healthy
       levels-service:
-        condition: service_started
+        condition: service_healthy
       auth-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - *grpc-certs-mount
     networks:
@@ -379,6 +410,7 @@ services:
 
   # Dynasty Service - Family & Dynasty Management (gRPC internal + HTTP for Kong /api/dynasty)
   dynasty-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/dynasty-service/Dockerfile
@@ -405,14 +437,15 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       auth-service:
-        condition: service_started
+        condition: service_healthy
       levels-service:
-        condition: service_started
+        condition: service_healthy
       notifications-service:
-        condition: service_started
+        condition: service_healthy
       commercial-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - *grpc-certs-mount
     networks:
@@ -431,6 +464,7 @@ services:
 
   # Calendar Service - Events Management (gRPC internal + HTTP for Kong /api/calendar)
   calendar-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/calendar-service/Dockerfile
@@ -447,8 +481,9 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       auth-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - *grpc-certs-mount
     networks:
@@ -473,6 +508,7 @@ services:
 
   # Support Service - Tickets & Reports (gRPC internal + HTTP for Kong)
   support-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/support-service/Dockerfile
@@ -490,12 +526,13 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       notifications-service:
-        condition: service_started
+        condition: service_healthy
       auth-service:
-        condition: service_started
+        condition: service_healthy
       storage-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - *grpc-certs-mount
     networks:
@@ -520,6 +557,7 @@ services:
 
   # Social Service - Challenge quiz & user follow graph (gRPC internal + HTTP for Kong)
   social-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/social-service/Dockerfile
@@ -538,12 +576,13 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       auth-service:
-        condition: service_started
+        condition: service_healthy
       commercial-service:
         condition: service_healthy
       levels-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - *grpc-certs-mount
     networks:
@@ -568,6 +607,7 @@ services:
 
   # Training Service - Video Tutorials & Comments
   training-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/training-service/Dockerfile
@@ -584,6 +624,7 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       auth-service:
         condition: service_healthy
     volumes:
@@ -610,6 +651,7 @@ services:
 
   # Notifications Service - Multi-channel Notifications
   notifications-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/notifications-service/Dockerfile
@@ -630,10 +672,12 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
       redis:
         condition: service_healthy
+        restart: true
       auth-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - *grpc-certs-mount
     networks:
@@ -644,6 +688,7 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+      start_period: 15s
     develop:
       watch:
         - action: rebuild
@@ -657,6 +702,7 @@ services:
 
   # Financial Service - Payment Processing & Transactions
   financial-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/financial-service/Dockerfile
@@ -674,6 +720,7 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
     volumes:
       - *grpc-certs-mount
     networks:
@@ -684,6 +731,7 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+      start_period: 15s
     develop:
       watch:
         - action: rebuild
@@ -697,6 +745,7 @@ services:
 
   # Sitemap Generator Service - Periodic XML sitemap export
   sitemap-generator-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/sitemap-generator-service/Dockerfile
@@ -719,6 +768,7 @@ services:
       <<: [*migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
     volumes:
       - ${SITEMAPS_HOST_PATH:-./services/sitemap-generator-service/sitemaps}:/opt/metarang/sitemaps
     networks:
@@ -744,11 +794,13 @@ services:
 
   # Storage Service - File Upload & Management
   storage-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/storage-service/Dockerfile
     ports:
-      - "8059:8059"    # HTTP REST API port (uploads); gRPC stays internal-only
+      # Public uploads go through Kong. Keep this host port on loopback.
+      - "127.0.0.1:8059:8059"
     volumes:
       - ${UPLOADS_PATH:-./services/storage-service/uploads}:/app/uploads
       - *grpc-certs-mount
@@ -764,6 +816,7 @@ services:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
         condition: service_healthy
+        restart: true
     networks:
       - metarang-network
       - dokploy-network
@@ -786,6 +839,7 @@ services:
 
   # WebSocket Gateway - Real-time Communication (Go)
   websocket-gateway:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/websocket-gateway/Dockerfile
@@ -803,8 +857,9 @@ services:
       <<: *grpc-certs-depends
       redis:
         condition: service_healthy
+        restart: true
       auth-service:
-        condition: service_started
+        condition: service_healthy
     volumes:
       - *grpc-certs-mount
     networks:
@@ -816,6 +871,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 15s
     develop:
       watch:
         - action: rebuild
@@ -829,11 +885,12 @@ services:
 
   # Health Check Service - System Health Monitoring
   health-check-service:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./services/health-check-service/Dockerfile
     ports:
-      - "8090:8090"
+      - "127.0.0.1:8090:8090"
     networks:
       - metarang-network
     restart: unless-stopped
@@ -846,6 +903,7 @@ services:
 
   # Swagger UI - regenerates openapi/openapi.yaml from routes.yaml on every start
   swagger-ui:
+    <<: *service-defaults
     build:
       context: .
       dockerfile: ./scripts/docker/openapi/Dockerfile
@@ -854,7 +912,7 @@ services:
       REPO_ROOT: /workspace
       URL: /openapi/openapi.yaml
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     volumes:
       # rw so gen-openapi can write openapi.yaml on each start
       - ./openapi:/workspace/openapi
@@ -884,6 +942,7 @@ services:
   # PROJECT_ENV selects the CORS allowlist (see kong/docker-entrypoint-wrapper.sh).
   # Unset or production: public sites only. staging or development: also dev frontends and localhost.
   kong:
+    <<: *service-defaults
     image: kong:3.9.3
     entrypoint: ["/bin/sh", "/kong/docker-entrypoint-wrapper.sh"]
     environment:
@@ -905,9 +964,9 @@ services:
       - ./shared/proto:/kong/protos:ro
     depends_on:
       auth-service:
-        condition: service_started
+        condition: service_healthy
       commercial-service:
-        condition: service_started
+        condition: service_healthy
       features-service:
         condition: service_healthy
       buildings-service:
@@ -915,21 +974,21 @@ services:
       levels-service:
         condition: service_healthy
       dynasty-service:
-        condition: service_started
+        condition: service_healthy
       calendar-service:
-        condition: service_started
+        condition: service_healthy
       support-service:
         condition: service_healthy
       training-service:
-        condition: service_started
+        condition: service_healthy
       notifications-service:
-        condition: service_started
+        condition: service_healthy
       storage-service:
-        condition: service_started
+        condition: service_healthy
       financial-service:
-        condition: service_started
+        condition: service_healthy
       social-service:
-        condition: service_started
+        condition: service_healthy
     networks:
       - metarang-network
       - dokploy-network
@@ -939,6 +998,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   # ============================================================================
   # Monitoring Stack
@@ -946,9 +1006,10 @@ services:
 
   # Prometheus - Metrics Collection
   prometheus:
+    <<: *service-defaults
     image: prom/prometheus:v2.53.5
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./monitoring/prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
@@ -970,9 +1031,10 @@ services:
 
   # Grafana - Visualization & Dashboards
   grafana:
+    <<: *service-defaults
     image: grafana/grafana:11.6.16
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-metarang-local-dev-grafana-password-change-in-production}
@@ -990,15 +1052,19 @@ services:
       - dokploy-network
     restart: unless-stopped
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
+        restart: true
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
 
   # Node Exporter - Host-level infrastructure metrics (CPU, Memory, Disk, Network)
   node-exporter:
+    <<: *service-defaults
     image: prom/node-exporter:v1.11.1
     command:
       - '--path.procfs=/host/proc'
@@ -1010,7 +1076,7 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"
     networks:
       - metarang-network
     restart: unless-stopped
@@ -1021,6 +1087,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
 
   # Note: cAdvisor removed due to Windows/Docker Desktop compatibility issues
   # Node Exporter provides host-level infrastructure metrics (CPU, Memory, Disk, Network)
@@ -1028,6 +1095,8 @@ services:
 
 volumes:
   mysql_data:
+    driver: local
+  redis_data:
     driver: local
   grpc_certs:
     driver: local
