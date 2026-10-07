@@ -1,41 +1,40 @@
+# syntax=docker/dockerfile:1
+
 # Multi-stage build for Sitemap Generator Service
 FROM golang:1.25-alpine AS builder
 
 ENV CGO_ENABLED=0
 
-RUN apk add --no-cache git make
+WORKDIR /src
 
-WORKDIR /workspace
+COPY shared/go.mod shared/go.sum shared/
+COPY services/sitemap-generator-service/go.mod services/sitemap-generator-service/go.sum* services/sitemap-generator-service/
+RUN printf 'go 1.25.13\n\nuse (\n\t./services/sitemap-generator-service\n\t./shared\n)\n' > go.work
 
-RUN mkdir -p /workspace/metarang/sitemap-generator-service /workspace/metarang/shared
-
-COPY ./shared/go.mod ./shared/go.sum /workspace/metarang/shared/
-COPY ./shared/pkg/ /workspace/metarang/shared/pkg/
-
-COPY ./services/sitemap-generator-service/go.mod ./services/sitemap-generator-service/go.sum* /workspace/metarang/sitemap-generator-service/
-COPY ./services/sitemap-generator-service/ /workspace/metarang/sitemap-generator-service/
-
-WORKDIR /workspace
-RUN echo 'go 1.25.13' > go.work && \
-    printf '\nuse (\n\t./metarang/sitemap-generator-service\n\t./metarang/shared\n)\n' >> go.work
-
-WORKDIR /workspace/metarang/sitemap-generator-service
-RUN sed -i 's|replace metarang/shared => ../../shared|replace metarang/shared => /workspace/metarang/shared|g' go.mod && \
+ENV GOWORK=/src/go.work
+WORKDIR /src/services/sitemap-generator-service
+RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod,sharing=locked \
     go mod download
 
-ENV GOWORK=/workspace/go.work
-RUN go build -trimpath -ldflags="-s -w" -o /app/sitemap-generator-service ./cmd/server
+COPY shared/pkg /src/shared/pkg
+COPY services/sitemap-generator-service/ /src/services/sitemap-generator-service/
+
+WORKDIR /src/services/sitemap-generator-service
+RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
+    go build -trimpath -buildvcs=false -ldflags="-s -w" -o /app/sitemap-generator-service ./cmd/server
 
 FROM alpine:3.21
 
-RUN apk add --no-cache --upgrade ca-certificates tzdata wget libcrypto3 libssl3 && \
-    addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
+# Alpine already includes BusyBox wget, which accepts the healthcheck flags.
+RUN apk add --no-cache --upgrade ca-certificates tzdata libcrypto3 libssl3 \
+    && addgroup -g 1000 appuser \
+    && adduser -D -u 1000 -G appuser appuser
 
 WORKDIR /app
 
-COPY --from=builder --chown=appuser:appuser /app/sitemap-generator-service .
-COPY --from=builder --chown=appuser:appuser /workspace/metarang/sitemap-generator-service/templates ./templates
+COPY --link --from=builder --chown=1000:1000 /app/sitemap-generator-service /app/sitemap-generator-service
+COPY --chown=1000:1000 services/sitemap-generator-service/templates ./templates
 
 RUN mkdir -p /opt/metarang/sitemaps && chown -R appuser:appuser /opt/metarang/sitemaps
 

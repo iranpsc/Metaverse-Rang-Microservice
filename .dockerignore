@@ -41,6 +41,11 @@ coverage.out
 k8s/
 monitoring/
 tests/
+.cursor/
+.github/
+certs/
+kong/
+openapi/
 scripts/
 !scripts/docker/
 !scripts/docker/**
