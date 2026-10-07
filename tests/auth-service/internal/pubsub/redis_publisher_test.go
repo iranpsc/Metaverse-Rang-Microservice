@@ -70,7 +70,13 @@ func TestRedisPublisher_PublishAndClose(t *testing.T) {
 	if err := pub.PublishUserStatusChanged(ctx, 42, true); err != nil {
 		t.Fatal(err)
 	}
-	expectNoPublish(t, ch)
+	again := waitPublish(t, ch)
+	if err := json.Unmarshal([]byte(again.Payload), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Data.UserID != "42" || !env.Data.Online {
+		t.Fatalf("repeat online payload = %s", again.Payload)
+	}
 
 	if err := pub.PublishUserStatusChanged(ctx, 42, false); err != nil {
 		t.Fatal(err)
@@ -96,6 +102,17 @@ func TestRedisPublisher_PublishAndClose(t *testing.T) {
 	}
 	if env.Data.UserID != "42" || !env.Data.Online {
 		t.Fatalf("online again payload = %s", back.Payload)
+	}
+
+	if err := pub.PublishUserStatusChanged(ctx, 42, false); err != nil {
+		t.Fatal(err)
+	}
+	quiet := waitPublish(t, ch)
+	if err := json.Unmarshal([]byte(quiet.Payload), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Data.UserID != "42" || env.Data.Online {
+		t.Fatalf("offline after new activity payload = %s", quiet.Payload)
 	}
 
 	if err := pub.Close(); err != nil {

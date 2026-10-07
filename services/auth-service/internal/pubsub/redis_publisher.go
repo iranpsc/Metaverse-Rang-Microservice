@@ -14,10 +14,8 @@ import (
 
 const (
 	userStatusChannel = "user-status"
-	// presenceOnlineTTL matches the offline threshold. Activity refreshes it;
-	// once it expires the sweeper may announce offline.
-	presenceOnlineTTL = 2 * time.Minute
-	// presenceOfflineTTL covers the sweeper lookback so the same user is announced once.
+	// presenceOfflineTTL covers the sweeper lookback so the same quiet period is announced once.
+	// An online publish clears this key so the next 2 minutes of inactivity can announce again.
 	presenceOfflineTTL = 10 * time.Minute
 )
 
@@ -67,29 +65,40 @@ type userStatusEnvelope struct {
 	Data UserStatusChangedEvent `json:"data"`
 }
 
-func presenceOnlineKey(userID uint64) string {
-	return "presence:online:" + strconv.FormatUint(userID, 10)
-}
-
 func presenceOfflineKey(userID uint64) string {
 	return "presence:offline:" + strconv.FormatUint(userID, 10)
 }
 
 // PublishUserStatusChanged publishes a user status change on the user-status channel.
-// Repeated online or offline announcements for the same user are suppressed until presence flips.
+// Online is published on every call. Offline is published once per quiet period, until a later online event.
 func (p *redisPublisher) PublishUserStatusChanged(ctx context.Context, userID uint64, online bool) error {
 	if userID == 0 {
 		return nil
 	}
 
-	release, err := p.claimPresence(ctx, userID, online)
-	if err != nil {
-		return err
-	}
-	if release == nil {
-		return nil
+	if !online {
+		ok, err := p.client.SetNX(ctx, presenceOfflineKey(userID), "1", presenceOfflineTTL).Result()
+		if err != nil {
+			return fmt.Errorf("failed to claim offline presence: %w", err)
+		}
+		if !ok {
+			return nil
+		}
 	}
 
+	if err := p.publishStatus(ctx, userID, online); err != nil {
+		if !online {
+			_ = p.client.Del(context.Background(), presenceOfflineKey(userID)).Err()
+		}
+		return err
+	}
+	if online {
+		_ = p.client.Del(ctx, presenceOfflineKey(userID)).Err()
+	}
+	return nil
+}
+
+func (p *redisPublisher) publishStatus(ctx context.Context, userID uint64, online bool) error {
 	payload, err := json.Marshal(userStatusEnvelope{
 		Data: UserStatusChangedEvent{
 			UserID: strconv.FormatUint(userID, 10),
@@ -97,51 +106,12 @@ func (p *redisPublisher) PublishUserStatusChanged(ctx context.Context, userID ui
 		},
 	})
 	if err != nil {
-		release()
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
-
 	if err := p.client.Publish(ctx, userStatusChannel, payload).Err(); err != nil {
-		release()
 		return fmt.Errorf("failed to publish to Redis: %w", err)
 	}
-	if online {
-		_ = p.client.Del(ctx, presenceOfflineKey(userID)).Err()
-	} else {
-		_ = p.client.Del(ctx, presenceOnlineKey(userID)).Err()
-	}
 	return nil
-}
-
-// claimPresence returns a rollback func when this process should publish.
-// A nil func means the status was already announced.
-func (p *redisPublisher) claimPresence(ctx context.Context, userID uint64, online bool) (func(), error) {
-	if online {
-		ok, err := p.client.SetNX(ctx, presenceOnlineKey(userID), "1", presenceOnlineTTL).Result()
-		if err != nil {
-			return nil, fmt.Errorf("failed to claim online presence: %w", err)
-		}
-		if !ok {
-			if err := p.client.Expire(ctx, presenceOnlineKey(userID), presenceOnlineTTL).Err(); err != nil {
-				return nil, fmt.Errorf("failed to refresh online presence: %w", err)
-			}
-			return nil, nil
-		}
-		return func() {
-			_ = p.client.Del(context.Background(), presenceOnlineKey(userID)).Err()
-		}, nil
-	}
-
-	ok, err := p.client.SetNX(ctx, presenceOfflineKey(userID), "1", presenceOfflineTTL).Result()
-	if err != nil {
-		return nil, fmt.Errorf("failed to claim offline presence: %w", err)
-	}
-	if !ok {
-		return nil, nil
-	}
-	return func() {
-		_ = p.client.Del(context.Background(), presenceOfflineKey(userID)).Err()
-	}, nil
 }
 
 // Close closes the Redis connection

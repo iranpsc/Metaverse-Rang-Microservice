@@ -49,7 +49,7 @@ func (f *fakePresenceStore) ListUserIDsByLastSeen(_ context.Context, _, _, curso
 	return out, nil
 }
 
-func TestPresenceTouchThrottlesAndPublishesOnlineOnTransition(t *testing.T) {
+func TestPresenceTouchPublishesOnlineOnEveryRequest(t *testing.T) {
 	mr := miniredis.RunT(t)
 	pub, err := pubsub.NewRedisPublisher("redis://" + mr.Addr())
 	if err != nil {
@@ -70,13 +70,7 @@ func TestPresenceTouchThrottlesAndPublishesOnlineOnTransition(t *testing.T) {
 	updated := make(chan uint64, 4)
 	store := &fakePresenceStore{onUpdate: func(id uint64) { updated <- id }}
 
-	now := time.Now()
-	var mu sync.Mutex
-	svc := service.NewPresenceService(store, pub, nil, service.WithPresenceNow(func() time.Time {
-		mu.Lock()
-		defer mu.Unlock()
-		return now
-	}))
+	svc := service.NewPresenceService(store, pub, nil)
 	runCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go svc.Start(runCtx)
@@ -85,21 +79,6 @@ func TestPresenceTouchThrottlesAndPublishesOnlineOnTransition(t *testing.T) {
 	waitUpdated(t, updated, 42)
 	assertStatus(t, waitStatus(t, messages), "42", true)
 
-	svc.Touch(42)
-	expectNoUpdate(t, updated)
-	expectNoStatus(t, messages)
-
-	mu.Lock()
-	now = now.Add(31 * time.Second)
-	mu.Unlock()
-	svc.Touch(42)
-	waitUpdated(t, updated, 42)
-	expectNoStatus(t, messages)
-
-	mu.Lock()
-	now = now.Add(31 * time.Second)
-	mu.Unlock()
-	mr.FastForward(3 * time.Minute)
 	svc.Touch(42)
 	waitUpdated(t, updated, 42)
 	assertStatus(t, waitStatus(t, messages), "42", true)
@@ -162,15 +141,6 @@ func waitUpdated(t *testing.T, updated <-chan uint64, want uint64) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timeout waiting for last_seen update")
-	}
-}
-
-func expectNoUpdate(t *testing.T, updated <-chan uint64) {
-	t.Helper()
-	select {
-	case id := <-updated:
-		t.Fatalf("unexpected last_seen update for %d", id)
-	case <-time.After(150 * time.Millisecond):
 	}
 }
 

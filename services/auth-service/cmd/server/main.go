@@ -272,7 +272,10 @@ func main() {
 		middleware.AuthMiddleware(tokenValidator),
 		middleware.LastSeenMiddleware(presence),
 	)
-	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(tokenValidator)
+	optionalAuthMiddleware := middleware.WithLastSeen(
+		middleware.OptionalAuthMiddleware(tokenValidator),
+		middleware.LastSeenMiddleware(presence),
+	)
 	guestMiddleware := middleware.GuestMiddleware(tokenValidator)
 
 	listener, err := net.Listen("tcp", grpcListenAddr(cfgRuntime.GRPCPort))

@@ -11,9 +11,8 @@ type PresenceToucher interface {
 	Touch(userID uint64)
 }
 
-// LastSeenMiddleware records activity for authenticated requests and lets the
-// presence tracker publish an online user-status event when the user was offline.
-// Must run after AuthMiddleware so the user context is already set.
+// LastSeenMiddleware records activity for every authenticated request and publishes
+// an online user-status event. Must run after AuthMiddleware so the user context is already set.
 func LastSeenMiddleware(tracker PresenceToucher) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

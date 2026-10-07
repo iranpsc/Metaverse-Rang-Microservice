@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,16 +12,15 @@ import (
 )
 
 const (
-	presenceTouchInterval   = 30 * time.Second
 	presenceOfflineAfter    = 2 * time.Minute
-	presenceSweepInterval   = 30 * time.Second
+	presenceSweepInterval   = 15 * time.Second
 	presenceSweepLookback   = 5 * time.Minute
 	presenceSweepBatch      = 500
 	presenceSweepMaxBatches = 20
-	presenceTouchQueue      = 1024
+	presenceWorkers         = 8
+	presenceTouchQueue      = 4096
 	presenceLockKey         = "presence:sweep:lock"
-	presenceLockTTL         = 25 * time.Second
-	presenceMemoryTTL       = 10 * time.Minute
+	presenceLockTTL         = 10 * time.Second
 )
 
 // PresenceStore is the persistence needed to track last_seen.
@@ -43,14 +41,13 @@ type presenceService struct {
 	publisher pubsub.RedisPublisher
 	redis     *redis.Client
 	now       func() time.Time
-	lastTouch sync.Map
 	touches   chan uint64
 }
 
 // PresenceOption configures presence tracking.
 type PresenceOption func(*presenceService)
 
-// WithPresenceNow overrides the clock. Tests use this to move the throttle window.
+// WithPresenceNow overrides the clock used by the offline sweeper.
 func WithPresenceNow(now func() time.Time) PresenceOption {
 	return func(s *presenceService) {
 		if now != nil {
@@ -76,23 +73,16 @@ func NewPresenceService(store PresenceStore, publisher pubsub.RedisPublisher, re
 	return s
 }
 
-// Touch schedules a last_seen update. Calls within presenceTouchInterval are ignored.
+// Touch schedules a last_seen update and an online broadcast for this request.
 // The request path does not wait on the database or Redis.
 func (s *presenceService) Touch(userID uint64) {
 	if s == nil || userID == 0 || s.store == nil {
 		return
 	}
-	now := s.now()
-	if prev, ok := s.lastTouch.Load(userID); ok {
-		if now.Sub(prev.(time.Time)) < presenceTouchInterval {
-			return
-		}
-	}
-	s.lastTouch.Store(userID, now)
 	select {
 	case s.touches <- userID:
 	default:
-		s.lastTouch.Delete(userID)
+		go s.handleTouch(userID)
 	}
 }
 
@@ -102,6 +92,9 @@ func (s *presenceService) Start(ctx context.Context) {
 		return
 	}
 	go s.sweepLoop(ctx)
+	for i := 1; i < presenceWorkers; i++ {
+		go s.touchLoop(ctx)
+	}
 	s.touchLoop(ctx)
 }
 
@@ -117,6 +110,7 @@ func (s *presenceService) touchLoop(ctx context.Context) {
 }
 
 func (s *presenceService) sweepLoop(ctx context.Context) {
+	s.Sweep(ctx)
 	ticker := time.NewTicker(presenceSweepInterval)
 	defer ticker.Stop()
 	for {
@@ -163,7 +157,6 @@ func (s *presenceService) Sweep(ctx context.Context) {
 	}
 
 	now := s.now()
-	s.evictMemory(now)
 	until := now.Add(-presenceOfflineAfter)
 	after := until.Add(-presenceSweepLookback)
 	// cursorAt == after and cursorID == 0 selects the first page: last_seen > after.
@@ -197,14 +190,4 @@ func (s *presenceService) Sweep(ctx context.Context) {
 			return
 		}
 	}
-}
-
-func (s *presenceService) evictMemory(now time.Time) {
-	s.lastTouch.Range(func(key, value any) bool {
-		seen, ok := value.(time.Time)
-		if ok && now.Sub(seen) > presenceMemoryTTL {
-			s.lastTouch.Delete(key)
-		}
-		return true
-	})
 }
