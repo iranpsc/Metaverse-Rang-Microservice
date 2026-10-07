@@ -975,6 +975,7 @@ message SearchUserResult {
   int32 followers = 4;          // Count of followers
   string level = 5;             // Latest level name (nullable)
   string photo = 6;             // Latest profile photo URL (nullable)
+  bool is_following = 7;        // Whether the authenticated searcher follows this user
 }
 
 // SearchIsicCodesRequest - POST /api/search/isic-codes

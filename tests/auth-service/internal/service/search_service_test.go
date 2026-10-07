@@ -26,6 +26,14 @@ func (m *MockSearchRepository) SearchUsers(ctx context.Context, searchTerm strin
 	return args.Get(0).([]*repository.SearchUserResult), args.Error(1)
 }
 
+func (m *MockSearchRepository) FollowedUserIDs(ctx context.Context, followerID uint64, userIDs []uint64) (map[uint64]struct{}, error) {
+	args := m.Called(ctx, followerID, userIDs)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[uint64]struct{}), args.Error(1)
+}
+
 func (m *MockSearchRepository) SearchIsicCodes(ctx context.Context, searchTerm string) ([]*repository.IsicCodeResult, error) {
 	args := m.Called(ctx, searchTerm)
 	if args.Get(0) == nil {
@@ -126,7 +134,7 @@ func TestSearchService_SearchUsers(t *testing.T) {
 			}
 
 			svc := service.NewSearchService(mockRepo)
-			results, err := svc.SearchUsers(ctx, tt.searchTerm)
+			results, err := svc.SearchUsers(ctx, tt.searchTerm, 0)
 
 			if tt.wantError {
 				assert.Error(t, err)
@@ -151,6 +159,54 @@ func TestSearchService_SearchUsers(t *testing.T) {
 			mockRepo.AssertExpectations(t)
 		})
 	}
+}
+
+func TestSearchService_SearchUsers_IsFollowing(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("marks users the viewer follows", func(t *testing.T) {
+		mockRepo := new(MockSearchRepository)
+		mockRepo.On("SearchUsers", ctx, "ali").Return([]*repository.SearchUserResult{
+			{User: &models.User{ID: 1, Name: "ali", Code: "a"}},
+			{User: &models.User{ID: 2, Name: "ali reza", Code: "b"}},
+		}, nil)
+		mockRepo.On("FollowedUserIDs", ctx, uint64(9), []uint64{1, 2}).
+			Return(map[uint64]struct{}{2: {}}, nil)
+
+		results, err := service.NewSearchService(mockRepo).SearchUsers(ctx, "ali", 9)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+		assert.False(t, results[0].IsFollowing)
+		assert.True(t, results[1].IsFollowing)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("anonymous search skips the follow lookup", func(t *testing.T) {
+		mockRepo := new(MockSearchRepository)
+		mockRepo.On("SearchUsers", ctx, "ali").Return([]*repository.SearchUserResult{
+			{User: &models.User{ID: 1, Name: "ali", Code: "a"}},
+		}, nil)
+
+		results, err := service.NewSearchService(mockRepo).SearchUsers(ctx, "ali", 0)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		assert.False(t, results[0].IsFollowing)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("follow lookup error", func(t *testing.T) {
+		mockRepo := new(MockSearchRepository)
+		mockRepo.On("SearchUsers", ctx, "ali").Return([]*repository.SearchUserResult{
+			{User: &models.User{ID: 1, Name: "ali", Code: "a"}},
+		}, nil)
+		mockRepo.On("FollowedUserIDs", ctx, uint64(9), []uint64{1}).
+			Return(nil, assert.AnError)
+
+		results, err := service.NewSearchService(mockRepo).SearchUsers(ctx, "ali", 9)
+		assert.Error(t, err)
+		assert.Nil(t, results)
+		mockRepo.AssertExpectations(t)
+	})
 }
 
 func TestSearchService_SearchIsicCodes(t *testing.T) {

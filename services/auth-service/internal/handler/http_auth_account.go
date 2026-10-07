@@ -347,10 +347,11 @@ func (h *HTTPAuthHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	responseData := make([]map[string]interface{}, len(resp.Data))
 	for i, result := range resp.Data {
 		item := map[string]interface{}{
-			"id":        result.Id,
-			"code":      result.Code,
-			"name":      result.Name,
-			"followers": result.Followers,
+			"id":           result.Id,
+			"code":         result.Code,
+			"name":         result.Name,
+			"followers":    result.Followers,
+			"is_following": result.IsFollowing,
 		}
 		if result.Level != "" {
 			item["level"] = result.Level

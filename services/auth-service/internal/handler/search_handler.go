@@ -9,6 +9,7 @@ import (
 
 	"metarang/auth-service/internal/service"
 	pb "metarang/shared/pb/auth"
+	sharedauth "metarang/shared/pkg/auth"
 )
 
 type searchHandler struct {
@@ -31,8 +32,13 @@ func (h *searchHandler) SearchUsers(ctx context.Context, req *pb.SearchUsersRequ
 		}, nil
 	}
 
+	var viewerUserID uint64
+	if userCtx, err := sharedauth.GetUserFromContext(ctx); err == nil && userCtx != nil && userCtx.UserID > 0 {
+		viewerUserID = userCtx.UserID
+	}
+
 	// Call service
-	results, err := h.searchService.SearchUsers(ctx, req.SearchTerm)
+	results, err := h.searchService.SearchUsers(ctx, req.SearchTerm, viewerUserID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "search failed: %v", err)
 	}
@@ -41,10 +47,11 @@ func (h *searchHandler) SearchUsers(ctx context.Context, req *pb.SearchUsersRequ
 	pbResults := make([]*pb.SearchUserResult, 0, len(results))
 	for _, result := range results {
 		pbResult := &pb.SearchUserResult{
-			Id:        result.ID,
-			Code:      result.Code,
-			Name:      result.Name,
-			Followers: result.Followers,
+			Id:          result.ID,
+			Code:        result.Code,
+			Name:        result.Name,
+			Followers:   result.Followers,
+			IsFollowing: result.IsFollowing,
 		}
 
 		if result.Level != nil {

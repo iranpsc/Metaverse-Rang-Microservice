@@ -8081,11 +8081,12 @@ func (x *SearchUsersResponse) GetData() []*SearchUserResult {
 type SearchUserResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`            // Uppercased
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`            // Uses KYC data when verified, otherwise user.name
-	Followers     int32                  `protobuf:"varint,4,opt,name=followers,proto3" json:"followers,omitempty"` // Count of followers
-	Level         string                 `protobuf:"bytes,5,opt,name=level,proto3" json:"level,omitempty"`          // Latest level name (nullable)
-	Photo         string                 `protobuf:"bytes,6,opt,name=photo,proto3" json:"photo,omitempty"`          // Latest profile photo URL (nullable)
+	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`                                   // Uppercased
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                                   // Uses KYC data when verified, otherwise user.name
+	Followers     int32                  `protobuf:"varint,4,opt,name=followers,proto3" json:"followers,omitempty"`                        // Count of followers
+	Level         string                 `protobuf:"bytes,5,opt,name=level,proto3" json:"level,omitempty"`                                 // Latest level name (nullable)
+	Photo         string                 `protobuf:"bytes,6,opt,name=photo,proto3" json:"photo,omitempty"`                                 // Latest profile photo URL (nullable)
+	IsFollowing   bool                   `protobuf:"varint,7,opt,name=is_following,json=isFollowing,proto3" json:"is_following,omitempty"` // Whether the authenticated searcher follows this user
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -8160,6 +8161,13 @@ func (x *SearchUserResult) GetPhoto() string {
 		return x.Photo
 	}
 	return ""
+}
+
+func (x *SearchUserResult) GetIsFollowing() bool {
+	if x != nil {
+		return x.IsFollowing
+	}
+	return false
 }
 
 // SearchIsicCodesRequest - POST /api/search/isic-codes
@@ -8960,14 +8968,15 @@ const file_auth_proto_rawDesc = "" +
 	"\vsearch_term\x18\x01 \x01(\tR\n" +
 	"searchTerm\"A\n" +
 	"\x13SearchUsersResponse\x12*\n" +
-	"\x04data\x18\x01 \x03(\v2\x16.auth.SearchUserResultR\x04data\"\x94\x01\n" +
+	"\x04data\x18\x01 \x03(\v2\x16.auth.SearchUserResultR\x04data\"\xb7\x01\n" +
 	"\x10SearchUserResult\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x12\n" +
 	"\x04code\x18\x02 \x01(\tR\x04code\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1c\n" +
 	"\tfollowers\x18\x04 \x01(\x05R\tfollowers\x12\x14\n" +
 	"\x05level\x18\x05 \x01(\tR\x05level\x12\x14\n" +
-	"\x05photo\x18\x06 \x01(\tR\x05photo\"9\n" +
+	"\x05photo\x18\x06 \x01(\tR\x05photo\x12!\n" +
+	"\fis_following\x18\a \x01(\bR\visFollowing\"9\n" +
 	"\x16SearchIsicCodesRequest\x12\x1f\n" +
 	"\vsearch_term\x18\x01 \x01(\tR\n" +
 	"searchTerm\"C\n" +

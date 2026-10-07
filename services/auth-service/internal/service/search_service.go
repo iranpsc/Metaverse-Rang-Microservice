@@ -9,7 +9,7 @@ import (
 )
 
 type SearchService interface {
-	SearchUsers(ctx context.Context, searchTerm string) ([]*SearchUserResult, error)
+	SearchUsers(ctx context.Context, searchTerm string, viewerUserID uint64) ([]*SearchUserResult, error)
 	SearchIsicCodes(ctx context.Context, searchTerm string) ([]*IsicCodeResult, error)
 }
 
@@ -25,12 +25,13 @@ func NewSearchService(searchRepo repository.SearchRepository) SearchService {
 
 // SearchUserResult represents a user search result
 type SearchUserResult struct {
-	ID        uint64
-	Code      string
-	Name      string
-	Followers int32
-	Level     *string // nullable
-	Photo     *string // nullable
+	ID          uint64
+	Code        string
+	Name        string
+	Followers   int32
+	Level       *string // nullable
+	Photo       *string // nullable
+	IsFollowing bool
 }
 
 // IsicCodeResult represents an ISIC code search result
@@ -40,8 +41,9 @@ type IsicCodeResult struct {
 	Code uint64
 }
 
-// SearchUsers searches users by name, code, and KYC fields
-func (s *searchService) SearchUsers(ctx context.Context, searchTerm string) ([]*SearchUserResult, error) {
+// SearchUsers searches users by name, code, and KYC fields.
+// viewerUserID is the authenticated searcher; 0 means the request is anonymous.
+func (s *searchService) SearchUsers(ctx context.Context, searchTerm string, viewerUserID uint64) ([]*SearchUserResult, error) {
 	// Validate search term is not empty
 	searchTerm = strings.TrimSpace(searchTerm)
 	if searchTerm == "" {
@@ -84,7 +86,33 @@ func (s *searchService) SearchUsers(ctx context.Context, searchTerm string) ([]*
 		results = append(results, result)
 	}
 
+	if err := s.applyFollowing(ctx, viewerUserID, results); err != nil {
+		return nil, err
+	}
+
 	return results, nil
+}
+
+// applyFollowing sets IsFollowing with one query for the whole result set.
+// Anonymous searches skip the lookup and leave every flag false.
+func (s *searchService) applyFollowing(ctx context.Context, viewerUserID uint64, results []*SearchUserResult) error {
+	if viewerUserID == 0 || len(results) == 0 {
+		return nil
+	}
+
+	userIDs := make([]uint64, len(results))
+	for i, result := range results {
+		userIDs[i] = result.ID
+	}
+
+	followed, err := s.searchRepo.FollowedUserIDs(ctx, viewerUserID, userIDs)
+	if err != nil {
+		return fmt.Errorf("failed to resolve follow state: %w", err)
+	}
+	for _, result := range results {
+		_, result.IsFollowing = followed[result.ID]
+	}
+	return nil
 }
 
 // SearchIsicCodes searches ISIC codes by name

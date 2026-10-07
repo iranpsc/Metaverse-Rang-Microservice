@@ -11,6 +11,7 @@ import (
 
 	"metarang/auth-service/internal/service"
 	pb "metarang/shared/pb/auth"
+	sharedauth "metarang/shared/pkg/auth"
 )
 
 // MockSearchService is a mock implementation of SearchService
@@ -18,8 +19,8 @@ type MockSearchService struct {
 	mock.Mock
 }
 
-func (m *MockSearchService) SearchUsers(ctx context.Context, searchTerm string) ([]*service.SearchUserResult, error) {
-	args := m.Called(ctx, searchTerm)
+func (m *MockSearchService) SearchUsers(ctx context.Context, searchTerm string, viewerUserID uint64) ([]*service.SearchUserResult, error) {
+	args := m.Called(ctx, searchTerm, viewerUserID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -51,23 +52,25 @@ func TestSearchHandler_SearchUsers(t *testing.T) {
 			request: &pb.SearchUsersRequest{SearchTerm: "john"},
 			serviceResults: []*service.SearchUserResult{
 				{
-					ID:        1,
-					Code:      "USR001",
-					Name:      "John Smith",
-					Followers: 5,
-					Level:     stringPtr("Level 3"),
-					Photo:     stringPtr("http://example.com/photo.jpg"),
+					ID:          1,
+					Code:        "USR001",
+					Name:        "John Smith",
+					Followers:   5,
+					Level:       stringPtr("Level 3"),
+					Photo:       stringPtr("http://example.com/photo.jpg"),
+					IsFollowing: true,
 				},
 			},
 			wantResponse: &pb.SearchUsersResponse{
 				Data: []*pb.SearchUserResult{
 					{
-						Id:        1,
-						Code:      "USR001",
-						Name:      "John Smith",
-						Followers: 5,
-						Level:     "Level 3",
-						Photo:     "http://example.com/photo.jpg",
+						Id:          1,
+						Code:        "USR001",
+						Name:        "John Smith",
+						Followers:   5,
+						Level:       "Level 3",
+						Photo:       "http://example.com/photo.jpg",
+						IsFollowing: true,
 					},
 				},
 			},
@@ -96,7 +99,7 @@ func TestSearchHandler_SearchUsers(t *testing.T) {
 			h := handler.NewSearchHandler(mockService)
 
 			if tt.request.SearchTerm != "" {
-				mockService.On("SearchUsers", ctx, tt.request.SearchTerm).Return(tt.serviceResults, tt.serviceError)
+				mockService.On("SearchUsers", ctx, tt.request.SearchTerm, uint64(0)).Return(tt.serviceResults, tt.serviceError)
 			}
 
 			response, err := h.SearchUsers(ctx, tt.request)
@@ -118,6 +121,7 @@ func TestSearchHandler_SearchUsers(t *testing.T) {
 					assert.Equal(t, tt.wantResponse.Data[0].Code, response.Data[0].Code)
 					assert.Equal(t, tt.wantResponse.Data[0].Name, response.Data[0].Name)
 					assert.Equal(t, tt.wantResponse.Data[0].Followers, response.Data[0].Followers)
+					assert.Equal(t, tt.wantResponse.Data[0].IsFollowing, response.Data[0].IsFollowing)
 				}
 			}
 
@@ -185,6 +189,23 @@ func TestSearchHandler_SearchIsicCodes(t *testing.T) {
 			mockService.AssertExpectations(t)
 		})
 	}
+}
+
+func TestSearchHandler_SearchUsers_PassesAuthenticatedViewer(t *testing.T) {
+	ctx := context.WithValue(context.Background(), sharedauth.UserContextKey{}, &sharedauth.UserContext{UserID: 9})
+	mockService := new(MockSearchService)
+	h := handler.NewSearchHandler(mockService)
+	mockService.On("SearchUsers", ctx, "john", uint64(9)).Return([]*service.SearchUserResult{
+		{ID: 1, Code: "USR001", Name: "John", IsFollowing: true},
+		{ID: 2, Code: "USR002", Name: "Jane", IsFollowing: false},
+	}, nil)
+
+	response, err := h.SearchUsers(ctx, &pb.SearchUsersRequest{SearchTerm: "john"})
+	require.NoError(t, err)
+	require.Len(t, response.Data, 2)
+	assert.True(t, response.Data[0].IsFollowing)
+	assert.False(t, response.Data[1].IsFollowing)
+	mockService.AssertExpectations(t)
 }
 
 // Helper function

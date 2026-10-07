@@ -196,6 +196,39 @@ func TestSearchRepository_SQLMock(t *testing.T) {
 	require.Equal(t, uint64(11), isic[0].Code)
 }
 
+func TestSearchRepository_FollowedUserIDs(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := repository.NewSearchRepository(db)
+	ctx := context.Background()
+
+	empty, err := repo.FollowedUserIDs(ctx, 0, []uint64{1, 2})
+	require.NoError(t, err)
+	require.Empty(t, empty)
+
+	empty, err = repo.FollowedUserIDs(ctx, 9, nil)
+	require.NoError(t, err)
+	require.Empty(t, empty)
+
+	mock.ExpectQuery("SELECT following_id FROM follows").
+		WithArgs(uint64(9), uint64(1), uint64(2), uint64(3)).
+		WillReturnRows(sqlmock.NewRows([]string{"following_id"}).AddRow(uint64(2)))
+	followed, err := repo.FollowedUserIDs(ctx, 9, []uint64{1, 2, 3})
+	require.NoError(t, err)
+	_, followedTwo := followed[2]
+	require.True(t, followedTwo)
+	_, followedOne := followed[1]
+	require.False(t, followedOne)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	mock.ExpectQuery("SELECT following_id FROM follows").
+		WithArgs(uint64(9), uint64(1)).
+		WillReturnError(sql.ErrConnDone)
+	_, err = repo.FollowedUserIDs(ctx, 9, []uint64{1})
+	require.Error(t, err)
+}
+
 func TestActivityRepository_MoreSQLMock(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

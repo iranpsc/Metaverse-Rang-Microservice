@@ -18,6 +18,10 @@ type SearchRepository interface {
 	// SearchIsicCodes searches isic_codes table by name
 	// Returns all matches (no limit)
 	SearchIsicCodes(ctx context.Context, searchTerm string) ([]*IsicCodeResult, error)
+
+	// FollowedUserIDs returns which of userIDs followerID already follows.
+	// One indexed query. An empty set when followerID is 0 or userIDs is empty.
+	FollowedUserIDs(ctx context.Context, followerID uint64, userIDs []uint64) (map[uint64]struct{}, error)
 }
 
 type searchRepository struct {
@@ -258,6 +262,42 @@ func (r *searchRepository) getProfilePhotos(ctx context.Context, userID uint64) 
 	}
 
 	return photos, rows.Err()
+}
+
+// FollowedUserIDs returns the subset of userIDs that followerID follows.
+// Search returns at most five users, so this is one index lookup instead of a query per row.
+func (r *searchRepository) FollowedUserIDs(ctx context.Context, followerID uint64, userIDs []uint64) (map[uint64]struct{}, error) {
+	followed := make(map[uint64]struct{})
+	if followerID == 0 || len(userIDs) == 0 {
+		return followed, nil
+	}
+
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(userIDs)), ",")
+	query := `SELECT following_id FROM follows WHERE follower_id = ? AND following_id IN (` + placeholders + `)`
+
+	args := make([]interface{}, 0, len(userIDs)+1)
+	args = append(args, followerID)
+	for _, id := range userIDs {
+		args = append(args, id)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load follow relationships: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var followingID uint64
+		if err := rows.Scan(&followingID); err != nil {
+			return nil, fmt.Errorf("failed to scan follow relationship: %w", err)
+		}
+		followed[followingID] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating follow relationships: %w", err)
+	}
+	return followed, nil
 }
 
 // getFollowersCount returns the number of followers for a user
