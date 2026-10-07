@@ -17,6 +17,7 @@ import (
 	"metarang/websocket-gateway/internal/auth"
 	"metarang/websocket-gateway/internal/hub"
 	"metarang/websocket-gateway/internal/redisbus"
+	"metarang/websocket-gateway/internal/web"
 )
 
 func main() {
@@ -58,7 +59,7 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/socket.io/", eventHub)
+	registerRoutes(mux, eventHub)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		connections, users := eventHub.Stats()
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -106,6 +107,13 @@ func main() {
 }
 
 var startedAt = time.Now()
+
+func registerRoutes(mux *http.ServeMux, socketHandler http.Handler) {
+	mux.Handle("/socket.io/", socketHandler)
+	// "GET /" overlaps "/socket.io/" in Go's ServeMux. "{$}" matches only the root path.
+	mux.Handle("GET /{$}", web.Handler())
+	mux.Handle("GET /tester", web.Handler())
+}
 
 func loadConfig() {
 	paths := []string{
