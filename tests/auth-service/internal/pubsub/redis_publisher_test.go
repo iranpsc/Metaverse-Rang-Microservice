@@ -120,6 +120,82 @@ func TestRedisPublisher_PublishAndClose(t *testing.T) {
 	}
 }
 
+func TestRedisPublisher_LogoutBroadcastsOfflineAndBlocksOnline(t *testing.T) {
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mr.Close()
+
+	pub, err := pubsub.NewRedisPublisher("redis://" + mr.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pub.Close()
+
+	ctx := context.Background()
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer client.Close()
+
+	sub := client.Subscribe(ctx, "user-status")
+	defer sub.Close()
+	if _, err := sub.Receive(ctx); err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	ch := sub.Channel()
+
+	// Quiet period already claimed. Explicit logout must still broadcast.
+	if err := pub.PublishUserStatusChanged(ctx, 42, false); err != nil {
+		t.Fatal(err)
+	}
+	first := waitPublish(t, ch)
+	if payloadOnline(t, first.Payload) {
+		t.Fatalf("expected offline, payload=%s", first.Payload)
+	}
+	if err := pub.PublishUserLoggedOut(ctx, 42); err != nil {
+		t.Fatal(err)
+	}
+	logout := waitPublish(t, ch)
+	if payloadOnline(t, logout.Payload) {
+		t.Fatalf("logout payload = %s", logout.Payload)
+	}
+
+	err = pub.PublishUserStatusChanged(ctx, 42, true)
+	if err != pubsub.ErrOnlineSuppressed {
+		t.Fatalf("expected ErrOnlineSuppressed, got %v", err)
+	}
+	expectNoPublish(t, ch)
+
+	if err := pub.PublishUserLoggedIn(ctx, 42); err != nil {
+		t.Fatal(err)
+	}
+	login := waitPublish(t, ch)
+	if !payloadOnline(t, login.Payload) {
+		t.Fatalf("login payload = %s", login.Payload)
+	}
+
+	if err := pub.PublishUserStatusChanged(ctx, 42, true); err != nil {
+		t.Fatal(err)
+	}
+	again := waitPublish(t, ch)
+	if !payloadOnline(t, again.Payload) {
+		t.Fatalf("online after login payload = %s", again.Payload)
+	}
+}
+
+func payloadOnline(t *testing.T, payload string) bool {
+	t.Helper()
+	var env struct {
+		Data struct {
+			Online bool `json:"online"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(payload), &env); err != nil {
+		t.Fatal(err)
+	}
+	return env.Data.Online
+}
+
 func waitPublish(t *testing.T, ch <-chan *redis.Message) *redis.Message {
 	t.Helper()
 	select {

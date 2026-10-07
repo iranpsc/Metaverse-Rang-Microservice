@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	authpkg "metarang/shared/pkg/auth"
 )
@@ -16,7 +17,9 @@ type PresenceToucher interface {
 func LastSeenMiddleware(tracker PresenceToucher) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if tracker != nil {
+			// Logout must not count as activity. Touch publishes online, and that
+			// write can finish after logout and replace the offline broadcast.
+			if tracker != nil && !isAuthLogout(r) {
 				if user, err := authpkg.GetUserFromContext(r.Context()); err == nil && user != nil && user.UserID > 0 {
 					tracker.Touch(user.UserID)
 				}
@@ -24,6 +27,14 @@ func LastSeenMiddleware(tracker PresenceToucher) func(http.Handler) http.Handler
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func isAuthLogout(r *http.Request) bool {
+	if r == nil || r.URL == nil {
+		return false
+	}
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	return path == "/api/auth/logout"
 }
 
 // WithLastSeen composes auth then last-seen so protected routes track activity.

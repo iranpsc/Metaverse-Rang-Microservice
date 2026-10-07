@@ -103,7 +103,7 @@ func (s *observerService) OnUserLogin(ctx context.Context, user *models.User, ip
 	}
 
 	if s.publisher != nil {
-		if err := s.publisher.PublishUserStatusChanged(ctx, user.ID, true); err != nil {
+		if err := s.publisher.PublishUserLoggedIn(ctx, user.ID); err != nil {
 			// Log error but don't fail the login
 			fmt.Printf("failed to publish user status: %v\n", err)
 		}
@@ -180,6 +180,10 @@ func (s *observerService) getUserSettings(ctx context.Context, userID uint64) (*
 
 // OnUserLogout handles the logout event
 func (s *observerService) OnUserLogout(ctx context.Context, user *models.User, ip, userAgent string) error {
+	// Broadcast after bookkeeping, including when an earlier step fails.
+	// The request context may already be cancelled by then.
+	defer s.broadcastLoggedOut(ctx, user)
+
 	// 1. Get latest activity
 	latestActivity, err := s.activityRepo.GetLatestActivity(ctx, user.ID)
 	if err != nil {
@@ -206,16 +210,7 @@ func (s *observerService) OnUserLogout(ctx context.Context, user *models.User, i
 		fmt.Printf("failed to calculate score on logout: %v\n", err)
 	}
 
-	// 4. Persist last_seen far enough in the past that the user counts as offline.
-	// The offline dedupe key is set by PublishUserStatusChanged, so the sweeper
-	// does not announce the same logout again.
-	twoMinutesAgo := time.Now().Add(-2 * time.Minute)
-	if err := s.userRepo.SetLastSeen(ctx, user.ID, twoMinutesAgo); err != nil {
-		fmt.Printf("failed to set last seen on logout: %v\n", err)
-	}
-	user.LastSeen = sql.NullTime{Time: twoMinutesAgo, Valid: true}
-
-	// 5. Create logout event
+	// 4. Create logout event
 	event := &models.UserEvent{
 		UserID: user.ID,
 		Event:  "خروج از حساب کاربری", // "Logout from user account" in Persian
@@ -227,14 +222,33 @@ func (s *observerService) OnUserLogout(ctx context.Context, user *models.User, i
 		return fmt.Errorf("failed to create logout event: %w", err)
 	}
 
-	// 6. Broadcast offline status
-	if s.publisher != nil {
-		if err := s.publisher.PublishUserStatusChanged(ctx, user.ID, false); err != nil {
-			fmt.Printf("failed to publish user offline status: %v\n", err)
-		}
+	return nil
+}
+
+// broadcastLoggedOut marks the user offline and always publishes user-status-changed.
+// It runs on the way out of OnUserLogout so a failure while closing the activity
+// session cannot skip the broadcast. PublishUserLoggedOut also suppresses presence
+// touches that were queued before logout and would otherwise announce online again.
+func (s *observerService) broadcastLoggedOut(ctx context.Context, user *models.User) {
+	if s == nil || user == nil || user.ID == 0 {
+		return
 	}
 
-	return nil
+	publishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+
+	twoMinutesAgo := time.Now().Add(-2 * time.Minute)
+	if err := s.userRepo.SetLastSeen(publishCtx, user.ID, twoMinutesAgo); err != nil {
+		fmt.Printf("failed to set last seen on logout: %v\n", err)
+	}
+	user.LastSeen = sql.NullTime{Time: twoMinutesAgo, Valid: true}
+
+	if s.publisher == nil {
+		return
+	}
+	if err := s.publisher.PublishUserLoggedOut(publishCtx, user.ID); err != nil {
+		fmt.Printf("failed to publish user offline status: %v\n", err)
+	}
 }
 
 // OnUserCreated handles the user creation event

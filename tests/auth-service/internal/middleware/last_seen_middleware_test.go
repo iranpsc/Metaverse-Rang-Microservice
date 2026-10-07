@@ -61,6 +61,27 @@ func TestLastSeenMiddleware(t *testing.T) {
 		}
 	})
 
+	t.Run("does not touch on logout", func(t *testing.T) {
+		tracker := &recordingPresence{}
+		nextCalled := false
+		h := middleware.LastSeenMiddleware(tracker)(
+			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				nextCalled = true
+				w.WriteHeader(http.StatusOK)
+			}),
+		)
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
+		req = req.WithContext(context.WithValue(req.Context(), sharedauth.UserContextKey{}, &sharedauth.UserContext{UserID: 42}))
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if !nextCalled || rr.Code != http.StatusOK {
+			t.Fatalf("nextCalled=%v status=%d", nextCalled, rr.Code)
+		}
+		if len(tracker.ids) != 0 {
+			t.Fatalf("expected no touch on logout, got %v", tracker.ids)
+		}
+	})
+
 	t.Run("nil tracker is safe", func(t *testing.T) {
 		h := middleware.LastSeenMiddleware(nil)(
 			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

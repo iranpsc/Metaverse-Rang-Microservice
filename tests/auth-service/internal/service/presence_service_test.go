@@ -19,6 +19,7 @@ type fakePresenceStore struct {
 	mu       sync.Mutex
 	ids      []uint64
 	updated  []uint64
+	setAt    []time.Time
 	onUpdate func(uint64)
 }
 
@@ -29,6 +30,13 @@ func (f *fakePresenceStore) UpdateLastSeen(_ context.Context, userID uint64) err
 	if f.onUpdate != nil {
 		f.onUpdate(userID)
 	}
+	return nil
+}
+
+func (f *fakePresenceStore) SetLastSeen(_ context.Context, _ uint64, at time.Time) error {
+	f.mu.Lock()
+	f.setAt = append(f.setAt, at)
+	f.mu.Unlock()
 	return nil
 }
 
@@ -84,6 +92,49 @@ func TestPresenceTouchPublishesOnlineOnEveryRequest(t *testing.T) {
 	assertStatus(t, waitStatus(t, messages), "42", true)
 }
 
+func TestPresenceTouchAfterLogoutStaysOffline(t *testing.T) {
+	mr := miniredis.RunT(t)
+	pub, err := pubsub.NewRedisPublisher("redis://" + mr.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = pub.Close() })
+
+	ctx := context.Background()
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	sub := client.Subscribe(ctx, "user-status")
+	t.Cleanup(func() { _ = sub.Close() })
+	if _, err := sub.Receive(ctx); err != nil {
+		t.Fatal(err)
+	}
+	messages := sub.Channel()
+
+	store := &fakePresenceStore{}
+	svc := service.NewPresenceService(store, pub, nil)
+	runCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go svc.Start(runCtx)
+
+	if err := pub.PublishUserLoggedOut(ctx, 42); err != nil {
+		t.Fatal(err)
+	}
+	assertStatus(t, waitStatus(t, messages), "42", false)
+
+	svc.Touch(42)
+	waitForSetLastSeen(t, store)
+	expectNoStatus(t, messages)
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if len(store.setAt) == 0 {
+		t.Fatal("expected last_seen to be moved offline")
+	}
+	if time.Since(store.setAt[len(store.setAt)-1]) < time.Minute {
+		t.Fatalf("expected last_seen about 2 minutes ago, got %v", store.setAt[len(store.setAt)-1])
+	}
+}
+
 func TestPresenceSweepAnnouncesOfflineOnce(t *testing.T) {
 	mr := miniredis.RunT(t)
 	pub, err := pubsub.NewRedisPublisher("redis://" + mr.Addr())
@@ -130,6 +181,21 @@ func TestPresenceSweepAnnouncesOfflineOnce(t *testing.T) {
 	mr.FastForward(30 * time.Second)
 	svc.Sweep(ctx)
 	expectNoStatus(t, messages)
+}
+
+func waitForSetLastSeen(t *testing.T, store *fakePresenceStore) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		store.mu.Lock()
+		n := len(store.setAt)
+		store.mu.Unlock()
+		if n > 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("timeout waiting for offline last_seen restore")
 }
 
 func waitUpdated(t *testing.T, updated <-chan uint64, want uint64) {

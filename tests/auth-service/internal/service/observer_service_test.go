@@ -21,6 +21,12 @@ func (f *fakePublisher) PublishUserStatusChanged(_ context.Context, _ uint64, on
 	f.calls = append(f.calls, online)
 	return nil
 }
+func (f *fakePublisher) PublishUserLoggedOut(ctx context.Context, userID uint64) error {
+	return f.PublishUserStatusChanged(ctx, userID, false)
+}
+func (f *fakePublisher) PublishUserLoggedIn(ctx context.Context, userID uint64) error {
+	return f.PublishUserStatusChanged(ctx, userID, true)
+}
 func (f *fakePublisher) Close() error { return nil }
 
 var _ pubsub.RedisPublisher = (*fakePublisher)(nil)

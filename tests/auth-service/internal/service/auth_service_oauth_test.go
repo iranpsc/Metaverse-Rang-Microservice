@@ -1236,6 +1236,10 @@ func (n *noopPublisher) PublishUserStatusChanged(context.Context, uint64, bool) 
 	return nil
 }
 
+func (n *noopPublisher) PublishUserLoggedOut(context.Context, uint64) error { return nil }
+
+func (n *noopPublisher) PublishUserLoggedIn(context.Context, uint64) error { return nil }
+
 func (n *noopPublisher) Close() error {
 	return nil
 }
@@ -1256,6 +1260,14 @@ func newTrackingPublisher() *trackingPublisher {
 func (p *trackingPublisher) PublishUserStatusChanged(_ context.Context, userID uint64, online bool) error {
 	p.statusChanges = append(p.statusChanges, statusChange{userID: userID, online: online})
 	return nil
+}
+
+func (p *trackingPublisher) PublishUserLoggedOut(ctx context.Context, userID uint64) error {
+	return p.PublishUserStatusChanged(ctx, userID, false)
+}
+
+func (p *trackingPublisher) PublishUserLoggedIn(ctx context.Context, userID uint64) error {
+	return p.PublishUserStatusChanged(ctx, userID, true)
 }
 
 func (p *trackingPublisher) Close() error {
