@@ -18,7 +18,7 @@ var (
 	ErrInvalidLovedCountry   = errors.New("loved_country must be at most 255 characters")
 	ErrInvalidLovedLanguage  = errors.New("loved_language must be at most 255 characters")
 	ErrInvalidProblemSolving = errors.New("problem_solving must be at most 10000 characters")
-	ErrInvalidPrediction     = errors.New("prediction must be at most 10000 characters")
+	ErrInvalidPrediction     = errors.New("prediction must be at most 15000 characters")
 	ErrInvalidAbout          = errors.New("about must be at most 10000 characters")
 	ErrInvalidPassionKey     = errors.New("invalid passion key")
 )
@@ -151,10 +151,10 @@ func (s *personalInfoService) validatePersonalInfoInput(occupation, education, m
 	if len(lovedLanguage) > 255 {
 		return ErrInvalidLovedLanguage
 	}
-	if len(problemSolving) > 10000 {
+	if len(problemSolving) > 15000 {
 		return ErrInvalidProblemSolving
 	}
-	if len(prediction) > 10000 {
+	if len(prediction) > 15000 {
 		return ErrInvalidPrediction
 	}
 	if len(about) > 10000 {
