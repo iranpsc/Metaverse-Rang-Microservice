@@ -10,7 +10,7 @@
 
 ## How service CI works
 
-`services-ci.yml` is the single entry point for all 14 Go services. On every push or PR it:
+`services-ci.yml` is the single entry point for all 16 Go services. On every push or PR it:
 
 1. Runs `dorny/paths-filter` to detect which services changed.
 2. Builds a JSON matrix of affected services:
