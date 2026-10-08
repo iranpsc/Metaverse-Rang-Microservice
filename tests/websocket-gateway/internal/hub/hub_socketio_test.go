@@ -188,19 +188,29 @@ func TestSocketIORejectsInvalidToken(t *testing.T) {
 	conn := dialEngineIO(t, srv.URL, "bad-token", false, nil)
 	t.Cleanup(func() { _ = conn.Close() })
 
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	// A single deadline: gorilla/websocket panics if ReadMessage is called again after any error.
+	if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
+			if isTimeoutErr(err) {
+				t.Fatal("expected unauthorized connect error")
+			}
 			return
 		}
 		raw := string(message)
+		if raw == "2" {
+			if err := conn.WriteMessage(websocket.TextMessage, []byte("3")); err != nil {
+				t.Fatalf("write engine.io pong: %v", err)
+			}
+			continue
+		}
 		if strings.HasPrefix(raw, "44") || strings.Contains(raw, "unauthorized") {
 			return
 		}
 	}
-	t.Fatal("expected unauthorized connect error")
 }
 
 func TestBroadcastUserStatusAndNotification(t *testing.T) {
@@ -222,6 +232,19 @@ func TestBroadcastUserStatusAndNotification(t *testing.T) {
 	}
 	if statusPayload["online"] != true {
 		t.Fatalf("user-status payload = %#v", statusPayload)
+	}
+
+	h.BroadcastUserStatus(map[string]any{
+		"data": map[string]any{"user_id": "42", "online": false},
+	})
+	wrapped := waitForEvent(t, conn, "user-status-changed", 3*time.Second)
+	var wrappedPayload map[string]any
+	if err := json.Unmarshal(wrapped.data, &wrappedPayload); err != nil {
+		t.Fatalf("decode wrapped user-status payload: %v", err)
+	}
+	inner, ok := wrappedPayload["data"].(map[string]any)
+	if !ok || inner["user_id"] != "42" || inner["online"] != false {
+		t.Fatalf("wrapped user-status payload = %#v", wrappedPayload)
 	}
 
 	h.BroadcastNotification(map[string]any{
@@ -303,12 +326,15 @@ func dialEngineIO(t *testing.T, baseURL, token string, authPacket bool, headers 
 
 func waitForEvent(t *testing.T, conn *websocket.Conn, name string, timeout time.Duration) socketFrame {
 	t.Helper()
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		frame, err := readSocketFrame(conn, 500*time.Millisecond)
+	// A single deadline: gorilla/websocket panics if ReadMessage is called again after any error.
+	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+	for {
+		frame, err := readSocketFrame(conn)
 		if err != nil {
 			if isTimeoutErr(err) {
-				continue
+				t.Fatalf("timed out waiting for %s", name)
 			}
 			t.Fatalf("read while waiting for %s: %v", name, err)
 		}
@@ -316,38 +342,39 @@ func waitForEvent(t *testing.T, conn *websocket.Conn, name string, timeout time.
 			return *frame
 		}
 	}
-	t.Fatalf("timed out waiting for %s", name)
-	return socketFrame{}
 }
 
 func readEventIfAny(t *testing.T, conn *websocket.Conn, wait time.Duration) *socketFrame {
 	t.Helper()
-	frame, err := readSocketFrame(conn, wait)
+	if err := conn.SetReadDeadline(time.Now().Add(wait)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+	frame, err := readSocketFrame(conn)
 	if err != nil {
 		return nil
 	}
 	return frame
 }
 
-func readSocketFrame(conn *websocket.Conn, wait time.Duration) (*socketFrame, error) {
-	_ = conn.SetReadDeadline(time.Now().Add(wait))
-	_, message, err := conn.ReadMessage()
-	if err != nil {
-		return nil, err
-	}
-	raw := string(message)
-	switch {
-	case raw == "2":
-		_ = conn.WriteMessage(websocket.TextMessage, []byte("3"))
-		return nil, nil
-	case strings.HasPrefix(raw, "42"):
-		frame, ok := parseSocketEvent(raw)
-		if !ok {
-			return nil, nil
+func readSocketFrame(conn *websocket.Conn) (*socketFrame, error) {
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			return nil, err
 		}
-		return &frame, nil
-	default:
-		return nil, nil
+		raw := string(message)
+		switch {
+		case raw == "2":
+			if err := conn.WriteMessage(websocket.TextMessage, []byte("3")); err != nil {
+				return nil, err
+			}
+		case strings.HasPrefix(raw, "42"):
+			frame, ok := parseSocketEvent(raw)
+			if !ok {
+				continue
+			}
+			return &frame, nil
+		}
 	}
 }
 

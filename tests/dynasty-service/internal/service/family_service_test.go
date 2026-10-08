@@ -109,9 +109,9 @@ func TestFamilyService_GetUserBasicInfo(t *testing.T) {
 	defer db.Close()
 
 	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), nil)
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(5)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "C5", "Name5"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "C5", "Name5", nil))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(5)).
 		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("https://img"))
@@ -125,6 +125,7 @@ func TestFamilyService_GetUserBasicInfo(t *testing.T) {
 	require.NotNil(t, info.ProfilePhoto)
 	assert.Equal(t, "https://img", *info.ProfilePhoto)
 	assert.Equal(t, "", info.Level)
+	assert.False(t, info.Online)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -140,9 +141,9 @@ func TestFamilyService_GetUserBasicInfo_IncludesLatestLevel(t *testing.T) {
 	}
 	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), levels)
 
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(5)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "C5", "Name5"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "C5", "Name5", nil))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(5)).
 		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("https://img"))
@@ -163,9 +164,9 @@ func TestFamilyService_GetUserBasicInfo_LevelLookupFailureLeavesEmpty(t *testing
 	levels := &stubUserLevelPort{err: errors.New("levels unavailable")}
 	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), levels)
 
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(5)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "C5", "Name5"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "C5", "Name5", nil))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(5)).
 		WillReturnError(sql.ErrNoRows)
@@ -185,9 +186,9 @@ func TestFamilyService_GetUserBasicInfo_NoLatestLevel(t *testing.T) {
 	levels := &stubUserLevelPort{resp: &levelspb.UserLevelResponse{}}
 	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), levels)
 
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(5)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "C5", "Name5"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "C5", "Name5", nil))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(5)).
 		WillReturnError(sql.ErrNoRows)
@@ -196,5 +197,40 @@ func TestFamilyService_GetUserBasicInfo_NoLatestLevel(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, info)
 	assert.Equal(t, "", info.Level)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestFamilyService_GetUserBasicInfo_OnlineFromLastSeen(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	svc := service.NewFamilyService(repository.NewFamilyRepository(db), repository.NewDynastyRepository(db), nil)
+	recent := time.Now().Add(-time.Minute)
+	stale := time.Now().Add(-3 * time.Minute)
+
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
+		WithArgs(uint64(5)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "C5", "Name5", recent))
+	mock.ExpectQuery("SELECT url FROM images").
+		WithArgs(uint64(5)).
+		WillReturnError(sql.ErrNoRows)
+
+	info, err := svc.GetUserBasicInfo(context.Background(), 5)
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	assert.True(t, info.Online)
+
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
+		WithArgs(uint64(6)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(6, "C6", "Name6", stale))
+	mock.ExpectQuery("SELECT url FROM images").
+		WithArgs(uint64(6)).
+		WillReturnError(sql.ErrNoRows)
+
+	info, err = svc.GetUserBasicInfo(context.Background(), 6)
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	assert.False(t, info.Online)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

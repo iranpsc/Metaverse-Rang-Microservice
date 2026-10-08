@@ -26,17 +26,10 @@ func withUser(r *http.Request, id uint64) *http.Request {
 
 type stubSearchService struct{}
 
-func (stubSearchService) SearchUsers(context.Context, string) ([]*service.SearchUserResult, error) {
+func (stubSearchService) SearchUsers(context.Context, string, uint64) ([]*service.SearchUserResult, error) {
 	lvl, photo := "L1", "/p.jpg"
 	return []*service.SearchUserResult{{
-		ID: 1, Code: "hm-1", Name: "Ali", Followers: 3, Level: &lvl, Photo: &photo,
-	}}, nil
-}
-func (stubSearchService) SearchFeatures(context.Context, string) ([]*service.SearchFeatureResult, error) {
-	return []*service.SearchFeatureResult{{
-		ID: 1, FeaturePropertiesID: "1", Address: "addr", Karbari: "m",
-		PricePsc: "1", PriceIrr: "2", OwnerCode: "hm-1",
-		Coordinates: []*service.FeatureCoordinate{{ID: 1, X: 1.1, Y: 2.2}},
+		ID: 1, Code: "hm-1", Name: "Ali", Followers: 3, Level: &lvl, Photo: &photo, IsFollowing: true,
 	}}, nil
 }
 func (stubSearchService) SearchIsicCodes(context.Context, string) ([]*service.IsicCodeResult, error) {
@@ -167,11 +160,25 @@ func TestHTTPAuthHandler_SettingsKYCSearch(t *testing.T) {
 		if rr.Code != http.StatusOK {
 			t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
 		}
-		r = withUser(httptest.NewRequest(http.MethodGet, "/api/search/features?q=a", nil), 1)
+
+		body := bytes.NewBufferString(`{"searchTerm":"ali"}`)
+		r = withUser(httptest.NewRequest(http.MethodPost, "/api/search/users", body), 1)
+		r.Header.Set("Content-Type", "application/json")
 		rr = httptest.NewRecorder()
-		httpH.SearchFeatures(rr, r)
+		httpH.SearchUsers(rr, r)
 		if rr.Code != http.StatusOK {
 			t.Fatalf("code=%d body=%s", rr.Code, rr.Body.String())
+		}
+		var payload struct {
+			Data []struct {
+				IsFollowing bool `json:"is_following"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode search: %v body=%s", err, rr.Body.String())
+		}
+		if len(payload.Data) != 1 || !payload.Data[0].IsFollowing {
+			t.Fatalf("expected is_following true, got %s", rr.Body.String())
 		}
 		r = withUser(httptest.NewRequest(http.MethodGet, "/api/search/isic-codes?q=a", nil), 1)
 		rr = httptest.NewRecorder()

@@ -51,6 +51,7 @@ func TestDynastyService_CreateDynasty_ErrorPaths(t *testing.T) {
 		mock.ExpectQuery("SELECT id, user_id, feature_id").
 			WithArgs(userID).
 			WillReturnError(sql.ErrNoRows)
+		expectCreateFeatureGate(mock, userID, featureID)
 		mock.ExpectExec("INSERT INTO dynasties").
 			WithArgs(userID, featureID).
 			WillReturnError(errors.New("insert failed"))
@@ -65,6 +66,7 @@ func TestDynastyService_CreateDynasty_ErrorPaths(t *testing.T) {
 		mock.ExpectQuery("SELECT id, user_id, feature_id").
 			WithArgs(userID).
 			WillReturnError(sql.ErrNoRows)
+		expectCreateFeatureGate(mock, userID, featureID)
 		mock.ExpectExec("INSERT INTO dynasties").
 			WithArgs(userID, featureID).
 			WillReturnResult(sqlmock.NewResult(1, 1))
@@ -77,11 +79,29 @@ func TestDynastyService_CreateDynasty_ErrorPaths(t *testing.T) {
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 
+	t.Run("FeatureNotOwned", func(t *testing.T) {
+		mock, svc := newDynastyService(t)
+		mock.ExpectQuery("SELECT id, user_id, feature_id").
+			WithArgs(userID).
+			WillReturnError(sql.ErrNoRows)
+		mock.ExpectQuery("FROM kycs").
+			WithArgs(userID).
+			WillReturnRows(sqlmock.NewRows([]string{"verified"}).AddRow(true))
+		mock.ExpectQuery("SELECT f.owner_id, fp.karbari").
+			WithArgs(featureID).
+			WillReturnRows(sqlmock.NewRows([]string{"owner_id", "karbari"}).AddRow(uint64(99), "m"))
+		_, _, err := svc.CreateDynasty(ctx, userID, featureID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "مالک این ملک نیستید")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
 	t.Run("AddOwnerError", func(t *testing.T) {
 		mock, svc := newDynastyService(t)
 		mock.ExpectQuery("SELECT id, user_id, feature_id").
 			WithArgs(userID).
 			WillReturnError(sql.ErrNoRows)
+		expectCreateFeatureGate(mock, userID, featureID)
 		mock.ExpectExec("INSERT INTO dynasties").
 			WithArgs(userID, featureID).
 			WillReturnResult(sqlmock.NewResult(1, 1))
@@ -196,6 +216,7 @@ func TestDynastyService_UpdateDynastyFeature_ValidationAndPenalty(t *testing.T) 
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(dynastyID, userID, 100, now.AddDate(0, 0, -60), now.AddDate(0, 0, -31)))
+		expectUpdateFeatureGate(mock, userID, newFeatureID)
 		mock.ExpectExec("UPDATE dynasties SET feature_id").
 			WithArgs(newFeatureID, dynastyID).
 			WillReturnError(errors.New("update failed"))
@@ -220,6 +241,7 @@ func TestDynastyService_UpdateDynastyFeature_ValidationAndPenalty(t *testing.T) 
 				WithArgs(dynastyID).
 				WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 					AddRow(dynastyID, userID, 100, now, now.Add(-time.Hour)))
+			expectUpdateFeatureGate(mock, userID, newFeatureID)
 			mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 				WithArgs(uint64(100)).
 				WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow(tc.karbari, 10000.0))
@@ -244,6 +266,7 @@ func TestDynastyService_UpdateDynastyFeature_ValidationAndPenalty(t *testing.T) 
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(dynastyID, userID, 100, now, now.Add(-time.Hour)))
+		expectUpdateFeatureGate(mock, userID, newFeatureID)
 		mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 			WithArgs(uint64(100)).
 			WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow("m", 0.0))
@@ -264,6 +287,7 @@ func TestDynastyService_UpdateDynastyFeature_ValidationAndPenalty(t *testing.T) 
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(dynastyID, userID, 100, now, now.Add(-time.Hour)))
+		expectUpdateFeatureGate(mock, userID, newFeatureID)
 		mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 			WithArgs(uint64(100)).
 			WillReturnError(errors.New("penalty query failed"))
@@ -279,6 +303,7 @@ func TestDynastyService_UpdateDynastyFeature_ValidationAndPenalty(t *testing.T) 
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(dynastyID, userID, 100, now, now.Add(-time.Hour)))
+		expectUpdateFeatureGate(mock, userID, newFeatureID)
 		mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 			WithArgs(uint64(100)).
 			WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow("m", 10000.0))
@@ -296,6 +321,7 @@ func TestDynastyService_UpdateDynastyFeature_ValidationAndPenalty(t *testing.T) 
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(dynastyID, userID, 100, now, now.Add(-time.Hour)))
+		expectUpdateFeatureGate(mock, userID, newFeatureID)
 		mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 			WithArgs(uint64(100)).
 			WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow("m", 0.0))
@@ -313,6 +339,7 @@ func TestDynastyService_UpdateDynastyFeature_ValidationAndPenalty(t *testing.T) 
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(dynastyID, userID, 100, now, now.Add(-time.Hour)))
+		expectUpdateFeatureGate(mock, userID, newFeatureID)
 		mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 			WithArgs(uint64(100)).
 			WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow("m", 0.0))
@@ -349,11 +376,18 @@ func TestDynastyService_PassthroughLookups(t *testing.T) {
 		mock.ExpectQuery("SELECT f.id, fp.id as properties_id").
 			WithArgs(uint64(1), uint64(100)).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability", "karbari"}).
-				AddRow(101, "p2", "a", "d", "s", "m"))
+				AddRow(uint64(101), "p2", "a", "d", "s", "m"))
+		mock.ExpectQuery("FROM coordinates c").
+			WithArgs(uint64(101)).
+			WillReturnRows(sqlmock.NewRows([]string{"feature_id", "id", "x", "y"}).
+				AddRow(uint64(101), uint64(8), "1.250000", "3.500000"))
 		features, err := svc.GetUserFeatures(ctx, 1, 100)
 		require.NoError(t, err)
 		require.Len(t, features, 1)
 		assert.Equal(t, uint64(101), features[0]["id"])
+		assert.Equal(t, []map[string]interface{}{
+			{"id": uint64(8), "x": "1.250000", "y": "3.500000"},
+		}, features[0]["coordinates"])
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 

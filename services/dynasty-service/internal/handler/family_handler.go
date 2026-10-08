@@ -184,13 +184,29 @@ func (h *FamilyHandler) SetChildPermissions(ctx context.Context, req *dynastypb.
 	return &commonpb.Empty{}, nil
 }
 
+// UpdateNamedChildPermission sets one child permission, including turning it off.
+// Proto3 bools cannot tell an explicit false from an unset flag, so HTTP uses this path.
+func (h *FamilyHandler) UpdateNamedChildPermission(ctx context.Context, parentUserID, childUserID uint64, permission string, enabled bool) error {
+	if h.permissionService == nil {
+		return status.Errorf(codes.Internal, "permission service not initialized")
+	}
+	if err := h.permissionService.UpdateChildPermission(ctx, parentUserID, childUserID, permission, enabled); err != nil {
+		return mapServiceError(err)
+	}
+	return nil
+}
+
 func (h *FamilyHandler) toProtoFamilyMember(ctx context.Context, m *models.FamilyMember) *dynastypb.FamilyMember {
 	userInfo, _ := h.familyService.GetUserBasicInfo(ctx, m.UserID)
-	return &dynastypb.FamilyMember{
+	member := &dynastypb.FamilyMember{
 		Id:           m.ID,
 		UserId:       m.UserID,
 		Relationship: m.Relationship,
 		UserInfo:     buildUserBasic(userInfo),
 		CreatedAt:    formatJalaliDate(m.CreatedAt),
 	}
+	if userInfo != nil {
+		member.Online = userInfo.Online
+	}
+	return member
 }

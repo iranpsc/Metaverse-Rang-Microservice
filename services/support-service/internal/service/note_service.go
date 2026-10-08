@@ -4,10 +4,13 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"metarang/support-service/internal/models"
 	"metarang/support-service/internal/repository"
 )
+
+const maxNoteAttachments = 5
 
 type NoteService interface {
 	CreateNote(ctx context.Context, userID uint64, title, content string, attachments []string) (*models.Note, error)
@@ -28,6 +31,10 @@ func NewNoteService(noteRepo repository.NoteRepository) NoteService {
 }
 
 func (s *noteService) CreateNote(ctx context.Context, userID uint64, title, content string, attachments []string) (*models.Note, error) {
+	if err := validateNoteAttachmentLimit(attachments); err != nil {
+		return nil, err
+	}
+
 	note := &models.Note{
 		Title:       title,
 		Content:     content,
@@ -79,7 +86,17 @@ func (s *noteService) UpdateNote(ctx context.Context, noteID, userID uint64, tit
 	note.Title = title
 	note.Content = content
 	if replaceAttachments {
-		note.Attachments = attachments
+		switch attachments {
+		case nil:
+			// Leave stored attachments unchanged.
+		default:
+			// The provided list is the full set. Links the client removed are dropped.
+			cleaned, normErr := normalizeNoteAttachments(attachments)
+			if normErr != nil {
+				return nil, normErr
+			}
+			note.Attachments = cleaned
+		}
 	}
 
 	err = s.noteRepo.Update(ctx, note)
@@ -88,6 +105,35 @@ func (s *noteService) UpdateNote(ctx context.Context, noteID, userID uint64, tit
 	}
 
 	return s.noteRepo.GetByID(ctx, noteID)
+}
+
+// normalizeNoteAttachments trims, drops blanks, and keeps the first copy of each URL.
+// The result replaces the stored list and cannot exceed 5 items.
+func normalizeNoteAttachments(attachments []string) ([]string, error) {
+	cleaned := make([]string, 0, len(attachments))
+	seen := make(map[string]struct{}, len(attachments))
+	for _, attachment := range attachments {
+		attachment = strings.TrimSpace(attachment)
+		if attachment == "" {
+			continue
+		}
+		if _, ok := seen[attachment]; ok {
+			continue
+		}
+		seen[attachment] = struct{}{}
+		cleaned = append(cleaned, attachment)
+	}
+	if err := validateNoteAttachmentLimit(cleaned); err != nil {
+		return nil, err
+	}
+	return cleaned, nil
+}
+
+func validateNoteAttachmentLimit(attachments []string) error {
+	if len(attachments) > maxNoteAttachments {
+		return fmt.Errorf("attachments must not have more than 5 items")
+	}
+	return nil
 }
 
 func (s *noteService) DeleteNote(ctx context.Context, noteID, userID uint64) error {

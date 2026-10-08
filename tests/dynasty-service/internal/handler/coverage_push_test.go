@@ -201,7 +201,7 @@ func TestJoinRequestHandler_AcceptAndSearchAndDefaults(t *testing.T) {
 
 	mock.ExpectQuery("FROM users u").
 		WithArgs("%ali%", "%ali%", "%ali%", 20).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "display_name"}).AddRow(1, "A", "Ali", "Ali Test"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(1, "A", "Ali"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(1)).
 		WillReturnError(sql.ErrNoRows)
@@ -251,6 +251,11 @@ func TestDynastyHandler_GetUserDynasty_Existing(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability", "karbari"}).
 			AddRow(otherFeatureID, "2", "1200", "40", "11000", "m").
 			AddRow(anotherFeatureID, "3", "1300", "45", "12000", "m"))
+	mock.ExpectQuery("FROM coordinates c").
+		WithArgs(otherFeatureID, anotherFeatureID).
+		WillReturnRows(sqlmock.NewRows([]string{"feature_id", "id", "x", "y"}).
+			AddRow(otherFeatureID, uint64(11), "10.100000", "20.200000").
+			AddRow(anotherFeatureID, uint64(12), "30.300000", "40.400000"))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(userID).
 		WillReturnError(sql.ErrNoRows)
@@ -268,8 +273,16 @@ func TestDynastyHandler_GetUserDynasty_Existing(t *testing.T) {
 	require.Len(t, resp.Features, 2)
 	assert.Equal(t, otherFeatureID, resp.Features[0].Id)
 	assert.Equal(t, "11000", resp.Features[0].Stability)
+	require.Len(t, resp.Features[0].Coordinates, 1)
+	assert.Equal(t, uint64(11), resp.Features[0].Coordinates[0].Id)
+	assert.Equal(t, "10.100000", resp.Features[0].Coordinates[0].X)
+	assert.Equal(t, "20.200000", resp.Features[0].Coordinates[0].Y)
 	assert.Equal(t, anotherFeatureID, resp.Features[1].Id)
 	assert.Equal(t, "12000", resp.Features[1].Stability)
+	require.Len(t, resp.Features[1].Coordinates, 1)
+	assert.Equal(t, uint64(12), resp.Features[1].Coordinates[0].Id)
+	assert.Equal(t, "30.300000", resp.Features[1].Coordinates[0].X)
+	assert.Equal(t, "40.400000", resp.Features[1].Coordinates[0].Y)
 	for _, f := range resp.Features {
 		assert.NotEqual(t, dynastyFeatureID, f.Id, "current dynasty feature must not appear in Features")
 	}
@@ -294,6 +307,7 @@ func TestDynastyService_FeatureColorVariants(t *testing.T) {
 			WithArgs(uint64(1)).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(1, 10, 100, now, now.Add(-time.Hour)))
+		expectUpdateFeatureGate(mock, 10, 200)
 		mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 			WithArgs(uint64(100)).
 			WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow(tc.karbari, 10000.0))

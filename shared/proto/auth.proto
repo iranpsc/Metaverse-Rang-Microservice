@@ -954,7 +954,6 @@ message CheckWalletRegisteredResponse {
 // Search Service - handles search endpoints (no authentication required)
 service SearchService {
   rpc SearchUsers(SearchUsersRequest) returns (SearchUsersResponse);
-  rpc SearchFeatures(SearchFeaturesRequest) returns (SearchFeaturesResponse);
   rpc SearchIsicCodes(SearchIsicCodesRequest) returns (SearchIsicCodesResponse);
 }
 
@@ -976,35 +975,7 @@ message SearchUserResult {
   int32 followers = 4;          // Count of followers
   string level = 5;             // Latest level name (nullable)
   string photo = 6;             // Latest profile photo URL (nullable)
-}
-
-// SearchFeaturesRequest - POST /api/search/features
-message SearchFeaturesRequest {
-  string search_term = 1;
-}
-
-// SearchFeaturesResponse - feature search results
-message SearchFeaturesResponse {
-  repeated SearchFeatureResult data = 1;
-}
-
-// SearchFeatureResult - individual feature search result
-message SearchFeatureResult {
-  uint64 id = 1;                        // Feature ID
-  string feature_properties_id = 2;     // Uppercased FeatureProperties.id
-  string address = 3;
-  string karbari = 4;                   // Application title from feature
-  string price_psc = 5;
-  string price_irr = 6;
-  string owner_code = 7;                // Uppercased owner code
-  repeated Coordinate coordinates = 8;   // Geometry coordinates
-}
-
-// Coordinate - coordinate with id, x, y for search results
-message Coordinate {
-  uint64 id = 1;
-  double x = 2;                         // Parsed from varchar as float64
-  double y = 3;                         // Parsed from varchar as float64
+  bool is_following = 7;        // Whether the authenticated searcher follows this user
 }
 
 // SearchIsicCodesRequest - POST /api/search/isic-codes

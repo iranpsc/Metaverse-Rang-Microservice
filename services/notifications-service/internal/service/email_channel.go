@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -10,13 +11,20 @@ import (
 	"net/mail"
 	"net/smtp"
 	"strings"
+	"time"
 
 	"metarang/notifications-service/internal/errs"
 	"metarang/notifications-service/internal/models"
+	"metarang/notifications-service/internal/resilience"
 	"metarang/shared/pkg/helpers"
 )
 
 type noopEmailChannel struct{}
+
+const (
+	defaultSMTPTimeout = 10 * time.Second
+	smtpDialTimeout    = 5 * time.Second
+)
 
 // EmailChannelConfig holds SMTP settings (SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_*).
 type EmailChannelConfig struct {
@@ -26,13 +34,30 @@ type EmailChannelConfig struct {
 	Password  string
 	FromName  string
 	FromEmail string
+	Timeout   time.Duration
 }
 
 type smtpMailSender func(addr string, a smtp.Auth, from string, to []string, msg []byte) error
 
+type smtpDialFunc func(ctx context.Context, network, address string) (net.Conn, error)
+
+// netDialError marks a failure before an SMTP session exists, so the send may be retried once.
+type netDialError struct {
+	err error
+}
+
+func (e *netDialError) Error() string {
+	return "smtp dial: " + e.err.Error()
+}
+
+func (e *netDialError) Unwrap() error { return e.err }
+
 type smtpEmailChannel struct {
-	cfg  EmailChannelConfig
-	send smtpMailSender
+	cfg     EmailChannelConfig
+	send    smtpMailSender
+	dial    smtpDialFunc
+	timeout time.Duration
+	breaker *resilience.Breaker
 }
 
 // NewEmailChannel returns a placeholder email channel implementation.
@@ -49,7 +74,15 @@ func NewEmailChannelFromConfig(cfg EmailChannelConfig) EmailChannel {
 	if strings.TrimSpace(cfg.Port) == "" {
 		cfg.Port = "587"
 	}
-	return &smtpEmailChannel{cfg: cfg, send: smtp.SendMail}
+	timeout := cfg.Timeout
+	if timeout <= 0 {
+		timeout = defaultSMTPTimeout
+	}
+	return &smtpEmailChannel{
+		cfg:     cfg,
+		timeout: timeout,
+		breaker: resilience.NewBreaker(resilience.DefaultFailureThreshold, resilience.DefaultOpenCooldown),
+	}
 }
 
 func (c *noopEmailChannel) SendEmail(ctx context.Context, payload models.EmailPayload) (string, error) {
@@ -116,19 +149,138 @@ func (c *smtpEmailChannel) SendEmail(ctx context.Context, payload models.EmailPa
 		auth = smtp.PlainAuth("", c.cfg.Username, c.cfg.Password, c.cfg.Host)
 	}
 
+	rawMsg := []byte(msg.String())
+	err = c.deliver(ctx, addr, auth, c.cfg.FromEmail, recipients, rawMsg)
+	if err != nil {
+		if errors.Is(err, resilience.ErrCircuitOpen) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return "", err
+		}
+		return "", fmt.Errorf("smtp send failed: %w", err)
+	}
+	return addr, nil
+}
+
+func (c *smtpEmailChannel) deliver(ctx context.Context, addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+	timeout := c.timeout
+	if timeout <= 0 {
+		timeout = c.cfg.Timeout
+	}
+	if timeout <= 0 {
+		timeout = defaultSMTPTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	return c.breaker.Execute(func() error {
+		if c.send != nil {
+			return c.invokeSend(ctx, addr, auth, from, to, msg)
+		}
+		err := c.sendOnce(ctx, addr, auth, from, to, msg)
+		if err == nil || ctx.Err() != nil || !errors.As(err, new(*netDialError)) {
+			return err
+		}
+		return c.sendOnce(ctx, addr, auth, from, to, msg)
+	}, smtpTransportFailure)
+}
+
+func (c *smtpEmailChannel) invokeSend(ctx context.Context, addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- c.send(addr, auth, c.cfg.FromEmail, recipients, []byte(msg.String()))
+		errCh <- c.send(addr, auth, from, to, msg)
 	}()
 	select {
 	case err := <-errCh:
-		if err != nil {
-			return "", fmt.Errorf("smtp send failed: %w", err)
-		}
-		return addr, nil
+		return err
 	case <-ctx.Done():
-		return "", fmt.Errorf("smtp send canceled: %w", ctx.Err())
+		return ctx.Err()
 	}
+}
+
+func (c *smtpEmailChannel) dialContext(ctx context.Context, addr string) (net.Conn, error) {
+	if c.dial != nil {
+		return c.dial(ctx, "tcp", addr)
+	}
+	timeout := smtpDialTimeout
+	if c.timeout > 0 && c.timeout < timeout {
+		timeout = c.timeout
+	}
+	return (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", addr)
+}
+
+func (c *smtpEmailChannel) sendOnce(ctx context.Context, addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+	conn, err := c.dialContext(ctx, addr)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return &netDialError{err: err}
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(deadline)
+	}
+	stopClose := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stopClose()
+
+	client, err := smtp.NewClient(conn, c.cfg.Host)
+	if err != nil {
+		_ = conn.Close()
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return err
+	}
+	defer func() { _ = client.Close() }()
+
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		if err := client.StartTLS(&tls.Config{ServerName: c.cfg.Host}); err != nil {
+			return preferContextErr(ctx, err)
+		}
+	}
+	if auth != nil {
+		if err := client.Auth(auth); err != nil {
+			return preferContextErr(ctx, err)
+		}
+	}
+	if err := client.Mail(from); err != nil {
+		return preferContextErr(ctx, err)
+	}
+	for _, rcpt := range to {
+		if err := client.Rcpt(rcpt); err != nil {
+			return preferContextErr(ctx, err)
+		}
+	}
+	writer, err := client.Data()
+	if err != nil {
+		return preferContextErr(ctx, err)
+	}
+	if _, err := writer.Write(msg); err != nil {
+		return preferContextErr(ctx, err)
+	}
+	if err := writer.Close(); err != nil {
+		return preferContextErr(ctx, err)
+	}
+	return preferContextErr(ctx, client.Quit())
+}
+
+func preferContextErr(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
+}
+
+func smtpTransportFailure(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, resilience.ErrCircuitOpen) {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.As(err, new(*netDialError)) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr)
 }
 
 func formatEmailHeaderAddress(address string) string {

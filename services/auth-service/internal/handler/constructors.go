@@ -8,13 +8,19 @@ import (
 )
 
 // NewAuthHandler constructs an AuthServiceServer for handler tests and registration.
-func NewAuthHandler(authService service.AuthService, tokenRepo repository.TokenRepository, profilePhotoService service.ProfilePhotoService, locale string) pb.AuthServiceServer {
-	return &authHandler{
+func NewAuthHandler(authService service.AuthService, tokenRepo repository.TokenRepository, profilePhotoService service.ProfilePhotoService, locale string, opts ...AuthHandlerOption) pb.AuthServiceServer {
+	h := &authHandler{
 		authService:         authService,
 		tokenRepo:           tokenRepo,
 		profilePhotoService: profilePhotoService,
 		locale:              lang.NormalizeLocale(locale),
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(h)
+		}
+	}
+	return h
 }
 
 // NewSearchHandler constructs a SearchServiceServer for handler tests and registration.

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"metarang/notifications-service/internal/middleware"
 	commonpb "metarang/shared/pb/common"
@@ -55,8 +56,12 @@ func StartHTTPServer(
 	httpHandler.RegisterHTTPRoutes(mux, authMiddleware)
 
 	server := &http.Server{
-		Addr:    ":" + port,
-		Handler: sentry.HTTPMiddleware(mux),
+		Addr:              ":" + port,
+		Handler:           sentry.HTTPMiddleware(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	return server.ListenAndServe()
 }

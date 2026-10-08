@@ -170,11 +170,12 @@ func (r *FamilyRepository) GetFamilyMemberCount(ctx context.Context, familyID ui
 
 // GetUserBasicInfo retrieves basic user information for family members
 func (r *FamilyRepository) GetUserBasicInfo(ctx context.Context, userID uint64) (*models.UserBasic, error) {
-	query := `SELECT id, code, name FROM users WHERE id = ?`
+	query := `SELECT id, code, name, last_seen FROM users WHERE id = ?`
 
 	var user models.UserBasic
 	var code, name sql.NullString
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(&user.ID, &code, &name)
+	var lastSeen sql.NullTime
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&user.ID, &code, &name, &lastSeen)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -186,6 +187,10 @@ func (r *FamilyRepository) GetUserBasicInfo(ctx context.Context, userID uint64) 
 	}
 	if name.Valid {
 		user.Name = name.String
+	}
+	if lastSeen.Valid {
+		seen := lastSeen.Time
+		user.LastSeen = &seen
 	}
 
 	// Get profile photo

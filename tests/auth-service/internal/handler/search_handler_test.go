@@ -11,6 +11,7 @@ import (
 
 	"metarang/auth-service/internal/service"
 	pb "metarang/shared/pb/auth"
+	sharedauth "metarang/shared/pkg/auth"
 )
 
 // MockSearchService is a mock implementation of SearchService
@@ -18,20 +19,12 @@ type MockSearchService struct {
 	mock.Mock
 }
 
-func (m *MockSearchService) SearchUsers(ctx context.Context, searchTerm string) ([]*service.SearchUserResult, error) {
-	args := m.Called(ctx, searchTerm)
+func (m *MockSearchService) SearchUsers(ctx context.Context, searchTerm string, viewerUserID uint64) ([]*service.SearchUserResult, error) {
+	args := m.Called(ctx, searchTerm, viewerUserID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*service.SearchUserResult), args.Error(1)
-}
-
-func (m *MockSearchService) SearchFeatures(ctx context.Context, searchTerm string) ([]*service.SearchFeatureResult, error) {
-	args := m.Called(ctx, searchTerm)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*service.SearchFeatureResult), args.Error(1)
 }
 
 func (m *MockSearchService) SearchIsicCodes(ctx context.Context, searchTerm string) ([]*service.IsicCodeResult, error) {
@@ -59,23 +52,25 @@ func TestSearchHandler_SearchUsers(t *testing.T) {
 			request: &pb.SearchUsersRequest{SearchTerm: "john"},
 			serviceResults: []*service.SearchUserResult{
 				{
-					ID:        1,
-					Code:      "USR001",
-					Name:      "John Smith",
-					Followers: 5,
-					Level:     stringPtr("Level 3"),
-					Photo:     stringPtr("http://example.com/photo.jpg"),
+					ID:          1,
+					Code:        "USR001",
+					Name:        "John Smith",
+					Followers:   5,
+					Level:       stringPtr("Level 3"),
+					Photo:       stringPtr("http://example.com/photo.jpg"),
+					IsFollowing: true,
 				},
 			},
 			wantResponse: &pb.SearchUsersResponse{
 				Data: []*pb.SearchUserResult{
 					{
-						Id:        1,
-						Code:      "USR001",
-						Name:      "John Smith",
-						Followers: 5,
-						Level:     "Level 3",
-						Photo:     "http://example.com/photo.jpg",
+						Id:          1,
+						Code:        "USR001",
+						Name:        "John Smith",
+						Followers:   5,
+						Level:       "Level 3",
+						Photo:       "http://example.com/photo.jpg",
+						IsFollowing: true,
 					},
 				},
 			},
@@ -104,7 +99,7 @@ func TestSearchHandler_SearchUsers(t *testing.T) {
 			h := handler.NewSearchHandler(mockService)
 
 			if tt.request.SearchTerm != "" {
-				mockService.On("SearchUsers", ctx, tt.request.SearchTerm).Return(tt.serviceResults, tt.serviceError)
+				mockService.On("SearchUsers", ctx, tt.request.SearchTerm, uint64(0)).Return(tt.serviceResults, tt.serviceError)
 			}
 
 			response, err := h.SearchUsers(ctx, tt.request)
@@ -126,93 +121,7 @@ func TestSearchHandler_SearchUsers(t *testing.T) {
 					assert.Equal(t, tt.wantResponse.Data[0].Code, response.Data[0].Code)
 					assert.Equal(t, tt.wantResponse.Data[0].Name, response.Data[0].Name)
 					assert.Equal(t, tt.wantResponse.Data[0].Followers, response.Data[0].Followers)
-				}
-			}
-
-			mockService.AssertExpectations(t)
-		})
-	}
-}
-
-func TestSearchHandler_SearchFeatures(t *testing.T) {
-	ctx := context.Background()
-
-	tests := []struct {
-		name           string
-		request        *pb.SearchFeaturesRequest
-		serviceResults []*service.SearchFeatureResult
-		serviceError   error
-		wantResponse   *pb.SearchFeaturesResponse
-		wantError      bool
-	}{
-		{
-			name:    "successful search",
-			request: &pb.SearchFeaturesRequest{SearchTerm: "TEH-"},
-			serviceResults: []*service.SearchFeatureResult{
-				{
-					ID:                  1,
-					FeaturePropertiesID: "PROP-123",
-					Address:             "Tehran, District 1",
-					Karbari:             "مسکونی",
-					PricePsc:            "2.5",
-					PriceIrr:            "3500000000",
-					OwnerCode:           "CIT998",
-					Coordinates: []*service.FeatureCoordinate{
-						{ID: 1, X: 51.1234, Y: 35.6789},
-					},
-				},
-			},
-			wantResponse: &pb.SearchFeaturesResponse{
-				Data: []*pb.SearchFeatureResult{
-					{
-						Id:                  1,
-						FeaturePropertiesId: "PROP-123",
-						Address:             "Tehran, District 1",
-						Karbari:             "مسکونی",
-						PricePsc:            "2.5",
-						PriceIrr:            "3500000000",
-						OwnerCode:           "CIT998",
-						Coordinates: []*pb.Coordinate{
-							{Id: 1, X: 51.1234, Y: 35.6789},
-						},
-					},
-				},
-			},
-			wantError: false,
-		},
-		{
-			name:    "empty search term",
-			request: &pb.SearchFeaturesRequest{SearchTerm: ""},
-			wantResponse: &pb.SearchFeaturesResponse{
-				Data: []*pb.SearchFeatureResult{},
-			},
-			wantError: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockService := new(MockSearchService)
-			h := handler.NewSearchHandler(mockService)
-
-			if tt.request.SearchTerm != "" && tt.serviceError == nil {
-				mockService.On("SearchFeatures", ctx, tt.request.SearchTerm).Return(tt.serviceResults, tt.serviceError)
-			}
-
-			response, err := h.SearchFeatures(ctx, tt.request)
-
-			if tt.wantError {
-				assert.Error(t, err)
-				assert.Nil(t, response)
-			} else {
-				require.NoError(t, err)
-				assert.NotNil(t, response)
-				assert.Len(t, response.Data, len(tt.wantResponse.Data))
-
-				if len(tt.wantResponse.Data) > 0 {
-					assert.Equal(t, tt.wantResponse.Data[0].Id, response.Data[0].Id)
-					assert.Equal(t, tt.wantResponse.Data[0].FeaturePropertiesId, response.Data[0].FeaturePropertiesId)
-					assert.Len(t, response.Data[0].Coordinates, len(tt.wantResponse.Data[0].Coordinates))
+					assert.Equal(t, tt.wantResponse.Data[0].IsFollowing, response.Data[0].IsFollowing)
 				}
 			}
 
@@ -280,6 +189,23 @@ func TestSearchHandler_SearchIsicCodes(t *testing.T) {
 			mockService.AssertExpectations(t)
 		})
 	}
+}
+
+func TestSearchHandler_SearchUsers_PassesAuthenticatedViewer(t *testing.T) {
+	ctx := context.WithValue(context.Background(), sharedauth.UserContextKey{}, &sharedauth.UserContext{UserID: 9})
+	mockService := new(MockSearchService)
+	h := handler.NewSearchHandler(mockService)
+	mockService.On("SearchUsers", ctx, "john", uint64(9)).Return([]*service.SearchUserResult{
+		{ID: 1, Code: "USR001", Name: "John", IsFollowing: true},
+		{ID: 2, Code: "USR002", Name: "Jane", IsFollowing: false},
+	}, nil)
+
+	response, err := h.SearchUsers(ctx, &pb.SearchUsersRequest{SearchTerm: "john"})
+	require.NoError(t, err)
+	require.Len(t, response.Data, 2)
+	assert.True(t, response.Data[0].IsFollowing)
+	assert.False(t, response.Data[1].IsFollowing)
+	mockService.AssertExpectations(t)
 }
 
 // Helper function

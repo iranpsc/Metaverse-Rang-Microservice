@@ -1,3 +1,4 @@
+// Package repository provides data access for the features service.
 package repository
 
 import (
@@ -402,4 +403,62 @@ func (r *FeatureRepository) FindByOwnerAndFeatureID(ctx context.Context, ownerID
 	}
 
 	return feature, properties, nil
+}
+
+// FeatureSearchRow is a feature matched by properties id or address.
+type FeatureSearchRow struct {
+	FeatureID           uint64
+	FeaturePropertiesID string
+	Address             string
+	Karbari             string
+	PricePSC            string
+	PriceIRR            string
+	OwnerCode           string
+}
+
+// SearchByIDOrAddress returns up to 5 features whose properties id or address matches searchTerm.
+func (r *FeatureRepository) SearchByIDOrAddress(ctx context.Context, searchTerm string) ([]*FeatureSearchRow, error) {
+	query := `
+		SELECT DISTINCT
+			fp.id as feature_properties_id,
+			fp.address,
+			fp.price_psc,
+			fp.price_irr,
+			fp.karbari,
+			f.id as feature_id,
+			u.code as owner_code
+		FROM feature_properties fp
+		INNER JOIN features f ON fp.feature_id = f.id
+		INNER JOIN users u ON f.owner_id = u.id
+		WHERE fp.id LIKE ? OR fp.address LIKE ?
+		LIMIT 5
+	`
+
+	searchPattern := "%" + searchTerm + "%"
+	rows, err := r.db.QueryContext(ctx, query, searchPattern, searchPattern)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search features: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var results []*FeatureSearchRow
+	for rows.Next() {
+		var result FeatureSearchRow
+		if err := rows.Scan(
+			&result.FeaturePropertiesID,
+			&result.Address,
+			&result.PricePSC,
+			&result.PriceIRR,
+			&result.Karbari,
+			&result.FeatureID,
+			&result.OwnerCode,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan feature: %w", err)
+		}
+		results = append(results, &result)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating features: %w", err)
+	}
+	return results, nil
 }

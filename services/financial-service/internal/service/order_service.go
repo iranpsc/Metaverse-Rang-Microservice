@@ -16,11 +16,12 @@ import (
 )
 
 var (
-	ErrInvalidAmount   = errors.New("amount must be at least 1")
-	ErrInvalidAsset    = errors.New("invalid asset type")
-	ErrOrderNotFound   = errors.New("order not found")
-	ErrPaymentFailed   = errors.New("payment request failed")
-	ErrUserNotEligible = errors.New("user not eligible to buy from store")
+	ErrInvalidAmount    = errors.New("amount must be at least 1")
+	ErrInvalidAsset     = errors.New("invalid asset type")
+	ErrOrderNotFound    = errors.New("order not found")
+	ErrPaymentFailed    = errors.New("payment request failed")
+	ErrUserNotEligible  = errors.New("user not eligible to buy from store")
+	ErrOrderAlreadyPaid = errors.New("order already paid")
 )
 
 const transactionIDBytes = 4
@@ -43,6 +44,8 @@ type OrderService interface {
 // WalletTopUp credits the buyer wallet via commercial-service.
 type WalletTopUp interface {
 	AddBalance(ctx context.Context, userID uint64, asset string, amount float64) error
+	// ReverseBalance removes a credit that could not be committed with the payment.
+	ReverseBalance(ctx context.Context, userID uint64, asset string, amount float64) error
 }
 
 // ReferralProcessor triggers referral commission via commercial-service (optional).
@@ -74,7 +77,6 @@ type OrderConfig struct {
 	SadadPaymentIdentityNonRial string // IBAN / settlement identity for non-IRR assets
 	SadadCallbackURL            string
 	FrontendURL                 string
-	SadadSandbox                bool // BankTest sandbox omits MultiplexingData
 }
 
 func NewOrderService(
@@ -153,7 +155,7 @@ func (s *orderService) cleanupPendingOrder(ctx context.Context, orderID uint64, 
 }
 
 func validateCreateOrderInput(amount int32, asset string) error {
-	if amount < 1 {
+	if amount < constants.MinOrderAmount {
 		return ErrInvalidAmount
 	}
 
@@ -204,7 +206,7 @@ func (s *orderService) createDepositTransaction(ctx context.Context, order *mode
 		Asset:       asset,
 		Amount:      float64(amount),
 		Action:      constants.TransactionActionDeposit,
-		Status:      1,
+		Status:      constants.TransactionStatusPending,
 		PayableType: &payableType,
 		PayableID:   &order.ID,
 	}

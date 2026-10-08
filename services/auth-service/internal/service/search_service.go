@@ -9,8 +9,7 @@ import (
 )
 
 type SearchService interface {
-	SearchUsers(ctx context.Context, searchTerm string) ([]*SearchUserResult, error)
-	SearchFeatures(ctx context.Context, searchTerm string) ([]*SearchFeatureResult, error)
+	SearchUsers(ctx context.Context, searchTerm string, viewerUserID uint64) ([]*SearchUserResult, error)
 	SearchIsicCodes(ctx context.Context, searchTerm string) ([]*IsicCodeResult, error)
 }
 
@@ -26,31 +25,13 @@ func NewSearchService(searchRepo repository.SearchRepository) SearchService {
 
 // SearchUserResult represents a user search result
 type SearchUserResult struct {
-	ID        uint64
-	Code      string
-	Name      string
-	Followers int32
-	Level     *string // nullable
-	Photo     *string // nullable
-}
-
-// SearchFeatureResult represents a feature search result
-type SearchFeatureResult struct {
-	ID                  uint64
-	FeaturePropertiesID string
-	Address             string
-	Karbari             string
-	PricePsc            string
-	PriceIrr            string
-	OwnerCode           string
-	Coordinates         []*FeatureCoordinate
-}
-
-// FeatureCoordinate represents a feature coordinate
-type FeatureCoordinate struct {
-	ID uint64
-	X  float64
-	Y  float64
+	ID          uint64
+	Code        string
+	Name        string
+	Followers   int32
+	Level       *string // nullable
+	Photo       *string // nullable
+	IsFollowing bool
 }
 
 // IsicCodeResult represents an ISIC code search result
@@ -60,8 +41,9 @@ type IsicCodeResult struct {
 	Code uint64
 }
 
-// SearchUsers searches users by name, code, and KYC fields
-func (s *searchService) SearchUsers(ctx context.Context, searchTerm string) ([]*SearchUserResult, error) {
+// SearchUsers searches users by name, code, and KYC fields.
+// viewerUserID is the authenticated searcher; 0 means the request is anonymous.
+func (s *searchService) SearchUsers(ctx context.Context, searchTerm string, viewerUserID uint64) ([]*SearchUserResult, error) {
 	// Validate search term is not empty
 	searchTerm = strings.TrimSpace(searchTerm)
 	if searchTerm == "" {
@@ -104,84 +86,33 @@ func (s *searchService) SearchUsers(ctx context.Context, searchTerm string) ([]*
 		results = append(results, result)
 	}
 
+	if err := s.applyFollowing(ctx, viewerUserID, results); err != nil {
+		return nil, err
+	}
+
 	return results, nil
 }
 
-// SearchFeatures searches feature properties by id and address
-func (s *searchService) SearchFeatures(ctx context.Context, searchTerm string) ([]*SearchFeatureResult, error) {
-	// Validate search term is not empty
-	searchTerm = strings.TrimSpace(searchTerm)
-	if searchTerm == "" {
-		return []*SearchFeatureResult{}, nil
+// applyFollowing sets IsFollowing with one query for the whole result set.
+// Anonymous searches skip the lookup and leave every flag false.
+func (s *searchService) applyFollowing(ctx context.Context, viewerUserID uint64, results []*SearchUserResult) error {
+	if viewerUserID == 0 || len(results) == 0 {
+		return nil
 	}
 
-	// Call repository
-	repoResults, err := s.searchRepo.SearchFeatures(ctx, searchTerm)
+	userIDs := make([]uint64, len(results))
+	for i, result := range results {
+		userIDs[i] = result.ID
+	}
+
+	followed, err := s.searchRepo.FollowedUserIDs(ctx, viewerUserID, userIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search features: %w", err)
+		return fmt.Errorf("failed to resolve follow state: %w", err)
 	}
-
-	// Convert repository results to service results
-	results := make([]*SearchFeatureResult, 0, len(repoResults))
-	for _, repoResult := range repoResults {
-		result := &SearchFeatureResult{
-			ID:                  repoResult.FeatureID,
-			FeaturePropertiesID: strings.ToUpper(repoResult.FeaturePropertiesID), // Uppercase ID
-			Address:             repoResult.Address,
-			PricePsc:            repoResult.PricePsc,
-			PriceIrr:            repoResult.PriceIrr,
-			OwnerCode:           strings.ToUpper(repoResult.OwnerCode), // Uppercase owner code
-		}
-
-		// Map karbari to Persian title (getApplicationTitle equivalent)
-		result.Karbari = MapKarbariToTitle(repoResult.Karbari)
-
-		// Convert coordinates
-		result.Coordinates = make([]*FeatureCoordinate, 0, len(repoResult.Coordinates))
-		for _, coord := range repoResult.Coordinates {
-			result.Coordinates = append(result.Coordinates, &FeatureCoordinate{
-				ID: coord.ID,
-				X:  coord.X,
-				Y:  coord.Y,
-			})
-		}
-
-		results = append(results, result)
+	for _, result := range results {
+		_, result.IsFollowing = followed[result.ID]
 	}
-
-	return results, nil
-}
-
-// MapKarbariToTitle maps karbari code to Persian title
-func MapKarbariToTitle(karbari string) string {
-	// Map single-letter codes to Persian titles
-	switch strings.ToLower(karbari) {
-	case "m":
-		return "مسکونی"
-	case "t":
-		return "تجاری"
-	case "a":
-		return "آموزشی"
-	case "e":
-		return "اداری"
-	case "b":
-		return "بهداشتی"
-	case "f":
-		return "فضای سبز"
-	case "c":
-		return "فرهنگی"
-	case "p":
-		return "پارکینگ"
-	case "z":
-		return "مذهبی"
-	case "n":
-		return "نمایشگاه"
-	case "g":
-		return "گردشگری"
-	default:
-		// If karbari is already a title or unknown, return as-is
-		return karbari
-	}
+	return nil
 }
 
 // SearchIsicCodes searches ISIC codes by name

@@ -47,6 +47,13 @@ type CitizenFeatureSummaryItem struct {
 	SoldCount    int32
 }
 
+// CitizenChartPoint is a labeled amount for chart timelines.
+type CitizenChartPoint struct {
+	Karbari string
+	Label   string
+	Amount  float64
+}
+
 // CitizenFeatureChartResult is the chart response payload.
 type CitizenFeatureChartResult struct {
 	Bought []CitizenChartPoint

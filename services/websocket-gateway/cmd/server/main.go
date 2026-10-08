@@ -58,7 +58,7 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
-	mux.Handle("/socket.io/", eventHub)
+	registerRoutes(mux, eventHub)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		connections, users := eventHub.Stats()
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -106,6 +106,10 @@ func main() {
 }
 
 var startedAt = time.Now()
+
+func registerRoutes(mux *http.ServeMux, socketHandler http.Handler) {
+	mux.Handle("/socket.io/", socketHandler)
+}
 
 func loadConfig() {
 	paths := []string{

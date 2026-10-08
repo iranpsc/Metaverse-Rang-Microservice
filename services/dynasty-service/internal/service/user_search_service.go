@@ -74,11 +74,10 @@ func (s *UserSearchService) SearchUsers(
 	limit int,
 ) ([]*UserSearchResult, error) {
 	query := `
-		SELECT u.id, u.code, u.name, 
-		       COALESCE(CONCAT(k.fname, ' ', k.lname), u.name) as display_name
+		SELECT u.id, u.code, u.name
 		FROM users u
 		LEFT JOIN kycs k ON k.user_id = u.id
-		WHERE u.code LIKE ? OR u.name LIKE ? OR CONCAT(k.fname, ' ', k.lname) LIKE ?
+		WHERE u.code LIKE ? OR u.name LIKE ? OR CONCAT(IFNULL(k.fname, ''), ' ', IFNULL(k.lname, '')) LIKE ?
 		LIMIT ?
 	`
 
@@ -92,13 +91,11 @@ func (s *UserSearchService) SearchUsers(
 	var results []*UserSearchResult
 	for rows.Next() {
 		var r UserSearchResult
-		var displayName string
 
-		if err := rows.Scan(&r.ID, &r.Code, &r.Name, &displayName); err != nil {
+		if err := rows.Scan(&r.ID, &r.Code, &r.Name); err != nil {
 			return nil, fmt.Errorf("failed to scan user: %w", err)
 		}
 
-		r.Name = displayName
 		r.Levels = []*UserSearchLevelItem{}
 
 		photo, _ := s.getLatestProfilePhoto(ctx, r.ID)
@@ -122,6 +119,13 @@ func (s *UserSearchService) enrichFromAuth(ctx context.Context, r *UserSearchRes
 		return
 	}
 	r.Verified = kyc.Status == 1
+	if !r.Verified {
+		r.Age = 0
+		return
+	}
+	if fullName := strings.TrimSpace(kyc.Fname + " " + kyc.Lname); fullName != "" {
+		r.Name = fullName
+	}
 	r.Age = ageFromKYCBirthdate(kyc.Birthdate)
 }
 

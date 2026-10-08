@@ -286,6 +286,18 @@ func TestUserRepository_SQLMockBasics(t *testing.T) {
 
 		mock.ExpectExec("UPDATE users SET last_seen").WillReturnResult(sqlmock.NewResult(0, 1))
 		require.NoError(t, repo.UpdateLastSeen(ctx, 42))
+
+		seenAt := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+		mock.ExpectExec("UPDATE users SET last_seen").WithArgs(seenAt, uint64(42)).WillReturnResult(sqlmock.NewResult(0, 1))
+		require.NoError(t, repo.SetLastSeen(ctx, 42, seenAt))
+
+		after := seenAt.Add(-5 * time.Minute)
+		mock.ExpectQuery("SELECT id, last_seen FROM users").
+			WithArgs(after, seenAt, after, after, uint64(0), 10).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "last_seen"}).AddRow(uint64(9), seenAt))
+		rows, err := repo.ListUserIDsByLastSeen(ctx, after, seenAt, after, 0, 10)
+		require.NoError(t, err)
+		require.Equal(t, []repository.LastSeenUser{{ID: 9, LastSeen: seenAt}}, rows)
 	})
 
 	t.Run("phone wallet helpers", func(t *testing.T) {

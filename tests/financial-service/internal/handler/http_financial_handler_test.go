@@ -123,9 +123,10 @@ func TestHTTPHandleCallback_Redirect(t *testing.T) {
 	h := handler.NewHTTPFinancialHandler(order, &mockStoreAPI{})
 
 	form := url.Values{}
+	form.Set("OrderId", "99")
 	form.Set("Token", "tok")
 	form.Set("ResCode", "0")
-	req := httptest.NewRequest(http.MethodPost, "/api/order/callback?order_id=99", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/api/order/callback?order_id=1", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 	h.HandleCallback(w, req)
@@ -135,6 +136,26 @@ func TestHTTPHandleCallback_Redirect(t *testing.T) {
 	}
 	if loc := w.Header().Get("Location"); loc != "https://frontend/ok" {
 		t.Fatalf("location=%q", loc)
+	}
+}
+
+func TestHTTPHandleCallback_RestoresPlusInToken(t *testing.T) {
+	order := &mockOrderAPI{}
+	order.HandleCallbackFunc = func(_ context.Context, req *financialpb.HandleCallbackRequest) (*financialpb.HandleCallbackResponse, error) {
+		if req.Token != "abc+def/ghi=" {
+			t.Fatalf("token=%q", req.Token)
+		}
+		return &financialpb.HandleCallbackResponse{RedirectUrl: "https://frontend/ok"}, nil
+	}
+	h := handler.NewHTTPFinancialHandler(order, &mockStoreAPI{})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/order/callback?order_id=1", strings.NewReader("OrderId=99&Token=abc+def/ghi%3D&ResCode=0"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.HandleCallback(w, req)
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 	}
 }
 
@@ -200,7 +221,10 @@ func TestHTTPHandlerError_NotFound(t *testing.T) {
 	}
 	h := handler.NewHTTPFinancialHandler(order, &mockStoreAPI{})
 
-	req := httptest.NewRequest(http.MethodGet, "/api/order/callback?order_id=1", nil)
+	form := url.Values{}
+	form.Set("OrderId", "1")
+	req := httptest.NewRequest(http.MethodPost, "/api/order/callback?order_id=99", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 	h.HandleCallback(w, req)
 	if w.Code != http.StatusNotFound {
@@ -229,7 +253,10 @@ func TestRegisterHTTPRoutes_CallbackTrailingSlash(t *testing.T) {
 	h.RegisterHTTPRoutes(mux, passThrough, passThrough)
 
 	for _, path := range []string{"/api/order/callback/", "/api/payment/callback/"} {
-		req := httptest.NewRequest(http.MethodGet, path+"?order_id=1", nil)
+		form := url.Values{}
+		form.Set("OrderId", "1")
+		req := httptest.NewRequest(http.MethodPost, path+"?order_id=99", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, req)
 		if w.Code != http.StatusFound {

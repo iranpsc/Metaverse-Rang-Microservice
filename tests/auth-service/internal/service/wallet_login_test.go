@@ -74,14 +74,13 @@ func TestCallbackAndGetMe_WalletLoginPersistsOnToken(t *testing.T) {
 			require.NoError(t, cacheRepo.SetRedirectTo(ctx, state, "https://example.com/app", 5*time.Minute))
 
 			svc := service.NewAuthService(
-				userRepo, tokenRepo, cacheRepo, newFakeAccountSecurityRepository(), newFakeActivityRepository(),
+				userRepo, tokenRepo, cacheRepo,
 				nil, nil, nil,
 				oauthServer.URL,
 				"test-client-id",
 				"test-client-secret",
 				"http://localhost:8000",
 				"http://localhost:3000",
-				false,
 			)
 
 			result, err := svc.Callback(ctx, state, "test_code", "127.0.0.1", tc.walletLogin)
@@ -122,10 +121,9 @@ func TestGetMe_WalletLoginIndependentOfHasWallet(t *testing.T) {
 	tokenRepo.walletLogin["tok"] = true
 
 	svc := service.NewAuthService(
-		userRepo, tokenRepo, newFakeCacheRepository(), newFakeAccountSecurityRepository(), newFakeActivityRepository(),
+		userRepo, tokenRepo, newFakeCacheRepository(),
 		nil, nil, nil,
 		"", "", "", "", "",
-		false,
 	)
 
 	details, err := svc.GetMe(ctx, "tok")

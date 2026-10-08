@@ -15,13 +15,13 @@ type SearchRepository interface {
 	// Returns up to 5 results with profile photos and limited KYC columns
 	SearchUsers(ctx context.Context, searchTerm string) ([]*SearchUserResult, error)
 
-	// SearchFeatures searches feature_properties by id and address
-	// Returns up to 5 results with feature, owner, and geometry coordinates
-	SearchFeatures(ctx context.Context, searchTerm string) ([]*SearchFeatureResult, error)
-
 	// SearchIsicCodes searches isic_codes table by name
 	// Returns all matches (no limit)
 	SearchIsicCodes(ctx context.Context, searchTerm string) ([]*IsicCodeResult, error)
+
+	// FollowedUserIDs returns which of userIDs followerID already follows.
+	// One indexed query. An empty set when followerID is 0 or userIDs is empty.
+	FollowedUserIDs(ctx context.Context, followerID uint64, userIDs []uint64) (map[uint64]struct{}, error)
 }
 
 type searchRepository struct {
@@ -39,25 +39,6 @@ type SearchUserResult struct {
 	ProfilePhotos []*models.Image
 	Followers     int32
 	LatestLevel   *UserLevel
-}
-
-// SearchFeatureResult represents a feature search result with related data
-type SearchFeatureResult struct {
-	FeatureID           uint64
-	FeaturePropertiesID string
-	Address             string
-	Karbari             string
-	PricePsc            string
-	PriceIrr            string
-	OwnerCode           string
-	Coordinates         []*Coordinate
-}
-
-// Coordinate represents a geometry coordinate
-type Coordinate struct {
-	ID uint64
-	X  float64
-	Y  float64
 }
 
 // IsicCodeResult represents an ISIC code search result
@@ -283,6 +264,42 @@ func (r *searchRepository) getProfilePhotos(ctx context.Context, userID uint64) 
 	return photos, rows.Err()
 }
 
+// FollowedUserIDs returns the subset of userIDs that followerID follows.
+// Search returns at most five users, so this is one index lookup instead of a query per row.
+func (r *searchRepository) FollowedUserIDs(ctx context.Context, followerID uint64, userIDs []uint64) (map[uint64]struct{}, error) {
+	followed := make(map[uint64]struct{})
+	if followerID == 0 || len(userIDs) == 0 {
+		return followed, nil
+	}
+
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(userIDs)), ",")
+	query := `SELECT following_id FROM follows WHERE follower_id = ? AND following_id IN (` + placeholders + `)`
+
+	args := make([]interface{}, 0, len(userIDs)+1)
+	args = append(args, followerID)
+	for _, id := range userIDs {
+		args = append(args, id)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load follow relationships: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var followingID uint64
+		if err := rows.Scan(&followingID); err != nil {
+			return nil, fmt.Errorf("failed to scan follow relationship: %w", err)
+		}
+		followed[followingID] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating follow relationships: %w", err)
+	}
+	return followed, nil
+}
+
 // getFollowersCount returns the number of followers for a user
 func (r *searchRepository) getFollowersCount(ctx context.Context, userID uint64) (int32, error) {
 	query := `SELECT COUNT(*) FROM follows WHERE following_id = ?`
@@ -315,93 +332,6 @@ func (r *searchRepository) getLatestLevel(ctx context.Context, userID uint64) (*
 		return nil, err
 	}
 	return &level, nil
-}
-
-// SearchFeatures searches feature_properties by id and address
-func (r *searchRepository) SearchFeatures(ctx context.Context, searchTerm string) ([]*SearchFeatureResult, error) {
-	query := `
-		SELECT DISTINCT
-			fp.id as feature_properties_id,
-			fp.address,
-			fp.price_psc,
-			fp.price_irr,
-			fp.karbari,
-			f.id as feature_id,
-			u.code as owner_code
-		FROM feature_properties fp
-		INNER JOIN features f ON fp.feature_id = f.id
-		INNER JOIN users u ON f.owner_id = u.id
-		WHERE fp.id LIKE ? OR fp.address LIKE ?
-		LIMIT 5
-	`
-
-	searchPattern := "%" + searchTerm + "%"
-	rows, err := r.db.QueryContext(ctx, query, searchPattern, searchPattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search features: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var results []*SearchFeatureResult
-	for rows.Next() {
-		var result SearchFeatureResult
-		err := rows.Scan(
-			&result.FeaturePropertiesID,
-			&result.Address,
-			&result.PricePsc,
-			&result.PriceIrr,
-			&result.Karbari,
-			&result.FeatureID,
-			&result.OwnerCode,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan feature: %w", err)
-		}
-
-		// Get coordinates for this feature's geometry
-		coordinates, err := r.getFeatureCoordinates(ctx, result.FeatureID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get coordinates: %w", err)
-		}
-		result.Coordinates = coordinates
-
-		results = append(results, &result)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating features: %w", err)
-	}
-
-	return results, nil
-}
-
-// getFeatureCoordinates retrieves coordinates for a feature's geometry
-func (r *searchRepository) getFeatureCoordinates(ctx context.Context, featureID uint64) ([]*Coordinate, error) {
-	query := `
-		SELECT c.id, CAST(c.x AS DECIMAL(10,6)) as x, CAST(c.y AS DECIMAL(10,6)) as y
-		FROM coordinates c
-		INNER JOIN geometries g ON c.geometry_id = g.id
-		INNER JOIN features f ON g.feature_id = f.id
-		WHERE f.id = ?
-		ORDER BY c.id
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, featureID)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	var coordinates []*Coordinate
-	for rows.Next() {
-		var coord Coordinate
-		if err := rows.Scan(&coord.ID, &coord.X, &coord.Y); err != nil {
-			return nil, err
-		}
-		coordinates = append(coordinates, &coord)
-	}
-
-	return coordinates, rows.Err()
 }
 
 // SearchIsicCodes searches isic_codes table by name

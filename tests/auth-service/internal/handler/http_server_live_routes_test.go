@@ -50,7 +50,6 @@ func TestStartHTTPServer_LiveRouteCoverage(t *testing.T) {
 		return &models.User{ID: 1, Email: "a@x.com"}, nil
 	}
 	authSvc.logoutFunc = func(context.Context, uint64, string, string) error { return nil }
-	authSvc.requestAccountSecurityFunc = func(context.Context, uint64, int32, string) error { return nil }
 	tokenRepo := &mockTokenRepository{}
 	tokenRepo.validateTokenFunc = func(context.Context, string) (*models.User, error) {
 		return &models.User{ID: 1}, nil
@@ -122,7 +121,7 @@ func TestStartHTTPServer_LiveRouteCoverage(t *testing.T) {
 	}
 
 	clients := handler.NewLocalClients(
-		handler.NewAuthHandler(authSvc, tokenRepo, photo, "en"),
+		handler.NewAuthHandler(authSvc, tokenRepo, photo, "en", handler.WithAccountSecurityService(&mockAccountSecurityService{})),
 		handler.RegisterUserHandler(s, user, pl, &mockHelperService{wallet: &service.WalletInfo{Psc: "1"}}),
 		handler.NewKYCHandler(kyc, "https://gw"),
 		handler.RegisterCitizenHandler(s, &richCitizenService{}),
@@ -207,7 +206,6 @@ func TestStartHTTPServer_LiveRouteCoverage(t *testing.T) {
 	get("/api/citizen/hm-1/referrals")
 	get("/api/citizen/hm-1/referrals/chart?range=daily")
 	postJSON("/api/search/users", `{"searchTerm":"a"}`)
-	postJSON("/api/search/features", `{"searchTerm":"a"}`)
 	postJSON("/api/search/isic-codes", `{"searchTerm":"a"}`)
 	get("/api/kyc")
 	get("/api/bank-accounts")

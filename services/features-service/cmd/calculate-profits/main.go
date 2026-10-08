@@ -50,7 +50,6 @@ func main() {
 
 	log.Info("Hourly profit calculation finished", "updated_records", updated)
 }
-
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

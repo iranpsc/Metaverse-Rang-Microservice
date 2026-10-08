@@ -41,11 +41,18 @@ coverage.out
 k8s/
 monitoring/
 tests/
+.cursor/
+.github/
+certs/
+kong/
+openapi/
 scripts/
 !scripts/docker/
 !scripts/docker/**
 !scripts/migrations/
 !scripts/migrations/**
+!scripts/gen-openapi/
+!scripts/gen-openapi/**
 
 # Compose and local tooling
 docker-compose*.yml

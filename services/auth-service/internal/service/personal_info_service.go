@@ -13,12 +13,12 @@ import (
 var (
 	ErrInvalidOccupation     = errors.New("occupation must be at most 255 characters")
 	ErrInvalidEducation      = errors.New("education must be at most 255 characters")
-	ErrInvalidMemory         = errors.New("memory must be at most 2000 characters")
+	ErrInvalidMemory         = errors.New("memory must be at most 20000 characters")
 	ErrInvalidLovedCity      = errors.New("loved_city must be at most 255 characters")
 	ErrInvalidLovedCountry   = errors.New("loved_country must be at most 255 characters")
 	ErrInvalidLovedLanguage  = errors.New("loved_language must be at most 255 characters")
-	ErrInvalidProblemSolving = errors.New("problem_solving must be at most 2000 characters")
-	ErrInvalidPrediction     = errors.New("prediction must be at most 10000 characters")
+	ErrInvalidProblemSolving = errors.New("problem_solving must be at most 20000 characters")
+	ErrInvalidPrediction     = errors.New("prediction must be at most 20000 characters")
 	ErrInvalidAbout          = errors.New("about must be at most 10000 characters")
 	ErrInvalidPassionKey     = errors.New("invalid passion key")
 )
@@ -139,7 +139,7 @@ func (s *personalInfoService) validatePersonalInfoInput(occupation, education, m
 	if len(education) > 255 {
 		return ErrInvalidEducation
 	}
-	if len(memory) > 2000 {
+	if len(memory) > 20000 {
 		return ErrInvalidMemory
 	}
 	if len(lovedCity) > 255 {
@@ -151,10 +151,10 @@ func (s *personalInfoService) validatePersonalInfoInput(occupation, education, m
 	if len(lovedLanguage) > 255 {
 		return ErrInvalidLovedLanguage
 	}
-	if len(problemSolving) > 2000 {
+	if len(problemSolving) > 20000 {
 		return ErrInvalidProblemSolving
 	}
-	if len(prediction) > 10000 {
+	if len(prediction) > 20000 {
 		return ErrInvalidPrediction
 	}
 	if len(about) > 10000 {

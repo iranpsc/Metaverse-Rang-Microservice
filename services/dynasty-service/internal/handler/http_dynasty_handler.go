@@ -34,10 +34,12 @@ type joinRequestAPI interface {
 type familyAPI interface {
 	GetFamily(context.Context, *dynastypb.GetFamilyRequest) (*dynastypb.FamilyResponse, error)
 	SetChildPermissions(context.Context, *dynastypb.SetChildPermissionsRequest) (*commonpb.Empty, error)
+	UpdateNamedChildPermission(context.Context, uint64, uint64, string, bool) error
 }
 
 type prizeAPI interface {
 	GetPrizes(context.Context, *dynastypb.GetPrizesRequest) (*dynastypb.PrizesResponse, error)
+	GetPrize(context.Context, *dynastypb.GetPrizeRequest) (*dynastypb.PrizeResponse, error)
 	ClaimPrize(context.Context, *dynastypb.ClaimPrizeRequest) (*commonpb.Empty, error)
 }
 
@@ -143,7 +145,7 @@ func (h *HTTPDynastyHandler) RegisterHTTPRoutes(
 	mux.Handle("/api/dynasty/prizes/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			http.NotFound(w, r)
+			h.GetPrize(w, r)
 		case http.MethodPost:
 			h.ClaimPrize(w, r)
 		default:
@@ -674,6 +676,34 @@ func (h *HTTPDynastyHandler) ClaimPrize(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// GetPrize handles GET /api/dynasty/prizes/{recievedPrize}
+func (h *HTTPDynastyHandler) GetPrize(w http.ResponseWriter, r *http.Request) {
+	if _, err := middleware.GetUserFromRequest(r); err != nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+
+	prizeIDStr := extractIDFromPath(r.URL.Path, "/api/dynasty/prizes/")
+	if prizeIDStr == "" {
+		writeError(w, http.StatusBadRequest, "prize_id is required")
+		return
+	}
+
+	prizeID, err := strconv.ParseUint(prizeIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid prize_id")
+		return
+	}
+
+	resp, err := h.prize.GetPrize(r.Context(), &dynastypb.GetPrizeRequest{PrizeId: prizeID})
+	if err != nil {
+		writeHandlerError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"data": buildReceivedPrizeHTTP(resp)})
+}
+
 // UpdateChildPermissions handles POST /api/dynasty/children/{user}
 func (h *HTTPDynastyHandler) UpdateChildPermissions(w http.ResponseWriter, r *http.Request) {
 	userCtx, err := middleware.GetUserFromRequest(r)
@@ -717,36 +747,7 @@ func (h *HTTPDynastyHandler) UpdateChildPermissions(w http.ResponseWriter, r *ht
 		return
 	}
 
-	permissions := &dynastypb.ChildPermissions{}
-	switch req.Permission {
-	case "BFR":
-		permissions.BFR = req.Status
-	case "SF":
-		permissions.SF = req.Status
-	case "W":
-		permissions.W = req.Status
-	case "JU":
-		permissions.JU = req.Status
-	case "DM":
-		permissions.DM = req.Status
-	case "PIUP":
-		permissions.PIUP = req.Status
-	case "PITC":
-		permissions.PITC = req.Status
-	case "PIC":
-		permissions.PIC = req.Status
-	case "ESOO":
-		permissions.ESOO = req.Status
-	case "COTB":
-		permissions.COTB = req.Status
-	}
-
-	_, err = h.family.SetChildPermissions(r.Context(), &dynastypb.SetChildPermissionsRequest{
-		ChildUserId:  childUserID,
-		ParentUserId: userCtx.UserID,
-		Permissions:  permissions,
-	})
-	if err != nil {
+	if err := h.family.UpdateNamedChildPermission(r.Context(), userCtx.UserID, childUserID, req.Permission, req.Status); err != nil {
 		writeHandlerError(w, err)
 		return
 	}

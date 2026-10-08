@@ -59,12 +59,13 @@ func TestSubscriberForwardsRedisChannels(t *testing.T) {
 
 	mr.Publish("feature-status", `{"id":1001,"rgb":"G"}`)
 	mr.Publish("user-status", `{"user_id":42,"online":true}`)
+	mr.Publish("user-status", `{"data":{"user_id":"7","online":false}}`)
 	mr.Publish("notifications", `{"user_id":42,"title":"hi"}`)
 
 	waitFor(t, 2*time.Second, func() bool {
 		recorder.mu.Lock()
 		defer recorder.mu.Unlock()
-		return len(recorder.feature) == 1 && len(recorder.user) == 1 && len(recorder.notifications) == 1
+		return len(recorder.feature) == 1 && len(recorder.user) == 2 && len(recorder.notifications) == 1
 	})
 
 	recorder.mu.Lock()
@@ -74,6 +75,10 @@ func TestSubscriberForwardsRedisChannels(t *testing.T) {
 	}
 	if recorder.user[0]["online"] != true {
 		t.Fatalf("user payload = %#v", recorder.user[0])
+	}
+	wrapped, ok := recorder.user[1]["data"].(map[string]any)
+	if !ok || wrapped["user_id"] != "7" || wrapped["online"] != false {
+		t.Fatalf("wrapped user payload = %#v", recorder.user[1])
 	}
 	if recorder.notifications[0]["title"] != "hi" {
 		t.Fatalf("notification payload = %#v", recorder.notifications[0])

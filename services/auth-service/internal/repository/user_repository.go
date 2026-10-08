@@ -16,6 +16,10 @@ type UserRepository interface {
 	FindByID(ctx context.Context, id uint64) (*models.User, error)
 	Update(ctx context.Context, user *models.User) error
 	UpdateLastSeen(ctx context.Context, userID uint64) error
+	SetLastSeen(ctx context.Context, userID uint64, at time.Time) error
+	// ListUserIDsByLastSeen returns a page of users whose last_seen is in (after, until],
+	// after the (cursorAt, cursorID) keyset, ordered by last_seen then id.
+	ListUserIDsByLastSeen(ctx context.Context, after, until, cursorAt time.Time, cursorID uint64, limit int) ([]LastSeenUser, error)
 	FindByCode(ctx context.Context, code string) (*models.User, error)
 	GetSettings(ctx context.Context, userID uint64) (*models.Settings, error)
 	CreateSettings(ctx context.Context, settings *models.Settings) error
@@ -216,12 +220,53 @@ func (r *userRepository) Update(ctx context.Context, user *models.User) error {
 }
 
 func (r *userRepository) UpdateLastSeen(ctx context.Context, userID uint64) error {
+	return r.SetLastSeen(ctx, userID, time.Now())
+}
+
+func (r *userRepository) SetLastSeen(ctx context.Context, userID uint64, at time.Time) error {
 	query := `UPDATE users SET last_seen = ? WHERE id = ?`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+	_, err := r.db.ExecContext(ctx, query, at, userID)
 	if err != nil {
-		return fmt.Errorf("failed to update last seen: %w", err)
+		return fmt.Errorf("failed to set last seen: %w", err)
 	}
 	return nil
+}
+
+// LastSeenUser is one row from a presence sweep page.
+type LastSeenUser struct {
+	ID       uint64
+	LastSeen time.Time
+}
+
+func (r *userRepository) ListUserIDsByLastSeen(ctx context.Context, after, until, cursorAt time.Time, cursorID uint64, limit int) ([]LastSeenUser, error) {
+	if limit <= 0 {
+		limit = 500
+	}
+	// last_seen range uses users_last_seen_index. The keyset continues a sweep
+	// without scanning users outside the window or repeating a finished page.
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, last_seen FROM users
+		WHERE last_seen > ? AND last_seen <= ?
+		  AND (last_seen > ? OR (last_seen = ? AND id > ?))
+		ORDER BY last_seen, id
+		LIMIT ?`, after, until, cursorAt, cursorAt, cursorID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users by last_seen: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	users := make([]LastSeenUser, 0, limit)
+	for rows.Next() {
+		var row LastSeenUser
+		if err := rows.Scan(&row.ID, &row.LastSeen); err != nil {
+			return nil, fmt.Errorf("failed to scan user id: %w", err)
+		}
+		users = append(users, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read users by last_seen: %w", err)
+	}
+	return users, nil
 }
 
 func (r *userRepository) FindByCode(ctx context.Context, code string) (*models.User, error) {

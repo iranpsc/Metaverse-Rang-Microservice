@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -251,18 +252,24 @@ func (h *HTTPSupportHandler) CreateTicket(w http.ResponseWriter, r *http.Request
 	attachment := ""
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
+		urls, uploadErr := uploadTicketAttachments(r, h.storage, h.appURL)
+		if uploadErr != nil {
+			writeError(w, http.StatusBadRequest, uploadErr.Error())
+			return
+		}
+		attachment, err = encodeTicketAttachments(urls)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	} else {
 		var req struct {
-			Title      string  `json:"title"`
-			Content    string  `json:"content"`
-			Attachment string  `json:"attachment"`
-			Reciever   *uint64 `json:"reciever"`
-			Department string  `json:"department"`
+			Title       string   `json:"title"`
+			Content     string   `json:"content"`
+			Attachment  string   `json:"attachment"`
+			Attachments []string `json:"attachments"`
+			Reciever    *uint64  `json:"reciever"`
+			Department  string   `json:"department"`
 		}
 		if err := decodeJSONBody(r, &req); err != nil {
 			if err == io.EOF {
@@ -276,7 +283,11 @@ func (h *HTTPSupportHandler) CreateTicket(w http.ResponseWriter, r *http.Request
 		content = req.Content
 		department = req.Department
 		receiverID = req.Reciever
-		attachment = req.Attachment
+		attachment, err = mergeTicketAttachmentFields(req.Attachment, req.Attachments)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	if title == "" || content == "" {
@@ -363,8 +374,13 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 	attachment := ""
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		if _, hdr, fileErr := r.FormFile("attachment"); fileErr == nil && hdr != nil {
-			attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
+		urls, uploadErr := uploadTicketAttachments(r, h.storage, h.appURL)
+		if uploadErr != nil {
+			writeError(w, http.StatusBadRequest, uploadErr.Error())
+			return
+		}
+		if len(urls) > 0 {
+			attachment, err = encodeTicketAttachments(urls)
 			if err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
@@ -372,9 +388,10 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 		}
 	} else {
 		var req struct {
-			Title      string `json:"title"`
-			Content    string `json:"content"`
-			Attachment string `json:"attachment"`
+			Title       string   `json:"title"`
+			Content     string   `json:"content"`
+			Attachment  string   `json:"attachment"`
+			Attachments []string `json:"attachments"`
 		}
 		if err := decodeJSONBody(r, &req); err != nil {
 			if err == io.EOF {
@@ -386,7 +403,11 @@ func (h *HTTPSupportHandler) UpdateTicket(w http.ResponseWriter, r *http.Request
 		}
 		title = req.Title
 		content = req.Content
-		attachment = req.Attachment
+		attachment, err = mergeTicketAttachmentFields(req.Attachment, req.Attachments)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	resp, err := h.tickets.UpdateTicket(r.Context(), &pbSupport.UpdateTicketRequest{
@@ -436,15 +457,21 @@ func (h *HTTPSupportHandler) AddTicketResponse(w http.ResponseWriter, r *http.Re
 			return
 		}
 		responseText = r.FormValue("response")
-		attachment, err = uploadTicketAttachment(r, h.storage, h.appURL)
+		urls, uploadErr := uploadTicketAttachments(r, h.storage, h.appURL)
+		if uploadErr != nil {
+			writeError(w, http.StatusBadRequest, uploadErr.Error())
+			return
+		}
+		attachment, err = encodeTicketAttachments(urls)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	} else {
 		var req struct {
-			Response   string `json:"response"`
-			Attachment string `json:"attachment"`
+			Response    string   `json:"response"`
+			Attachment  string   `json:"attachment"`
+			Attachments []string `json:"attachments"`
 		}
 		if err := decodeJSONBody(r, &req); err != nil {
 			if err == io.EOF {
@@ -455,7 +482,11 @@ func (h *HTTPSupportHandler) AddTicketResponse(w http.ResponseWriter, r *http.Re
 			return
 		}
 		responseText = req.Response
-		attachment = req.Attachment
+		attachment, err = mergeTicketAttachmentFields(req.Attachment, req.Attachments)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	if responseText == "" {
@@ -514,14 +545,15 @@ func (h *HTTPSupportHandler) CloseTicket(w http.ResponseWriter, r *http.Request)
 func formatTicketResource(resp *pbSupport.TicketResponse, viewerID uint64, includeThread bool) map[string]interface{} {
 	dateStr, timeStr := splitJalaliDateTime(resp.UpdatedAt)
 	ticketMap := map[string]interface{}{
-		"id":         resp.Id,
-		"title":      resp.Title,
-		"content":    resp.Content,
-		"code":       resp.Code,
-		"status":     resp.Status,
-		"attachment": resp.Attachment,
-		"date":       dateStr,
-		"time":       timeStr,
+		"id":          resp.Id,
+		"title":       resp.Title,
+		"content":     resp.Content,
+		"code":        resp.Code,
+		"status":      resp.Status,
+		"attachment":  resp.Attachment,
+		"attachments": decodeTicketAttachments(resp.Attachment),
+		"date":        dateStr,
+		"time":        timeStr,
 	}
 	if resp.Sender != nil {
 		ticketMap["sender"] = formatTicketUser(resp.Sender)
@@ -643,15 +675,16 @@ func formatTicketMessages(items []*pbSupport.TicketResponseItem, viewerID uint64
 			authorID = item.Author.Id
 		}
 		msg := map[string]interface{}{
-			"id":         item.Id,
-			"ticket_id":  strconv.FormatUint(item.TicketId, 10),
-			"kind":       kind,
-			"text":       item.Response,
-			"attachment": item.Attachment,
-			"is_mine":    authorID == viewerID,
-			"role":       item.Role,
-			"date":       dateStr,
-			"time":       timeStr,
+			"id":          item.Id,
+			"ticket_id":   strconv.FormatUint(item.TicketId, 10),
+			"kind":        kind,
+			"text":        item.Response,
+			"attachment":  item.Attachment,
+			"attachments": decodeTicketAttachments(item.Attachment),
+			"is_mine":     authorID == viewerID,
+			"role":        item.Role,
+			"date":        dateStr,
+			"time":        timeStr,
 		}
 		if item.Author != nil {
 			msg["author"] = formatTicketUser(item.Author)
@@ -670,6 +703,7 @@ func formatTicketResponseItems(items []*pbSupport.TicketResponseItem, viewerID u
 			"ticket_id":      strconv.FormatUint(item.TicketId, 10),
 			"response":       item.Response,
 			"attachment":     item.Attachment,
+			"attachments":    decodeTicketAttachments(item.Attachment),
 			"responser_id":   item.ResponserId,
 			"responser_name": item.ResponserName,
 			"is_mine":        item.ResponserId == viewerID,
@@ -892,20 +926,21 @@ func (h *HTTPSupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	attachment := ""
+	var attachments []string
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
-		url, _, attachErr := resolveNoteAttachmentURL(r, h.storage, h.appURL)
+		urls, attachErr := uploadNoteAttachmentFiles(r, h.storage, h.appURL)
 		if attachErr != nil {
 			writeError(w, http.StatusBadRequest, attachErr.Error())
 			return
 		}
-		attachment = url
+		attachments = urls
 	} else {
 		var req struct {
-			Title      string `json:"title"`
-			Content    string `json:"content"`
-			Attachment string `json:"attachment"`
+			Title       string   `json:"title"`
+			Content     string   `json:"content"`
+			Attachment  string   `json:"attachment"`
+			Attachments []string `json:"attachments"`
 		}
 		if err := decodeJSONBody(r, &req); err != nil {
 			if err == io.EOF {
@@ -917,7 +952,11 @@ func (h *HTTPSupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) 
 		}
 		title = req.Title
 		content = req.Content
-		attachment = req.Attachment
+		attachments, err = mergeNoteAttachmentURLs(req.Attachment, req.Attachments)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	if title == "" || content == "" {
@@ -926,12 +965,10 @@ func (h *HTTPSupportHandler) CreateNote(w http.ResponseWriter, r *http.Request) 
 	}
 
 	grpcReq := &pbSupport.CreateNoteRequest{
-		UserId:  userID,
-		Title:   title,
-		Content: content,
-	}
-	if attachment != "" {
-		grpcReq.Attachments = []string{attachment}
+		UserId:      userID,
+		Title:       title,
+		Content:     content,
+		Attachments: attachments,
 	}
 
 	resp, err := h.notes.CreateNote(r.Context(), grpcReq)
@@ -997,40 +1034,18 @@ func (h *HTTPSupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	attachment := ""
-	updateAttachment := false
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") {
-		url, clear, attachErr := resolveNoteAttachmentURL(r, h.storage, h.appURL)
-		if attachErr != nil {
-			writeError(w, http.StatusBadRequest, attachErr.Error())
+	attachments, replaceAttachments, bodyTitle, bodyContent, isJSON, err := h.prepareNoteUpdateAttachments(r)
+	if err != nil {
+		if _, ok := status.FromError(err); ok {
+			writeHandlerError(w, err)
 			return
 		}
-		if clear {
-			attachment = ""
-			updateAttachment = true
-		} else if url != "" {
-			attachment = url
-			updateAttachment = true
-		}
-	} else {
-		var req struct {
-			Title      string `json:"title"`
-			Content    string `json:"content"`
-			Attachment string `json:"attachment"`
-		}
-		if err := decodeJSONBody(r, &req); err != nil {
-			if err == io.EOF {
-				writeError(w, http.StatusBadRequest, "request body is required")
-			} else {
-				writeError(w, http.StatusBadRequest, "invalid request body")
-			}
-			return
-		}
-		title = req.Title
-		content = req.Content
-		attachment = req.Attachment
-		updateAttachment = true
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if isJSON {
+		title = bodyTitle
+		content = bodyContent
 	}
 
 	grpcReq := &pbSupport.UpdateNoteRequest{
@@ -1039,22 +1054,8 @@ func (h *HTTPSupportHandler) UpdateNote(w http.ResponseWriter, r *http.Request) 
 		Title:   title,
 		Content: content,
 	}
-	if updateAttachment {
-		if attachment != "" {
-			grpcReq.Attachments = []string{attachment}
-		} else {
-			grpcReq.Attachments = []string{}
-		}
-	} else {
-		existing, getErr := h.notes.GetNote(r.Context(), &pbSupport.GetNoteRequest{
-			NoteId: noteID,
-			UserId: userID,
-		})
-		if getErr != nil {
-			writeHandlerError(w, getErr)
-			return
-		}
-		grpcReq.Attachments = existing.Attachments
+	if replaceAttachments {
+		grpcReq.Attachments = attachments
 	}
 
 	resp, err := h.notes.UpdateNote(r.Context(), grpcReq)
@@ -1095,18 +1096,73 @@ func (h *HTTPSupportHandler) DeleteNote(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// prepareNoteUpdateAttachments builds the attachment list a note edit should store.
+// Links in the request are kept as-is. File parts are uploaded. The combined list
+// replaces the stored attachments, so any previously saved link that is missing
+// from the request is removed. The combined list cannot exceed 5 items, and that
+// check happens before upload. When the request does not mention attachments,
+// replace is false and the stored list is left unchanged.
+func (h *HTTPSupportHandler) prepareNoteUpdateAttachments(r *http.Request) (attachments []string, replace bool, title, content string, isJSON bool, err error) {
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		links, files, present := noteUpdateAttachmentInput(r)
+		if !present {
+			return nil, false, "", "", false, nil
+		}
+		if len(links)+len(files) > maxNoteAttachmentCount {
+			return nil, false, "", "", false, fmt.Errorf("attachments must not have more than 5 items")
+		}
+		if len(files) == 0 {
+			if links == nil {
+				links = []string{}
+			}
+			return links, true, "", "", false, nil
+		}
+		uploaded, uploadErr := uploadNoteFileHeaders(r, h.storage, h.appURL, files)
+		if uploadErr != nil {
+			return nil, false, "", "", false, uploadErr
+		}
+		final := make([]string, 0, len(links)+len(uploaded))
+		final = append(final, links...)
+		final = append(final, uploaded...)
+		return final, true, "", "", false, nil
+	}
+
+	var req struct {
+		Title       string    `json:"title"`
+		Content     string    `json:"content"`
+		Attachments *[]string `json:"attachments"`
+	}
+	if decodeErr := decodeJSONBody(r, &req); decodeErr != nil {
+		if decodeErr == io.EOF {
+			return nil, false, "", "", true, fmt.Errorf("request body is required")
+		}
+		return nil, false, "", "", true, fmt.Errorf("invalid request body")
+	}
+	if req.Attachments == nil {
+		return nil, false, req.Title, req.Content, true, nil
+	}
+	links := dedupeNonEmpty(*req.Attachments)
+	if len(links) > maxNoteAttachmentCount {
+		return nil, false, "", "", true, fmt.Errorf("attachments must not have more than 5 items")
+	}
+	if links == nil {
+		links = []string{}
+	}
+	return links, true, req.Title, req.Content, true, nil
+}
+
 func formatNoteResponse(resp *pbSupport.NoteResponse) map[string]interface{} {
-	noteMap := map[string]interface{}{
+	attachments := resp.Attachments
+	if attachments == nil {
+		attachments = []string{}
+	}
+	return map[string]interface{}{
 		"id":          resp.Id,
 		"title":       resp.Title,
 		"content":     resp.Content,
 		"date":        resp.Date,
 		"time":        resp.Time,
-		"attachments": []string{},
+		"attachments": attachments,
 	}
-	if len(resp.Attachments) > 0 {
-		noteMap["attachment"] = resp.Attachments[0]
-		noteMap["attachments"] = resp.Attachments
-	}
-	return noteMap
 }

@@ -12,8 +12,14 @@ func TestJalaliRoundTrip(t *testing.T) {
 		gregorian string
 		jalali    string
 	}{
-		{"2026-07-06", "1405/07/01"},
-		{"2026-09-22", "1405/09/19"},
+		{"2016-04-11", "1395/01/23"}, // jalaali-js reference
+		{"2024-03-20", "1403/01/01"}, // Nowruz
+		{"2025-03-21", "1404/01/01"}, // Nowruz
+		{"2025-09-26", "1404/07/04"},
+		{"2026-03-21", "1405/01/01"}, // Nowruz
+		{"2026-07-06", "1405/04/15"},
+		{"2026-09-22", "1405/06/31"},
+		{"2026-09-26", "1405/07/04"},
 	}
 
 	for _, tc := range cases {
@@ -36,7 +42,8 @@ func TestJalaliRoundTrip(t *testing.T) {
 }
 
 func TestEvent754DateFilter(t *testing.T) {
-	filter, err := jalali.JalaliToCarbon("1405/07/15")
+	// 1405/05/15 ≈ 2026-08-06 — within the event window below.
+	filter, err := jalali.JalaliToCarbon("1405/05/15")
 	if err != nil {
 		t.Fatal(err)
 	}

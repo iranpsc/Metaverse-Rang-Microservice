@@ -21,16 +21,42 @@ import (
 	"metarang/shared/pkg/helpers"
 )
 
-type authHandler struct {
-	pb.UnimplementedAuthServiceServer
-	authService         service.AuthService
-	tokenRepo           repository.TokenRepository
-	profilePhotoService service.ProfilePhotoService
-	locale              string
+// PresenceToucher records that a validated token belongs to an active user.
+type PresenceToucher interface {
+	Touch(userID uint64)
 }
 
-func RegisterAuthHandler(grpcServer *grpc.Server, authService service.AuthService, tokenRepo repository.TokenRepository, profilePhotoService service.ProfilePhotoService, locale string) pb.AuthServiceServer {
-	h := NewAuthHandler(authService, tokenRepo, profilePhotoService, locale)
+type authHandler struct {
+	pb.UnimplementedAuthServiceServer
+	authService            service.AuthService
+	accountSecurityService service.AccountSecurityService
+	tokenRepo              repository.TokenRepository
+	profilePhotoService    service.ProfilePhotoService
+	presence               PresenceToucher
+	locale                 string
+}
+
+// AuthHandlerOption configures optional handler dependencies.
+type AuthHandlerOption func(*authHandler)
+
+// WithAccountSecurityService wires the dedicated account security service.
+func WithAccountSecurityService(svc service.AccountSecurityService) AuthHandlerOption {
+	return func(h *authHandler) {
+		h.accountSecurityService = svc
+	}
+}
+
+// WithPresenceTracker records last_seen when ValidateToken succeeds.
+// Other services authenticate through this RPC, so their auth middleware
+// updates presence without writing the users table themselves.
+func WithPresenceTracker(tracker PresenceToucher) AuthHandlerOption {
+	return func(h *authHandler) {
+		h.presence = tracker
+	}
+}
+
+func RegisterAuthHandler(grpcServer *grpc.Server, authService service.AuthService, tokenRepo repository.TokenRepository, profilePhotoService service.ProfilePhotoService, locale string, opts ...AuthHandlerOption) pb.AuthServiceServer {
+	h := NewAuthHandler(authService, tokenRepo, profilePhotoService, locale, opts...)
 	pb.RegisterAuthServiceServer(grpcServer, h)
 	return h
 }
@@ -165,6 +191,10 @@ func (h *authHandler) ValidateToken(ctx context.Context, req *pb.ValidateTokenRe
 		}, nil
 	}
 
+	if h.presence != nil {
+		h.presence.Touch(session.User.ID)
+	}
+
 	return &pb.ValidateTokenResponse{
 		Valid:       true,
 		UserId:      session.User.ID,
@@ -196,7 +226,10 @@ func (h *authHandler) RequestAccountSecurity(ctx context.Context, req *pb.Reques
 		return nil, status.Error(codes.InvalidArgument, encodedError)
 	}
 
-	if err := h.authService.RequestAccountSecurity(ctx, userID, req.TimeMinutes, req.Phone); err != nil {
+	if h.accountSecurityService == nil {
+		return nil, status.Error(codes.Internal, "account security service is not configured")
+	}
+	if err := h.accountSecurityService.RequestAccountSecurity(ctx, userID, req.TimeMinutes, req.Phone); err != nil {
 		return nil, mapAccountSecurityErrorWithFields(err, h.locale)
 	}
 	return &emptypb.Empty{}, nil
@@ -210,7 +243,10 @@ func (h *authHandler) CheckAccountSecurity(ctx context.Context, req *pb.CheckAcc
 	if err := authpkg.AuthorizeSelfOrService(ctx, userID); err != nil {
 		return nil, err
 	}
-	unlocked, err := h.authService.CheckAccountSecurity(ctx, userID)
+	if h.accountSecurityService == nil {
+		return nil, status.Error(codes.Internal, "account security service is not configured")
+	}
+	unlocked, err := h.accountSecurityService.CheckAccountSecurity(ctx, userID)
 	if err != nil {
 		return nil, mapAccountSecurityErrorWithFields(err, h.locale)
 	}
@@ -253,7 +289,10 @@ func (h *authHandler) VerifyAccountSecurity(ctx context.Context, req *pb.VerifyA
 		return nil, status.Error(codes.InvalidArgument, encodedError)
 	}
 
-	if err := h.authService.VerifyAccountSecurity(ctx, userID, req.Code, req.Ip, req.UserAgent); err != nil {
+	if h.accountSecurityService == nil {
+		return nil, status.Error(codes.Internal, "account security service is not configured")
+	}
+	if err := h.accountSecurityService.VerifyAccountSecurity(ctx, userID, req.Code, req.Ip, req.UserAgent); err != nil {
 		return nil, mapAccountSecurityErrorWithFields(err, h.locale)
 	}
 	return &emptypb.Empty{}, nil

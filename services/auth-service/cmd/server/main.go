@@ -91,6 +91,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create Redis publisher: %v", err)
 	}
+	defer func() { _ = redisPublisher.Close() }()
 
 	userRepo := repository.NewUserRepository(db, cfgRuntime.AdminPanelURL)
 	tokenRepo := repository.NewTokenRepository(db)
@@ -143,8 +144,6 @@ func main() {
 		userRepo,
 		tokenRepo,
 		cacheRepo,
-		accountSecurityRepo,
-		activityRepo,
 		observerService,
 		helperService,
 		smsClient,
@@ -153,8 +152,15 @@ func main() {
 		cfgRuntime.OAuthClientSecret,
 		cfgRuntime.AppURL,
 		cfgRuntime.FrontEndURL,
-		service.IsProductionEnv(cfgRuntime.AppEnv),
 		service.WithResetRepository(resetRepo),
+	)
+	accountSecurityService := service.NewAccountSecurityService(
+		userRepo,
+		accountSecurityRepo,
+		activityRepo,
+		cacheRepo,
+		smsClient,
+		service.IsProductionEnv(cfgRuntime.AppEnv),
 	)
 	userService := service.NewUserServiceWithDependencies(
 		userRepo,
@@ -212,7 +218,20 @@ func main() {
 
 	projectLocale := cfgRuntime.ProjectLocale
 	handler.SetProjectLocale(projectLocale)
-	authHandler := handler.RegisterAuthHandler(grpcServer, authService, tokenRepo, profilePhotoService, projectLocale)
+	presenceCtx, stopPresence := context.WithCancel(context.Background())
+	defer stopPresence()
+	presence := service.NewPresenceService(userRepo, redisPublisher, redisClient)
+	go presence.Start(presenceCtx)
+
+	authHandler := handler.RegisterAuthHandler(
+		grpcServer,
+		authService,
+		tokenRepo,
+		profilePhotoService,
+		projectLocale,
+		handler.WithAccountSecurityService(accountSecurityService),
+		handler.WithPresenceTracker(presence),
+	)
 	walletHandler := handler.RegisterWalletConnectionHandler(grpcServer, walletConnectionService, projectLocale)
 	userHandler := handler.RegisterUserHandler(grpcServer, userService, profileLimitationService, helperService)
 	kycHandler := handler.RegisterKYCHandler(grpcServer, kycService, apiGatewayURL)
@@ -251,9 +270,12 @@ func main() {
 	httpWalletHandler := handler.NewHTTPWalletHandler(localClients.WalletConnection, projectLocale)
 	authMiddleware := middleware.WithLastSeen(
 		middleware.AuthMiddleware(tokenValidator),
-		middleware.LastSeenMiddleware(userRepo, redisPublisher),
+		middleware.LastSeenMiddleware(presence),
 	)
-	optionalAuthMiddleware := middleware.OptionalAuthMiddleware(tokenValidator)
+	optionalAuthMiddleware := middleware.WithLastSeen(
+		middleware.OptionalAuthMiddleware(tokenValidator),
+		middleware.LastSeenMiddleware(presence),
+	)
 	guestMiddleware := middleware.GuestMiddleware(tokenValidator)
 
 	listener, err := net.Listen("tcp", grpcListenAddr(cfgRuntime.GRPCPort))
@@ -284,6 +306,7 @@ func main() {
 	<-quit
 
 	log.Println("Shutting down server...")
+	stopPresence()
 	grpcServer.GracefulStop()
 	log.Println("Server stopped")
 }

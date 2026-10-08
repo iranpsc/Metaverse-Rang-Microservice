@@ -256,7 +256,6 @@ func shouldSkipAuth(fullMethod string) bool {
 		"/auth.CitizenService/GetCitizenUserInfo",
 		"/auth.CitizenService/GetCitizenLevel",
 		"/auth.SearchService/SearchUsers",
-		"/auth.SearchService/SearchFeatures",
 		"/auth.SearchService/SearchIsicCodes",
 		"/auth.ProfilePhotoService/GetProfilePhoto",
 		// Commercial service public endpoints
@@ -268,12 +267,10 @@ func shouldSkipAuth(fullMethod string) bool {
 		// Features service public endpoints
 		"/features.BuildingService/ListCompletedBuildings", // GET /api/features/buildings/completed (no auth)
 		"/features.FeatureService/GetFeatureTradeHistory",  // GET /api/features/{feature}/trade-history (no auth)
+		"/features.FeatureService/SearchFeatures",          // /api/search/features (optional auth)
 		"/features.CitizenFeaturesService/GetCitizenFeatureSummary",
 		"/features.CitizenFeaturesService/GetCitizenFeatureChart",
 		"/features.CitizenFeaturesService/ListCitizenFeatures",
-		"/features.CitizenBuildingsService/GetCitizenBuildingSummary",
-		"/features.CitizenBuildingsService/GetCitizenBuildingChart",
-		"/features.CitizenBuildingsService/ListCitizenBuildings",
 	}
 
 	for _, method := range publicMethods {

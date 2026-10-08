@@ -135,6 +135,10 @@ func TestWalletRepository_BalanceOpErrors(t *testing.T) {
 	require.Error(t, repo.AddBalance(context.Background(), 1, "psc", decimal.NewFromInt(1)))
 
 	mock.ExpectExec("UPDATE wallets").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	require.Error(t, repo.AddBalance(context.Background(), 1, "psc", decimal.NewFromInt(1)))
+
+	mock.ExpectExec("UPDATE wallets").
 		WillReturnError(assert.AnError)
 	require.Error(t, repo.DeductBalance(context.Background(), 1, "psc", decimal.NewFromInt(1)))
 

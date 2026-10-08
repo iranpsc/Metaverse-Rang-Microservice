@@ -20,6 +20,7 @@ type FeatureServicePort interface {
 	AddMyFeatureImages(ctx context.Context, userID, featureID uint64, imageData [][]byte, filenames, contentTypes []string) (*pb.Feature, error)
 	RemoveMyFeatureImage(ctx context.Context, userID, featureID, imageID uint64) error
 	UpdateMyFeature(ctx context.Context, userID, featureID uint64, minimumPricePercentage int32) (*pb.UpdateMyFeatureResponse, error)
+	SearchFeatures(ctx context.Context, searchTerm string) ([]*pb.SearchFeatureResult, error)
 }
 
 // TradeHistoryServicePort is implemented by *service.FeatureTradeHistoryService.
@@ -57,31 +58,9 @@ type GeometryCoordinateReader interface {
 	GetCoordinatesWithIDs(ctx context.Context, featureID uint64) ([]*models.Coordinate, error)
 }
 
-// BuildingServicePort is implemented by *service.BuildingService.
-type BuildingServicePort interface {
-	GetBuildPackage(ctx context.Context, featureID uint64, page int32) ([]*pb.BuildingModel, []string, error)
-	BuildFeature(ctx context.Context, req *pb.BuildFeatureRequest) (*pb.Feature, error)
-	GetBuildings(ctx context.Context, featureID uint64) ([]*pb.Building, error)
-	UpdateBuilding(ctx context.Context, req *pb.UpdateBuildingRequest) (*pb.Building, error)
-	UpdateBuildingInformation(ctx context.Context, req *pb.UpdateBuildingInformationRequest) (*pb.BuildingInformation, error)
-	DestroyBuilding(ctx context.Context, featureID uint64, buildingModelID string) error
-}
-
-// CompletedBuildingServicePort is implemented by *service.CompletedBuildingService.
-type CompletedBuildingServicePort interface {
-	Paginate(ctx context.Context, page int) (*models.CompletedBuildingPage, error)
-}
-
 // IsicCodeServicePort is implemented by *service.IsicCodeService.
 type IsicCodeServicePort interface {
 	Paginate(ctx context.Context, page int, search string) (*models.IsicCodePage, error)
-}
-
-// CitizenBuildingsServicePort is implemented by *service.CitizenBuildingsService.
-type CitizenBuildingsServicePort interface {
-	GetSummary(ctx context.Context, userID uint64, allowedKarbaris []string) (*models.CitizenBuildingSummaryResult, error)
-	GetChart(ctx context.Context, userID uint64, period string, allowedKarbaris []string) (*models.CitizenBuildingChartResult, error)
-	GetBuildings(ctx context.Context, userID uint64, allowedKarbaris []string, page int) (*models.CitizenBuildingsPage, error)
 }
 
 // CitizenFeaturesServicePort is implemented by *service.CitizenFeaturesService.

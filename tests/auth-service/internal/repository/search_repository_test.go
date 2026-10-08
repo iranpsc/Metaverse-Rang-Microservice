@@ -134,28 +134,6 @@ func TestSearchRepository_SearchUsers(t *testing.T) {
 	})
 }
 
-func TestSearchRepository_SearchFeatures(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping feature search test (requires features table)")
-	}
-
-	db := setupTestDB(t)
-	repo := repository.NewSearchRepository(db)
-	ctx := context.Background()
-
-	// Clean up test data
-	defer cleanupTestData(t, db)
-
-	// Note: This test requires feature_properties, features, users, geometries, and coordinates tables
-	// For a full test, you would need to set up these relationships
-	t.Run("search features by id", func(t *testing.T) {
-		results, err := repo.SearchFeatures(ctx, "TEH-")
-		require.NoError(t, err)
-		// Results depend on test data
-		assert.NotNil(t, results)
-	})
-}
-
 func TestSearchRepository_SearchIsicCodes(t *testing.T) {
 	db := setupTestDB(t)
 	repo := repository.NewSearchRepository(db)

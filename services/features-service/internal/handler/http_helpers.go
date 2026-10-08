@@ -19,28 +19,6 @@ import (
 	featurespb "metarang/shared/pb/features"
 )
 
-func effectiveHTTPMethod(r *http.Request) string {
-	if r.Method != http.MethodPost {
-		return r.Method
-	}
-	if value := r.URL.Query().Get("_method"); value != "" {
-		return strings.ToUpper(strings.TrimSpace(value))
-	}
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") {
-		_ = r.ParseMultipartForm(32 << 20)
-		if r.MultipartForm != nil && len(r.MultipartForm.Value["_method"]) > 0 {
-			return strings.ToUpper(strings.TrimSpace(r.MultipartForm.Value["_method"][0]))
-		}
-	} else if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") || contentType == "" {
-		_ = r.ParseForm()
-		if value := r.PostForm.Get("_method"); value != "" {
-			return strings.ToUpper(strings.TrimSpace(value))
-		}
-	}
-	return r.Method
-}
-
 // requestHasBody reports whether the request may carry a body.
 // ContentLength -1 (chunked / unset) is common for API clients and must not be treated as empty.
 func requestHasBody(r *http.Request) bool {
@@ -232,13 +210,6 @@ func emptyToNil(value string) interface{} {
 	return value
 }
 
-func optionalFloat64(value *float64) interface{} {
-	if value == nil {
-		return nil
-	}
-	return *value
-}
-
 func toProtoCitizenChartPoints(points []models.CitizenChartPoint) []*featurespb.CitizenChartPoint {
 	out := make([]*featurespb.CitizenChartPoint, len(points))
 	for i, p := range points {
@@ -291,52 +262,4 @@ func parseFlexibleNumber(raw string) interface{} {
 		return f
 	}
 	return raw
-}
-
-func parseBuildingInformation(body map[string]interface{}) *featurespb.BuildingInformation {
-	source := body
-	hasFlat := false
-	for _, key := range []string{"activity_line", "name", "address", "postal_code", "website", "description"} {
-		if _, ok := body[key]; ok {
-			hasFlat = true
-			break
-		}
-	}
-	if !hasFlat {
-		if nested, ok := body["information"].(map[string]interface{}); ok {
-			source = nested
-		}
-	}
-	get := func(key string) string { value, _ := source[key].(string); return value }
-	info := &featurespb.BuildingInformation{ActivityLine: get("activity_line"), Name: get("name"), Address: get("address"), PostalCode: get("postal_code"), Website: get("website"), Description: get("description")}
-	if info.ActivityLine == "" && info.Name == "" && info.Address == "" && info.PostalCode == "" && info.Website == "" && info.Description == "" {
-		return nil
-	}
-	return info
-}
-
-func buildingInformationMap(info *featurespb.BuildingInformation) map[string]interface{} {
-	if info == nil {
-		return map[string]interface{}{}
-	}
-	result := map[string]interface{}{}
-	if info.ActivityLine != "" {
-		result["activity_line"] = info.ActivityLine
-	}
-	if info.Name != "" {
-		result["name"] = info.Name
-	}
-	if info.Address != "" {
-		result["address"] = info.Address
-	}
-	if info.PostalCode != "" {
-		result["postal_code"] = info.PostalCode
-	}
-	if info.Website != "" {
-		result["website"] = info.Website
-	}
-	if info.Description != "" {
-		result["description"] = info.Description
-	}
-	return result
 }

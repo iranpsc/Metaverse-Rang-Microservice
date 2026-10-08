@@ -1,6 +1,43 @@
 _format_version: "3.0"
 
 services:
+  # Feature search — longer path than auth-api /api/search so Kong prefers this route.
+  - name: features-service
+    url: http://features-service.metarang.svc.cluster.local:8062
+    protocol: http
+    routes:
+      - name: features-search-api
+        # Regex so this wins over auth-api, which is a regex route and is
+        # evaluated before plain prefixes such as /api/search/users.
+        paths:
+          - ~/api/search/features/?$
+        regex_priority: 200
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+        strip_path: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+              credentials: true
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 60
+              hour: 1000
+              policy: local
+
   # Auth Service (HTTP REST — migrated off grpc-gateway)
   - name: auth-service
     url: http://auth-service.metarang.svc.cluster.local:8066
@@ -18,7 +55,8 @@ services:
           - /api/user/profile
           - ~/api/user/[^/]+/level$
           - ~/api/user$
-          - /api/search
+          - /api/search/users
+          - /api/search/isic-codes
           - /api/kyc
           - /api/bank-accounts
           - /api/personal-info

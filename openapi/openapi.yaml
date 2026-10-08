@@ -51,6 +51,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -82,6 +83,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -134,6 +136,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -212,6 +215,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -244,6 +248,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -295,6 +300,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -397,6 +403,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -436,6 +443,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -489,6 +497,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -591,6 +600,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -630,6 +640,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -727,6 +738,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -829,6 +841,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -971,7 +984,8 @@ paths:
                   schema:
                     example: HM-2000000
                     type: string
-                - description: Optional filter to specific karbari codes. Privacy settings still apply.
+                - description: |
+                    Optional land-use filter. Accepted codes are a, m, t, g, s, b, e, n. Privacy still applies. Omitted means all eight codes, then privacy.
                   in: query
                   name: karbari
                   required: false
@@ -981,7 +995,7 @@ paths:
                     items:
                         type: string
                     type: array
-                - description: Page number
+                - description: Page number (default 1, 10 items per page)
                   in: query
                   name: page
                   required: false
@@ -990,13 +1004,74 @@ paths:
                     type: integer
             responses:
                 "200":
-                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            properties:
+                                                area:
+                                                    description: length times width from model attributes
+                                                    example: 300
+                                                    nullable: true
+                                                    type: number
+                                                building_id:
+                                                    description: Building model SKU
+                                                    example: SHOP-A
+                                                    type: string
+                                                construction_end_date:
+                                                    description: Jalali date yyyy/MM/dd
+                                                    example: 1403/08/09
+                                                    nullable: true
+                                                    type: string
+                                                density:
+                                                    description: Density attribute from the building model
+                                                    example: 2
+                                                    nullable: true
+                                                    type: number
+                                                empty_units:
+                                                    description: Always 0 until unit tracking exists
+                                                    example: 0
+                                                    type: number
+                                                images:
+                                                    items:
+                                                        properties:
+                                                            id:
+                                                                description: 0 when the catalog stored a bare URL
+                                                                format: int64
+                                                                type: integer
+                                                            url:
+                                                                type: string
+                                                        type: object
+                                                    type: array
+                                                karbari:
+                                                    example: t
+                                                    type: string
+                                                visitors:
+                                                    description: Always 0 until visitor tracking exists
+                                                    example: 0
+                                                    type: number
+                                            type: object
+                                        type: array
+                                    links:
+                                        $ref: '#/components/schemas/PaginationLinks'
+                                    meta:
+                                        $ref: '#/components/schemas/PaginationMeta'
+                                type: object
+                    description: Completed buildings. links and meta.path are absolute URLs for this request. from and to are null on an empty page.
                 "401":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
                     description: Unauthenticated
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: citizen not found
                 "422":
                     content:
                         application/json:
@@ -1017,7 +1092,8 @@ paths:
                   schema:
                     example: HM-2000000
                     type: string
-                - description: Optional filter to specific karbari codes. Privacy settings still apply.
+                - description: |
+                    Optional land-use filter. Accepted codes are a, m, t, g, s, b, e, n. Privacy still applies. Omitted means all eight codes, then privacy.
                   in: query
                   name: karbari
                   required: false
@@ -1027,7 +1103,8 @@ paths:
                     items:
                         type: string
                     type: array
-                - description: Time window (`daily`, `weekly`, `monthly`, or `yearly`). Defaults to `daily`.
+                - description: |
+                    daily (default, 24 hourly labels HH:mm), weekly (4 weeks, Jalali yyyy/MM/dd), monthly (12 months, Persian month and year), or yearly (Jalali years since registration). Any other value is treated as daily.
                   in: query
                   name: period
                   required: false
@@ -1036,13 +1113,41 @@ paths:
                     type: string
             responses:
                 "200":
-                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            properties:
+                                                amount:
+                                                    description: Completed buildings in this bucket
+                                                    example: 2
+                                                    type: number
+                                                karbari:
+                                                    example: m
+                                                    type: string
+                                                label:
+                                                    description: Bucket label. Format depends on period.
+                                                    example: 1403/07/01
+                                                    type: string
+                                            type: object
+                                        type: array
+                                type: object
+                    description: |
+                        Flat series, oldest bucket first. For each karbari, one point per bucket. Group by karbari to draw one series. amount is buildings finished in that bucket.
                 "401":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
                     description: Unauthenticated
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: citizen not found
                 "422":
                     content:
                         application/json:
@@ -1063,7 +1168,8 @@ paths:
                   schema:
                     example: HM-2000000
                     type: string
-                - description: Optional filter to specific karbari codes. Privacy settings still apply.
+                - description: |
+                    Optional land-use filter. Accepted codes are a, m, t, g, s, b, e, n. Forms: karbari[]=m, karbari[0]=m, or repeated karbari=m. Privacy still applies: a code is included only when its privacy value is missing or 1. Omitted means all eight codes, then privacy. Hidden codes are dropped, not rejected.
                   in: query
                   name: karbari
                   required: false
@@ -1076,13 +1182,41 @@ paths:
                     type: array
             responses:
                 "200":
-                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            properties:
+                                                count:
+                                                    description: Completed buildings of this karbari
+                                                    example: 4
+                                                    type: integer
+                                                karbari:
+                                                    description: Land-use code (a, m, t, g, s, b, e, n)
+                                                    example: m
+                                                    type: string
+                                                label:
+                                                    description: Persian label for karbari
+                                                    example: مسکونی
+                                                    type: string
+                                            type: object
+                                        type: array
+                                type: object
+                    description: One row per allowed karbari, in request order. Count 0 is included. Empty data when every code is hidden.
                 "401":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
                     description: Unauthenticated
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: citizen not found
                 "422":
                     content:
                         application/json:
@@ -1368,7 +1502,144 @@ paths:
             security:
                 - {}
                 - BearerAuth: []
-            summary: List comment replies
+            summary: List replies to a comment
+            tags:
+                - Training
+    /api/comments/{comment}/replies/{reply}:
+        delete:
+            operationId: delete_comments_comment_replies_reply
+            parameters:
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Reply ID
+                  in: path
+                  name: reply
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Delete a reply
+            tags:
+                - Training
+        put:
+            operationId: put_comments_comment_replies_reply
+            parameters:
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Reply ID
+                  in: path
+                  name: reply
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Update a reply
+            tags:
+                - Training
+    /api/comments/{comment}/replies/{reply}/interactions:
+        post:
+            operationId: post_comments_comment_replies_reply_interactions
+            parameters:
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Reply ID
+                  in: path
+                  name: reply
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Like or dislike a reply
             tags:
                 - Training
     /api/comments/{comment}/reply:
@@ -1391,6 +1662,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -1408,7 +1680,7 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: Add comment reply
+            summary: Add a reply to a comment
             tags:
                 - Training
     /api/dynasty:
@@ -1502,6 +1774,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -1533,6 +1806,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -1564,6 +1838,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -1603,6 +1878,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -1643,6 +1919,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -1737,6 +2014,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -1862,6 +2140,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -1979,6 +2258,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2081,6 +2361,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2125,6 +2406,176 @@ paths:
             summary: List features
             tags:
                 - Features
+    /api/features/{feature}/build/{buildingModel}:
+        post:
+            operationId: post_features_feature_build_buildingModel
+            parameters:
+                - description: Feature ID. Caller must own the feature. The feature must not already have a building.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Catalog model_id (the same value as the catalog id, as a string)
+                  in: path
+                  name: buildingModel
+                  required: true
+                  schema:
+                    example: "1001"
+                    type: string
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                activity_line:
+                                    description: ISIC code. When set, the information fields are saved.
+                                    maxLength: 255
+                                    type: string
+                                address:
+                                    maxLength: 255
+                                    type: string
+                                description:
+                                    maxLength: 5000
+                                    type: string
+                                information:
+                                    $ref: '#/components/schemas/BuildingInformation'
+                                    description: Optional nested form of the same information fields.
+                                launched_satisfaction:
+                                    description: Stake charged from the satisfaction wallet. Must be greater than 0 and at least the catalog required_satisfaction. A JSON number is accepted. Hours to finish = required_satisfaction * 288000 / launched_satisfaction.
+                                    oneOf:
+                                        - example: "1.2"
+                                          type: string
+                                        - example: 1.2
+                                          type: number
+                                name:
+                                    description: Saved only when activity_line is set.
+                                    maxLength: 255
+                                    type: string
+                                position:
+                                    description: Placement as x,y
+                                    example: 10.5,20
+                                    pattern: ^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$
+                                    type: string
+                                postal_code:
+                                    description: Iranian postal code, 10 digits. Persian digits, spaces, and dashes are accepted.
+                                    example: "1234567890"
+                                    type: string
+                                rotation:
+                                    description: Rotation in degrees. A JSON number is accepted.
+                                    oneOf:
+                                        - example: "90"
+                                          type: string
+                                        - example: 90
+                                          type: number
+                                website:
+                                    description: http or https URL
+                                    example: https://example.com
+                                    maxLength: 255
+                                    type: string
+                            required:
+                                - launched_satisfaction
+                                - rotation
+                                - position
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            properties:
+                                activity_line:
+                                    description: ISIC code. When set, the information fields are saved.
+                                    maxLength: 255
+                                    type: string
+                                address:
+                                    maxLength: 255
+                                    type: string
+                                description:
+                                    maxLength: 5000
+                                    type: string
+                                information:
+                                    $ref: '#/components/schemas/BuildingInformation'
+                                    description: Optional nested form of the same information fields.
+                                launched_satisfaction:
+                                    description: Stake charged from the satisfaction wallet. Must be greater than 0 and at least the catalog required_satisfaction. A JSON number is accepted. Hours to finish = required_satisfaction * 288000 / launched_satisfaction.
+                                    oneOf:
+                                        - example: "1.2"
+                                          type: string
+                                        - example: 1.2
+                                          type: number
+                                name:
+                                    description: Saved only when activity_line is set.
+                                    maxLength: 255
+                                    type: string
+                                position:
+                                    description: Placement as x,y
+                                    example: 10.5,20
+                                    pattern: ^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$
+                                    type: string
+                                postal_code:
+                                    description: Iranian postal code, 10 digits. Persian digits, spaces, and dashes are accepted.
+                                    example: "1234567890"
+                                    type: string
+                                rotation:
+                                    description: Rotation in degrees. A JSON number is accepted.
+                                    oneOf:
+                                        - example: "90"
+                                          type: string
+                                        - example: 90
+                                          type: number
+                                website:
+                                    description: http or https URL
+                                    example: https://example.com
+                                    maxLength: 255
+                                    type: string
+                            required:
+                                - launched_satisfaction
+                                - rotation
+                                - position
+                            type: object
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EmptyData'
+                    description: Construction started. The building is not returned; list buildings on the feature.
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
+                "412":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: feature already has a building, or insufficient satisfaction
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ObjectValidationError'
+                    description: Invalid stake, rotation, position, or building information. request body is required.
+            security:
+                - BearerAuth: []
+            summary: Start construction of one building on a feature
+            tags:
+                - Features
     /api/features/{feature}/build/buildings:
         get:
             operationId: get_features_feature_build_buildings
@@ -2139,7 +2590,57 @@ paths:
                     type: integer
             responses:
                 "200":
-                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            allOf:
+                                                - $ref: '#/components/schemas/BuildingCatalogModel'
+                                                - properties:
+                                                    building:
+                                                        properties:
+                                                            bubble_diameter:
+                                                                description: perimeter * (1 + 0.3 * (density - 1)), where perimeter = 2 * (width + length). "0" when attributes are missing.
+                                                                example: "161"
+                                                                type: string
+                                                            construction_end_date:
+                                                                description: Jalali yyyy/MM/dd HH:mm:ss
+                                                                example: 1403/09/01 08:00:00
+                                                                type: string
+                                                            construction_start_date:
+                                                                description: Jalali yyyy/MM/dd HH:mm:ss
+                                                                example: 1403/08/09 14:30:45
+                                                                type: string
+                                                            feature_id:
+                                                                example: 44
+                                                                format: int64
+                                                                type: integer
+                                                            information:
+                                                                allOf:
+                                                                    - $ref: '#/components/schemas/BuildingInformation'
+                                                                description: Null unless the caller owns the feature
+                                                                nullable: true
+                                                            launched_satisfaction:
+                                                                description: Staked satisfaction, 4 decimal places
+                                                                example: "1.2000"
+                                                                type: string
+                                                            model_id:
+                                                                example: "1001"
+                                                                type: string
+                                                            position:
+                                                                example: 10.5,20
+                                                                type: string
+                                                            rotation:
+                                                                example: "90"
+                                                                type: string
+                                                        type: object
+                                                  type: object
+                                        type: array
+                                type: object
+                    description: |
+                        Buildings on the feature. information is the parsed JSON object for the owner and null for everyone else. Dates are Jalali yyyy/MM/dd HH:mm:ss. required_satisfaction here is the stored model value, often "0"; use the catalog for the stake.
                 "401":
                     content:
                         application/json:
@@ -2150,8 +2651,8 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
+                                $ref: '#/components/schemas/ObjectValidationError'
+                    description: invalid feature ID
             security:
                 - {}
                 - BearerAuth: []
@@ -2162,7 +2663,7 @@ paths:
         delete:
             operationId: delete_features_feature_build_buildings_buildingModel
             parameters:
-                - description: Feature ID
+                - description: Feature ID. Caller must own the feature.
                   in: path
                   name: feature
                   required: true
@@ -2170,22 +2671,51 @@ paths:
                     example: 1
                     format: int64
                     type: integer
-                - description: Building model identifier (3D model_id or local building_models.id)
+                - description: Catalog model_id of the building on this feature
                   in: path
                   name: buildingModel
                   required: true
                   schema:
                     example: "1001"
                     type: string
+                - description: Send POST with _method=DELETE to call this route. Also accepted as a form field.
+                  in: query
+                  name: _method
+                  required: false
+                  schema:
+                    example: DELETE
+                    type: string
             responses:
                 "200":
-                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EmptyData'
+                    description: Building removed and satisfaction refunded.
                 "401":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
                     description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: building not found
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
                 "422":
                     content:
                         application/json:
@@ -2194,13 +2724,13 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: Update building construction or destroy building
+            summary: Remove a building and refund its staked satisfaction
             tags:
                 - Features
         patch:
             operationId: patch_features_feature_build_buildings_buildingModel
             parameters:
-                - description: Feature ID
+                - description: Feature ID. Caller must own the feature.
                   in: path
                   name: feature
                   required: true
@@ -2208,36 +2738,119 @@ paths:
                     example: 1
                     format: int64
                     type: integer
-                - description: Building model identifier (3D model_id or local building_models.id)
+                - description: Catalog model_id of the building on this feature
                   in: path
                   name: buildingModel
                   required: true
                   schema:
                     example: "1001"
                     type: string
+                - description: Send POST with _method=PATCH to call this route. Also accepted as a form field.
+                  in: query
+                  name: _method
+                  required: false
+                  schema:
+                    example: PATCH
+                    type: string
             requestBody:
                 content:
                     application/json:
                         schema:
+                            description: |
+                                Send one or more information fields at the top level or under information. Only non-empty strings are applied. An empty string does not clear a stored value. At least one field must remain after the merge.
+                            properties:
+                                activity_line:
+                                    maxLength: 255
+                                    type: string
+                                address:
+                                    maxLength: 255
+                                    type: string
+                                description:
+                                    maxLength: 5000
+                                    type: string
+                                information:
+                                    $ref: '#/components/schemas/BuildingInformation'
+                                name:
+                                    maxLength: 255
+                                    type: string
+                                postal_code:
+                                    description: 10-digit Iranian postal code
+                                    example: "1234567890"
+                                    type: string
+                                website:
+                                    description: http or https URL
+                                    maxLength: 255
+                                    type: string
                             type: object
                     multipart/form-data:
                         schema:
+                            description: |
+                                Send one or more information fields at the top level or under information. Only non-empty strings are applied. An empty string does not clear a stored value. At least one field must remain after the merge.
+                            properties:
+                                activity_line:
+                                    maxLength: 255
+                                    type: string
+                                address:
+                                    maxLength: 255
+                                    type: string
+                                description:
+                                    maxLength: 5000
+                                    type: string
+                                information:
+                                    $ref: '#/components/schemas/BuildingInformation'
+                                name:
+                                    maxLength: 255
+                                    type: string
+                                postal_code:
+                                    description: 10-digit Iranian postal code
+                                    example: "1234567890"
+                                    type: string
+                                website:
+                                    description: http or https URL
+                                    maxLength: 255
+                                    type: string
                             type: object
+                required: true
             responses:
                 "200":
-                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    information:
+                                        $ref: '#/components/schemas/BuildingInformation'
+                                type: object
+                    description: Merged information. Empty fields are omitted.
                 "401":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
                     description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: building not found or building model not found
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
                 "422":
                     content:
                         application/json:
                             schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
+                                $ref: '#/components/schemas/ObjectValidationError'
+                    description: information is required, or a field failed validation
             security:
                 - BearerAuth: []
             summary: Patch building information and return updated information
@@ -2246,7 +2859,7 @@ paths:
         put:
             operationId: put_features_feature_build_buildings_buildingModel
             parameters:
-                - description: Feature ID
+                - description: Feature ID. Caller must own the feature.
                   in: path
                   name: feature
                   required: true
@@ -2254,30 +2867,346 @@ paths:
                     example: 1
                     format: int64
                     type: integer
-                - description: Building model identifier (3D model_id or local building_models.id)
+                - description: Catalog model_id of the building on this feature
                   in: path
                   name: buildingModel
                   required: true
                   schema:
                     example: "1001"
                     type: string
+                - description: Send POST with _method=PUT to call this route. Also accepted as a form field.
+                  in: query
+                  name: _method
+                  required: false
+                  schema:
+                    example: PUT
+                    type: string
             requestBody:
                 content:
                     application/json:
                         schema:
+                            description: |
+                                Same fields as start construction. Raising launched_satisfaction charges the difference. Lowering it refunds the difference and must stay at least required_satisfaction. construction_end_date is recalculated from the original start. Information is replaced only when activity_line is non-empty.
+                            properties:
+                                activity_line:
+                                    maxLength: 255
+                                    type: string
+                                address:
+                                    maxLength: 255
+                                    type: string
+                                description:
+                                    maxLength: 5000
+                                    type: string
+                                information:
+                                    $ref: '#/components/schemas/BuildingInformation'
+                                launched_satisfaction:
+                                    oneOf:
+                                        - example: "1.2"
+                                          type: string
+                                        - example: 1.2
+                                          type: number
+                                name:
+                                    maxLength: 255
+                                    type: string
+                                position:
+                                    example: 10.5,20
+                                    pattern: ^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$
+                                    type: string
+                                postal_code:
+                                    example: "1234567890"
+                                    type: string
+                                rotation:
+                                    oneOf:
+                                        - example: "90"
+                                          type: string
+                                        - example: 90
+                                          type: number
+                                website:
+                                    maxLength: 255
+                                    type: string
+                            required:
+                                - launched_satisfaction
+                                - rotation
+                                - position
                             type: object
                     multipart/form-data:
                         schema:
+                            description: |
+                                Same fields as start construction. Raising launched_satisfaction charges the difference. Lowering it refunds the difference and must stay at least required_satisfaction. construction_end_date is recalculated from the original start. Information is replaced only when activity_line is non-empty.
+                            properties:
+                                activity_line:
+                                    maxLength: 255
+                                    type: string
+                                address:
+                                    maxLength: 255
+                                    type: string
+                                description:
+                                    maxLength: 5000
+                                    type: string
+                                information:
+                                    $ref: '#/components/schemas/BuildingInformation'
+                                launched_satisfaction:
+                                    oneOf:
+                                        - example: "1.2"
+                                          type: string
+                                        - example: 1.2
+                                          type: number
+                                name:
+                                    maxLength: 255
+                                    type: string
+                                position:
+                                    example: 10.5,20
+                                    pattern: ^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$
+                                    type: string
+                                postal_code:
+                                    example: "1234567890"
+                                    type: string
+                                rotation:
+                                    oneOf:
+                                        - example: "90"
+                                          type: string
+                                        - example: 90
+                                          type: number
+                                website:
+                                    maxLength: 255
+                                    type: string
+                            required:
+                                - launched_satisfaction
+                                - rotation
+                                - position
                             type: object
+                required: true
             responses:
                 "200":
-                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EmptyData'
+                    description: Building updated. Body is an empty data object.
                 "401":
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Error'
                     description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: building not found or building model not found
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
+                "412":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: insufficient satisfaction for an increased stake
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ObjectValidationError'
+                    description: Invalid stake, rotation, position, or building information
+            security:
+                - BearerAuth: []
+            summary: Update building stake, placement, and optional information
+            tags:
+                - Features
+    /api/features/{feature}/build/package:
+        get:
+            operationId: get_features_feature_build_package
+            parameters:
+                - description: Feature ID. Caller must own the feature.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Catalog page forwarded to the 3D API. Default 1. Request the next page until data is empty. This response has no links or meta.
+                  in: query
+                  name: page
+                  required: false
+                  schema:
+                    example: 1
+                    type: integer
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            $ref: '#/components/schemas/BuildingCatalogModel'
+                                        type: array
+                                    feature:
+                                        properties:
+                                            coordinates:
+                                                description: Feature polygon coordinates
+                                                example:
+                                                    - 51.3890,35.6892
+                                                items:
+                                                    type: string
+                                                type: array
+                                        type: object
+                                type: object
+                    description: Catalog page for this feature. required_satisfaction is the minimum stake for this feature, as a 4-decimal string.
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ObjectValidationError'
+                    description: invalid feature ID
+            security:
+                - BearerAuth: []
+            summary: List 3D building models that can be built on a feature
+            tags:
+                - Features
+    /api/features/{feature}/building/enter:
+        post:
+            operationId: post_features_feature_building_enter
+            parameters:
+                - description: Feature ID. Owner enters free. Guests pay when entry is active and construction is finished.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                coupon_code:
+                                    description: Owner coupon for this feature. Omit to pay the full fee.
+                                    example: OPENING-10
+                                    type: string
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            properties:
+                                coupon_code:
+                                    description: Owner coupon for this feature. Omit to pay the full fee.
+                                    example: OPENING-10
+                                    type: string
+                            type: object
+                description: Body may be omitted. A coupon applies only to the first paid entry of a 24-hour window.
+                required: false
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    message:
+                                        example: entry successful
+                                        type: string
+                                type: object
+                    description: entry successful. Re-entry inside an open window does not charge again.
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: entry config not found, feature not found, building not found, or coupon not found
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
+                "412":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: |
+                        entry is not active, building construction is not finished, user already inside this building, user level is outside the allowed scope, coupon usage limit reached, coupon discount does not reduce the fee, Insufficient balance, or payment outcome unknown.
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ObjectValidationError'
+                    description: invalid feature ID or invalid request body
+            security:
+                - BearerAuth: []
+            summary: Enter a building. A paid visit stays valid for 24 hours; exit and re-entry in that window do not charge again
+            tags:
+                - Features
+    /api/features/{feature}/building/entry-config:
+        get:
+            operationId: get_features_feature_building_entry-config
+            parameters:
+                - description: Feature ID. Caller must own the feature. Allowed while account security is locked.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/BuildingEntryConfig'
+                                type: object
+                    description: Owner entry settings
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: entry config not found, or feature not found
                 "422":
                     content:
                         application/json:
@@ -2286,7 +3215,398 @@ paths:
                     description: Validation error
             security:
                 - BearerAuth: []
-            summary: Update building construction or destroy building
+            summary: Get building entry configuration
+            tags:
+                - Features
+        post:
+            operationId: post_features_feature_building_entry-config
+            parameters:
+                - description: Feature ID. Caller must own the feature. The feature must already have a building.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            description: |
+                                Creates or updates the config. Omitted fields keep their previous values. The first save treats omitted fees as 0.00, omitted text as empty, and is_active as false. Send both level fields or neither.
+                            properties:
+                                about:
+                                    example: Open 9 to 21
+                                    maxLength: 1000
+                                    type: string
+                                fee_irr:
+                                    description: IRR fee. Same rules as fee_psc.
+                                    oneOf:
+                                        - example: "50000.50"
+                                          type: string
+                                        - example: 50000.5
+                                          type: number
+                                fee_psc:
+                                    description: PSC fee. Empty means 0.00. At most 2 decimal places. Response is always a two-decimal string.
+                                    oneOf:
+                                        - example: "10.00"
+                                          type: string
+                                        - example: 10
+                                          type: number
+                                is_active:
+                                    description: Also accepts 1, 0, "true", "false", and "yes".
+                                    oneOf:
+                                        - example: true
+                                          type: boolean
+                                        - example: 1
+                                          type: integer
+                                        - example: "true"
+                                          type: string
+                                level_scope_type:
+                                    description: exact (equal score), and_upper (score >= level), and_lower (score <= level). Empty with an empty level_slug means any level.
+                                    enum:
+                                        - ""
+                                        - exact
+                                        - and_upper
+                                        - and_lower
+                                    example: and_upper
+                                    type: string
+                                level_slug:
+                                    description: Slug of a level. Required when level_scope_type is set.
+                                    example: level-3
+                                    type: string
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            description: |
+                                Creates or updates the config. Omitted fields keep their previous values. The first save treats omitted fees as 0.00, omitted text as empty, and is_active as false. Send both level fields or neither.
+                            properties:
+                                about:
+                                    example: Open 9 to 21
+                                    maxLength: 1000
+                                    type: string
+                                fee_irr:
+                                    description: IRR fee. Same rules as fee_psc.
+                                    oneOf:
+                                        - example: "50000.50"
+                                          type: string
+                                        - example: 50000.5
+                                          type: number
+                                fee_psc:
+                                    description: PSC fee. Empty means 0.00. At most 2 decimal places. Response is always a two-decimal string.
+                                    oneOf:
+                                        - example: "10.00"
+                                          type: string
+                                        - example: 10
+                                          type: number
+                                is_active:
+                                    description: Also accepts 1, 0, "true", "false", and "yes".
+                                    oneOf:
+                                        - example: true
+                                          type: boolean
+                                        - example: 1
+                                          type: integer
+                                        - example: "true"
+                                          type: string
+                                level_scope_type:
+                                    description: exact (equal score), and_upper (score >= level), and_lower (score <= level). Empty with an empty level_slug means any level.
+                                    enum:
+                                        - ""
+                                        - exact
+                                        - and_upper
+                                        - and_lower
+                                    example: and_upper
+                                    type: string
+                                level_slug:
+                                    description: Slug of a level. Required when level_scope_type is set.
+                                    example: level-3
+                                    type: string
+                            type: object
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/BuildingEntryConfig'
+                                type: object
+                    description: Stored entry configuration. Fees are two-decimal strings.
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: feature not found or building not found
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ObjectValidationError'
+                    description: invalid fee, about, level scope, or level_slug. request body is required.
+                "503":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: Levels service is unavailable while a scope is set
+            security:
+                - BearerAuth: []
+            summary: Set building entry fee (PSC and IRR), about text, level scope, and active flag
+            tags:
+                - Features
+    /api/features/{feature}/building/entry-coupons:
+        get:
+            operationId: get_features_feature_building_entry-coupons
+            parameters:
+                - description: Feature ID. Caller must own the feature. Allowed while account security is locked.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            $ref: '#/components/schemas/BuildingEntryCoupon'
+                                        type: array
+                                type: object
+                    description: Owner coupons. data is an empty array when there are none.
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: List building entry coupons with real usage counts
+            tags:
+                - Features
+        post:
+            operationId: post_features_feature_building_entry-coupons
+            parameters:
+                - description: Feature ID. Caller must own the feature. The feature must already have a building.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    example: OPENING-10
+                                    maxLength: 64
+                                    minLength: 1
+                                    pattern: ^[A-Za-z0-9_-]+$
+                                    type: string
+                                discount_percentage:
+                                    description: Applied to both PSC and IRR. Integer only.
+                                    example: 10
+                                    maximum: 100
+                                    minimum: 1
+                                    type: integer
+                                max_usage_count:
+                                    description: Alias of usage_count. Ignored when usage_count is present.
+                                    example: 100
+                                    minimum: 1
+                                    type: integer
+                                usage_count:
+                                    description: Maximum number of uses. max_usage_count is an accepted alias.
+                                    example: 100
+                                    minimum: 1
+                                    type: integer
+                            required:
+                                - code
+                                - discount_percentage
+                                - usage_count
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            properties:
+                                code:
+                                    example: OPENING-10
+                                    maxLength: 64
+                                    minLength: 1
+                                    pattern: ^[A-Za-z0-9_-]+$
+                                    type: string
+                                discount_percentage:
+                                    description: Applied to both PSC and IRR. Integer only.
+                                    example: 10
+                                    maximum: 100
+                                    minimum: 1
+                                    type: integer
+                                max_usage_count:
+                                    description: Alias of usage_count. Ignored when usage_count is present.
+                                    example: 100
+                                    minimum: 1
+                                    type: integer
+                                usage_count:
+                                    description: Maximum number of uses. max_usage_count is an accepted alias.
+                                    example: 100
+                                    minimum: 1
+                                    type: integer
+                            required:
+                                - code
+                                - discount_percentage
+                                - usage_count
+                            type: object
+                required: true
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        $ref: '#/components/schemas/BuildingEntryCoupon'
+                                type: object
+                    description: Created coupon. usage_count is the maximum. real_usage_count starts at 0.
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: building not found or feature not found
+                "409":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: coupon code already exists
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ObjectValidationError'
+                    description: usage_count is required, discount_percentage is required, or a field is invalid
+            security:
+                - BearerAuth: []
+            summary: Create a building entry discount coupon (code, discount percentage, usage count)
+            tags:
+                - Features
+    /api/features/{feature}/building/exit:
+        post:
+            operationId: post_features_feature_building_exit
+            parameters:
+                - description: Feature ID. The 24-hour window stays open, so the next enter in that window is free.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                description: No fields. The body may be omitted.
+                required: false
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    message:
+                                        example: exit successful
+                                        type: string
+                                type: object
+                    description: exit successful
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: active session not found
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Exit a building and close the active visit
             tags:
                 - Features
     /api/features/{feature}/sell-requests:
@@ -2391,9 +3711,58 @@ paths:
     /api/features/buildings/completed:
         get:
             operationId: get_features_buildings_completed
+            parameters:
+                - description: Page number (default 1, 10 items per page)
+                  in: query
+                  name: page
+                  required: false
+                  schema:
+                    example: 1
+                    type: integer
             responses:
                 "200":
-                    description: Successful response
+                    content:
+                        application/json:
+                            schema:
+                                properties:
+                                    data:
+                                        items:
+                                            properties:
+                                                density:
+                                                    example: "2"
+                                                    nullable: true
+                                                    type: string
+                                                feature_id:
+                                                    example: 44
+                                                    format: int64
+                                                    type: integer
+                                                feature_properties_id:
+                                                    description: Uppercased feature properties id
+                                                    example: TO111
+                                                    type: string
+                                                id:
+                                                    example: 12
+                                                    format: int64
+                                                    type: integer
+                                                karbari:
+                                                    example: t
+                                                    type: string
+                                                length:
+                                                    example: "20"
+                                                    nullable: true
+                                                    type: string
+                                                width:
+                                                    example: "15"
+                                                    nullable: true
+                                                    type: string
+                                            type: object
+                                        type: array
+                                    links:
+                                        $ref: '#/components/schemas/PaginationLinks'
+                                    meta:
+                                        $ref: '#/components/schemas/PaginationMeta'
+                                type: object
+                    description: Buildings whose construction end date is in the past. links are relative paths. length, width, and density are null when the model has no such attribute.
                 "401":
                     content:
                         application/json:
@@ -2428,6 +3797,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2536,6 +3906,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2589,6 +3960,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2629,6 +4001,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2719,6 +4092,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2749,6 +4123,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2921,6 +4296,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -2952,6 +4328,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3050,6 +4427,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3152,6 +4530,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3191,6 +4570,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3253,6 +4633,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3284,6 +4665,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3315,6 +4697,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3366,6 +4749,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3417,6 +4801,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3447,6 +4832,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3500,6 +4886,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3531,6 +4918,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3602,6 +4990,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3641,6 +5030,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3694,6 +5084,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3796,6 +5187,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -3862,6 +5254,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4019,6 +5412,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4121,6 +5515,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4160,6 +5555,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4213,6 +5609,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4290,6 +5687,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4394,6 +5792,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4465,6 +5864,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4504,6 +5904,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4582,6 +5983,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4623,7 +6025,7 @@ paths:
             security:
                 - {}
                 - BearerAuth: []
-            summary: List video tutorials
+            summary: List video tutorials (paginated)
             tags:
                 - Training
     /api/tutorials/{slug}:
@@ -4688,7 +6090,7 @@ paths:
             security:
                 - {}
                 - BearerAuth: []
-            summary: List or add video comments
+            summary: List top-level comments for a video
             tags:
                 - Training
         post:
@@ -4710,6 +6112,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4726,9 +6129,381 @@ paths:
                                 $ref: '#/components/schemas/ValidationError'
                     description: Validation error
             security:
-                - {}
                 - BearerAuth: []
-            summary: List or add video comments
+            summary: Add a comment on a video
+            tags:
+                - Training
+    /api/tutorials/{video}/comments/{comment}:
+        delete:
+            operationId: delete_tutorials_video_comments_comment
+            parameters:
+                - description: Video slug or ID
+                  in: path
+                  name: video
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Delete a comment
+            tags:
+                - Training
+        post:
+            operationId: post_tutorials_video_comments_comment
+            parameters:
+                - description: Video slug or ID
+                  in: path
+                  name: video
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Update a comment
+            tags:
+                - Training
+        put:
+            operationId: put_tutorials_video_comments_comment
+            parameters:
+                - description: Video slug or ID
+                  in: path
+                  name: video
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Update a comment
+            tags:
+                - Training
+    /api/tutorials/{video}/comments/{comment}/dislike:
+        post:
+            operationId: post_tutorials_video_comments_comment_dislike
+            parameters:
+                - description: Video slug or ID
+                  in: path
+                  name: video
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Dislike a comment
+            tags:
+                - Training
+    /api/tutorials/{video}/comments/{comment}/interactions:
+        post:
+            operationId: post_tutorials_video_comments_comment_interactions
+            parameters:
+                - description: Video slug or ID
+                  in: path
+                  name: video
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Like or dislike a comment
+            tags:
+                - Training
+    /api/tutorials/{video}/comments/{comment}/like:
+        post:
+            operationId: post_tutorials_video_comments_comment_like
+            parameters:
+                - description: Video slug or ID
+                  in: path
+                  name: video
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Like a comment
+            tags:
+                - Training
+    /api/tutorials/{video}/comments/{comment}/report:
+        post:
+            operationId: post_tutorials_video_comments_comment_report
+            parameters:
+                - description: Video slug or ID
+                  in: path
+                  name: video
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Comment ID
+                  in: path
+                  name: comment
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Report a comment
+            tags:
+                - Training
+    /api/tutorials/{video}/interactions:
+        post:
+            operationId: post_tutorials_video_interactions
+            parameters:
+                - description: Video slug or ID
+                  in: path
+                  name: video
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Like or dislike a video
             tags:
                 - Training
     /api/tutorials/categories:
@@ -4753,6 +6528,45 @@ paths:
                 - {}
                 - BearerAuth: []
             summary: List tutorial categories
+            tags:
+                - Training
+    /api/tutorials/categories/{category}/{subcategory}:
+        get:
+            operationId: get_tutorials_categories_category_subcategory
+            parameters:
+                - description: category path parameter
+                  in: path
+                  name: category
+                  required: true
+                  schema:
+                    example: category
+                    type: string
+                - description: subcategory path parameter
+                  in: path
+                  name: subcategory
+                  required: true
+                  schema:
+                    example: subcategory
+                    type: string
+            responses:
+                "200":
+                    description: Successful response
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - {}
+                - BearerAuth: []
+            summary: Get subcategory with videos
             tags:
                 - Training
     /api/tutorials/categories/{slug}:
@@ -4784,7 +6598,7 @@ paths:
             security:
                 - {}
                 - BearerAuth: []
-            summary: Get tutorial category
+            summary: Get tutorial category with subcategories
             tags:
                 - Training
     /api/tutorials/categories/{slug}/videos:
@@ -4816,12 +6630,21 @@ paths:
             security:
                 - {}
                 - BearerAuth: []
-            summary: List category videos
+            summary: List videos in a category
             tags:
                 - Training
     /api/tutorials/search:
-        get:
-            operationId: get_tutorials_search
+        post:
+            operationId: post_tutorials_search
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                    multipart/form-data:
+                        schema:
+                            type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4840,7 +6663,7 @@ paths:
             security:
                 - {}
                 - BearerAuth: []
-            summary: Search video tutorials
+            summary: Search video tutorials by title
             tags:
                 - Training
     /api/unfollow/{user}:
@@ -4862,6 +6685,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4893,6 +6717,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -4975,6 +6800,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -5005,6 +6831,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -5288,6 +7115,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -5306,7 +7134,7 @@ paths:
             security:
                 - {}
                 - BearerAuth: []
-            summary: Get video tutorial by filename
+            summary: Get video tutorial by partial filename
             tags:
                 - Training
     /api/wallet/link:
@@ -5320,6 +7148,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -5397,6 +7226,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -5428,6 +7258,7 @@ paths:
                     multipart/form-data:
                         schema:
                             type: object
+                required: true
             responses:
                 "200":
                     description: Successful response
@@ -5477,10 +7308,209 @@ paths:
                 - Storage
 components:
     schemas:
+        ApiError:
+            properties:
+                error:
+                    description: Human-readable error message
+                    type: string
+            type: object
+        BuildingCatalogModel:
+            properties:
+                attributes:
+                    description: Catalog attributes. Slugs the client should read are length, width, and density.
+                    items:
+                        properties:
+                            slug:
+                                example: width
+                                type: string
+                            value:
+                                description: Number or string from the catalog
+                                example: 15
+                        type: object
+                    nullable: true
+                    type: array
+                file:
+                    additionalProperties: true
+                    description: Catalog file object, often including url
+                    nullable: true
+                    type: object
+                id:
+                    description: 3D catalog id
+                    example: 1001
+                    format: int64
+                    type: integer
+                images:
+                    description: Parsed catalog JSON. Usually an array of objects with id and url.
+                    items:
+                        additionalProperties: true
+                        type: object
+                    nullable: true
+                    type: array
+                model_id:
+                    description: Same id as a string. Use this value in build paths.
+                    example: "1001"
+                    type: string
+                name:
+                    example: Shop A
+                    type: string
+                required_satisfaction:
+                    description: Minimum stake for this feature on the catalog response. On the placed-building list this is the stored model value, often "0".
+                    example: "1.2000"
+                    type: string
+                sku:
+                    example: SHOP-A
+                    type: string
+            type: object
+        BuildingEntryConfig:
+            properties:
+                about:
+                    example: Open 9 to 21
+                    type: string
+                feature_id:
+                    example: 44
+                    format: int64
+                    type: integer
+                fee_irr:
+                    description: IRR fee with two decimal places. 0.00 means free.
+                    example: "50000.00"
+                    type: string
+                fee_psc:
+                    description: PSC fee with two decimal places. 0.00 means free.
+                    example: "10.00"
+                    type: string
+                is_active:
+                    example: true
+                    type: boolean
+                level_scope_type:
+                    description: exact, and_upper, and_lower, or empty when any level may enter
+                    example: and_upper
+                    type: string
+                level_slug:
+                    example: level-3
+                    type: string
+            type: object
+        BuildingEntryCoupon:
+            properties:
+                code:
+                    example: OPENING-10
+                    type: string
+                discount_percentage:
+                    example: 10
+                    maximum: 100
+                    minimum: 1
+                    type: integer
+                feature_id:
+                    example: 44
+                    format: int64
+                    type: integer
+                id:
+                    example: 7
+                    format: int64
+                    type: integer
+                real_usage_count:
+                    description: How many times guests have used this coupon
+                    example: 0
+                    type: integer
+                usage_count:
+                    description: Maximum number of uses
+                    example: 100
+                    type: integer
+            type: object
+        BuildingInformation:
+            description: Public building profile. Empty strings are omitted from responses.
+            properties:
+                activity_line:
+                    description: ISIC activity code
+                    example: "4711"
+                    maxLength: 255
+                    type: string
+                address:
+                    maxLength: 255
+                    type: string
+                description:
+                    maxLength: 5000
+                    type: string
+                name:
+                    example: Sample shop
+                    maxLength: 255
+                    type: string
+                postal_code:
+                    description: 10-digit Iranian postal code
+                    example: "1234567890"
+                    type: string
+                website:
+                    description: http or https URL
+                    example: https://example.com
+                    maxLength: 255
+                    type: string
+            type: object
+        EmptyData:
+            properties:
+                data:
+                    description: Empty object
+                    type: object
+            type: object
         Error:
             properties:
                 message:
                     type: string
+            type: object
+        LockedAccount:
+            properties:
+                message:
+                    example: Account security is locked. Unlock your account security to continue.
+                    type: string
+            type: object
+        ObjectValidationError:
+            properties:
+                errors:
+                    additionalProperties:
+                        type: string
+                    description: Field messages. Empty when the error is not tied to one field.
+                    type: object
+                message:
+                    description: Text to show the user
+                    type: string
+            type: object
+        PaginationLinks:
+            properties:
+                first:
+                    nullable: true
+                    type: string
+                last:
+                    nullable: true
+                    type: string
+                next:
+                    nullable: true
+                    type: string
+                prev:
+                    nullable: true
+                    type: string
+            type: object
+        PaginationMeta:
+            properties:
+                current_page:
+                    example: 1
+                    type: integer
+                from:
+                    example: 1
+                    nullable: true
+                    type: integer
+                last_page:
+                    example: 1
+                    type: integer
+                path:
+                    type: string
+                per_page:
+                    example: 10
+                    type: integer
+                to:
+                    example: 10
+                    nullable: true
+                    type: integer
+                total:
+                    example: 0
+                    type: integer
             type: object
         ValidationError:
             properties:

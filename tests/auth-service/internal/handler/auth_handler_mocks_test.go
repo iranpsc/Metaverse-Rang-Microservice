@@ -10,17 +10,14 @@ import (
 )
 
 type mockAuthService struct {
-	registerFunc               func(context.Context, string, string) (string, error)
-	redirectFunc               func(context.Context, string, string) (string, string, error)
-	callbackFunc               func(context.Context, string, string, string, bool) (*service.CallbackResult, error)
-	getMeFunc                  func(context.Context, string) (*service.UserDetails, error)
-	logoutFunc                 func(context.Context, uint64, string, string) error
-	validateTokenFunc          func(context.Context, string) (*models.User, error)
-	requestAccountSecurityFunc func(context.Context, uint64, int32, string) error
-	verifyAccountSecurityFunc  func(context.Context, uint64, string, string, string) error
-	checkAccountSecurityFunc   func(context.Context, uint64) (bool, error)
-	sendMobileChangeCodeFunc   func(context.Context, uint64, string) error
-	verifyMobileChangeFunc     func(context.Context, uint64, string, string, string) error
+	registerFunc             func(context.Context, string, string) (string, error)
+	redirectFunc             func(context.Context, string, string) (string, string, error)
+	callbackFunc             func(context.Context, string, string, string, bool) (*service.CallbackResult, error)
+	getMeFunc                func(context.Context, string) (*service.UserDetails, error)
+	logoutFunc               func(context.Context, uint64, string, string) error
+	validateTokenFunc        func(context.Context, string) (*models.User, error)
+	sendMobileChangeCodeFunc func(context.Context, uint64, string) error
+	verifyMobileChangeFunc   func(context.Context, uint64, string, string, string) error
 }
 
 func (m *mockAuthService) Register(ctx context.Context, backURL, referral string) (string, error) {
@@ -65,27 +62,6 @@ func (m *mockAuthService) ValidateToken(ctx context.Context, token string) (*mod
 	return nil, nil
 }
 
-func (m *mockAuthService) RequestAccountSecurity(ctx context.Context, userID uint64, minutes int32, phone string) error {
-	if m.requestAccountSecurityFunc != nil {
-		return m.requestAccountSecurityFunc(ctx, userID, minutes, phone)
-	}
-	return nil
-}
-
-func (m *mockAuthService) VerifyAccountSecurity(ctx context.Context, userID uint64, code, ip, userAgent string) error {
-	if m.verifyAccountSecurityFunc != nil {
-		return m.verifyAccountSecurityFunc(ctx, userID, code, ip, userAgent)
-	}
-	return nil
-}
-
-func (m *mockAuthService) CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error) {
-	if m.checkAccountSecurityFunc != nil {
-		return m.checkAccountSecurityFunc(ctx, userID)
-	}
-	return true, nil
-}
-
 func (m *mockAuthService) SendMobileChangeCode(ctx context.Context, userID uint64, mobile string) error {
 	if m.sendMobileChangeCodeFunc != nil {
 		return m.sendMobileChangeCodeFunc(ctx, userID, mobile)
@@ -101,6 +77,35 @@ func (m *mockAuthService) VerifyMobileChange(ctx context.Context, userID uint64,
 }
 
 var _ service.AuthService = (*mockAuthService)(nil)
+
+type mockAccountSecurityService struct {
+	requestFunc func(context.Context, uint64, int32, string) error
+	verifyFunc  func(context.Context, uint64, string, string, string) error
+	checkFunc   func(context.Context, uint64) (bool, error)
+}
+
+func (m *mockAccountSecurityService) RequestAccountSecurity(ctx context.Context, userID uint64, minutes int32, phone string) error {
+	if m.requestFunc != nil {
+		return m.requestFunc(ctx, userID, minutes, phone)
+	}
+	return nil
+}
+
+func (m *mockAccountSecurityService) VerifyAccountSecurity(ctx context.Context, userID uint64, code, ip, userAgent string) error {
+	if m.verifyFunc != nil {
+		return m.verifyFunc(ctx, userID, code, ip, userAgent)
+	}
+	return nil
+}
+
+func (m *mockAccountSecurityService) CheckAccountSecurity(ctx context.Context, userID uint64) (bool, error) {
+	if m.checkFunc != nil {
+		return m.checkFunc(ctx, userID)
+	}
+	return true, nil
+}
+
+var _ service.AccountSecurityService = (*mockAccountSecurityService)(nil)
 
 type mockTokenRepository struct {
 	validateTokenFunc        func(context.Context, string) (*models.User, error)

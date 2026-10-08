@@ -58,11 +58,19 @@ func (f *fakeUserRepository) Update(ctx context.Context, user *models.User) erro
 	panic("unexpected call to Update")
 }
 
-func (f *fakeUserRepository) UpdateLastSeen(_ context.Context, userID uint64) error {
-	if _, ok := f.users[userID]; ok {
-		return nil
+func (f *fakeUserRepository) UpdateLastSeen(ctx context.Context, userID uint64) error {
+	return f.SetLastSeen(ctx, userID, time.Now())
+}
+
+func (f *fakeUserRepository) SetLastSeen(_ context.Context, userID uint64, at time.Time) error {
+	if user, ok := f.users[userID]; ok {
+		user.LastSeen = sql.NullTime{Time: at, Valid: true}
 	}
 	return nil
+}
+
+func (f *fakeUserRepository) ListUserIDsByLastSeen(context.Context, time.Time, time.Time, time.Time, uint64, int) ([]repository.LastSeenUser, error) {
+	return nil, nil
 }
 
 func (f *fakeUserRepository) FindByCode(_ context.Context, code string) (*models.User, error) {
@@ -540,6 +548,11 @@ func (f *fakeCacheRepository) TryAcquireAccountSecurityVerificationSlot(_ contex
 	}
 	f.verificationRequestSlots[userID] = time.Now().Add(period)
 	return true, nil
+}
+
+func (f *fakeCacheRepository) ReleaseAccountSecurityVerificationSlot(_ context.Context, userID uint64) error {
+	delete(f.verificationRequestSlots, userID)
+	return nil
 }
 
 func (f *fakeCacheRepository) TryAcquireMobileChangeSendSlot(_ context.Context, userID uint64, period time.Duration) (bool, error) {

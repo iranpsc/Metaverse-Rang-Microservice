@@ -13,7 +13,8 @@ import (
 )
 
 type routesFile struct {
-	Routes []routeDef `yaml:"routes"`
+	Routes  []routeDef             `yaml:"routes"`
+	Schemas map[string]interface{} `yaml:"schemas,omitempty"`
 }
 
 type routeDef struct {
@@ -23,6 +24,7 @@ type routeDef struct {
 	Summary   string                            `yaml:"summary"`
 	Security  string                            `yaml:"security"`
 	Params    []paramDef                        `yaml:"params,omitempty"`
+	Body      map[string]interface{}            `yaml:"body,omitempty"`
 	Responses map[string]map[string]interface{} `yaml:"responses,omitempty"`
 }
 
@@ -76,7 +78,7 @@ func main() {
 
 	augmentedRoutes := augmentRoutesFromDiscovery(routes.Routes, discovered)
 	appURL := loadAppURL(root)
-	spec := buildSpec(augmentedRoutes, discovered, appURL)
+	spec := buildSpec(augmentedRoutes, discovered, appURL, routes.Schemas)
 	out, err := yaml.Marshal(spec)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "marshal spec: %v\n", err)
@@ -157,7 +159,7 @@ func buildServers(appURL string) []map[string]string {
 	return servers
 }
 
-func buildSpec(routes []routeDef, discovered map[string]discoveredEndpoint, appURL string) openAPISpec {
+func buildSpec(routes []routeDef, discovered map[string]discoveredEndpoint, appURL string, schemas map[string]interface{}) openAPISpec {
 	tagSet := map[string]struct{}{}
 	paths := map[string]interface{}{}
 
@@ -186,16 +188,7 @@ func buildSpec(routes []routeDef, discovered map[string]discoveredEndpoint, appU
 			}
 
 			if methodNeedsBody(method) {
-				op["requestBody"] = map[string]interface{}{
-					"content": map[string]interface{}{
-						"application/json": map[string]interface{}{
-							"schema": map[string]string{"type": "object"},
-						},
-						"multipart/form-data": map[string]interface{}{
-							"schema": map[string]string{"type": "object"},
-						},
-					},
-				}
+				op["requestBody"] = buildRequestBody(route.Body)
 			}
 
 			pathItem[strings.ToLower(method)] = op
@@ -210,7 +203,7 @@ func buildSpec(routes []routeDef, discovered map[string]discoveredEndpoint, appU
 		return tags[i]["name"] < tags[j]["name"]
 	})
 
-	return openAPISpec{
+	spec := openAPISpec{
 		OpenAPI: "3.0.3",
 		Info: map[string]interface{}{
 			"title":       "metarang API",
@@ -252,9 +245,69 @@ func buildSpec(routes []routeDef, discovered map[string]discoveredEndpoint, appU
 						},
 					},
 				},
+				"ApiError": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"error": map[string]interface{}{
+							"type":        "string",
+							"description": "Human-readable error message",
+						},
+					},
+				},
+				"LockedAccount": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"message": map[string]interface{}{
+							"type":    "string",
+							"example": "Account security is locked. Unlock your account security to continue.",
+						},
+					},
+				},
+				"PaginationLinks": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"first": map[string]interface{}{"type": "string", "nullable": true},
+						"last":  map[string]interface{}{"type": "string", "nullable": true},
+						"prev":  map[string]interface{}{"type": "string", "nullable": true},
+						"next":  map[string]interface{}{"type": "string", "nullable": true},
+					},
+				},
+				"PaginationMeta": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"current_page": map[string]interface{}{"type": "integer", "example": 1},
+						"from":         map[string]interface{}{"type": "integer", "nullable": true, "example": 1},
+						"last_page":    map[string]interface{}{"type": "integer", "example": 1},
+						"path":         map[string]interface{}{"type": "string"},
+						"per_page":     map[string]interface{}{"type": "integer", "example": 10},
+						"to":           map[string]interface{}{"type": "integer", "nullable": true, "example": 10},
+						"total":        map[string]interface{}{"type": "integer", "example": 0},
+					},
+				},
+				"ObjectValidationError": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"message": map[string]interface{}{
+							"type":        "string",
+							"description": "Text to show the user",
+						},
+						"errors": map[string]interface{}{
+							"type":        "object",
+							"description": "Field messages. Empty when the error is not tied to one field.",
+							"additionalProperties": map[string]interface{}{
+								"type": "string",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
+	componentSchemas := spec.Components["schemas"].(map[string]interface{})
+	for name, schema := range schemas {
+		componentSchemas[name] = schema
+	}
+	return spec
 }
 
 func buildResponses(route routeDef) map[string]interface{} {
@@ -299,6 +352,48 @@ func securityRequirement(security string) []map[string][]string {
 	default:
 		return nil
 	}
+}
+
+// buildRequestBody turns a route `body` into an OpenAPI requestBody.
+// A body with a `schema` key is a wrapper: `required` (bool) says whether the
+// body itself is required, and `schema` is the JSON schema. Any other body map
+// is the schema, and the body is required.
+func buildRequestBody(body map[string]interface{}) map[string]interface{} {
+	schema, required, description := resolveRequestBody(body)
+	content := map[string]interface{}{
+		"application/json": map[string]interface{}{
+			"schema": schema,
+		},
+		"multipart/form-data": map[string]interface{}{
+			"schema": schema,
+		},
+	}
+	request := map[string]interface{}{
+		"required": required,
+		"content":  content,
+	}
+	if description != "" {
+		request["description"] = description
+	}
+	return request
+}
+
+func resolveRequestBody(body map[string]interface{}) (schema interface{}, required bool, description string) {
+	required = true
+	if len(body) == 0 {
+		return map[string]interface{}{"type": "object"}, true, ""
+	}
+	rawSchema, hasSchema := body["schema"]
+	if !hasSchema {
+		return body, true, ""
+	}
+	if flag, ok := body["required"].(bool); ok {
+		required = flag
+	}
+	if desc, ok := body["description"].(string); ok {
+		description = desc
+	}
+	return rawSchema, required, description
 }
 
 func methodNeedsBody(method string) bool {

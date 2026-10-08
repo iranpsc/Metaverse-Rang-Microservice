@@ -31,6 +31,8 @@ type CacheRepository interface {
 
 	// TryAcquireAccountSecurityVerificationSlot returns true when the user may request a new verification code.
 	TryAcquireAccountSecurityVerificationSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error)
+	// ReleaseAccountSecurityVerificationSlot drops a slot taken by a request that failed validation or the notification call.
+	ReleaseAccountSecurityVerificationSlot(ctx context.Context, userID uint64) error
 
 	TryAcquireMobileChangeSendSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error)
 	ReleaseMobileChangeSendSlot(ctx context.Context, userID uint64) error
@@ -115,13 +117,23 @@ func (r *cacheRepository) GetBackURL(ctx context.Context, state string) (string,
 	return val, nil
 }
 
+func accountSecurityVerificationSlotKey(userID uint64) string {
+	return fmt.Sprintf("account_security:verification_request:%d", userID)
+}
+
 func (r *cacheRepository) TryAcquireAccountSecurityVerificationSlot(ctx context.Context, userID uint64, period time.Duration) (bool, error) {
-	key := fmt.Sprintf("account_security:verification_request:%d", userID)
-	ok, err := r.client.SetNX(ctx, key, "1", period).Result()
+	ok, err := r.client.SetNX(ctx, accountSecurityVerificationSlotKey(userID), "1", period).Result()
 	if err != nil {
 		return false, fmt.Errorf("failed to check verification request rate limit: %w", err)
 	}
 	return ok, nil
+}
+
+func (r *cacheRepository) ReleaseAccountSecurityVerificationSlot(ctx context.Context, userID uint64) error {
+	if err := r.client.Del(ctx, accountSecurityVerificationSlotKey(userID)).Err(); err != nil {
+		return fmt.Errorf("failed to release verification request rate limit: %w", err)
+	}
+	return nil
 }
 
 // MobileChangeChallenge is the pending OTP + target mobile used to change a user's phone number.

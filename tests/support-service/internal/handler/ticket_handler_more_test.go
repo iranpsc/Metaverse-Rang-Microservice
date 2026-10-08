@@ -28,6 +28,49 @@ func ticketClient(t *testing.T, repo *testutil.MockTicketRepo) (pb.TicketService
 	return pb.NewTicketServiceClient(conn), cleanup
 }
 
+func TestTicketHandler_TicketContentMaxLen(t *testing.T) {
+	client, cleanup := ticketClient(t, &testutil.MockTicketRepo{})
+	defer cleanup()
+
+	_, err := client.CreateTicket(context.Background(), &pb.CreateTicketRequest{
+		UserId: 1, Title: "t", Content: strings.Repeat("a", 5001), Department: models.DeptTechnicalSupport,
+	})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("create over limit got %v", err)
+	}
+
+	_, err = client.UpdateTicket(context.Background(), &pb.UpdateTicketRequest{
+		TicketId: 1, UserId: 1, Title: "t", Content: strings.Repeat("a", 5001),
+	})
+	st, ok = status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("update over limit got %v", err)
+	}
+
+	content := strings.Repeat("a", 5000)
+	repo := &testutil.MockTicketRepo{
+		CreateFunc: func(ctx context.Context, ticket *models.Ticket) (*models.Ticket, error) {
+			if ticket.Content != content {
+				t.Fatalf("stored content len=%d", len(ticket.Content))
+			}
+			ticket.ID = 77
+			return ticket, nil
+		},
+		GetByIDFunc: func(ctx context.Context, ticketID uint64) (*models.TicketWithRelations, error) {
+			return ticketRelations(ticketID, 1), nil
+		},
+	}
+	client, cleanup = ticketClient(t, repo)
+	defer cleanup()
+	resp, err := client.CreateTicket(context.Background(), &pb.CreateTicketRequest{
+		UserId: 1, Title: "t", Content: content, Department: models.DeptTechnicalSupport,
+	})
+	if err != nil || resp.Id != 77 {
+		t.Fatalf("create at limit err=%v resp=%+v", err, resp)
+	}
+}
+
 func TestTicketHandler_CreateTicket_MissingFieldsBothReceiverAndDeptAndInternal(t *testing.T) {
 	client, cleanup := ticketClient(t, &testutil.MockTicketRepo{})
 	defer cleanup()

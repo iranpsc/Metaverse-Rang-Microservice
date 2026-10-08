@@ -59,6 +59,9 @@ func (h *EmailHandler) SendEmail(ctx context.Context, req *pb.SendEmailRequest) 
 }
 
 func handleEmailError(err error) error {
+	if mapped := mapDownstreamError(err); mapped != nil {
+		return mapped
+	}
 	if errors.Is(err, errs.ErrNotImplemented) {
 		return status.Error(codes.Unimplemented, err.Error())
 	}

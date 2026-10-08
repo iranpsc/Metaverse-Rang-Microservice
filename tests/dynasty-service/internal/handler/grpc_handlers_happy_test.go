@@ -62,6 +62,9 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 	mock.ExpectQuery("SELECT EXISTS").
 		WithArgs(toUser).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	mock.ExpectQuery("SELECT u.code").
+		WithArgs(toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"code", "verified"}).AddRow("C2", true))
 	mock.ExpectQuery("SELECT id, user_id, feature_id").
 		WithArgs(fromUser).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
@@ -70,6 +73,12 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 		WithArgs(uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "dynasty_id", "created_at", "updated_at"}).
 			AddRow(uint64(1), uint64(1), now, now))
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM family_members WHERE family_id = \?$`).
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	mock.ExpectQuery("relationship IN").
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 	mock.ExpectQuery("SELECT message FROM dynasty_messages").
 		WithArgs("reciever_message").
 		WillReturnRows(sqlmock.NewRows([]string{"message"}).AddRow("[sender-name] invited [reciever-name] as [relationship]"))
@@ -227,9 +236,9 @@ func TestFamilyHandler_GetFamilyAndMembersHappyPath(t *testing.T) {
 		WithArgs(uint64(1), int32(1000), int32(0)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "family_id", "user_id", "relationship", "created_at", "updated_at"}).
 			AddRow(1, 1, 5, "owner", now, now))
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(5)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "O", "Owner"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "O", "Owner", nil))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(5)).
 		WillReturnError(sql.ErrNoRows)
@@ -248,9 +257,9 @@ func TestFamilyHandler_GetFamilyAndMembersHappyPath(t *testing.T) {
 		WithArgs(uint64(1), int32(10), int32(0)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "family_id", "user_id", "relationship", "created_at", "updated_at"}).
 			AddRow(1, 1, 5, "owner", now, now))
-	mock.ExpectQuery("SELECT id, code, name FROM users").
+	mock.ExpectQuery("SELECT id, code, name, last_seen FROM users").
 		WithArgs(uint64(5)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(5, "O", "Owner"))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "last_seen"}).AddRow(5, "O", "Owner", nil))
 	mock.ExpectQuery("SELECT url FROM images").
 		WithArgs(uint64(5)).
 		WillReturnError(sql.ErrNoRows)
@@ -287,6 +296,7 @@ func TestDynastyService_UpdateDynastyFeature_PenaltyPath(t *testing.T) {
 		WithArgs(uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 			AddRow(1, 10, 100, now, now.Add(-24*time.Hour)))
+	expectUpdateFeatureGate(mock, 10, 200)
 	mock.ExpectQuery("SELECT fp.karbari, fp.stability").
 		WithArgs(uint64(100)).
 		WillReturnRows(sqlmock.NewRows([]string{"karbari", "stability"}).AddRow("t", 20000.0))

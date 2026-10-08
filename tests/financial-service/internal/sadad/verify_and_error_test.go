@@ -2,9 +2,11 @@ package sadad_test
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"metarang/financial-service/internal/sadad"
@@ -16,12 +18,6 @@ func TestNewClientConstructors(t *testing.T) {
 	if sadad.NewClient() == nil {
 		t.Fatal("NewClient")
 	}
-	if sadad.NewClientWithSandbox(true) == nil {
-		t.Fatal("sandbox client")
-	}
-	if sadad.NewClientWithSandbox(false) == nil {
-		t.Fatal("production client")
-	}
 }
 
 func TestRequestPaymentValidationAndErrors(t *testing.T) {
@@ -29,7 +25,6 @@ func TestRequestPaymentValidationAndErrors(t *testing.T) {
 		PaymentRequestURL: "http://127.0.0.1:1",
 		VerifyURL:         "http://127.0.0.1:1",
 		GatewayURL:        "https://gw",
-		Multiplexed:       true,
 	})
 
 	t.Run("nil multiplexing", func(t *testing.T) {
@@ -161,10 +156,27 @@ func TestRequestPaymentHTTPFailures(t *testing.T) {
 			PaymentRequestURL: server.URL + path,
 			VerifyURL:         server.URL + path,
 			GatewayURL:        "https://gw",
-			Multiplexed:       true,
 		})
-		if _, err := c.RequestPayment(params); err == nil {
-			t.Fatalf("path %s expected error", path)
+		resp, err := c.RequestPayment(params)
+		if err != nil {
+			t.Fatalf("path %s: gateway body is a failed payment, not a transport error: %v", path, err)
+		}
+		if resp.Success() {
+			t.Fatalf("path %s expected unsuccessful payment", path)
+		}
+		switch path {
+		case "/fail":
+			if resp.Description != "nope" {
+				t.Fatalf("path %s description=%q", path, resp.Description)
+			}
+		case "/bad-json":
+			if resp.Description != "{not-json" {
+				t.Fatalf("path %s description=%q", path, resp.Description)
+			}
+		case "/ok-empty":
+			if resp.Description != "" || resp.ResCode != "" || resp.Token != "" {
+				t.Fatalf("path %s response=%+v", path, resp)
+			}
 		}
 	}
 
@@ -172,7 +184,6 @@ func TestRequestPaymentHTTPFailures(t *testing.T) {
 		PaymentRequestURL: server.URL + "/codes",
 		VerifyURL:         server.URL + "/codes",
 		GatewayURL:        "https://gw.example/purchase",
-		Multiplexed:       true,
 	})
 	resp, err := c.RequestPayment(params)
 	if err != nil {
@@ -241,8 +252,20 @@ func TestVerifyPayment(t *testing.T) {
 	}))
 	defer badJSON.Close()
 	c = sadad.NewClientWithEndpoints(sadad.Endpoints{VerifyURL: badJSON.URL})
-	if _, err := c.VerifyPayment(sadad.VerificationParams{Token: "tok", SignData: testKey}); err == nil {
-		t.Fatal("expected parse error")
+	badResp, err := c.VerifyPayment(sadad.VerificationParams{Token: "tok", SignData: testKey})
+	if err != nil {
+		t.Fatalf("non-json verify body should be a description, got %v", err)
+	}
+	if badResp.Success() || badResp.Description != "not-json" {
+		t.Fatalf("unexpected non-json verify response: %+v", badResp)
+	}
+
+	alreadyVerified := &sadad.VerificationResponse{ResCode: "100", Description: "درخواست تکراریست"}
+	if !alreadyVerified.Success() {
+		t.Fatal("res code 100 is an already verified success")
+	}
+	if (&sadad.VerificationResponse{ResCode: "10"}).Success() {
+		t.Fatal("res code 10 is not a verify success")
 	}
 
 	closed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
@@ -271,4 +294,134 @@ func TestSadadErrorMessages(t *testing.T) {
 	if got := sadad.NewSadadError("1104").Message(); got != "اطلاعات تسهیم صحیح نیست" {
 		t.Fatalf("expected multiplexing error message, got %q", got)
 	}
+}
+
+func TestVerifyPaymentSignRetryAndAlreadyVerified(t *testing.T) {
+	const verifySign = "/8uKA+T6I1Gs3h+HNgZk9w=="
+
+	t.Run("sign data and res code 100", func(t *testing.T) {
+		var received map[string]interface{}
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			w.WriteHeader(http.StatusBadGateway)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"ResCode":       100,
+				"Amount":        150000,
+				"Description":   "درخواست تکراریست",
+				"RetrivalRefNo": "987654321",
+				"SystemTraceNo": "123456",
+				"OrderId":       1234567890123456,
+			})
+		}))
+		defer server.Close()
+
+		c := sadad.NewClientWithEndpoints(sadad.Endpoints{VerifyURL: server.URL})
+		resp, err := c.VerifyPayment(sadad.VerificationParams{
+			Token:    "gateway-token",
+			SignData: testKey,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !resp.Success() {
+			t.Fatalf("expected already-verified success, got %+v", resp)
+		}
+		if resp.RetrivalRefNo != "987654321" || resp.Amount != 150000 || resp.OrderID != 1234567890123456 {
+			t.Fatalf("unexpected verify response: %+v", resp)
+		}
+		if received["Token"] != "gateway-token" || received["SignData"] != verifySign {
+			t.Fatalf("verify body = %+v", received)
+		}
+	})
+
+	t.Run("retries once after a connection failure", func(t *testing.T) {
+		var calls int
+		client := sadad.NewClientWithHTTPClient(sadad.Endpoints{VerifyURL: "https://sadad.shaparak.ir/api/v0/Advice/Verify"}, &http.Client{
+			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				if calls == 1 {
+					return nil, errors.New("connection refused")
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"ResCode":0,"Description":"عملیات با موفقیت انجام شد","RetrivalRefNo":"987654321","SystemTraceNo":"123456","Amount":150000,"OrderId":1}`)),
+					Header:     make(http.Header),
+				}, nil
+			}),
+		})
+
+		resp, err := client.VerifyPayment(sadad.VerificationParams{Token: "gateway-token", SignData: testKey})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !resp.Success() || calls != 2 {
+			t.Fatalf("success=%v calls=%d resp=%+v", resp.Success(), calls, resp)
+		}
+	})
+
+	t.Run("stops after two connection failures", func(t *testing.T) {
+		var calls int
+		client := sadad.NewClientWithHTTPClient(sadad.Endpoints{VerifyURL: "https://sadad.shaparak.ir/api/v0/Advice/Verify"}, &http.Client{
+			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				return nil, errors.New("connection refused")
+			}),
+		})
+		if _, err := client.VerifyPayment(sadad.VerificationParams{Token: "gateway-token", SignData: testKey}); err == nil {
+			t.Fatal("expected connection error")
+		}
+		if calls != 2 {
+			t.Fatalf("calls=%d", calls)
+		}
+	})
+
+	t.Run("accepts string amount and order id from production verify", func(t *testing.T) {
+		const body = `{"ResCode":"0","Description":"عملیات با موفقیت انجام شد","Amount":"30000","RetrivalRefNo":"324581557185","SystemTraceNo":"000096","OrderId":"714","SwitchResCode":"00","TransactionDate":"10/6/2026 9:28:49 AM","AdditionalData":null,"CardHolderFullName":null}`
+		client := sadad.NewClientWithHTTPClient(sadad.Endpoints{VerifyURL: "https://sadad.shaparak.ir/api/v0/Advice/Verify"}, &http.Client{
+			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     make(http.Header),
+				}, nil
+			}),
+		})
+
+		resp, err := client.VerifyPayment(sadad.VerificationParams{Token: "gateway-token", SignData: testKey})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !resp.Success() || resp.ResCode != "0" || resp.Amount != 30000 || resp.OrderID != 714 || resp.RetrivalRefNo != "324581557185" || resp.SystemTraceNo != "000096" {
+			t.Fatalf("string verify fields were not decoded: %+v", resp)
+		}
+	})
+
+	t.Run("does not retry an http error body", func(t *testing.T) {
+		var calls int
+		client := sadad.NewClientWithHTTPClient(sadad.Endpoints{VerifyURL: "https://sadad.shaparak.ir/api/v0/Advice/Verify"}, &http.Client{
+			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				calls++
+				return &http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(strings.NewReader(`{"ResCode":-1,"Description":"پارامترهای ارسالی صحیح نیست"}`)),
+					Header:     make(http.Header),
+				}, nil
+			}),
+		})
+		resp, err := client.VerifyPayment(sadad.VerificationParams{Token: "gateway-token", SignData: testKey})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.Success() || resp.ResCode != "-1" || resp.Description != "پارامترهای ارسالی صحیح نیست" || calls != 1 {
+			t.Fatalf("calls=%d resp=%+v", calls, resp)
+		}
+	})
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }

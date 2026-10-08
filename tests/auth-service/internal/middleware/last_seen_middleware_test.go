@@ -2,52 +2,25 @@ package middleware_test
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"metarang/auth-service/internal/middleware"
-	"metarang/auth-service/internal/pubsub"
 	sharedauth "metarang/shared/pkg/auth"
 )
 
-type lastSeenUserRepo struct {
-	updatedIDs []uint64
-	err        error
+type recordingPresence struct {
+	ids []uint64
 }
 
-func (r *lastSeenUserRepo) UpdateLastSeen(_ context.Context, userID uint64) error {
-	r.updatedIDs = append(r.updatedIDs, userID)
-	return r.err
+func (r *recordingPresence) Touch(userID uint64) {
+	r.ids = append(r.ids, userID)
 }
-
-var _ middleware.LastSeenUpdater = (*lastSeenUserRepo)(nil)
-
-type lastSeenPublisher struct {
-	calls []struct {
-		userID uint64
-		online bool
-	}
-	err error
-}
-
-func (p *lastSeenPublisher) PublishUserStatusChanged(_ context.Context, userID uint64, online bool) error {
-	p.calls = append(p.calls, struct {
-		userID uint64
-		online bool
-	}{userID: userID, online: online})
-	return p.err
-}
-
-func (p *lastSeenPublisher) Close() error { return nil }
-
-var _ pubsub.RedisPublisher = (*lastSeenPublisher)(nil)
 
 func TestLastSeenMiddleware(t *testing.T) {
-	t.Run("updates last_seen and publishes online when authenticated", func(t *testing.T) {
-		repo := &lastSeenUserRepo{}
-		pub := &lastSeenPublisher{}
+	t.Run("touches presence when authenticated", func(t *testing.T) {
+		tracker := &recordingPresence{}
 		nextCalled := false
 
 		authMW := func(next http.Handler) http.Handler {
@@ -56,7 +29,7 @@ func TestLastSeenMiddleware(t *testing.T) {
 				next.ServeHTTP(w, r.WithContext(ctx))
 			})
 		}
-		h := middleware.WithLastSeen(authMW, middleware.LastSeenMiddleware(repo, pub))(
+		h := middleware.WithLastSeen(authMW, middleware.LastSeenMiddleware(tracker))(
 			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				nextCalled = true
 				w.WriteHeader(http.StatusOK)
@@ -69,48 +42,48 @@ func TestLastSeenMiddleware(t *testing.T) {
 		if !nextCalled || rr.Code != http.StatusOK {
 			t.Fatalf("nextCalled=%v status=%d", nextCalled, rr.Code)
 		}
-		if len(repo.updatedIDs) != 1 || repo.updatedIDs[0] != 42 {
-			t.Fatalf("expected UpdateLastSeen(42), got %v", repo.updatedIDs)
-		}
-		if len(pub.calls) != 1 || pub.calls[0].userID != 42 || !pub.calls[0].online {
-			t.Fatalf("expected online publish for 42, got %+v", pub.calls)
+		if len(tracker.ids) != 1 || tracker.ids[0] != 42 {
+			t.Fatalf("expected Touch(42), got %v", tracker.ids)
 		}
 	})
 
 	t.Run("skips when unauthenticated", func(t *testing.T) {
-		repo := &lastSeenUserRepo{}
-		pub := &lastSeenPublisher{}
-		h := middleware.LastSeenMiddleware(repo, pub)(
+		tracker := &recordingPresence{}
+		h := middleware.LastSeenMiddleware(tracker)(
 			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}),
 		)
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", nil))
-		if len(repo.updatedIDs) != 0 || len(pub.calls) != 0 {
-			t.Fatalf("expected no side effects, updates=%v publishes=%v", repo.updatedIDs, pub.calls)
+		if len(tracker.ids) != 0 {
+			t.Fatalf("expected no touch, got %v", tracker.ids)
 		}
 	})
 
-	t.Run("still serves request when update/publish fail", func(t *testing.T) {
-		repo := &lastSeenUserRepo{err: errors.New("db down")}
-		pub := &lastSeenPublisher{err: errors.New("redis down")}
-		h := middleware.LastSeenMiddleware(repo, pub)(
+	t.Run("does not touch on logout", func(t *testing.T) {
+		tracker := &recordingPresence{}
+		nextCalled := false
+		h := middleware.LastSeenMiddleware(tracker)(
 			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusNoContent)
+				nextCalled = true
+				w.WriteHeader(http.StatusOK)
 			}),
 		)
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req = req.WithContext(context.WithValue(req.Context(), sharedauth.UserContextKey{}, &sharedauth.UserContext{UserID: 7}))
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
+		req = req.WithContext(context.WithValue(req.Context(), sharedauth.UserContextKey{}, &sharedauth.UserContext{UserID: 42}))
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
-		if rr.Code != http.StatusNoContent {
-			t.Fatalf("status=%d", rr.Code)
+		if !nextCalled || rr.Code != http.StatusOK {
+			t.Fatalf("nextCalled=%v status=%d", nextCalled, rr.Code)
+		}
+		if len(tracker.ids) != 0 {
+			t.Fatalf("expected no touch on logout, got %v", tracker.ids)
 		}
 	})
 
-	t.Run("nil repo and publisher are safe", func(t *testing.T) {
-		h := middleware.LastSeenMiddleware(nil, nil)(
+	t.Run("nil tracker is safe", func(t *testing.T) {
+		h := middleware.LastSeenMiddleware(nil)(
 			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}),

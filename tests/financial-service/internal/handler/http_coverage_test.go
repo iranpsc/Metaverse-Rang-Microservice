@@ -93,11 +93,19 @@ func TestHTTPHandleCallback_MoreInputs(t *testing.T) {
 		t.Fatalf("status=%d", w.Code)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/order/callback?order_id=abc", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/order/callback?order_id=12", nil)
 	w = httptest.NewRecorder()
 	h.HandleCallback(w, req)
 	if w.Code != http.StatusBadRequest {
-		t.Fatalf("invalid id status=%d", w.Code)
+		t.Fatalf("query order_id status=%d", w.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/order/callback", strings.NewReader("OrderId=abc"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w = httptest.NewRecorder()
+	h.HandleCallback(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("invalid OrderId status=%d", w.Code)
 	}
 
 	form := strings.NewReader("OrderId=12&token=abc&resCode=0&PrimaryAccNo=pan")

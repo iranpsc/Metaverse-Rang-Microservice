@@ -16,7 +16,7 @@ const (
 	defaultProjectURL         = "http://localhost:8000"
 )
 
-// ResolveSadadCallbackURL returns the Sadad ReturnUrl base (without order_id query param).
+// ResolveSadadCallbackURL returns the Sadad ReturnUrl. OrderId is not added to this URL.
 // The gateway must redirect users to the API callback endpoint, never the frontend verify page.
 // Supports ${PROJECT_URL} expansion in config.env (e.g. SADAD_CALLBACK_URL=${PROJECT_URL}/api/order/callback).
 // When SADAD_CALLBACK_PORT is set, its value replaces the port on the resolved callback URL host.

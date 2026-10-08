@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -185,23 +188,45 @@ func TestSearchRepository_SQLMock(t *testing.T) {
 	require.Len(t, users, 1)
 	require.Equal(t, int32(2), users[0].Followers)
 
-	mock.ExpectQuery("FROM feature_properties").
-		WillReturnRows(sqlmock.NewRows([]string{
-			"feature_properties_id", "address", "price_psc", "price_irr", "karbari", "feature_id", "owner_code",
-		}).AddRow(uint64(1), "addr", "1", "2", "m", uint64(7), "hm-1"))
-	mock.ExpectQuery("FROM coordinates").WithArgs(uint64(7)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "x", "y"}).AddRow(uint64(1), 1.1, 2.2))
-	feats, err := repo.SearchFeatures(ctx, "addr")
-	require.NoError(t, err)
-	require.Len(t, feats, 1)
-	require.Len(t, feats[0].Coordinates, 1)
-
 	mock.ExpectQuery("FROM isic_codes").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "code"}).AddRow(uint64(1), "code", int64(11)))
 	isic, err := repo.SearchIsicCodes(ctx, "co")
 	require.NoError(t, err)
 	require.Len(t, isic, 1)
 	require.Equal(t, uint64(11), isic[0].Code)
+}
+
+func TestSearchRepository_FollowedUserIDs(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+	repo := repository.NewSearchRepository(db)
+	ctx := context.Background()
+
+	empty, err := repo.FollowedUserIDs(ctx, 0, []uint64{1, 2})
+	require.NoError(t, err)
+	require.Empty(t, empty)
+
+	empty, err = repo.FollowedUserIDs(ctx, 9, nil)
+	require.NoError(t, err)
+	require.Empty(t, empty)
+
+	mock.ExpectQuery("SELECT following_id FROM follows").
+		WithArgs(uint64(9), uint64(1), uint64(2), uint64(3)).
+		WillReturnRows(sqlmock.NewRows([]string{"following_id"}).AddRow(uint64(2)))
+	followed, err := repo.FollowedUserIDs(ctx, 9, []uint64{1, 2, 3})
+	require.NoError(t, err)
+	_, followedTwo := followed[2]
+	require.True(t, followedTwo)
+	_, followedOne := followed[1]
+	require.False(t, followedOne)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	mock.ExpectQuery("SELECT following_id FROM follows").
+		WithArgs(uint64(9), uint64(1)).
+		WillReturnError(sql.ErrConnDone)
+	_, err = repo.FollowedUserIDs(ctx, 9, []uint64{1})
+	require.Error(t, err)
 }
 
 func TestActivityRepository_MoreSQLMock(t *testing.T) {
@@ -236,4 +261,48 @@ func TestActivityRepository_MoreSQLMock(t *testing.T) {
 
 	mock.ExpectExec("UPDATE user_logs").WillReturnResult(sqlmock.NewResult(0, 1))
 	require.NoError(t, repo.IncrementLogField(ctx, 1, "score", 1))
+}
+
+func TestCitizenRepository_PersianReferralSearchUsesKYCName(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherFunc(
+		func(expectedSQL, actualSQL string) error {
+			if strings.Contains(actualSQL, "LOWER(") {
+				return fmt.Errorf("LOWER() drops Persian LIKE matches: %s", actualSQL)
+			}
+			expect, err := regexp.Compile(expectedSQL)
+			if err != nil {
+				return err
+			}
+			if !expect.MatchString(actualSQL) {
+				return fmt.Errorf("could not match actual sql: %q with expected regexp %q", actualSQL, expectedSQL)
+			}
+			return nil
+		},
+	)))
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := repository.NewCitizenRepository(db)
+	ctx := context.Background()
+	now := time.Now()
+	const pattern = "%عباس%"
+
+	mock.ExpectQuery("k.fname").
+		WithArgs(uint64(7), pattern, pattern, pattern, pattern, pattern).
+		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
+	mock.ExpectQuery("k.fname").
+		WithArgs(uint64(7), pattern, pattern, pattern, pattern, pattern, 10, 0).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name", "created_at"}).
+			AddRow(uint64(9), "hm-9", "john", now))
+	mock.ExpectQuery("FROM kycs").WithArgs(uint64(9)).
+		WillReturnRows(sqlmock.NewRows([]string{"fname", "lname"}).AddRow("عباس", "رضایی"))
+	mock.ExpectQuery("FROM images").WithArgs(uint64(9)).
+		WillReturnRows(sqlmock.NewRows([]string{"url"}).AddRow("/a.jpg"))
+
+	refs, meta, err := repo.GetCitizenReferrals(ctx, 7, "  عباس  ", 1, 10)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	require.Equal(t, "عباس رضایی", refs[0].Name)
+	require.Equal(t, int32(1), meta.CurrentPage)
+	require.NoError(t, mock.ExpectationsWereMet())
 }

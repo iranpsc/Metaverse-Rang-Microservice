@@ -140,13 +140,23 @@ func TestVideoRepository_GetVideoBySlug_ScanError(t *testing.T) {
 
 func TestVideoRepository_SearchVideos(t *testing.T) {
 	db, mock := newSQLMock(t)
-	mock.ExpectQuery("SELECT COUNT").WithArgs("%go%").WillReturnRows(sqlmock.NewRows([]string{"cnt"}).AddRow(int32(1)))
-	mock.ExpectQuery("SELECT id, video_sub_category_id").WithArgs("%go%", int32(18), int32(0)).
+	mock.ExpectQuery("utf8mb4_general_ci").WithArgs("%go%").WillReturnRows(sqlmock.NewRows([]string{"cnt"}).AddRow(int32(1)))
+	mock.ExpectQuery("utf8mb4_general_ci").WithArgs("%go%", int32(18), int32(0)).
 		WillReturnRows(addVideoRow(sqlmock.NewRows(videoColumns()), 1))
 	r := repository.NewVideoRepository(db)
 	list, total, err := r.SearchVideos(context.Background(), "go", 1, 18)
 	if err != nil || total != 1 || len(list) != 1 {
 		t.Fatalf("err=%v total=%d n=%d", err, total, len(list))
+	}
+
+	db, mock = newSQLMock(t)
+	mock.ExpectQuery("utf8mb4_general_ci").WithArgs("%عباس%").WillReturnRows(sqlmock.NewRows([]string{"cnt"}).AddRow(int32(1)))
+	mock.ExpectQuery("utf8mb4_general_ci").WithArgs("%عباس%", int32(18), int32(0)).
+		WillReturnRows(addVideoRow(sqlmock.NewRows(videoColumns()), 5))
+	r = repository.NewVideoRepository(db)
+	list, total, err = r.SearchVideos(context.Background(), "  عباس  ", 1, 18)
+	if err != nil || total != 1 || len(list) != 1 || list[0].ID != 5 {
+		t.Fatalf("persian search err=%v total=%d list=%v", err, total, list)
 	}
 
 	db, mock = newSQLMock(t)

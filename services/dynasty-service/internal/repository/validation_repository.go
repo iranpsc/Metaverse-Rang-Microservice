@@ -62,6 +62,51 @@ func (r *ValidationRepository) CheckUserInFamily(ctx context.Context, userID uin
 	return exists, nil
 }
 
+// CountFamilyMembers counts every member of a family, including the owner.
+func (r *ValidationRepository) CountFamilyMembers(ctx context.Context, familyID uint64) (int, error) {
+	query := `SELECT COUNT(*) FROM family_members WHERE family_id = ?`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, familyID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count family members: %w", err)
+	}
+	return count, nil
+}
+
+// CountSiblingMembers counts brothers and sisters together.
+func (r *ValidationRepository) CountSiblingMembers(ctx context.Context, familyID uint64) (int, error) {
+	query := `SELECT COUNT(*) FROM family_members WHERE family_id = ? AND relationship IN ('brother', 'sister')`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, familyID).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count sibling members: %w", err)
+	}
+	return count, nil
+}
+
+// CheckReceiverVerified reports KYC approval and the user code used in denial messages.
+func (r *ValidationRepository) CheckReceiverVerified(ctx context.Context, userID uint64) (bool, string, error) {
+	query := `
+		SELECT u.code, COALESCE(k.status, 0) = 1
+		FROM users u
+		LEFT JOIN kycs k ON k.user_id = u.id
+		WHERE u.id = ?
+		LIMIT 1
+	`
+	var code string
+	var verified bool
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&code, &verified)
+	if err == sql.ErrNoRows {
+		return false, "", nil
+	}
+	if err != nil {
+		return false, "", fmt.Errorf("failed to check receiver verification: %w", err)
+	}
+	return verified, code, nil
+}
+
 // CountFamilyMembersByRelationship counts family members with specific relationship
 func (r *ValidationRepository) CountFamilyMembersByRelationship(ctx context.Context, familyID uint64, relationship string) (int, error) {
 	query := `SELECT COUNT(*) FROM family_members 
@@ -102,18 +147,19 @@ func (r *ValidationRepository) CheckUserHasDynasty(ctx context.Context, userID u
 	return exists, nil
 }
 
-// CheckUserDMPermission checks if under-18 user has verified DM permission
+// CheckUserDMPermission matches UserPolicy::addFamilyMember for under-18 senders.
+// No children_permissions row is allowed. A row is allowed when verified OR DM is set.
 func (r *ValidationRepository) CheckUserDMPermission(ctx context.Context, userID uint64) (bool, error) {
-	query := `SELECT verified AND DM FROM children_permissions WHERE user_id = ?`
+	query := `SELECT verified, DM FROM children_permissions WHERE user_id = ?`
 
-	var hasPermission bool
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(&hasPermission)
+	var verified, dm bool
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&verified, &dm)
 	if err == sql.ErrNoRows {
-		return false, nil // No permission record means no permission
+		return true, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("failed to check DM permission: %w", err)
 	}
 
-	return hasPermission, nil
+	return verified || dm, nil
 }

@@ -1,49 +1,55 @@
+# syntax=docker/dockerfile:1
+
 # Multi-stage build for Auth Service
 FROM golang:1.25-alpine AS builder
 
 ENV CGO_ENABLED=0
 
-RUN apk add --no-cache git make protoc protobuf-dev
+# protobuf-dev provides the well-known google/protobuf includes that protoc imports.
+RUN apk add --no-cache git protoc protobuf-dev
 
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+ENV PATH="/go/bin:${PATH}"
+RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
+    go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11 \
+ && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 
-WORKDIR /workspace
+WORKDIR /src
 
-RUN mkdir -p /workspace/metarang/auth-service /workspace/metarang/shared
+# Module files only, so a source edit does not download modules again.
+COPY shared/go.mod shared/go.sum shared/
+COPY services/auth-service/go.mod services/auth-service/go.sum* services/auth-service/
+RUN printf 'go 1.25.13\n\nuse (\n\t./services/auth-service\n\t./shared\n)\n' > go.work
 
-COPY ./shared/proto/ /workspace/metarang/shared/proto/
-COPY ./scripts/docker/generate-all-protos.sh /tmp/generate-all-protos.sh
-
-ENV PATH="${PATH}:/root/go/bin"
-RUN sed -i 's/\r$//' /tmp/generate-all-protos.sh && sh /tmp/generate-all-protos.sh /workspace/metarang/shared
-
-COPY ./shared/go.mod ./shared/go.sum /workspace/metarang/shared/
-COPY ./shared/pkg/ /workspace/metarang/shared/pkg/
-
-COPY ./services/auth-service/go.mod ./services/auth-service/go.sum* /workspace/metarang/auth-service/
-COPY ./services/auth-service/ /workspace/metarang/auth-service/
-
-WORKDIR /workspace
-RUN echo 'go 1.25.13' > go.work && \
-    printf '\nuse (\n\t./metarang/auth-service\n\t./metarang/shared\n)\n' >> go.work
-
-WORKDIR /workspace/metarang/auth-service
-RUN sed -i 's|replace metarang/shared => ../../shared|replace metarang/shared => /workspace/metarang/shared|g' go.mod && \
+ENV GOWORK=/src/go.work
+WORKDIR /src/services/auth-service
+RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod,sharing=locked \
     go mod download
 
-ENV GOWORK=/workspace/go.work
-RUN go build -trimpath -ldflags="-s -w" -o /app/auth-service ./cmd/server
+# Proto generation depends on .proto files, not on service source.
+COPY shared/proto /src/shared/proto
+COPY scripts/docker/generate-all-protos.sh /tmp/generate-all-protos.sh
+RUN sed -i 's/\r$//' /tmp/generate-all-protos.sh \
+ && sh /tmp/generate-all-protos.sh /src/shared
+
+COPY shared/pkg /src/shared/pkg
+COPY services/auth-service/ /src/services/auth-service/
+
+WORKDIR /src/services/auth-service
+RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
+    go build -trimpath -buildvcs=false -ldflags="-s -w" -o /app/auth-service ./cmd/server
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata wget && \
-    addgroup -g 1000 appuser && \
-    adduser -D -u 1000 -G appuser appuser
+# Alpine already includes BusyBox wget, which accepts the healthcheck flags.
+RUN apk add --no-cache --upgrade ca-certificates tzdata libcrypto3 libssl3 \
+    && addgroup -g 1000 appuser \
+    && adduser -D -u 1000 -G appuser appuser
 
 WORKDIR /app
 
-COPY --from=builder --chown=appuser:appuser /app/auth-service .
+COPY --link --from=builder --chown=1000:1000 /app/auth-service /app/
 
 USER appuser
 

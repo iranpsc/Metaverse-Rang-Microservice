@@ -72,31 +72,6 @@ func (m *mockCitizenFeaturesHTTPAPI) ListCitizenFeatures(ctx context.Context, re
 	return &featurespb.ListCitizenFeaturesResponse{}, nil
 }
 
-type mockCitizenBuildingsHTTPAPI struct {
-	summary func(context.Context, *featurespb.GetCitizenBuildingSummaryRequest) (*featurespb.GetCitizenBuildingSummaryResponse, error)
-	chart   func(context.Context, *featurespb.GetCitizenBuildingChartRequest) (*featurespb.GetCitizenBuildingChartResponse, error)
-	list    func(context.Context, *featurespb.ListCitizenBuildingsRequest) (*featurespb.ListCitizenBuildingsResponse, error)
-}
-
-func (m *mockCitizenBuildingsHTTPAPI) GetCitizenBuildingSummary(ctx context.Context, req *featurespb.GetCitizenBuildingSummaryRequest) (*featurespb.GetCitizenBuildingSummaryResponse, error) {
-	if m.summary != nil {
-		return m.summary(ctx, req)
-	}
-	return &featurespb.GetCitizenBuildingSummaryResponse{}, nil
-}
-func (m *mockCitizenBuildingsHTTPAPI) GetCitizenBuildingChart(ctx context.Context, req *featurespb.GetCitizenBuildingChartRequest) (*featurespb.GetCitizenBuildingChartResponse, error) {
-	if m.chart != nil {
-		return m.chart(ctx, req)
-	}
-	return &featurespb.GetCitizenBuildingChartResponse{}, nil
-}
-func (m *mockCitizenBuildingsHTTPAPI) ListCitizenBuildings(ctx context.Context, req *featurespb.ListCitizenBuildingsRequest) (*featurespb.ListCitizenBuildingsResponse, error) {
-	if m.list != nil {
-		return m.list(ctx, req)
-	}
-	return &featurespb.ListCitizenBuildingsResponse{}, nil
-}
-
 func featureChartResponseForPeriod(periodValue string) *featurespb.GetCitizenFeatureChartResponse {
 	window, err := period.ResolvePeriod(periodValue, citizenContractRef, citizenContractRegisteredAt)
 	if err != nil {
@@ -114,31 +89,17 @@ func featureChartResponseForPeriod(periodValue string) *featurespb.GetCitizenFea
 	}
 }
 
-func buildingChartResponseForPeriod(periodValue string) *featurespb.GetCitizenBuildingChartResponse {
-	window, err := period.ResolvePeriod(periodValue, citizenContractRef, citizenContractRegisteredAt)
-	if err != nil {
-		panic(err)
-	}
-	completed := make([]*featurespb.CitizenChartPoint, len(window.Buckets))
-	for i, bucket := range window.Buckets {
-		completed[i] = &featurespb.CitizenChartPoint{Karbari: "m", Label: bucket.Label}
-	}
-	return &featurespb.GetCitizenBuildingChartResponse{
-		Data:   &featurespb.CitizenBuildingChartData{Completed: completed},
-		Period: periodValue,
-	}
-}
-
-func newCitizenHTTPHandlers(t *testing.T, features *mockCitizenFeaturesHTTPAPI, buildings *mockCitizenBuildingsHTTPAPI) (*handler.HTTPCitizenFeaturesHandler, *handler.HTTPCitizenBuildingsHandler) {
+func newCitizenHTTPHandlers(t *testing.T, features *mockCitizenFeaturesHTTPAPI) *handler.HTTPCitizenFeaturesHandler {
 	t.Helper()
 	citizen := &mockCitizenAuthClient{
-		userInfo: func(_ context.Context, _ *authpb.GetCitizenUserInfoRequest, _ ...grpc.CallOption) (*authpb.GetCitizenUserInfoResponse, error) {
-			return &authpb.GetCitizenUserInfoResponse{UserId: 42}, nil
+		userInfo: func(context.Context, *authpb.GetCitizenUserInfoRequest, ...grpc.CallOption) (*authpb.GetCitizenUserInfoResponse, error) {
+			return &authpb.GetCitizenUserInfoResponse{UserId: 42, Privacy: map[string]int32{}}, nil
 		},
 	}
-	featuresHandler := handler.NewHTTPCitizenFeaturesHandler(features, citizen)
-	buildingsHandler := handler.NewHTTPCitizenBuildingsHandler(buildings, featuresHandler)
-	return featuresHandler, buildingsHandler
+	if features == nil {
+		features = &mockCitizenFeaturesHTTPAPI{}
+	}
+	return handler.NewHTTPCitizenFeaturesHandler(features, citizen)
 }
 
 func expectedYearlyBucketCount(t *testing.T) int {
@@ -178,7 +139,7 @@ func TestHTTPCitizenFeaturesSummary_PeriodInResponse(t *testing.T) {
 					}, nil
 				},
 			}
-			featuresHandler, _ := newCitizenHTTPHandlers(t, features, &mockCitizenBuildingsHTTPAPI{})
+			featuresHandler := newCitizenHTTPHandlers(t, features)
 
 			target := "/api/citizen/hm-1/features/summary"
 			if test.query != "" {
@@ -220,7 +181,7 @@ func TestHTTPCitizenFeaturesChart_PeriodAndBucketCounts(t *testing.T) {
 					return featureChartResponseForPeriod(req.Period), nil
 				},
 			}
-			featuresHandler, _ := newCitizenHTTPHandlers(t, features, &mockCitizenBuildingsHTTPAPI{})
+			featuresHandler := newCitizenHTTPHandlers(t, features)
 
 			target := "/api/citizen/hm-1/features/chart"
 			if test.query != "" {
@@ -253,120 +214,8 @@ func TestHTTPCitizenFeaturesChart_PeriodAndBucketCounts(t *testing.T) {
 	}
 }
 
-func TestHTTPCitizenBuildingsChart_PeriodAndBucketCounts(t *testing.T) {
-	yearlyBuckets := expectedYearlyBucketCount(t)
 
-	for _, test := range []struct {
-		name, query, wantPeriod string
-		wantBuckets             int
-	}{
-		{"daily", "period=daily", "daily", 24},
-		{"weekly", "period=weekly", "weekly", 4},
-		{"monthly", "period=monthly", "monthly", 12},
-		{"yearly", "period=yearly", "yearly", yearlyBuckets},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			var gotPeriod string
-			buildings := &mockCitizenBuildingsHTTPAPI{
-				chart: func(_ context.Context, req *featurespb.GetCitizenBuildingChartRequest) (*featurespb.GetCitizenBuildingChartResponse, error) {
-					gotPeriod = req.Period
-					return buildingChartResponseForPeriod(req.Period), nil
-				},
-			}
-			_, buildingsHandler := newCitizenHTTPHandlers(t, &mockCitizenFeaturesHTTPAPI{}, buildings)
 
-			target := "/api/citizen/hm-1/buildings/chart?" + test.query
-			w := httptest.NewRecorder()
-			buildingsHandler.Handle(w, httptest.NewRequest(http.MethodGet, target, nil), "hm-1", []string{"chart"})
-
-			require.Equal(t, http.StatusOK, w.Code)
-			assert.Equal(t, test.wantPeriod, gotPeriod)
-
-			var body map[string]interface{}
-			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-			_, hasPeriod := body["period"]
-			assert.False(t, hasPeriod)
-
-			data := body["data"].([]interface{})
-			assert.Len(t, data, test.wantBuckets)
-			firstPoint := data[0].(map[string]interface{})
-			_, hasKarbari := firstPoint["karbari"]
-			_, hasLabel := firstPoint["label"]
-			_, hasAmount := firstPoint["amount"]
-			assert.True(t, hasKarbari)
-			assert.True(t, hasLabel)
-			assert.True(t, hasAmount)
-			if test.wantPeriod == "yearly" {
-				gotLabels := make([]string, len(data))
-				for i, point := range data {
-					gotLabels[i] = point.(map[string]interface{})["label"].(string)
-				}
-				assert.Equal(t, []string{"1402", "1403", "1404", "1405"}, gotLabels)
-			}
-		})
-	}
-}
-
-func TestHTTPCitizenBuildingsSummary_NoPeriodField(t *testing.T) {
-	buildings := &mockCitizenBuildingsHTTPAPI{
-		summary: func(_ context.Context, _ *featurespb.GetCitizenBuildingSummaryRequest) (*featurespb.GetCitizenBuildingSummaryResponse, error) {
-			return &featurespb.GetCitizenBuildingSummaryResponse{
-				Data: []*featurespb.CitizenBuildingSummaryItem{{Karbari: "m", Label: "مسکونی", Count: 2}},
-			}, nil
-		},
-	}
-	_, buildingsHandler := newCitizenHTTPHandlers(t, &mockCitizenFeaturesHTTPAPI{}, buildings)
-
-	w := httptest.NewRecorder()
-	buildingsHandler.Handle(w, httptest.NewRequest(http.MethodGet, "/api/citizen/hm-1/buildings/summary", nil), "hm-1", []string{"summary"})
-	require.Equal(t, http.StatusOK, w.Code)
-
-	var body map[string]interface{}
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	_, hasPeriod := body["period"]
-	assert.False(t, hasPeriod)
-	_, hasData := body["data"]
-	assert.True(t, hasData)
-}
-
-func TestHTTPCitizenBuildingsList_IncludesImages(t *testing.T) {
-	area := 85.0
-	buildings := &mockCitizenBuildingsHTTPAPI{
-		list: func(_ context.Context, _ *featurespb.ListCitizenBuildingsRequest) (*featurespb.ListCitizenBuildingsResponse, error) {
-			return &featurespb.ListCitizenBuildingsResponse{
-				Data: []*featurespb.CitizenBuildingItem{
-					{
-						BuildingId: "sku-1",
-						Karbari:    "m",
-						Area:       &area,
-						Images:     []*featurespb.Image{{Id: 11, Url: "https://cdn.example/a.jpg"}},
-					},
-				},
-				Meta: &featurespb.FeatureTradeHistoryPaginationMeta{CurrentPage: 1, LastPage: 1, PerPage: 10, Total: 1},
-			}, nil
-		},
-	}
-	_, buildingsHandler := newCitizenHTTPHandlers(t, &mockCitizenFeaturesHTTPAPI{}, buildings)
-
-	w := httptest.NewRecorder()
-	buildingsHandler.Handle(w, httptest.NewRequest(http.MethodGet, "/api/citizen/hm-1/buildings", nil), "hm-1", nil)
-	require.Equal(t, http.StatusOK, w.Code)
-
-	var body map[string]interface{}
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	data, ok := body["data"].([]interface{})
-	require.True(t, ok)
-	require.Len(t, data, 1)
-	item, ok := data[0].(map[string]interface{})
-	require.True(t, ok)
-	images, ok := item["images"].([]interface{})
-	require.True(t, ok)
-	require.Len(t, images, 1)
-	img, ok := images[0].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, float64(11), img["id"])
-	assert.Equal(t, "https://cdn.example/a.jpg", img["url"])
-}
 
 func TestHTTPCitizenFeaturesList_PaginationPrivacyAndErrors(t *testing.T) {
 	from, to := int32(16), int32(30)
@@ -441,30 +290,3 @@ func TestHTTPCitizenFeaturesList_PaginationPrivacyAndErrors(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
-func TestHTTPCitizenBuildingsList_PaginationLinks(t *testing.T) {
-	from, to := int32(11), int32(20)
-	buildings := &mockCitizenBuildingsHTTPAPI{
-		list: func(_ context.Context, _ *featurespb.ListCitizenBuildingsRequest) (*featurespb.ListCitizenBuildingsResponse, error) {
-			visitors, empty, density := 1.0, 2.0, 3.0
-			end := "2026-01-02"
-			return &featurespb.ListCitizenBuildingsResponse{
-				Data: []*featurespb.CitizenBuildingItem{{
-					BuildingId: "sku-2", Karbari: "t", Visitors: &visitors, EmptyUnits: &empty,
-					Density: &density, ConstructionEndDate: &end,
-				}},
-				Meta: &featurespb.FeatureTradeHistoryPaginationMeta{
-					CurrentPage: 2, LastPage: 4, PerPage: 10, Total: 35, From: &from, To: &to,
-				},
-			}, nil
-		},
-	}
-	_, h := newCitizenHTTPHandlers(t, &mockCitizenFeaturesHTTPAPI{}, buildings)
-	w := httptest.NewRecorder()
-	h.Handle(w, httptest.NewRequest(http.MethodGet, "/api/citizen/hm-1/buildings?page=2", nil), "hm-1", nil)
-	require.Equal(t, http.StatusOK, w.Code)
-	var body map[string]interface{}
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	links := body["links"].(map[string]interface{})
-	assert.Contains(t, links["prev"].(string), "page=1")
-	assert.Contains(t, links["next"].(string), "page=3")
-}

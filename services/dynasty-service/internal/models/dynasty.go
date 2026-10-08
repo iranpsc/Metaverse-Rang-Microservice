@@ -107,4 +107,6 @@ type UserBasic struct {
 	Name         string
 	ProfilePhoto *string
 	Level        string
+	LastSeen     *time.Time
+	Online       bool
 }

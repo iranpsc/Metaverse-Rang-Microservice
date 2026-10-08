@@ -9,11 +9,28 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 
 	"metarang/dynasty-service/internal/service"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"metarang/dynasty-service/internal/repository"
 )
+
+func expectCreateFeatureGate(mock sqlmock.Sqlmock, userID, featureID uint64) {
+	mock.ExpectQuery("FROM kycs").
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"verified"}).AddRow(true))
+	expectUpdateFeatureGate(mock, userID, featureID)
+}
+
+func expectUpdateFeatureGate(mock sqlmock.Sqlmock, userID, featureID uint64) {
+	mock.ExpectQuery("SELECT f.owner_id, fp.karbari").
+		WithArgs(featureID).
+		WillReturnRows(sqlmock.NewRows([]string{"owner_id", "karbari"}).AddRow(userID, "m"))
+	mock.ExpectQuery("sell_feature_requests").
+		WithArgs(featureID).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+}
 
 func TestDynastyService_CreateDynasty(t *testing.T) {
 	db, mock, err := sqlmock.New()
@@ -34,6 +51,7 @@ func TestDynastyService_CreateDynasty(t *testing.T) {
 		mock.ExpectQuery("SELECT id, user_id, feature_id").
 			WithArgs(userID).
 			WillReturnError(sql.ErrNoRows)
+		expectCreateFeatureGate(mock, userID, featureID)
 
 		// Create dynasty
 		mock.ExpectExec("INSERT INTO dynasties").
@@ -134,6 +152,7 @@ func TestDynastyService_UpdateDynastyFeature(t *testing.T) {
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(dynastyID, userID, 100, time.Now().AddDate(0, 0, -60), time.Now().AddDate(0, 0, -31)))
+		expectUpdateFeatureGate(mock, userID, newFeatureID)
 
 		// Update feature
 		mock.ExpectExec("UPDATE dynasties SET feature_id").

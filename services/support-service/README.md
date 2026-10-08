@@ -9,7 +9,7 @@ A Go microservice that provides comprehensive support ticket, reporting, and use
 - Department-based or user-to-user tickets
 - Response system for ticket conversations
 - Status management (New, Answered, Resolved, Unresolved, Tracking, Closed)
-- Attachment support
+- Attachment support for up to 5 files (pdf, docx, jpg, jpeg, png, doc)
 - Notification integration
 - Authorization policies
 
@@ -24,6 +24,10 @@ A Go microservice that provides comprehensive support ticket, reporting, and use
 - Report suspicious events
 - Response system for event reports
 - Status and closure tracking
+
+### 4. Notes
+- Personal notes for the authenticated user
+- Add and delete attachments, at most 5 files (pdf, docx, jpg, jpeg, png)
 
 ## Technology Stack
 

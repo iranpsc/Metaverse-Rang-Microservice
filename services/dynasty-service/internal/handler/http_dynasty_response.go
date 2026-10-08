@@ -77,6 +77,7 @@ func availableFeatureHTTP(feature *dynastypb.AvailableFeature) map[string]interf
 			"density":       "",
 			"stability":     "",
 			"area":          "",
+			"coordinates":   featureCoordinatesHTTP(nil),
 		}
 	}
 	return map[string]interface{}{
@@ -85,7 +86,23 @@ func availableFeatureHTTP(feature *dynastypb.AvailableFeature) map[string]interf
 		"density":       feature.Density,
 		"stability":     feature.Stability,
 		"area":          feature.Area,
+		"coordinates":   featureCoordinatesHTTP(feature.Coordinates),
 	}
+}
+
+func featureCoordinatesHTTP(coords []*dynastypb.FeatureCoordinate) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(coords))
+	for _, coord := range coords {
+		if coord == nil {
+			continue
+		}
+		out = append(out, map[string]interface{}{
+			"id": coord.Id,
+			"x":  coord.X,
+			"y":  coord.Y,
+		})
+	}
+	return out
 }
 
 // buildFamilyMembersHTTPResponse formats GET /api/dynasty/{dynasty}/family/{family}
@@ -98,7 +115,7 @@ func buildFamilyMembersHTTPResponse(resp *dynastypb.FamilyResponse) []map[string
 	for _, member := range resp.Members {
 		item := map[string]interface{}{
 			"relationship": member.Relationship,
-			"online":       false,
+			"online":       member.Online,
 		}
 
 		if member.UserInfo != nil {
@@ -204,6 +221,21 @@ func buildJoinRequestUserHTTP(user *commonpb.UserBasic) map[string]interface{} {
 		result["profile_photo"] = user.ProfilePhoto
 	}
 	return result
+}
+
+func buildReceivedPrizeHTTP(resp *dynastypb.PrizeResponse) map[string]interface{} {
+	if resp == nil || resp.Prize == nil {
+		return map[string]interface{}{}
+	}
+	prize := resp.Prize
+	return map[string]interface{}{
+		"id":                            prize.Id,
+		"psc":                           prize.Psc,
+		"satisfaction":                  prize.Satisfaction,
+		"introducation_profit_increase": prize.IntroductionProfitIncrease,
+		"accumulated_capital_reserve":   prize.AccumulatedCapitalReserve,
+		"data_storage":                  prize.DataStorage,
+	}
 }
 
 func buildJoinRequestPrizeHTTP(prize *dynastypb.DynastyPrize) map[string]interface{} {

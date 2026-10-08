@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -128,14 +127,7 @@ func main() {
 	optionRepo := repository.NewOptionRepository(db)
 	imageRepo := repository.NewImageRepository(db)
 
-	// Initialize Sadad client (BankTest sandbox when SADAD_SANDBOX=true)
-	sadadSandbox := parseBoolEnv("SADAD_SANDBOX", false)
-	sadadClient := sadad.NewClientWithSandbox(sadadSandbox)
-	if sadadSandbox {
-		log.Println("Sadad payment gateway: sandbox mode (BankTest)")
-	} else {
-		log.Println("Sadad payment gateway: production mode")
-	}
+	sadadClient := sadad.NewClient()
 
 	sadadCallbackURL := config.ResolveSadadCallbackURL()
 	log.Printf("Sadad callback URL: %s", sadadCallbackURL)
@@ -182,7 +174,6 @@ func main() {
 			SadadPaymentIdentityNonRial: getEnv("SADAD_PAYMENT_IDENTITY_NON_RIAL", ""),
 			SadadCallbackURL:            sadadCallbackURL,
 			FrontendURL:                 frontendURL,
-			SadadSandbox:                sadadSandbox,
 		},
 	)
 
@@ -275,20 +266,4 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
-}
-
-func parseBoolEnv(key string, defaultValue bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return defaultValue
-	}
-	switch strings.ToLower(raw) {
-	case "1", "t", "true", "yes", "y", "on":
-		return true
-	case "0", "f", "false", "no", "n", "off":
-		return false
-	default:
-		log.Printf("Warning: invalid boolean for %s=%q, using default %t", key, raw, defaultValue)
-		return defaultValue
-	}
 }

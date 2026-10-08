@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	pbNotification "metarang/shared/pb/notifications"
 	grpcutil "metarang/shared/pkg/grpc"
 )
+
+const maxTicketAttachments = 5
 
 type TicketService interface {
 	CreateTicket(ctx context.Context, userID uint64, title, content, attachment string, receiverID *uint64, department *string) (*models.TicketWithRelations, error)
@@ -37,6 +40,10 @@ func NewTicketService(ticketRepo repository.TicketRepository, notificationAddr s
 }
 
 func (s *ticketService) CreateTicket(ctx context.Context, userID uint64, title, content, attachment string, receiverID *uint64, department *string) (*models.TicketWithRelations, error) {
+	if err := validateTicketAttachmentCount(attachment); err != nil {
+		return nil, err
+	}
+
 	code := rand.Int31n(900000) + 100000
 
 	ticket := &models.Ticket{
@@ -94,6 +101,11 @@ func (s *ticketService) UpdateTicket(ctx context.Context, ticketID, userID uint6
 	if err := s.CheckAuthorization(ctx, ticketID, userID, "update"); err != nil {
 		return nil, err
 	}
+	if attachment != "" {
+		if err := validateTicketAttachmentCount(attachment); err != nil {
+			return nil, err
+		}
+	}
 
 	// Get existing ticket
 	ticket, err := s.ticketRepo.GetByID(ctx, ticketID)
@@ -121,6 +133,9 @@ func (s *ticketService) UpdateTicket(ctx context.Context, ticketID, userID uint6
 func (s *ticketService) AddResponse(ctx context.Context, ticketID, userID uint64, response, attachment, userName string) (*models.TicketWithRelations, error) {
 	// Check authorization - sender or receiver can respond if ticket is open
 	if err := s.CheckAuthorization(ctx, ticketID, userID, "respond"); err != nil {
+		return nil, err
+	}
+	if err := validateTicketAttachmentCount(attachment); err != nil {
 		return nil, err
 	}
 
@@ -293,4 +308,31 @@ func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.Tic
 	if err != nil {
 		fmt.Printf("Failed to send notification: %v\n", err)
 	}
+}
+
+func validateTicketAttachmentCount(attachment string) error {
+	if countTicketAttachments(attachment) > maxTicketAttachments {
+		return fmt.Errorf("attachments must not have more than 5 items")
+	}
+	return nil
+}
+
+func countTicketAttachments(attachment string) int {
+	attachment = strings.TrimSpace(attachment)
+	if attachment == "" {
+		return 0
+	}
+	if strings.HasPrefix(attachment, "[") {
+		var urls []string
+		if err := json.Unmarshal([]byte(attachment), &urls); err == nil {
+			count := 0
+			for _, raw := range urls {
+				if strings.TrimSpace(raw) != "" {
+					count++
+				}
+			}
+			return count
+		}
+	}
+	return 1
 }

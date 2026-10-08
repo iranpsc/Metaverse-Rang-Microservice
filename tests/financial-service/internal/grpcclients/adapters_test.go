@@ -3,6 +3,7 @@ package grpcclients_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -15,16 +16,24 @@ import (
 )
 
 type mockWalletClient struct {
-	addBalance func(ctx context.Context, in *commercialpb.AddBalanceRequest, opts ...grpc.CallOption) (*commercialpb.AddBalanceResponse, error)
+	addBalance    func(ctx context.Context, in *commercialpb.AddBalanceRequest, opts ...grpc.CallOption) (*commercialpb.AddBalanceResponse, error)
+	createWallet  func(ctx context.Context, in *commercialpb.CreateWalletRequest, opts ...grpc.CallOption) (*commercialpb.WalletResponse, error)
+	deductBalance func(ctx context.Context, in *commercialpb.DeductBalanceRequest, opts ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error)
 }
 
 func (m *mockWalletClient) GetWallet(context.Context, *commercialpb.GetWalletRequest, ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
 	return nil, errors.New("not implemented")
 }
-func (m *mockWalletClient) CreateWallet(context.Context, *commercialpb.CreateWalletRequest, ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
+func (m *mockWalletClient) CreateWallet(ctx context.Context, in *commercialpb.CreateWalletRequest, opts ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
+	if m.createWallet != nil {
+		return m.createWallet(ctx, in, opts...)
+	}
 	return nil, errors.New("not implemented")
 }
-func (m *mockWalletClient) DeductBalance(context.Context, *commercialpb.DeductBalanceRequest, ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error) {
+func (m *mockWalletClient) DeductBalance(ctx context.Context, in *commercialpb.DeductBalanceRequest, opts ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error) {
+	if m.deductBalance != nil {
+		return m.deductBalance(ctx, in, opts...)
+	}
 	return nil, errors.New("not implemented")
 }
 func (m *mockWalletClient) AddBalance(ctx context.Context, in *commercialpb.AddBalanceRequest, opts ...grpc.CallOption) (*commercialpb.AddBalanceResponse, error) {
@@ -99,6 +108,35 @@ func TestWalletAdapter_Rejected(t *testing.T) {
 	}
 }
 
+func TestWalletAdapter_CreatesWalletWhenMissing(t *testing.T) {
+	adds := 0
+	created := false
+	adapter := &grpcclients.WalletAdapter{
+		Client: &mockWalletClient{
+			addBalance: func(context.Context, *commercialpb.AddBalanceRequest, ...grpc.CallOption) (*commercialpb.AddBalanceResponse, error) {
+				adds++
+				if adds == 1 {
+					return &commercialpb.AddBalanceResponse{Success: false, Message: "failed to add balance: wallet not found"}, nil
+				}
+				return &commercialpb.AddBalanceResponse{Success: true}, nil
+			},
+			createWallet: func(_ context.Context, req *commercialpb.CreateWalletRequest, _ ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
+				created = true
+				if req.UserId != 4 {
+					t.Fatalf("user=%d", req.UserId)
+				}
+				return &commercialpb.WalletResponse{}, nil
+			},
+		},
+	}
+	if err := adapter.AddBalance(context.Background(), 4, "psc", 10); err != nil {
+		t.Fatal(err)
+	}
+	if !created || adds != 2 {
+		t.Fatalf("created=%v adds=%d", created, adds)
+	}
+}
+
 func TestWalletAdapter_GRPCError(t *testing.T) {
 	adapter := &grpcclients.WalletAdapter{
 		Client: &mockWalletClient{
@@ -146,7 +184,7 @@ func TestReferralAdapter_Success(t *testing.T) {
 	}
 }
 
-func TestReferralAdapter_NonFatalError(t *testing.T) {
+func TestReferralAdapter_ReturnsGatewayError(t *testing.T) {
 	adapter := &grpcclients.ReferralAdapter{
 		Client: &mockReferralClient{
 			processReferral: func(context.Context, *commercialpb.ProcessReferralRequest, ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -154,7 +192,56 @@ func TestReferralAdapter_NonFatalError(t *testing.T) {
 			},
 		},
 	}
-	if err := adapter.ProcessReferral(context.Background(), 1, 2, "psc", 10); err != nil {
-		t.Fatal("referral errors should be non-fatal")
+	err := adapter.ProcessReferral(context.Background(), 1, 2, "psc", 10)
+	if err == nil || !strings.Contains(err.Error(), "transient") {
+		t.Fatalf("expected wrapped gateway error, got %v", err)
+	}
+}
+
+func TestWalletAdapter_ReverseBalance(t *testing.T) {
+	var adapter *grpcclients.WalletAdapter
+	if err := adapter.ReverseBalance(context.Background(), 1, "psc", 10); err == nil {
+		t.Fatal("expected error for nil adapter")
+	}
+
+	adapter = &grpcclients.WalletAdapter{}
+	if err := adapter.ReverseBalance(context.Background(), 1, "psc", 10); err == nil {
+		t.Fatal("expected error for nil client")
+	}
+
+	adapter = &grpcclients.WalletAdapter{
+		Client: &mockWalletClient{
+			deductBalance: func(_ context.Context, req *commercialpb.DeductBalanceRequest, _ ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error) {
+				if req.UserId != 5 || req.Asset != "psc" || req.Amount != 15 {
+					t.Fatalf("unexpected request: %+v", req)
+				}
+				return &commercialpb.DeductBalanceResponse{Success: true}, nil
+			},
+		},
+	}
+	if err := adapter.ReverseBalance(context.Background(), 5, "psc", 15); err != nil {
+		t.Fatal(err)
+	}
+
+	adapter = &grpcclients.WalletAdapter{
+		Client: &mockWalletClient{
+			deductBalance: func(context.Context, *commercialpb.DeductBalanceRequest, ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error) {
+				return &commercialpb.DeductBalanceResponse{Success: false, Message: "insufficient"}, nil
+			},
+		},
+	}
+	if err := adapter.ReverseBalance(context.Background(), 1, "psc", 10); err == nil {
+		t.Fatal("expected rejection error")
+	}
+
+	adapter = &grpcclients.WalletAdapter{
+		Client: &mockWalletClient{
+			deductBalance: func(context.Context, *commercialpb.DeductBalanceRequest, ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error) {
+				return nil, errors.New("down")
+			},
+		},
+	}
+	if err := adapter.ReverseBalance(context.Background(), 1, "psc", 10); err == nil {
+		t.Fatal("expected gRPC error")
 	}
 }

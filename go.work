@@ -1,6 +1,7 @@
 go 1.25.13
 
 use (
+	./services/buildings-service
 	./services/auth-service
 	./services/calendar-service
 	./services/commercial-service

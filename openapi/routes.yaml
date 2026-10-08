@@ -1,5 +1,12 @@
 # Path and query parameters are auto-discovered from service HTTP handlers when available.
 # Run `make openapi` to regenerate openapi/openapi.yaml from this file + handler discovery.
+#
+# Request JSON uses `body`. A map with `type` is the schema and the body is required.
+# Wrap it when the body may be omitted:
+#   body:
+#     required: false
+#     schema: { type: object, properties: { ... } }
+# `responses` replaces the default 200, 401, and 422 entries for the same status code.
 
 routes:
   # --- Auth ---
@@ -232,8 +239,43 @@ routes:
       - name: karbari
         in: query
         type: array
-        description: Optional filter to specific karbari codes. Privacy settings still apply.
+        description: >
+          Optional land-use filter. Accepted codes are a, m, t, g, s, b, e, n.
+          Forms: karbari[]=m, karbari[0]=m, or repeated karbari=m.
+          Privacy still applies: a code is included only when its privacy value is missing or 1.
+          Omitted means all eight codes, then privacy. Hidden codes are dropped, not rejected.
         example: [m, t]
+    responses:
+      "200":
+        description: One row per allowed karbari, in request order. Count 0 is included. Empty data when every code is hidden.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      karbari:
+                        type: string
+                        description: Land-use code (a, m, t, g, s, b, e, n)
+                        example: m
+                      label:
+                        type: string
+                        description: Persian label for karbari
+                        example: مسکونی
+                      count:
+                        type: integer
+                        description: Completed buildings of this karbari
+                        example: 4
+      "404":
+        description: citizen not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
   - path: /api/citizen/{code}/buildings/chart
     methods: [get]
     tag: Citizen
@@ -248,13 +290,50 @@ routes:
       - name: period
         in: query
         type: string
-        description: Time window (`daily`, `weekly`, `monthly`, or `yearly`). Defaults to `daily`.
+        description: >
+          daily (default, 24 hourly labels HH:mm), weekly (4 weeks, Jalali yyyy/MM/dd),
+          monthly (12 months, Persian month and year), or yearly (Jalali years since registration).
+          Any other value is treated as daily.
         example: weekly
       - name: karbari
         in: query
         type: array
-        description: Optional filter to specific karbari codes. Privacy settings still apply.
+        description: >
+          Optional land-use filter. Accepted codes are a, m, t, g, s, b, e, n.
+          Privacy still applies. Omitted means all eight codes, then privacy.
         example: [m]
+    responses:
+      "200":
+        description: >
+          Flat series, oldest bucket first. For each karbari, one point per bucket.
+          Group by karbari to draw one series. amount is buildings finished in that bucket.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      karbari:
+                        type: string
+                        example: m
+                      label:
+                        type: string
+                        description: Bucket label. Format depends on period.
+                        example: "1403/07/01"
+                      amount:
+                        type: number
+                        description: Completed buildings in this bucket
+                        example: 2
+      "404":
+        description: citizen not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
   - path: /api/citizen/{code}/buildings
     methods: [get]
     tag: Citizen
@@ -269,13 +348,79 @@ routes:
       - name: karbari
         in: query
         type: array
-        description: Optional filter to specific karbari codes. Privacy settings still apply.
+        description: >
+          Optional land-use filter. Accepted codes are a, m, t, g, s, b, e, n.
+          Privacy still applies. Omitted means all eight codes, then privacy.
         example: [m]
       - name: page
         in: query
         type: integer
-        description: Page number
+        description: Page number (default 1, 10 items per page)
         example: 1
+    responses:
+      "200":
+        description: Completed buildings. links and meta.path are absolute URLs for this request. from and to are null on an empty page.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      building_id:
+                        type: string
+                        description: Building model SKU
+                        example: SHOP-A
+                      karbari:
+                        type: string
+                        example: t
+                      area:
+                        type: number
+                        nullable: true
+                        description: length times width from model attributes
+                        example: 300
+                      visitors:
+                        type: number
+                        description: Always 0 until visitor tracking exists
+                        example: 0
+                      empty_units:
+                        type: number
+                        description: Always 0 until unit tracking exists
+                        example: 0
+                      density:
+                        type: number
+                        nullable: true
+                        description: Density attribute from the building model
+                        example: 2
+                      construction_end_date:
+                        type: string
+                        nullable: true
+                        description: Jalali date yyyy/MM/dd
+                        example: "1403/08/09"
+                      images:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              format: int64
+                              description: 0 when the catalog stored a bare URL
+                            url:
+                              type: string
+                links:
+                  $ref: "#/components/schemas/PaginationLinks"
+                meta:
+                  $ref: "#/components/schemas/PaginationMeta"
+      "404":
+        description: citizen not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
 
   - path: /api/citizen/{code}/wallet/history/summary
     methods: [get]
@@ -539,6 +684,56 @@ routes:
     tag: Features
     summary: List construction-completed buildings (paginated, 10 per page)
     security: none
+    params:
+      - name: page
+        in: query
+        type: integer
+        description: Page number (default 1, 10 items per page)
+        example: 1
+    responses:
+      "200":
+        description: Buildings whose construction end date is in the past. links are relative paths. length, width, and density are null when the model has no such attribute.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        format: int64
+                        example: 12
+                      feature_id:
+                        type: integer
+                        format: int64
+                        example: 44
+                      feature_properties_id:
+                        type: string
+                        description: Uppercased feature properties id
+                        example: TO111
+                      length:
+                        type: string
+                        nullable: true
+                        example: "20"
+                      width:
+                        type: string
+                        nullable: true
+                        example: "15"
+                      density:
+                        type: string
+                        nullable: true
+                        example: "2"
+                      karbari:
+                        type: string
+                        example: t
+                links:
+                  $ref: "#/components/schemas/PaginationLinks"
+                meta:
+                  $ref: "#/components/schemas/PaginationMeta"
   - path: /api/isic-codes
     methods: [get]
     tag: Features
@@ -593,6 +788,153 @@ routes:
         format: int64
         description: Feature ID
         example: 1
+  - path: /api/features/{feature}/build/package
+    methods: [get]
+    tag: Features
+    summary: List 3D building models that can be built on a feature
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. Caller must own the feature.
+        example: 1
+      - name: page
+        in: query
+        type: integer
+        description: Catalog page forwarded to the 3D API. Default 1. Request the next page until data is empty. This response has no links or meta.
+        example: 1
+    responses:
+      "200":
+        description: Catalog page for this feature. required_satisfaction is the minimum stake for this feature, as a 4-decimal string.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/BuildingCatalogModel"
+                feature:
+                  type: object
+                  properties:
+                    coordinates:
+                      type: array
+                      description: Feature polygon coordinates
+                      items:
+                        type: string
+                      example: ["51.3890,35.6892"]
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "422":
+        description: invalid feature ID
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObjectValidationError"
+  - path: /api/features/{feature}/build/{buildingModel}
+    methods: [post]
+    tag: Features
+    summary: Start construction of one building on a feature
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. Caller must own the feature. The feature must not already have a building.
+        example: 1
+      - name: buildingModel
+        in: path
+        type: string
+        description: Catalog model_id (the same value as the catalog id, as a string)
+        example: "1001"
+    body:
+      type: object
+      required: [launched_satisfaction, rotation, position]
+      properties:
+        launched_satisfaction:
+          description: Stake charged from the satisfaction wallet. Must be greater than 0 and at least the catalog required_satisfaction. A JSON number is accepted. Hours to finish = required_satisfaction * 288000 / launched_satisfaction.
+          oneOf:
+            - type: string
+              example: "1.2"
+            - type: number
+              example: 1.2
+        rotation:
+          description: Rotation in degrees. A JSON number is accepted.
+          oneOf:
+            - type: string
+              example: "90"
+            - type: number
+              example: 90
+        position:
+          type: string
+          description: Placement as x,y
+          pattern: '^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$'
+          example: "10.5,20"
+        activity_line:
+          type: string
+          maxLength: 255
+          description: ISIC code. When set, the information fields are saved.
+        name:
+          type: string
+          maxLength: 255
+          description: Saved only when activity_line is set.
+        address:
+          type: string
+          maxLength: 255
+        postal_code:
+          type: string
+          description: Iranian postal code, 10 digits. Persian digits, spaces, and dashes are accepted.
+          example: "1234567890"
+        website:
+          type: string
+          maxLength: 255
+          description: http or https URL
+          example: https://example.com
+        description:
+          type: string
+          maxLength: 5000
+        information:
+          $ref: "#/components/schemas/BuildingInformation"
+          description: Optional nested form of the same information fields.
+    responses:
+      "200":
+        description: Construction started. The building is not returned; list buildings on the feature.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyData"
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "410":
+        description: Account security is locked. Wallet-login sessions are exempt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockedAccount"
+      "412":
+        description: feature already has a building, or insufficient satisfaction
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "422":
+        description: Invalid stake, rotation, position, or building information. request body is required.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObjectValidationError"
   - path: /api/features/{feature}/build/buildings
     methods: [get]
     tag: Features
@@ -605,23 +947,218 @@ routes:
         format: int64
         description: Feature ID
         example: 1
+    responses:
+      "200":
+        description: >
+          Buildings on the feature. information is the parsed JSON object for the owner
+          and null for everyone else. Dates are Jalali yyyy/MM/dd HH:mm:ss.
+          required_satisfaction here is the stored model value, often "0"; use the catalog for the stake.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    allOf:
+                      - $ref: "#/components/schemas/BuildingCatalogModel"
+                      - type: object
+                        properties:
+                          building:
+                            type: object
+                            properties:
+                              model_id:
+                                type: string
+                                example: "1001"
+                              feature_id:
+                                type: integer
+                                format: int64
+                                example: 44
+                              construction_start_date:
+                                type: string
+                                description: Jalali yyyy/MM/dd HH:mm:ss
+                                example: "1403/08/09 14:30:45"
+                              construction_end_date:
+                                type: string
+                                description: Jalali yyyy/MM/dd HH:mm:ss
+                                example: "1403/09/01 08:00:00"
+                              launched_satisfaction:
+                                type: string
+                                description: Staked satisfaction, 4 decimal places
+                                example: "1.2000"
+                              information:
+                                nullable: true
+                                allOf:
+                                  - $ref: "#/components/schemas/BuildingInformation"
+                                description: Null unless the caller owns the feature
+                              rotation:
+                                type: string
+                                example: "90"
+                              position:
+                                type: string
+                                example: "10.5,20"
+                              bubble_diameter:
+                                type: string
+                                description: perimeter * (1 + 0.3 * (density - 1)), where perimeter = 2 * (width + length). "0" when attributes are missing.
+                                example: "161"
+      "422":
+        description: invalid feature ID
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObjectValidationError"
   - path: /api/features/{feature}/build/buildings/{buildingModel}
-    methods: [put, delete]
+    methods: [put]
     tag: Features
-    summary: Update building construction or destroy building
+    summary: Update building stake, placement, and optional information
     security: bearer
     params:
       - name: feature
         in: path
         type: integer
         format: int64
-        description: Feature ID
+        description: Feature ID. Caller must own the feature.
         example: 1
       - name: buildingModel
         in: path
         type: string
-        description: Building model identifier (3D model_id or local building_models.id)
+        description: Catalog model_id of the building on this feature
         example: "1001"
+      - name: _method
+        in: query
+        type: string
+        description: Send POST with _method=PUT to call this route. Also accepted as a form field.
+        example: PUT
+    body:
+      type: object
+      required: [launched_satisfaction, rotation, position]
+      description: >
+        Same fields as start construction. Raising launched_satisfaction charges the difference.
+        Lowering it refunds the difference and must stay at least required_satisfaction.
+        construction_end_date is recalculated from the original start.
+        Information is replaced only when activity_line is non-empty.
+      properties:
+        launched_satisfaction:
+          oneOf:
+            - type: string
+              example: "1.2"
+            - type: number
+              example: 1.2
+        rotation:
+          oneOf:
+            - type: string
+              example: "90"
+            - type: number
+              example: 90
+        position:
+          type: string
+          pattern: '^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$'
+          example: "10.5,20"
+        activity_line:
+          type: string
+          maxLength: 255
+        name:
+          type: string
+          maxLength: 255
+        address:
+          type: string
+          maxLength: 255
+        postal_code:
+          type: string
+          example: "1234567890"
+        website:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 5000
+        information:
+          $ref: "#/components/schemas/BuildingInformation"
+    responses:
+      "200":
+        description: Building updated. Body is an empty data object.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyData"
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "404":
+        description: building not found or building model not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "410":
+        description: Account security is locked. Wallet-login sessions are exempt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockedAccount"
+      "412":
+        description: insufficient satisfaction for an increased stake
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "422":
+        description: Invalid stake, rotation, position, or building information
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObjectValidationError"
+  - path: /api/features/{feature}/build/buildings/{buildingModel}
+    methods: [delete]
+    tag: Features
+    summary: Remove a building and refund its staked satisfaction
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. Caller must own the feature.
+        example: 1
+      - name: buildingModel
+        in: path
+        type: string
+        description: Catalog model_id of the building on this feature
+        example: "1001"
+      - name: _method
+        in: query
+        type: string
+        description: Send POST with _method=DELETE to call this route. Also accepted as a form field.
+        example: DELETE
+    responses:
+      "200":
+        description: Building removed and satisfaction refunded.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmptyData"
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "404":
+        description: building not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "410":
+        description: Account security is locked. Wallet-login sessions are exempt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockedAccount"
   - path: /api/features/{feature}/build/buildings/{buildingModel}
     methods: [patch]
     tag: Features
@@ -632,13 +1169,418 @@ routes:
         in: path
         type: integer
         format: int64
-        description: Feature ID
+        description: Feature ID. Caller must own the feature.
         example: 1
       - name: buildingModel
         in: path
         type: string
-        description: Building model identifier (3D model_id or local building_models.id)
+        description: Catalog model_id of the building on this feature
         example: "1001"
+      - name: _method
+        in: query
+        type: string
+        description: Send POST with _method=PATCH to call this route. Also accepted as a form field.
+        example: PATCH
+    body:
+      type: object
+      description: >
+        Send one or more information fields at the top level or under information.
+        Only non-empty strings are applied. An empty string does not clear a stored value.
+        At least one field must remain after the merge.
+      properties:
+        activity_line:
+          type: string
+          maxLength: 255
+        name:
+          type: string
+          maxLength: 255
+        address:
+          type: string
+          maxLength: 255
+        postal_code:
+          type: string
+          description: 10-digit Iranian postal code
+          example: "1234567890"
+        website:
+          type: string
+          maxLength: 255
+          description: http or https URL
+        description:
+          type: string
+          maxLength: 5000
+        information:
+          $ref: "#/components/schemas/BuildingInformation"
+    responses:
+      "200":
+        description: Merged information. Empty fields are omitted.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                information:
+                  $ref: "#/components/schemas/BuildingInformation"
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "404":
+        description: building not found or building model not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "410":
+        description: Account security is locked. Wallet-login sessions are exempt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockedAccount"
+      "422":
+        description: information is required, or a field failed validation
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObjectValidationError"
+  - path: /api/features/{feature}/building/entry-config
+    methods: [post]
+    tag: Features
+    summary: Set building entry fee (PSC and IRR), about text, level scope, and active flag
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. Caller must own the feature. The feature must already have a building.
+        example: 1
+    body:
+      type: object
+      description: >
+        Creates or updates the config. Omitted fields keep their previous values.
+        The first save treats omitted fees as 0.00, omitted text as empty, and is_active as false.
+        Send both level fields or neither.
+      properties:
+        fee_psc:
+          description: PSC fee. Empty means 0.00. At most 2 decimal places. Response is always a two-decimal string.
+          oneOf:
+            - type: string
+              example: "10.00"
+            - type: number
+              example: 10
+        fee_irr:
+          description: IRR fee. Same rules as fee_psc.
+          oneOf:
+            - type: string
+              example: "50000.50"
+            - type: number
+              example: 50000.5
+        about:
+          type: string
+          maxLength: 1000
+          example: Open 9 to 21
+        level_scope_type:
+          type: string
+          description: exact (equal score), and_upper (score >= level), and_lower (score <= level). Empty with an empty level_slug means any level.
+          enum: ["", exact, and_upper, and_lower]
+          example: and_upper
+        level_slug:
+          type: string
+          description: Slug of a level. Required when level_scope_type is set.
+          example: level-3
+        is_active:
+          description: Also accepts 1, 0, "true", "false", and "yes".
+          oneOf:
+            - type: boolean
+              example: true
+            - type: integer
+              example: 1
+            - type: string
+              example: "true"
+    responses:
+      "200":
+        description: Stored entry configuration. Fees are two-decimal strings.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: "#/components/schemas/BuildingEntryConfig"
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "404":
+        description: feature not found or building not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "410":
+        description: Account security is locked. Wallet-login sessions are exempt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockedAccount"
+      "422":
+        description: invalid fee, about, level scope, or level_slug. request body is required.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObjectValidationError"
+      "503":
+        description: Levels service is unavailable while a scope is set
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+  - path: /api/features/{feature}/building/entry-config
+    methods: [get]
+    tag: Features
+    summary: Get building entry configuration
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. Caller must own the feature. Allowed while account security is locked.
+        example: 1
+    responses:
+      "200":
+        description: Owner entry settings
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: "#/components/schemas/BuildingEntryConfig"
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "404":
+        description: entry config not found, or feature not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+  - path: /api/features/{feature}/building/entry-coupons
+    methods: [post]
+    tag: Features
+    summary: Create a building entry discount coupon (code, discount percentage, usage count)
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. Caller must own the feature. The feature must already have a building.
+        example: 1
+    body:
+      type: object
+      required: [code, discount_percentage, usage_count]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[A-Za-z0-9_-]+$'
+          example: OPENING-10
+        discount_percentage:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Applied to both PSC and IRR. Integer only.
+          example: 10
+        usage_count:
+          type: integer
+          minimum: 1
+          description: Maximum number of uses. max_usage_count is an accepted alias.
+          example: 100
+        max_usage_count:
+          type: integer
+          minimum: 1
+          description: Alias of usage_count. Ignored when usage_count is present.
+          example: 100
+    responses:
+      "200":
+        description: Created coupon. usage_count is the maximum. real_usage_count starts at 0.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  $ref: "#/components/schemas/BuildingEntryCoupon"
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "404":
+        description: building not found or feature not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "409":
+        description: coupon code already exists
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "410":
+        description: Account security is locked. Wallet-login sessions are exempt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockedAccount"
+      "422":
+        description: usage_count is required, discount_percentage is required, or a field is invalid
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObjectValidationError"
+  - path: /api/features/{feature}/building/entry-coupons
+    methods: [get]
+    tag: Features
+    summary: List building entry coupons with real usage counts
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. Caller must own the feature. Allowed while account security is locked.
+        example: 1
+    responses:
+      "200":
+        description: Owner coupons. data is an empty array when there are none.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/BuildingEntryCoupon"
+      "403":
+        description: unauthorized - user does not own this feature
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+  - path: /api/features/{feature}/building/enter
+    methods: [post]
+    tag: Features
+    summary: Enter a building. A paid visit stays valid for 24 hours; exit and re-entry in that window do not charge again
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. Owner enters free. Guests pay when entry is active and construction is finished.
+        example: 1
+    body:
+      required: false
+      description: Body may be omitted. A coupon applies only to the first paid entry of a 24-hour window.
+      schema:
+        type: object
+        properties:
+          coupon_code:
+            type: string
+            description: Owner coupon for this feature. Omit to pay the full fee.
+            example: OPENING-10
+    responses:
+      "200":
+        description: entry successful. Re-entry inside an open window does not charge again.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: entry successful
+      "404":
+        description: entry config not found, feature not found, building not found, or coupon not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "410":
+        description: Account security is locked. Wallet-login sessions are exempt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockedAccount"
+      "412":
+        description: >
+          entry is not active, building construction is not finished, user already inside this building,
+          user level is outside the allowed scope, coupon usage limit reached,
+          coupon discount does not reduce the fee, Insufficient balance, or payment outcome unknown.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "422":
+        description: invalid feature ID or invalid request body
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObjectValidationError"
+  - path: /api/features/{feature}/building/exit
+    methods: [post]
+    tag: Features
+    summary: Exit a building and close the active visit
+    security: bearer
+    params:
+      - name: feature
+        in: path
+        type: integer
+        format: int64
+        description: Feature ID. The 24-hour window stays open, so the next enter in that window is free.
+        example: 1
+    body:
+      required: false
+      description: No fields. The body may be omitted.
+      schema:
+        type: object
+    responses:
+      "200":
+        description: exit successful
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: exit successful
+      "404":
+        description: active session not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiError"
+      "410":
+        description: Account security is locked. Wallet-login sessions are exempt.
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LockedAccount"
   - path: /api/my-features
     methods: [get]
     tag: Features
@@ -750,21 +1692,34 @@ routes:
     security: none
 
   # --- Training ---
-  - path: /api/video-tutorials
-    methods: [post]
-    tag: Training
-    summary: Get video tutorial by filename
-    security: optional
+  # Videos
   - path: /api/tutorials
     methods: [get]
     tag: Training
-    summary: List video tutorials
+    summary: List video tutorials (paginated)
     security: optional
   - path: /api/tutorials/{slug}
     methods: [get]
     tag: Training
     summary: Get video tutorial by slug
     security: optional
+  - path: /api/video-tutorials
+    methods: [post]
+    tag: Training
+    summary: Get video tutorial by partial filename
+    security: optional
+  - path: /api/tutorials/search
+    methods: [post]
+    tag: Training
+    summary: Search video tutorials by title
+    security: optional
+  - path: /api/tutorials/{video}/interactions
+    methods: [post]
+    tag: Training
+    summary: Like or dislike a video
+    security: bearer
+
+  # Categories
   - path: /api/tutorials/categories
     methods: [get]
     tag: Training
@@ -773,32 +1728,86 @@ routes:
   - path: /api/tutorials/categories/{slug}
     methods: [get]
     tag: Training
-    summary: Get tutorial category
+    summary: Get tutorial category with subcategories
     security: optional
   - path: /api/tutorials/categories/{slug}/videos
     methods: [get]
     tag: Training
-    summary: List category videos
+    summary: List videos in a category
     security: optional
-  - path: /api/tutorials/search
+  - path: /api/tutorials/categories/{category}/{subcategory}
     methods: [get]
     tag: Training
-    summary: Search video tutorials
+    summary: Get subcategory with videos
+    security: optional
+
+  # Comments
+  - path: /api/tutorials/{video}/comments
+    methods: [get]
+    tag: Training
+    summary: List top-level comments for a video
     security: optional
   - path: /api/tutorials/{video}/comments
-    methods: [get, post]
+    methods: [post]
     tag: Training
-    summary: List or add video comments
-    security: optional
+    summary: Add a comment on a video
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}
+    methods: [put, post]
+    tag: Training
+    summary: Update a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}
+    methods: [delete]
+    tag: Training
+    summary: Delete a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}/interactions
+    methods: [post]
+    tag: Training
+    summary: Like or dislike a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}/like
+    methods: [post]
+    tag: Training
+    summary: Like a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}/dislike
+    methods: [post]
+    tag: Training
+    summary: Dislike a comment
+    security: bearer
+  - path: /api/tutorials/{video}/comments/{comment}/report
+    methods: [post]
+    tag: Training
+    summary: Report a comment
+    security: bearer
+
+  # Replies
   - path: /api/comments/{comment}/replies
     methods: [get]
     tag: Training
-    summary: List comment replies
+    summary: List replies to a comment
     security: optional
   - path: /api/comments/{comment}/reply
     methods: [post]
     tag: Training
-    summary: Add comment reply
+    summary: Add a reply to a comment
+    security: bearer
+  - path: /api/comments/{comment}/replies/{reply}
+    methods: [put]
+    tag: Training
+    summary: Update a reply
+    security: bearer
+  - path: /api/comments/{comment}/replies/{reply}
+    methods: [delete]
+    tag: Training
+    summary: Delete a reply
+    security: bearer
+  - path: /api/comments/{comment}/replies/{reply}/interactions
+    methods: [post]
+    tag: Training
+    summary: Like or dislike a reply
     security: bearer
 
   # --- Social ---
@@ -968,3 +1977,142 @@ routes:
     tag: Storage
     summary: Serve uploaded static file
     security: none
+
+# Shared response objects referenced by the buildings routes above.
+schemas:
+  EmptyData:
+    type: object
+    properties:
+      data:
+        type: object
+        description: Empty object
+  BuildingInformation:
+    type: object
+    description: Public building profile. Empty strings are omitted from responses.
+    properties:
+      activity_line:
+        type: string
+        maxLength: 255
+        description: ISIC activity code
+        example: "4711"
+      name:
+        type: string
+        maxLength: 255
+        example: Sample shop
+      address:
+        type: string
+        maxLength: 255
+      postal_code:
+        type: string
+        description: 10-digit Iranian postal code
+        example: "1234567890"
+      website:
+        type: string
+        maxLength: 255
+        description: http or https URL
+        example: https://example.com
+      description:
+        type: string
+        maxLength: 5000
+  BuildingCatalogModel:
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int64
+        description: 3D catalog id
+        example: 1001
+      model_id:
+        type: string
+        description: Same id as a string. Use this value in build paths.
+        example: "1001"
+      name:
+        type: string
+        example: Shop A
+      sku:
+        type: string
+        example: SHOP-A
+      images:
+        nullable: true
+        description: Parsed catalog JSON. Usually an array of objects with id and url.
+        type: array
+        items:
+          type: object
+          additionalProperties: true
+      attributes:
+        nullable: true
+        description: Catalog attributes. Slugs the client should read are length, width, and density.
+        type: array
+        items:
+          type: object
+          properties:
+            slug:
+              type: string
+              example: width
+            value:
+              description: Number or string from the catalog
+              example: 15
+      file:
+        nullable: true
+        type: object
+        description: Catalog file object, often including url
+        additionalProperties: true
+      required_satisfaction:
+        type: string
+        description: Minimum stake for this feature on the catalog response. On the placed-building list this is the stored model value, often "0".
+        example: "1.2000"
+  BuildingEntryConfig:
+    type: object
+    properties:
+      feature_id:
+        type: integer
+        format: int64
+        example: 44
+      fee_psc:
+        type: string
+        description: PSC fee with two decimal places. 0.00 means free.
+        example: "10.00"
+      fee_irr:
+        type: string
+        description: IRR fee with two decimal places. 0.00 means free.
+        example: "50000.00"
+      about:
+        type: string
+        example: Open 9 to 21
+      level_scope_type:
+        type: string
+        description: exact, and_upper, and_lower, or empty when any level may enter
+        example: and_upper
+      level_slug:
+        type: string
+        example: level-3
+      is_active:
+        type: boolean
+        example: true
+  BuildingEntryCoupon:
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int64
+        example: 7
+      feature_id:
+        type: integer
+        format: int64
+        example: 44
+      code:
+        type: string
+        example: OPENING-10
+      discount_percentage:
+        type: integer
+        minimum: 1
+        maximum: 100
+        example: 10
+      usage_count:
+        type: integer
+        description: Maximum number of uses
+        example: 100
+      real_usage_count:
+        type: integer
+        description: How many times guests have used this coupon
+        example: 0

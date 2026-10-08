@@ -21,22 +21,25 @@ func GetLocaleFromContext(ctx context.Context) string {
 	if !ok {
 		return defaultLocale
 	}
-	vals := md.Get("grpcgateway-accept-language")
-	if len(vals) == 0 {
-		vals = md.Get("accept-language")
-	}
-	if len(vals) == 0 {
-		vals = md.Get("Accept-Language")
-	}
-	if len(vals) == 0 {
+	raw := firstMetadata(md, "grpcgateway-accept-language", "accept-language", "Accept-Language")
+	if raw == "" {
 		return defaultLocale
 	}
-	primary := strings.TrimSpace(strings.Split(vals[0], ",")[0])
+	primary := strings.TrimSpace(strings.Split(raw, ",")[0])
 	primary = strings.TrimSpace(strings.Split(primary, ";")[0])
 	if strings.HasPrefix(strings.ToLower(primary), "fa") {
 		return "fa"
 	}
 	return defaultLocale
+}
+
+func firstMetadata(md metadata.MD, keys ...string) string {
+	for _, key := range keys {
+		if vals := md.Get(key); len(vals) > 0 {
+			return vals[0]
+		}
+	}
+	return ""
 }
 
 // returnValidationError returns a gRPC InvalidArgument error with encoded validation fields
@@ -97,15 +100,7 @@ func validateOneOf(fieldName string, value string, allowedValues []string, local
 		return validationErrors // Let validateRequired handle empty values
 	}
 
-	valid := false
-	for _, allowed := range allowedValues {
-		if value == allowed {
-			valid = true
-			break
-		}
-	}
-
-	if !valid {
+	if !containsString(allowedValues, value) {
 		validationErrors[fieldName] = fmt.Sprintf(t.Invalid, fieldName)
 	}
 
@@ -121,4 +116,13 @@ func mergeValidationErrors(errors ...map[string]string) map[string]string {
 		}
 	}
 	return result
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }

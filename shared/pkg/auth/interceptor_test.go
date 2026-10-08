@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type stubValidator struct {
@@ -130,9 +132,6 @@ func TestUnaryServerInterceptor_SkipAuthCitizenFeatures(t *testing.T) {
 		"/features.CitizenFeaturesService/GetCitizenFeatureSummary",
 		"/features.CitizenFeaturesService/GetCitizenFeatureChart",
 		"/features.CitizenFeaturesService/ListCitizenFeatures",
-		"/features.CitizenBuildingsService/GetCitizenBuildingSummary",
-		"/features.CitizenBuildingsService/GetCitizenBuildingChart",
-		"/features.CitizenBuildingsService/ListCitizenBuildings",
 	}
 
 	for _, method := range methods {
@@ -190,5 +189,26 @@ func TestUnaryServerInterceptor_ServiceTokenAttachesOptionalUser(t *testing.T) {
 	}
 	if gotUserID != 42 {
 		t.Fatalf("expected user id 42, got %d", gotUserID)
+	}
+}
+
+func TestUnaryServerInterceptor_CitizenBuildingsRequireServiceToken(t *testing.T) {
+	t.Setenv("INTERNAL_SERVICE_SECRET", "test-secret")
+	method := "/features.CitizenBuildingsService/ListCitizenBuildings"
+	interceptor := UnaryServerInterceptor(&stubValidator{})
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return "ok", nil
+	}
+	info := &grpc.UnaryServerInfo{FullMethod: method}
+
+	_, err := interceptor(context.Background(), nil, info, handler)
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("status=%v", err)
+	}
+
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(ServiceTokenMetadataKey, "test-secret"))
+	resp, err := interceptor(ctx, nil, info, handler)
+	if err != nil || resp != "ok" {
+		t.Fatalf("resp=%v err=%v", resp, err)
 	}
 }

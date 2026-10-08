@@ -9,6 +9,7 @@ import (
 
 	"metarang/auth-service/internal/service"
 	pb "metarang/shared/pb/auth"
+	sharedauth "metarang/shared/pkg/auth"
 )
 
 type searchHandler struct {
@@ -31,8 +32,13 @@ func (h *searchHandler) SearchUsers(ctx context.Context, req *pb.SearchUsersRequ
 		}, nil
 	}
 
+	var viewerUserID uint64
+	if userCtx, err := sharedauth.GetUserFromContext(ctx); err == nil && userCtx != nil && userCtx.UserID > 0 {
+		viewerUserID = userCtx.UserID
+	}
+
 	// Call service
-	results, err := h.searchService.SearchUsers(ctx, req.SearchTerm)
+	results, err := h.searchService.SearchUsers(ctx, req.SearchTerm, viewerUserID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "search failed: %v", err)
 	}
@@ -41,10 +47,11 @@ func (h *searchHandler) SearchUsers(ctx context.Context, req *pb.SearchUsersRequ
 	pbResults := make([]*pb.SearchUserResult, 0, len(results))
 	for _, result := range results {
 		pbResult := &pb.SearchUserResult{
-			Id:        result.ID,
-			Code:      result.Code,
-			Name:      result.Name,
-			Followers: result.Followers,
+			Id:          result.ID,
+			Code:        result.Code,
+			Name:        result.Name,
+			Followers:   result.Followers,
+			IsFollowing: result.IsFollowing,
 		}
 
 		if result.Level != nil {
@@ -58,52 +65,6 @@ func (h *searchHandler) SearchUsers(ctx context.Context, req *pb.SearchUsersRequ
 	}
 
 	return &pb.SearchUsersResponse{
-		Data: pbResults,
-	}, nil
-}
-
-// SearchFeatures handles feature search requests
-func (h *searchHandler) SearchFeatures(ctx context.Context, req *pb.SearchFeaturesRequest) (*pb.SearchFeaturesResponse, error) {
-	// Validate request
-	if req.SearchTerm == "" {
-		return &pb.SearchFeaturesResponse{
-			Data: []*pb.SearchFeatureResult{},
-		}, nil
-	}
-
-	// Call service
-	results, err := h.searchService.SearchFeatures(ctx, req.SearchTerm)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "search failed: %v", err)
-	}
-
-	// Convert service results to protobuf
-	pbResults := make([]*pb.SearchFeatureResult, 0, len(results))
-	for _, result := range results {
-		pbResult := &pb.SearchFeatureResult{
-			Id:                  result.ID,
-			FeaturePropertiesId: result.FeaturePropertiesID,
-			Address:             result.Address,
-			Karbari:             result.Karbari,
-			PricePsc:            result.PricePsc,
-			PriceIrr:            result.PriceIrr,
-			OwnerCode:           result.OwnerCode,
-		}
-
-		// Convert coordinates
-		pbResult.Coordinates = make([]*pb.Coordinate, 0, len(result.Coordinates))
-		for _, coord := range result.Coordinates {
-			pbResult.Coordinates = append(pbResult.Coordinates, &pb.Coordinate{
-				Id: coord.ID,
-				X:  coord.X,
-				Y:  coord.Y,
-			})
-		}
-
-		pbResults = append(pbResults, pbResult)
-	}
-
-	return &pb.SearchFeaturesResponse{
 		Data: pbResults,
 	}, nil
 }

@@ -117,6 +117,8 @@ func (f *fakeJoinRequestAPI) SearchUsers(ctx context.Context, req *dynastypb.Sea
 type fakeFamilyAPI struct {
 	GetFamilyFunc           func(context.Context, *dynastypb.GetFamilyRequest) (*dynastypb.FamilyResponse, error)
 	SetChildPermissionsFunc func(context.Context, *dynastypb.SetChildPermissionsRequest) (*commonpb.Empty, error)
+	lastPermission          string
+	lastEnabled             bool
 }
 
 func (f *fakeFamilyAPI) GetFamily(ctx context.Context, req *dynastypb.GetFamilyRequest) (*dynastypb.FamilyResponse, error) {
@@ -124,7 +126,7 @@ func (f *fakeFamilyAPI) GetFamily(ctx context.Context, req *dynastypb.GetFamilyR
 		return f.GetFamilyFunc(ctx, req)
 	}
 	return &dynastypb.FamilyResponse{Members: []*dynastypb.FamilyMember{
-		{UserId: 1, Relationship: "owner", UserInfo: &commonpb.UserBasic{Id: 1, Code: "O1", ProfilePhoto: "p.jpg", Level: "Gold"}},
+		{UserId: 1, Relationship: "owner", Online: true, UserInfo: &commonpb.UserBasic{Id: 1, Code: "O1", ProfilePhoto: "p.jpg", Level: "Gold"}},
 	}}, nil
 }
 func (f *fakeFamilyAPI) SetChildPermissions(ctx context.Context, req *dynastypb.SetChildPermissionsRequest) (*commonpb.Empty, error) {
@@ -133,12 +135,20 @@ func (f *fakeFamilyAPI) SetChildPermissions(ctx context.Context, req *dynastypb.
 	}
 	return &commonpb.Empty{}, nil
 }
+func (f *fakeFamilyAPI) UpdateNamedChildPermission(_ context.Context, _, _ uint64, permission string, enabled bool) error {
+	f.lastPermission = permission
+	f.lastEnabled = enabled
+	return nil
+}
 
 type fakePrizeAPI struct {
 	GetPrizesFunc  func(context.Context, *dynastypb.GetPrizesRequest) (*dynastypb.PrizesResponse, error)
 	ClaimPrizeFunc func(context.Context, *dynastypb.ClaimPrizeRequest) (*commonpb.Empty, error)
 }
 
+func (f *fakePrizeAPI) GetPrize(context.Context, *dynastypb.GetPrizeRequest) (*dynastypb.PrizeResponse, error) {
+	return &dynastypb.PrizeResponse{Prize: &dynastypb.DynastyPrize{Id: 4, Psc: 10, Satisfaction: "5"}}, nil
+}
 func (f *fakePrizeAPI) GetPrizes(ctx context.Context, req *dynastypb.GetPrizesRequest) (*dynastypb.PrizesResponse, error) {
 	if f.GetPrizesFunc != nil {
 		return f.GetPrizesFunc(ctx, req)
@@ -210,7 +220,10 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 						FeatureProfitIncrease: "0.5", FamilyMembersCount: 3, LastUpdated: "1403/01/02",
 					},
 					Features: []*dynastypb.AvailableFeature{
-						{Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3"},
+						{
+							Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3",
+							Coordinates: []*dynastypb.FeatureCoordinate{{Id: 9, X: "51.389000", Y: "35.689200"}},
+						},
 					},
 					Prizes: []*dynastypb.IntroductionPrize{{
 						Member: "brother", Satisfaction: 1, IntroductionProfitIncrease: 2,
@@ -236,6 +249,9 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
 			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
+			"coordinates": []interface{}{
+				map[string]interface{}{"id": float64(9), "x": "51.389000", "y": "35.689200"},
+			},
 		}, features[0])
 		_, prizesOK := data["prizes"].([]interface{})
 		assert.True(t, prizesOK)
@@ -271,6 +287,7 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
 			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
+			"coordinates": []interface{}{},
 		}, features[0])
 		_, hasID := data["id"]
 		assert.False(t, hasID)
@@ -370,6 +387,7 @@ func TestHTTPDynastyHandler_UpdateAndFamily(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"relationship"`)
 	assert.Contains(t, rr.Body.String(), `"level":"Gold"`)
+	assert.Contains(t, rr.Body.String(), `"online":true`)
 
 	rr = httptest.NewRecorder()
 	h.GetFamily(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/x/family/3", nil)))
@@ -671,7 +689,7 @@ func TestHTTPDynastyHandler_CatchAllRoutes(t *testing.T) {
 
 	rr = httptest.NewRecorder()
 	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/dynasty/prizes/1", nil))
-	assert.Equal(t, http.StatusNotFound, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
 
 	body, _ := json.Marshal(map[string]interface{}{"user": 2, "relationship": "brother"})
 	rr = httptest.NewRecorder()
@@ -681,4 +699,14 @@ func TestHTTPDynastyHandler_CatchAllRoutes(t *testing.T) {
 	rr = httptest.NewRecorder()
 	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/dynasty/children/9", strings.NewReader(`{"permission":"BFR","status":true}`)))
 	assert.Equal(t, http.StatusOK, rr.Code)
+}
+
+func TestHTTPDynastyHandler_UpdateChildPermissionCanDisable(t *testing.T) {
+	family := &fakeFamilyAPI{}
+	h := newHTTPHandler(nil, nil, family, nil)
+	rr := httptest.NewRecorder()
+	h.UpdateChildPermissions(rr, withUser(7, httptest.NewRequest(http.MethodPost, "/api/dynasty/children/5", strings.NewReader(`{"permission":"DM","status":false}`))))
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "DM", family.lastPermission)
+	assert.False(t, family.lastEnabled)
 }

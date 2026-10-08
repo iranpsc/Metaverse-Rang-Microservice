@@ -347,10 +347,11 @@ func (h *HTTPAuthHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	responseData := make([]map[string]interface{}, len(resp.Data))
 	for i, result := range resp.Data {
 		item := map[string]interface{}{
-			"id":        result.Id,
-			"code":      result.Code,
-			"name":      result.Name,
-			"followers": result.Followers,
+			"id":           result.Id,
+			"code":         result.Code,
+			"name":         result.Name,
+			"followers":    result.Followers,
+			"is_following": result.IsFollowing,
 		}
 		if result.Level != "" {
 			item["level"] = result.Level
@@ -358,63 +359,6 @@ func (h *HTTPAuthHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 		if result.Photo != "" {
 			item["photo"] = result.Photo
 		}
-		responseData[i] = item
-	}
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"data": responseData,
-	})
-}
-
-// SearchFeatures handles POST /api/search/features
-func (h *HTTPAuthHandler) SearchFeatures(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		SearchTerm string `json:"searchTerm"`
-	}
-
-	if err := decodeRequestBody(r, &req); err != nil {
-		if err == io.EOF {
-			writeError(w, http.StatusBadRequest, "request body is required")
-		} else {
-			writeError(w, http.StatusBadRequest, "invalid request body")
-		}
-		return
-	}
-
-	grpcReq := &pb.SearchFeaturesRequest{
-		SearchTerm: req.SearchTerm,
-	}
-
-	resp, err := h.searchClient.SearchFeatures(r.Context(), grpcReq)
-	if err != nil {
-		h.writeGRPCErrorLocale(w, err)
-		return
-	}
-
-	// Convert protobuf response to JSON
-	responseData := make([]map[string]interface{}, len(resp.Data))
-	for i, result := range resp.Data {
-		item := map[string]interface{}{
-			"id":                    result.Id,
-			"feature_properties_id": result.FeaturePropertiesId,
-			"address":               result.Address,
-			"karbari":               result.Karbari,
-			"price_psc":             result.PricePsc,
-			"price_irr":             result.PriceIrr,
-			"owner_code":            result.OwnerCode,
-		}
-
-		// Convert coordinates
-		coordinates := make([]map[string]interface{}, len(result.Coordinates))
-		for j, coord := range result.Coordinates {
-			coordinates[j] = map[string]interface{}{
-				"id": coord.Id,
-				"x":  coord.X,
-				"y":  coord.Y,
-			}
-		}
-		item["coordinates"] = coordinates
-
 		responseData[i] = item
 	}
 

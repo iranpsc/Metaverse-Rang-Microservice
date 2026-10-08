@@ -79,6 +79,8 @@ func payableTypeToTransactionType(payableType string) string {
 		return "trade"
 	case `App\Models\Order`:
 		return "order"
+	case `App\Models\BuildingEntrySession`:
+		return "building_entry"
 	default:
 		return "unknown"
 	}

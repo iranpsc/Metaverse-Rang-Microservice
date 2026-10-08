@@ -98,6 +98,13 @@ message AvailableFeature {
   string density = 3;
   string stability = 4;
   string area = 5;
+  repeated FeatureCoordinate coordinates = 6;
+}
+
+message FeatureCoordinate {
+  uint64 id = 1;
+  string x = 2;
+  string y = 3;
 }
 
 message SendJoinRequestRequest {
@@ -221,6 +228,7 @@ message FamilyMember {
   string relationship = 3;
   common.UserBasic user_info = 4;
   string created_at = 5; // Jalali formatted
+  bool online = 6; // true when the user's last_seen is within the last 2 minutes
 }
 
 message SetChildPermissionsRequest {

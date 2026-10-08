@@ -25,6 +25,8 @@ type mockOrderRepo struct {
 	updateErr       error
 	deleteErr       error
 	findWithUserErr error
+	claimErr        error
+	forceUnclaimed  bool
 	userPhone       *string
 }
 
@@ -80,6 +82,21 @@ func (m *mockOrderRepo) Update(ctx context.Context, order *models.Order) error {
 
 func (m *mockOrderRepo) UpdateWithTx(ctx context.Context, tx *sql.Tx, order *models.Order) error {
 	return m.Update(ctx, order)
+}
+
+func (m *mockOrderRepo) ClaimUnpaidWithTx(ctx context.Context, tx *sql.Tx, orderID uint64, paidStatus int32) (bool, error) {
+	if m.claimErr != nil {
+		return false, m.claimErr
+	}
+	if m.forceUnclaimed {
+		return false, nil
+	}
+	order, ok := m.orders[orderID]
+	if !ok || order.Status == paidStatus {
+		return false, nil
+	}
+	order.Status = paidStatus
+	return true, nil
 }
 
 func (m *mockOrderRepo) Delete(ctx context.Context, id uint64) error {
@@ -209,6 +226,8 @@ type mockSadadClient struct {
 	requestError    error
 	verifyError     error
 	lastRequest     sadad.RequestParams
+	lastVerify      sadad.VerificationParams
+	verifyCalls     int
 }
 
 func (m *mockSadadClient) RequestPayment(params sadad.RequestParams) (*sadad.RequestResponse, error) {
@@ -220,6 +239,8 @@ func (m *mockSadadClient) RequestPayment(params sadad.RequestParams) (*sadad.Req
 }
 
 func (m *mockSadadClient) VerifyPayment(params sadad.VerificationParams) (*sadad.VerificationResponse, error) {
+	m.verifyCalls++
+	m.lastVerify = params
 	if m.verifyError != nil {
 		return nil, m.verifyError
 	}
@@ -374,6 +395,9 @@ func TestOrderService_CreateOrder(t *testing.T) {
 				if !strings.Contains(sadadClient.lastRequest.ReturnURL, "/api/order/callback") {
 					t.Errorf("expected Sadad ReturnURL to use API callback, got %q", sadadClient.lastRequest.ReturnURL)
 				}
+				if strings.Contains(sadadClient.lastRequest.ReturnURL, "order_id=") {
+					t.Errorf("Sadad ReturnURL must not carry order_id, got %q", sadadClient.lastRequest.ReturnURL)
+				}
 				if strings.Contains(sadadClient.lastRequest.ReturnURL, "/payment/verify") {
 					t.Errorf("Sadad ReturnURL must not point to frontend verify page, got %q", sadadClient.lastRequest.ReturnURL)
 				}
@@ -393,8 +417,10 @@ func TestOrderService_CreateOrder(t *testing.T) {
 }
 
 type mockWalletClient struct {
-	addBalanceCalls []*commercialpb.AddBalanceRequest
-	addErr          error
+	addBalanceCalls    []*commercialpb.AddBalanceRequest
+	deductBalanceCalls []*commercialpb.DeductBalanceRequest
+	addErr             error
+	deductErr          error
 }
 
 func (m *mockWalletClient) GetWallet(ctx context.Context, in *commercialpb.GetWalletRequest, opts ...grpc.CallOption) (*commercialpb.WalletResponse, error) {
@@ -406,7 +432,11 @@ func (m *mockWalletClient) CreateWallet(ctx context.Context, in *commercialpb.Cr
 }
 
 func (m *mockWalletClient) DeductBalance(ctx context.Context, in *commercialpb.DeductBalanceRequest, opts ...grpc.CallOption) (*commercialpb.DeductBalanceResponse, error) {
-	return nil, errors.New("not implemented")
+	m.deductBalanceCalls = append(m.deductBalanceCalls, in)
+	if m.deductErr != nil {
+		return nil, m.deductErr
+	}
+	return &commercialpb.DeductBalanceResponse{Success: true}, nil
 }
 
 func (m *mockWalletClient) AddBalance(ctx context.Context, in *commercialpb.AddBalanceRequest, opts ...grpc.CallOption) (*commercialpb.AddBalanceResponse, error) {

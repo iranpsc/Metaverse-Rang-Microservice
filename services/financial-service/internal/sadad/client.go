@@ -8,7 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -23,27 +28,25 @@ var tehranLocation = func() *time.Location {
 const sadadHost = "https://sadad.shaparak.ir"
 
 // Production URLs match Sadad VPG Help v1.10 (no /VPG prefix).
-// BankTest sandbox still uses /VPG/ paths.
 const (
 	productionVerifyURL         = sadadHost + "/api/v0/Advice/Verify"
 	productionGatewayURL        = sadadHost + "/Purchase"
 	productionPaymentRequestURL = sadadHost + "/api/v0/Request/PaymentRequest"
 )
 
-const banktestSandboxHost = "https://sandbox.banktest.ir/melli/sadad.shaparak.ir"
-
 const (
-	sandboxPaymentRequestURL = banktestSandboxHost + "/VPG/api/v0/Request/PaymentRequest"
-	sandboxVerifyURL         = banktestSandboxHost + "/VPG/api/v0/Advice/Verify"
-	sandboxGatewayURL        = banktestSandboxHost + "/VPG/Purchase"
+	sadadRequestTimeout = 30 * time.Second
+	sadadConnectTimeout = 5 * time.Second
+	// sadadVerifyAttempts is the total number of verify calls, matching Laravel Http::retry(2).
+	// Only the first attempt plus one retry: connection failures are retried, HTTP responses are not.
+	sadadVerifyAttempts = 2
 )
 
-// Endpoints holds Sadad API URLs for a given environment.
+// Endpoints holds Sadad API URLs.
 type Endpoints struct {
 	PaymentRequestURL string
 	VerifyURL         string
 	GatewayURL        string
-	Multiplexed       bool // production sends MultiplexingData; BankTest sandbox omits it
 }
 
 // ProductionEndpoints are the live Sadad (Bank Melli) IPG URLs.
@@ -51,15 +54,6 @@ var ProductionEndpoints = Endpoints{
 	PaymentRequestURL: productionPaymentRequestURL,
 	VerifyURL:         productionVerifyURL,
 	GatewayURL:        productionGatewayURL,
-	Multiplexed:       true,
-}
-
-// SandboxEndpoints are the BankTest URLs (https://banktest.ir) for local/dev testing.
-var SandboxEndpoints = Endpoints{
-	PaymentRequestURL: sandboxPaymentRequestURL,
-	VerifyURL:         sandboxVerifyURL,
-	GatewayURL:        sandboxGatewayURL,
-	Multiplexed:       false,
 }
 
 // Client handles Sadad payment gateway operations (Bank Melli).
@@ -70,39 +64,81 @@ type Client struct {
 
 // NewClient creates a Sadad client using production endpoints.
 func NewClient() *Client {
-	return NewClientWithSandbox(false)
-}
-
-// NewClientWithSandbox creates a Sadad client. When sandbox is true, requests are sent to
-// BankTest (https://sandbox.banktest.ir/melli/...) instead of the live Sadad gateway.
-func NewClientWithSandbox(sandbox bool) *Client {
-	endpoints := ProductionEndpoints
-	if sandbox {
-		endpoints = SandboxEndpoints
-	}
-	return NewClientWithEndpoints(endpoints)
+	return NewClientWithEndpoints(ProductionEndpoints)
 }
 
 // NewClientWithEndpoints creates a client with custom API URLs (mainly for tests).
 func NewClientWithEndpoints(endpoints Endpoints) *Client {
+	return NewClientWithHTTPClient(endpoints, nil)
+}
+
+// NewClientWithHTTPClient creates a client with custom API URLs and HTTP client.
+// A nil HTTP client uses the Sadad timeouts (5s connect, 30s request).
+func NewClientWithHTTPClient(endpoints Endpoints, httpClient *http.Client) *Client {
+	if httpClient == nil {
+		httpClient = newHTTPClient()
+	}
 	return &Client{
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		endpoints: endpoints,
+		httpClient: httpClient,
+		endpoints:  endpoints,
+	}
+}
+
+func newHTTPClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = (&net.Dialer{
+		Timeout:   sadadConnectTimeout,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
+	return &http.Client{
+		Timeout:   sadadRequestTimeout,
+		Transport: transport,
 	}
 }
 
 // MultiplexingRow is a single IBAN allocation in MultiplexingData.
 // IbanNumber is the registered Sheba (with IR) or Sadad account row index.
 // Value is a percentage (Type=Percentage) or amount in Rials (Type=Amount).
+// Sheba values are JSON strings. Account indexes are JSON numbers.
 type MultiplexingRow struct {
 	IbanNumber string `json:"IbanNumber"`
 	Value      int64  `json:"Value"`
 }
 
+// MarshalJSON encodes account indexes as numbers and IR Sheba values as strings.
+func (row MultiplexingRow) MarshalJSON() ([]byte, error) {
+	iban, err := ibanNumberJSON(row.IbanNumber)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(struct {
+		IbanNumber any   `json:"IbanNumber"`
+		Value      int64 `json:"Value"`
+	}{
+		IbanNumber: iban,
+		Value:      row.Value,
+	})
+}
+
+func ibanNumberJSON(ibanNumber string) (any, error) {
+	iban := strings.TrimSpace(ibanNumber)
+	if strings.HasPrefix(iban, "IR") {
+		return iban, nil
+	}
+	index, err := strconv.ParseInt(iban, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid multiplexing iban number %q", ibanNumber)
+	}
+	return index, nil
+}
+
+const (
+	MultiplexingTypePercentage = "Percentage"
+	MultiplexingTypeAmount     = "Amount"
+)
+
 // MultiplexingData routes settlement across IBANs (percentage or amount split).
-// Official Type values: "Percentage" | "Amount".
+// Type is MultiplexingTypePercentage or MultiplexingTypeAmount.
 type MultiplexingData struct {
 	Type             string            `json:"Type"`
 	MultiplexingRows []MultiplexingRow `json:"MultiplexingRows"`
@@ -117,7 +153,7 @@ type RequestParams struct {
 	Amount           int64 // Rials
 	ReturnURL        string
 	LocalDateTime    string            // if empty, current Tehran datetime is used
-	MultiplexingData *MultiplexingData // percentage split across settlement IBANs; required in production
+	MultiplexingData *MultiplexingData // percentage or amount split across settlement IBANs
 }
 
 // RequestResponse is the response from Sadad payment request.
@@ -158,16 +194,6 @@ type multiplexedPaymentRequestBody struct {
 	MultiplexingData MultiplexingData `json:"MultiplexingData"`
 }
 
-type paymentRequestBody struct {
-	TerminalID    string `json:"TerminalId"`
-	MerchantID    string `json:"MerchantId"`
-	Amount        int64  `json:"Amount"`
-	OrderID       int64  `json:"OrderId"`
-	LocalDateTime string `json:"LocalDateTime"`
-	ReturnURL     string `json:"ReturnUrl"`
-	SignData      string `json:"SignData"`
-}
-
 type paymentRequestAPIResponse struct {
 	ResCode     json.RawMessage `json:"ResCode"`
 	Token       string          `json:"Token"`
@@ -180,27 +206,26 @@ type verifyRequestBody struct {
 }
 
 // verifyAPIResponse mirrors the documented Verify JSON response (VPG Help v1.10, section 6.6).
+// Amount and OrderId are documented as numbers, but production Sadad returns them as strings.
 type verifyAPIResponse struct {
 	ResCode            json.RawMessage `json:"ResCode"`
-	Amount             int64           `json:"Amount"`
+	Amount             jsonInt64       `json:"Amount"`
 	SystemTraceNo      string          `json:"SystemTraceNo"`
 	RetrivalRefNo      string          `json:"RetrivalRefNo"`
 	Description        string          `json:"Description"`
-	OrderID            int64           `json:"OrderId"`
+	OrderID            jsonInt64       `json:"OrderId"`
 	TransactionDate    string          `json:"TransactionDate"`
 	CardHolderFullName string          `json:"CardHolderFullName"`
 }
 
 // RequestPayment initiates a payment request and returns a token.
-// Production sends MultiplexingData; BankTest sandbox uses a plain PaymentRequest.
+// Every request includes MultiplexingData for settlement routing.
 func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) {
-	if c.endpoints.Multiplexed {
-		if params.MultiplexingData == nil {
-			return nil, fmt.Errorf("multiplexing data is required for multiplexed payments")
-		}
-		if err := validateMultiplexingData(params.MultiplexingData); err != nil {
-			return nil, err
-		}
+	if params.MultiplexingData == nil {
+		return nil, fmt.Errorf("multiplexing data is required for multiplexed payments")
+	}
+	if err := validateMultiplexingData(params.MultiplexingData); err != nil {
+		return nil, err
 	}
 
 	signedPayload, err := generateSignData(
@@ -215,69 +240,40 @@ func (c *Client) RequestPayment(params RequestParams) (*RequestResponse, error) 
 	if localDateTime == "" {
 		localDateTime = sadadLocalDateTime()
 	}
-	var payload []byte
-	if c.endpoints.Multiplexed {
-		payload, err = json.Marshal(multiplexedPaymentRequestBody{
-			TerminalID:       params.TerminalID,
-			MerchantID:       params.MerchantID,
-			Amount:           params.Amount,
-			OrderID:          params.OrderID,
-			LocalDateTime:    localDateTime,
-			ReturnURL:        params.ReturnURL,
-			SignData:         signedPayload,
-			MultiplexingData: *params.MultiplexingData,
-		})
-	} else {
-		payload, err = json.Marshal(paymentRequestBody{
-			TerminalID:    params.TerminalID,
-			MerchantID:    params.MerchantID,
-			Amount:        params.Amount,
-			OrderID:       params.OrderID,
-			LocalDateTime: localDateTime,
-			ReturnURL:     params.ReturnURL,
-			SignData:      signedPayload,
-		})
-	}
+	payload, err := json.Marshal(multiplexedPaymentRequestBody{
+		TerminalID:       params.TerminalID,
+		MerchantID:       params.MerchantID,
+		Amount:           params.Amount,
+		OrderID:          params.OrderID,
+		LocalDateTime:    localDateTime,
+		ReturnURL:        params.ReturnURL,
+		SignData:         signedPayload,
+		MultiplexingData: *params.MultiplexingData,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.endpoints.PaymentRequestURL, bytes.NewReader(payload))
+	respBody, err := c.postJSON("payment", c.endpoints.PaymentRequestURL, payload, 1, "failed to send request")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	// Sadad rejects requests with a non-empty User-Agent.
-	req.Header.Set("User-Agent", "")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("sadad returned HTTP %d: %s", resp.StatusCode, string(respBody))
-	}
-	if len(respBody) == 0 {
-		return nil, fmt.Errorf("sadad returned empty response body")
+		return nil, err
 	}
 
-	var apiResp paymentRequestAPIResponse
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
+	apiResp := paymentResponseFromBody(respBody)
 	return &RequestResponse{
 		ResCode:     parseResCode(apiResp.ResCode),
 		Token:       apiResp.Token,
 		Description: apiResp.Description,
 		gatewayURL:  c.endpoints.GatewayURL,
 	}, nil
+}
+
+func paymentResponseFromBody(body []byte) paymentRequestAPIResponse {
+	var apiResp paymentRequestAPIResponse
+	if fallback, ok := decodeSadadBody(body, &apiResp); !ok {
+		return paymentRequestAPIResponse{Description: fallback}
+	}
+	return apiResp
 }
 
 // VerifyPayment verifies a payment with Sadad.
@@ -297,45 +293,98 @@ func (c *Client) VerifyPayment(params VerificationParams) (*VerificationResponse
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.endpoints.VerifyURL, bytes.NewReader(payload))
+	respBody, err := c.postJSON("verify", c.endpoints.VerifyURL, payload, sadadVerifyAttempts, "failed to send verification request")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create verification request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send verification request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read verification response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("sadad verify returned HTTP %d: %s", resp.StatusCode, string(respBody))
-	}
-	if len(respBody) == 0 {
-		return nil, fmt.Errorf("sadad verify returned empty response body")
+		return nil, err
 	}
 
-	var apiResp verifyAPIResponse
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		return nil, fmt.Errorf("failed to parse verification response: %w", err)
-	}
-
+	apiResp := verifyResponseFromBody(respBody)
 	return &VerificationResponse{
 		ResCode:            parseResCode(apiResp.ResCode),
-		Amount:             apiResp.Amount,
+		Amount:             int64(apiResp.Amount),
 		SystemTraceNo:      apiResp.SystemTraceNo,
 		RetrivalRefNo:      apiResp.RetrivalRefNo,
 		Description:        apiResp.Description,
-		OrderID:            apiResp.OrderID,
+		OrderID:            int64(apiResp.OrderID),
 		TransactionDate:    apiResp.TransactionDate,
 		CardHolderFullName: apiResp.CardHolderFullName,
 	}, nil
+}
+
+func verifyResponseFromBody(body []byte) verifyAPIResponse {
+	var apiResp verifyAPIResponse
+	if fallback, ok := decodeSadadBody(body, &apiResp); !ok {
+		return verifyAPIResponse{Description: fallback}
+	}
+	return apiResp
+}
+
+// postJSON sends a JSON POST. attempts is the total number of tries.
+// A later try runs only when the previous try fails to connect.
+func (c *Client) postJSON(operation, endpoint string, payload []byte, attempts int, sendFailure string) ([]byte, error) {
+	if attempts < 1 {
+		attempts = 1
+	}
+
+	var lastConnectErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(payload))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		setSadadHeaders(req)
+		logSadadIPGRequest(operation, endpoint, payload)
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			lastConnectErr = err
+			logSadadIPGTransportError(operation, endpoint, err)
+			continue
+		}
+
+		respBody, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			logSadadIPGTransportError(operation, endpoint, readErr)
+			return nil, fmt.Errorf("failed to read response: %w", readErr)
+		}
+		logSadadIPGResponse(operation, endpoint, resp.StatusCode, respBody)
+		return respBody, nil
+	}
+
+	return nil, fmt.Errorf("%s: %w", sendFailure, lastConnectErr)
+}
+
+func logSadadIPGRequest(operation, endpoint string, payload []byte) {
+	log.Printf("financial-service: Sadad IPG %s request url=%s body=%s", operation, endpoint, payload)
+}
+
+func logSadadIPGResponse(operation, endpoint string, statusCode int, body []byte) {
+	log.Printf("financial-service: Sadad IPG %s response url=%s status=%d body=%s", operation, endpoint, statusCode, body)
+}
+
+func logSadadIPGTransportError(operation, endpoint string, err error) {
+	log.Printf("financial-service: Sadad IPG %s request failed url=%s error=%v", operation, endpoint, err)
+}
+
+func setSadadHeaders(req *http.Request) {
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	// Sadad rejects requests with a non-empty User-Agent.
+	req.Header.Set("User-Agent", "")
+}
+
+// decodeSadadBody unmarshals a JSON object. An empty body is an empty result.
+// A non-JSON body is returned as the gateway description.
+func decodeSadadBody(body []byte, dest any) (description string, ok bool) {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 {
+		return "", true
+	}
+	if err := json.Unmarshal(trimmed, dest); err != nil {
+		return string(trimmed), false
+	}
+	return "", true
 }
 
 // Success checks if the request response indicates success.
@@ -348,7 +397,7 @@ func (r *RequestResponse) URL() string {
 	if !r.Success() {
 		return ""
 	}
-	return fmt.Sprintf("%s?Token=%s", r.gatewayURL, r.Token)
+	return r.gatewayURL + "?" + url.Values{"Token": {r.Token}}.Encode()
 }
 
 // Error returns error information for the request.
@@ -357,11 +406,10 @@ func (r *RequestResponse) Error() *SadadError {
 }
 
 // Success checks if the verification response indicates success.
-// Per Sadad VPG Help v1.10 section 7.2 (Verify ResCode table):
-//   - ResCode "0"  → transaction successful  → final success
-//   - ResCode "10" → duplicate request (already registered successfully) → also final success
+// ResCode 0 is a new success. ResCode 100 means the transaction was already
+// verified and is still a final success.
 func (v *VerificationResponse) Success() bool {
-	return v.ResCode == "0" || v.ResCode == "10"
+	return v.ResCode == "0" || v.ResCode == "100"
 }
 
 // Error returns error information for the verification.
@@ -420,6 +468,43 @@ func pkcs7Pad(data []byte, blockSize int) []byte {
 	return append(data, padText...)
 }
 
+// jsonInt64 decodes a JSON number or a numeric string. Sadad Verify returns
+// Amount and OrderId as strings ("30000", "714") even when the call succeeds.
+type jsonInt64 int64
+
+func (n *jsonInt64) UnmarshalJSON(data []byte) error {
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 || bytes.Equal(data, []byte("null")) {
+		*n = 0
+		return nil
+	}
+
+	if data[0] == '"' {
+		var text string
+		if err := json.Unmarshal(data, &text); err != nil {
+			return err
+		}
+		text = strings.TrimSpace(text)
+		if text == "" {
+			*n = 0
+			return nil
+		}
+		parsed, err := strconv.ParseInt(text, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid integer string %q: %w", text, err)
+		}
+		*n = jsonInt64(parsed)
+		return nil
+	}
+
+	var parsed int64
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return err
+	}
+	*n = jsonInt64(parsed)
+	return nil
+}
+
 func parseResCode(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
@@ -444,7 +529,7 @@ func isSuccessResCode(code string) bool {
 
 func validateMultiplexingData(data *MultiplexingData) error {
 	switch data.Type {
-	case "Percentage", "Amount":
+	case MultiplexingTypePercentage, MultiplexingTypeAmount:
 	case "":
 		return fmt.Errorf("multiplexing type is required")
 	default:
@@ -464,7 +549,7 @@ func validateMultiplexingData(data *MultiplexingData) error {
 		}
 		sum += row.Value
 	}
-	if data.Type == "Percentage" && sum != 100 {
+	if data.Type == MultiplexingTypePercentage && sum != 100 {
 		return fmt.Errorf("percentage multiplexing rows must sum to 100, got %d", sum)
 	}
 	return nil

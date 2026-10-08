@@ -4,9 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"metarang/training-service/internal/models"
 )
+
+// videoTitleLike matches Persian text. utf8mb4_unicode_ci and utf8mb4_0900_ai_ci
+// make LIKE skip those characters, while utf8mb4_general_ci compares them
+// one-to-one and stays case-insensitive for Latin.
+const videoTitleLike = "title COLLATE utf8mb4_general_ci LIKE ?"
 
 // VideoRepositoryInterface defines the interface for video repository operations
 type VideoRepositoryInterface interface {
@@ -163,12 +169,12 @@ func (r *VideoRepository) SearchVideos(ctx context.Context, searchTerm string, p
 	query := `
 		SELECT id, video_sub_category_id, title, slug, description, fileName, creator_code, image, created_at, updated_at
 		FROM videos
-		WHERE title LIKE ?
+		WHERE ` + videoTitleLike + `
 		ORDER BY created_at DESC
 	`
-	countQuery := "SELECT COUNT(*) FROM videos WHERE title LIKE ?"
+	countQuery := "SELECT COUNT(*) FROM videos WHERE " + videoTitleLike
 
-	searchPattern := "%" + searchTerm + "%"
+	searchPattern := "%" + strings.TrimSpace(searchTerm) + "%"
 
 	// Get total count
 	var total int32

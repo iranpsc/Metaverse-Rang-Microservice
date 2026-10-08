@@ -31,6 +31,9 @@ func (f *fakeWalletCacheRepo) GetBackURL(context.Context, string) (string, error
 func (f *fakeWalletCacheRepo) TryAcquireAccountSecurityVerificationSlot(context.Context, uint64, time.Duration) (bool, error) {
 	return true, nil
 }
+func (f *fakeWalletCacheRepo) ReleaseAccountSecurityVerificationSlot(context.Context, uint64) error {
+	return nil
+}
 
 func (f *fakeWalletCacheRepo) TryAcquireMobileChangeSendSlot(context.Context, uint64, time.Duration) (bool, error) {
 	return true, nil
@@ -92,6 +95,12 @@ func (f *fakeWalletUserRepo) FindByID(_ context.Context, id uint64) (*models.Use
 func (f *fakeWalletUserRepo) Update(context.Context, *models.User) error { return nil }
 func (f *fakeWalletUserRepo) UpdateLastSeen(context.Context, uint64) error {
 	return nil
+}
+func (f *fakeWalletUserRepo) SetLastSeen(context.Context, uint64, time.Time) error {
+	return nil
+}
+func (f *fakeWalletUserRepo) ListUserIDsByLastSeen(context.Context, time.Time, time.Time, time.Time, uint64, int) ([]repository.LastSeenUser, error) {
+	return nil, nil
 }
 func (f *fakeWalletUserRepo) FindByCode(context.Context, string) (*models.User, error) {
 	return nil, nil

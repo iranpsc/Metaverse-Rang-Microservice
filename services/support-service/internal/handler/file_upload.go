@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,8 +20,12 @@ type fileStorageUploader interface {
 	UploadChunk(ctx context.Context, uploadID, uploadPath, filename, contentType string, data []byte) (relativePath string, err error)
 }
 
-const maxTicketAttachmentSize = 5 << 20
+const (
+	maxTicketAttachmentSize  = 5 << 20
+	maxTicketAttachmentCount = 5
+)
 
+// allowedTicketAttachmentExts accepts pdf, docx, jpg, and jpeg, and keeps png and doc.
 var allowedTicketAttachmentExts = map[string]bool{
 	".png": true, ".jpg": true, ".jpeg": true,
 	".pdf": true, ".doc": true, ".docx": true,
@@ -63,6 +69,242 @@ func uploadTicketAttachment(r *http.Request, storage fileStorageUploader, appURL
 	}
 
 	return uploadBytesToStorage(r.Context(), storage, appURL, "tickets", header.Filename, contentType, data)
+}
+
+// uploadTicketAttachments stores up to 5 ticket files from attachment, attachments, and attachments[].
+func uploadTicketAttachments(r *http.Request, storage fileStorageUploader, appURL string) ([]string, error) {
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		return nil, nil
+	}
+	if storage == nil {
+		return nil, fmt.Errorf("storage service not configured")
+	}
+	if r.MultipartForm == nil {
+		if err := r.ParseMultipartForm(32 << 20); err != nil {
+			return nil, fmt.Errorf("failed to parse multipart form: %w", err)
+		}
+	}
+
+	headers := collectAttachmentFileHeaders(r)
+	if len(headers) == 0 {
+		return nil, nil
+	}
+	if len(headers) > maxTicketAttachmentCount {
+		return nil, fmt.Errorf("attachments must not have more than 5 items")
+	}
+
+	urls := make([]string, 0, len(headers))
+	for _, header := range headers {
+		fileURL, err := uploadTicketFileHeader(r.Context(), storage, appURL, header)
+		if err != nil {
+			return nil, err
+		}
+		urls = append(urls, fileURL)
+	}
+	return urls, nil
+}
+
+func uploadTicketFileHeader(ctx context.Context, storage fileStorageUploader, appURL string, header *multipart.FileHeader) (string, error) {
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if !allowedTicketAttachmentExts[ext] {
+		return "", fmt.Errorf("invalid attachment type: only png, jpg, jpeg, pdf, doc, docx are allowed")
+	}
+	if header.Size > maxTicketAttachmentSize {
+		return "", fmt.Errorf("attachment exceeds 5MB limit")
+	}
+
+	file, err := header.Open()
+	if err != nil {
+		return "", fmt.Errorf("failed to read attachment: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to read attachment data: %w", err)
+	}
+	if int64(len(data)) > maxTicketAttachmentSize {
+		return "", fmt.Errorf("attachment exceeds 5MB limit")
+	}
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	return uploadBytesToStorage(ctx, storage, appURL, "tickets", header.Filename, contentType, data)
+}
+
+// encodeTicketAttachments stores one URL as-is and two to five URLs as a JSON array.
+func encodeTicketAttachments(urls []string) (string, error) {
+	cleaned := make([]string, 0, len(urls))
+	for _, raw := range urls {
+		raw = strings.TrimSpace(raw)
+		if raw != "" {
+			cleaned = append(cleaned, raw)
+		}
+	}
+	if len(cleaned) > maxTicketAttachmentCount {
+		return "", fmt.Errorf("attachments must not have more than 5 items")
+	}
+	switch len(cleaned) {
+	case 0:
+		return "", nil
+	case 1:
+		return cleaned[0], nil
+	default:
+		encoded, err := json.Marshal(cleaned)
+		if err != nil {
+			return "", fmt.Errorf("encode ticket attachments: %w", err)
+		}
+		return string(encoded), nil
+	}
+}
+
+// decodeTicketAttachments expands a stored ticket attachment into a list of URLs.
+func decodeTicketAttachments(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []string{}
+	}
+	if strings.HasPrefix(raw, "[") {
+		var urls []string
+		if err := json.Unmarshal([]byte(raw), &urls); err == nil {
+			cleaned := make([]string, 0, len(urls))
+			for _, item := range urls {
+				item = strings.TrimSpace(item)
+				if item != "" {
+					cleaned = append(cleaned, item)
+				}
+			}
+			return cleaned
+		}
+	}
+	return []string{raw}
+}
+
+// mergeTicketAttachmentFields prefers an attachments list and still accepts a single attachment string.
+func mergeTicketAttachmentFields(single string, many []string) (string, error) {
+	if len(many) > 0 {
+		return encodeTicketAttachments(many)
+	}
+	if len(decodeTicketAttachments(single)) > maxTicketAttachmentCount {
+		return "", fmt.Errorf("attachments must not have more than 5 items")
+	}
+	return single, nil
+}
+
+func collectAttachmentFileHeaders(r *http.Request) []*multipart.FileHeader {
+	if r == nil || r.MultipartForm == nil {
+		return nil
+	}
+	var headers []*multipart.FileHeader
+	seen := make(map[string]bool)
+	addHeaders := func(files []*multipart.FileHeader) {
+		for _, header := range files {
+			if header == nil {
+				continue
+			}
+			key := header.Filename + ":" + strconv.FormatInt(header.Size, 10)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			headers = append(headers, header)
+		}
+	}
+	for _, key := range []string{"attachment", "attachments", "attachments[]"} {
+		if files, ok := r.MultipartForm.File[key]; ok && len(files) > 0 {
+			addHeaders(files)
+		}
+	}
+	for key, files := range r.MultipartForm.File {
+		if strings.HasPrefix(key, "attachments[") && key != "attachments[]" && len(files) > 0 {
+			addHeaders(files)
+		}
+	}
+	return headers
+}
+
+// noteUpdateAttachmentInput separates kept links from new files on a note edit.
+// present is true when the form included an attachment field or a file, including
+// an empty attachments[] value that clears the list.
+func noteUpdateAttachmentInput(r *http.Request) (links []string, files []*multipart.FileHeader, present bool) {
+	if r == nil || r.MultipartForm == nil {
+		return nil, nil, false
+	}
+	files = collectAttachmentFileHeaders(r)
+	if len(files) > 0 {
+		present = true
+	}
+	values := make([]string, 0)
+	for _, key := range []string{"attachments[]", "attachments", "attachment", "current_attachments[]"} {
+		if items, ok := r.MultipartForm.Value[key]; ok {
+			present = true
+			values = append(values, items...)
+		}
+	}
+	indexed := make([]string, 0)
+	for key := range r.MultipartForm.Value {
+		if !isIndexedAttachmentKey(key) {
+			continue
+		}
+		present = true
+		indexed = append(indexed, key)
+	}
+	sort.Strings(indexed)
+	for _, key := range indexed {
+		values = append(values, r.MultipartForm.Value[key]...)
+	}
+	return dedupeNonEmpty(values), files, present
+}
+
+func isIndexedAttachmentKey(key string) bool {
+	if key == "attachments[]" || key == "current_attachments[]" {
+		return false
+	}
+	return strings.HasPrefix(key, "attachments[") || strings.HasPrefix(key, "current_attachments[")
+}
+
+func dedupeNonEmpty(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// uploadNoteFileHeaders uploads an already counted set of note files.
+func uploadNoteFileHeaders(r *http.Request, storage fileStorageUploader, appURL string, headers []*multipart.FileHeader) ([]string, error) {
+	if len(headers) == 0 {
+		return nil, nil
+	}
+	if storage == nil {
+		return nil, fmt.Errorf("storage service not configured")
+	}
+	urls := make([]string, 0, len(headers))
+	for _, header := range headers {
+		fileURL, err := uploadMultipartFileHeader(r.Context(), storage, appURL, "notes", header)
+		if err != nil {
+			return nil, err
+		}
+		urls = append(urls, fileURL)
+	}
+	return urls, nil
 }
 
 func prependPublicURL(appURL, path string) string {
@@ -152,10 +394,13 @@ func parseTicketFormFields(r *http.Request) (title, content, department string, 
 	return "", "", "", nil, nil
 }
 
-const maxNoteAttachmentSize = 5 << 20
+const (
+	maxNoteAttachmentCount = 5
+	maxNoteAttachmentSize  = 5 << 20
+)
 
 var allowedNoteAttachmentExts = map[string]bool{
-	".png": true, ".jpg": true, ".jpeg": true, ".pdf": true,
+	".pdf": true, ".docx": true, ".jpg": true, ".jpeg": true, ".png": true,
 }
 
 // parseNoteFormFields extracts note title/content from multipart or urlencoded bodies.
@@ -238,10 +483,66 @@ func resolveNoteAttachmentURL(r *http.Request, storage fileStorageUploader, appU
 	return "", false, nil
 }
 
+// uploadNoteAttachmentFiles stores note files from attachment, attachments, and attachments[].
+// Accepted extensions are pdf, docx, jpg, jpeg, and png. At most 5 files are accepted per request.
+func uploadNoteAttachmentFiles(r *http.Request, storage fileStorageUploader, appURL string) ([]string, error) {
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		return nil, nil
+	}
+	if r.MultipartForm == nil {
+		if err := r.ParseMultipartForm(32 << 20); err != nil {
+			return nil, fmt.Errorf("failed to parse multipart form: %w", err)
+		}
+	}
+
+	headers := collectAttachmentFileHeaders(r)
+	if len(headers) == 0 {
+		return nil, nil
+	}
+	if len(headers) > maxNoteAttachmentCount {
+		return nil, fmt.Errorf("attachments must not have more than 5 items")
+	}
+	if storage == nil {
+		return nil, fmt.Errorf("storage service not configured")
+	}
+
+	urls := make([]string, 0, len(headers))
+	for _, header := range headers {
+		fileURL, err := uploadMultipartFileHeader(r.Context(), storage, appURL, "notes", header)
+		if err != nil {
+			return nil, err
+		}
+		urls = append(urls, fileURL)
+	}
+	return urls, nil
+}
+
+// mergeNoteAttachmentURLs prefers an attachments list and still accepts a single attachment string.
+func mergeNoteAttachmentURLs(single string, many []string) ([]string, error) {
+	urls := make([]string, 0, len(many)+1)
+	if len(many) > 0 {
+		for _, item := range many {
+			item = strings.TrimSpace(item)
+			if item != "" {
+				urls = append(urls, item)
+			}
+		}
+	} else if item := strings.TrimSpace(single); item != "" {
+		urls = append(urls, item)
+	}
+	if len(urls) > maxNoteAttachmentCount {
+		return nil, fmt.Errorf("attachments must not have more than 5 items")
+	}
+	if len(urls) == 0 {
+		return nil, nil
+	}
+	return urls, nil
+}
+
 func uploadMultipartFileHeader(ctx context.Context, storage fileStorageUploader, appURL, uploadSubdir string, header *multipart.FileHeader) (string, error) {
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if !allowedNoteAttachmentExts[ext] {
-		return "", fmt.Errorf("invalid attachment type: only png, jpg, jpeg, pdf are allowed")
+		return "", fmt.Errorf("invalid attachment type: only pdf, docx, jpg, jpeg, png are allowed")
 	}
 	if header.Size > maxNoteAttachmentSize {
 		return "", fmt.Errorf("attachment exceeds 5MB limit")

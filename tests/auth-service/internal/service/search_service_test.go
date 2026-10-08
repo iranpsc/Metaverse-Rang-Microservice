@@ -26,12 +26,12 @@ func (m *MockSearchRepository) SearchUsers(ctx context.Context, searchTerm strin
 	return args.Get(0).([]*repository.SearchUserResult), args.Error(1)
 }
 
-func (m *MockSearchRepository) SearchFeatures(ctx context.Context, searchTerm string) ([]*repository.SearchFeatureResult, error) {
-	args := m.Called(ctx, searchTerm)
+func (m *MockSearchRepository) FollowedUserIDs(ctx context.Context, followerID uint64, userIDs []uint64) (map[uint64]struct{}, error) {
+	args := m.Called(ctx, followerID, userIDs)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*repository.SearchFeatureResult), args.Error(1)
+	return args.Get(0).(map[uint64]struct{}), args.Error(1)
 }
 
 func (m *MockSearchRepository) SearchIsicCodes(ctx context.Context, searchTerm string) ([]*repository.IsicCodeResult, error) {
@@ -134,7 +134,7 @@ func TestSearchService_SearchUsers(t *testing.T) {
 			}
 
 			svc := service.NewSearchService(mockRepo)
-			results, err := svc.SearchUsers(ctx, tt.searchTerm)
+			results, err := svc.SearchUsers(ctx, tt.searchTerm, 0)
 
 			if tt.wantError {
 				assert.Error(t, err)
@@ -161,82 +161,52 @@ func TestSearchService_SearchUsers(t *testing.T) {
 	}
 }
 
-func TestSearchService_SearchFeatures(t *testing.T) {
+func TestSearchService_SearchUsers_IsFollowing(t *testing.T) {
 	ctx := context.Background()
 
-	tests := []struct {
-		name          string
-		searchTerm    string
-		repoResults   []*repository.SearchFeatureResult
-		repoError     error
-		wantResults   int
-		wantKarbari   string
-		wantOwnerCode string
-		wantError     bool
-	}{
-		{
-			name:       "successful search",
-			searchTerm: "TEH-",
-			repoResults: []*repository.SearchFeatureResult{
-				{
-					FeatureID:           1,
-					FeaturePropertiesID: "prop-123",
-					Address:             "Tehran, District 1",
-					Karbari:             "m", // residential
-					PricePsc:            "2.5",
-					PriceIrr:            "3500000000",
-					OwnerCode:           "cit998",
-					Coordinates: []*repository.Coordinate{
-						{ID: 1, X: 51.1234, Y: 35.6789},
-					},
-				},
-			},
-			wantResults:   1,
-			wantKarbari:   "مسکونی", // Should be mapped to Persian
-			wantOwnerCode: "CIT998", // Should be uppercased
-			wantError:     false,
-		},
-		{
-			name:        "empty search term",
-			searchTerm:  "",
-			wantResults: 0,
-			wantError:   false,
-		},
-		{
-			name:       "repository error",
-			searchTerm: "error",
-			repoError:  assert.AnError,
-			wantError:  true,
-		},
-	}
+	t.Run("marks users the viewer follows", func(t *testing.T) {
+		mockRepo := new(MockSearchRepository)
+		mockRepo.On("SearchUsers", ctx, "ali").Return([]*repository.SearchUserResult{
+			{User: &models.User{ID: 1, Name: "ali", Code: "a"}},
+			{User: &models.User{ID: 2, Name: "ali reza", Code: "b"}},
+		}, nil)
+		mockRepo.On("FollowedUserIDs", ctx, uint64(9), []uint64{1, 2}).
+			Return(map[uint64]struct{}{2: {}}, nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := new(MockSearchRepository)
-			if tt.searchTerm != "" {
-				mockRepo.On("SearchFeatures", ctx, tt.searchTerm).Return(tt.repoResults, tt.repoError)
-			}
+		results, err := service.NewSearchService(mockRepo).SearchUsers(ctx, "ali", 9)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+		assert.False(t, results[0].IsFollowing)
+		assert.True(t, results[1].IsFollowing)
+		mockRepo.AssertExpectations(t)
+	})
 
-			svc := service.NewSearchService(mockRepo)
-			results, err := svc.SearchFeatures(ctx, tt.searchTerm)
+	t.Run("anonymous search skips the follow lookup", func(t *testing.T) {
+		mockRepo := new(MockSearchRepository)
+		mockRepo.On("SearchUsers", ctx, "ali").Return([]*repository.SearchUserResult{
+			{User: &models.User{ID: 1, Name: "ali", Code: "a"}},
+		}, nil)
 
-			if tt.wantError {
-				assert.Error(t, err)
-				assert.Nil(t, results)
-			} else {
-				require.NoError(t, err)
-				assert.Len(t, results, tt.wantResults)
+		results, err := service.NewSearchService(mockRepo).SearchUsers(ctx, "ali", 0)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		assert.False(t, results[0].IsFollowing)
+		mockRepo.AssertExpectations(t)
+	})
 
-				if tt.wantResults > 0 && len(results) > 0 {
-					assert.Equal(t, tt.wantKarbari, results[0].Karbari)
-					assert.Equal(t, tt.wantOwnerCode, results[0].OwnerCode)
-					assert.Equal(t, "PROP-123", results[0].FeaturePropertiesID) // Should be uppercased
-				}
-			}
+	t.Run("follow lookup error", func(t *testing.T) {
+		mockRepo := new(MockSearchRepository)
+		mockRepo.On("SearchUsers", ctx, "ali").Return([]*repository.SearchUserResult{
+			{User: &models.User{ID: 1, Name: "ali", Code: "a"}},
+		}, nil)
+		mockRepo.On("FollowedUserIDs", ctx, uint64(9), []uint64{1}).
+			Return(nil, assert.AnError)
 
-			mockRepo.AssertExpectations(t)
-		})
-	}
+		results, err := service.NewSearchService(mockRepo).SearchUsers(ctx, "ali", 9)
+		assert.Error(t, err)
+		assert.Nil(t, results)
+		mockRepo.AssertExpectations(t)
+	})
 }
 
 func TestSearchService_SearchIsicCodes(t *testing.T) {
@@ -293,39 +263,6 @@ func TestSearchService_SearchIsicCodes(t *testing.T) {
 			}
 
 			mockRepo.AssertExpectations(t)
-		})
-	}
-}
-
-func TestMapKarbariToTitle(t *testing.T) {
-	tests := []struct {
-		name     string
-		karbari  string
-		expected string
-	}{
-		{"residential", "m", "مسکونی"},
-		{"commercial", "t", "تجاری"},
-		{"educational", "a", "آموزشی"},
-		{"administrative", "e", "اداری"},
-		{"health", "b", "بهداشتی"},
-		{"green space", "f", "فضای سبز"},
-		{"cultural", "c", "فرهنگی"},
-		{"parking", "p", "پارکینگ"},
-		{"religious", "z", "مذهبی"},
-		{"exhibition", "n", "نمایشگاه"},
-		{"tourism", "g", "گردشگری"},
-		{"unknown code", "x", "x"},            // Should return as-is
-		{"already title", "مسکونی", "مسکونی"}, // Should return as-is
-		{"uppercase", "M", "مسکونی"},          // Should handle uppercase
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Access the private function through a test helper
-			// Since it's private, we'll test it indirectly through SearchFeatures
-			// Or we can make it public for testing
-			result := service.MapKarbariToTitle(tt.karbari)
-			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

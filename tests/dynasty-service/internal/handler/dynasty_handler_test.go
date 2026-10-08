@@ -20,6 +20,22 @@ import (
 	dynastypb "metarang/shared/pb/dynasty"
 )
 
+func expectCreateFeatureGate(mock sqlmock.Sqlmock, userID, featureID uint64) {
+	mock.ExpectQuery("FROM kycs").
+		WithArgs(userID).
+		WillReturnRows(sqlmock.NewRows([]string{"verified"}).AddRow(true))
+	expectUpdateFeatureGate(mock, userID, featureID)
+}
+
+func expectUpdateFeatureGate(mock sqlmock.Sqlmock, userID, featureID uint64) {
+	mock.ExpectQuery("SELECT f.owner_id, fp.karbari").
+		WithArgs(featureID).
+		WillReturnRows(sqlmock.NewRows([]string{"owner_id", "karbari"}).AddRow(userID, "m"))
+	mock.ExpectQuery("sell_feature_requests").
+		WithArgs(featureID).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+}
+
 func TestDynastyHandler_CreateDynasty(t *testing.T) {
 	ctx := context.Background()
 	userID := uint64(1)
@@ -41,6 +57,7 @@ func TestDynastyHandler_CreateDynasty(t *testing.T) {
 		mock.ExpectQuery("SELECT id, user_id, feature_id").
 			WithArgs(userID).
 			WillReturnError(sql.ErrNoRows)
+		expectCreateFeatureGate(mock, userID, featureID)
 
 		// Create dynasty
 		mock.ExpectExec("INSERT INTO dynasties").
@@ -174,6 +191,7 @@ func TestDynastyHandler_UpdateDynastyFeature(t *testing.T) {
 			WithArgs(dynastyID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "feature_id", "created_at", "updated_at"}).
 				AddRow(dynastyID, userID, 100, now.AddDate(0, 0, -60), now.AddDate(0, 0, -31)))
+		expectUpdateFeatureGate(mock, userID, newFeatureID)
 
 		// UpdateDynastyFeature: Update feature
 		mock.ExpectExec("UPDATE dynasties SET feature_id").
@@ -343,6 +361,10 @@ func TestDynastyHandler_GetUserDynasty_NoDynasty_AllMemberTitles(t *testing.T) {
 		WithArgs(userID, uint64(0)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability", "karbari"}).
 			AddRow(uint64(1), "p", "a", "d", "s", "m")) // all maskoni features when no dynasty
+	mock.ExpectQuery("FROM coordinates c").
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"feature_id", "id", "x", "y"}).
+			AddRow(uint64(1), uint64(9), "51.389000", "35.689200"))
 	rows := sqlmock.NewRows([]string{
 		"id", "member", "satisfaction", "introduction_profit_increase",
 		"accumulated_capital_reserve", "data_storage", "psc", "created_at", "updated_at",
@@ -361,6 +383,10 @@ func TestDynastyHandler_GetUserDynasty_NoDynasty_AllMemberTitles(t *testing.T) {
 	require.Len(t, resp.Features, 1)
 	assert.Equal(t, uint64(1), resp.Features[0].Id)
 	assert.Equal(t, "p", resp.Features[0].PropertiesId)
+	require.Len(t, resp.Features[0].Coordinates, 1)
+	assert.Equal(t, uint64(9), resp.Features[0].Coordinates[0].Id)
+	assert.Equal(t, "51.389000", resp.Features[0].Coordinates[0].X)
+	assert.Equal(t, "35.689200", resp.Features[0].Coordinates[0].Y)
 	require.Len(t, resp.Prizes, len(members))
 	assert.Equal(t, "خواهر", resp.Prizes[1].Member)
 	assert.Equal(t, "other", resp.Prizes[7].Member)

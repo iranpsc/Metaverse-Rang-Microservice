@@ -61,10 +61,9 @@ func TestGetMe_RichPaths(t *testing.T) {
 	tokenRepo.walletLogin["tok"] = true
 
 	svc := service.NewAuthService(
-		userRepo, tokenRepo, newFakeCacheRepository(), newFakeAccountSecurityRepository(), newFakeActivityRepository(),
+		userRepo, tokenRepo, newFakeCacheRepository(),
 		nil, stubHelperForGetMe{}, nil,
 		"", "", "", "", "",
-		false,
 	)
 
 	details, err := svc.GetMe(ctx, "tok")

@@ -1,3 +1,4 @@
+// Package handler provides gRPC and HTTP handlers for the features service.
 package handler
 
 import (
@@ -135,4 +136,19 @@ func (h *FeatureHandler) GetMyFeatures(ctx context.Context, req *pb.GetMyFeature
 	return &pb.FeaturesResponse{
 		Features: features,
 	}, nil
+}
+
+// SearchFeatures handles /api/search/features.
+func (h *FeatureHandler) SearchFeatures(ctx context.Context, req *pb.SearchFeaturesRequest) (*pb.SearchFeaturesResponse, error) {
+	if req == nil || strings.TrimSpace(req.SearchTerm) == "" {
+		return &pb.SearchFeaturesResponse{Data: []*pb.SearchFeatureResult{}}, nil
+	}
+	results, err := h.service.SearchFeatures(ctx, req.SearchTerm)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "search failed: %v", err)
+	}
+	if results == nil {
+		results = []*pb.SearchFeatureResult{}
+	}
+	return &pb.SearchFeaturesResponse{Data: results}, nil
 }

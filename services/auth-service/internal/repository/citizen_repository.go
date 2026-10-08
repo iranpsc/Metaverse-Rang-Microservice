@@ -199,13 +199,7 @@ func (r *citizenRepository) GetCitizenReferrals(ctx context.Context, referrerID 
 	`
 
 	args := []interface{}{referrerID}
-
-	// Add search filter if provided
-	if search != "" {
-		baseQuery += ` AND (LOWER(u.name) LIKE ? OR LOWER(u.code) LIKE ?)`
-		searchPattern := "%" + strings.ToLower(search) + "%"
-		args = append(args, searchPattern, searchPattern)
-	}
+	baseQuery, args = appendReferralNameSearch(baseQuery, args, search)
 
 	// Get total count for pagination
 	countQuery := `SELECT COUNT(*) FROM (` + baseQuery + `) AS count_query`
@@ -222,12 +216,7 @@ func (r *citizenRepository) GetCitizenReferrals(ctx context.Context, referrerID 
 	`
 
 	queryArgs := []interface{}{referrerID}
-
-	if search != "" {
-		query += ` AND (LOWER(u.name) LIKE ? OR LOWER(u.code) LIKE ?)`
-		searchPattern := "%" + strings.ToLower(search) + "%"
-		queryArgs = append(queryArgs, searchPattern, searchPattern)
-	}
+	query, queryArgs = appendReferralNameSearch(query, queryArgs, search)
 
 	query += `
 		ORDER BY (
@@ -311,6 +300,34 @@ func (r *citizenRepository) GetCitizenReferrals(ctx context.Context, referrerID 
 	}
 
 	return referrals, meta, nil
+}
+
+// appendReferralNameSearch filters referrals by account name, citizen code, and
+// KYC name. The list returns "fname lname" once KYC exists, and those values
+// are the Persian names users search for. LOWER() is omitted on purpose:
+// utf8mb4_unicode_ci is already case-insensitive for ASCII, and LOWER() makes
+// LIKE miss multibyte Persian text.
+func appendReferralNameSearch(query string, args []interface{}, search string) (string, []interface{}) {
+	search = strings.TrimSpace(search)
+	if search == "" {
+		return query, args
+	}
+
+	query += ` AND (
+		u.name LIKE ? OR u.code LIKE ?
+		OR EXISTS (
+			SELECT 1 FROM kycs k
+			WHERE k.user_id = u.id
+			AND (
+				k.fname LIKE ?
+				OR k.lname LIKE ?
+				OR CONCAT(k.fname, ' ', k.lname) LIKE ?
+			)
+		)
+	)`
+	pattern := "%" + search + "%"
+	args = append(args, pattern, pattern, pattern, pattern, pattern)
+	return query, args
 }
 
 // GetCitizenReferralOrders retrieves referral order history for a referral

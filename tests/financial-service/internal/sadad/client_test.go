@@ -17,6 +17,12 @@ func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 		if ua := r.Header.Get("User-Agent"); ua != "" {
 			t.Fatalf("expected empty User-Agent, got %q", ua)
 		}
+		if got := r.Header.Get("Accept"); got != "application/json" {
+			t.Fatalf("expected Accept application/json, got %q", got)
+		}
+		if got := r.Header.Get("Content-Type"); got != "application/json" {
+			t.Fatalf("expected Content-Type application/json, got %q", got)
+		}
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
 			t.Fatalf("failed to decode request: %v", err)
 		}
@@ -31,7 +37,6 @@ func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 		PaymentRequestURL: server.URL,
 		VerifyURL:         server.URL,
 		GatewayURL:        "https://example.com/purchase",
-		Multiplexed:       true,
 	})
 	resp, err := client.RequestPayment(sadad.RequestParams{
 		MerchantID: "merchant",
@@ -98,15 +103,18 @@ func TestRequestPaymentSendsMultiplexingDataAndLocalDateTime(t *testing.T) {
 	}
 }
 
-func TestSandboxRequestPaymentOmitsMultiplexingData(t *testing.T) {
+func TestRequestPaymentMatchesSadadSignAndNumericIban(t *testing.T) {
+	const paymentSign = "Tci2sESpUbJTIXxCNUVbqNRbbME4Pt8Kqyxz7+IR7eGTNcwvx4XCaw=="
+
 	var received map[string]interface{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
 			t.Fatalf("failed to decode request: %v", err)
 		}
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"ResCode": 0,
-			"Token":   "sandbox-token",
+			"ResCode":     0,
+			"Token":       "abc+def/ghi=",
+			"Description": "تراکنش موفق",
 		})
 	}))
 	defer server.Close()
@@ -114,34 +122,64 @@ func TestSandboxRequestPaymentOmitsMultiplexingData(t *testing.T) {
 	client := sadad.NewClientWithEndpoints(sadad.Endpoints{
 		PaymentRequestURL: server.URL,
 		VerifyURL:         server.URL,
-		GatewayURL:        sadad.SandboxEndpoints.GatewayURL,
-		Multiplexed:       false,
+		GatewayURL:        "https://sadad.shaparak.ir/Purchase",
 	})
 	resp, err := client.RequestPayment(sadad.RequestParams{
-		MerchantID: "46645",
-		TerminalID: "GBHDTY98",
-		SignData:   "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
-		OrderID:    1,
-		Amount:     10000,
-		ReturnURL:  "http://localhost/callback",
+		MerchantID:    "000000140339999",
+		TerminalID:    "24095674",
+		SignData:      "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
+		OrderID:       1234567890123456,
+		Amount:        150000,
+		ReturnURL:     "https://example.com/callback",
+		LocalDateTime: "10/02/2026 3:30:00 pm",
+		MultiplexingData: &sadad.MultiplexingData{
+			Type: "Amount",
+			MultiplexingRows: []sadad.MultiplexingRow{
+				{IbanNumber: "1", Value: 150000},
+			},
+		},
 	})
 	if err != nil {
 		t.Fatalf("RequestPayment failed: %v", err)
 	}
-	if !resp.Success() {
-		t.Fatalf("expected success response, got ResCode=%q", resp.ResCode)
+
+	if received["SignData"] != paymentSign {
+		t.Fatalf("SignData = %v", received["SignData"])
 	}
-	if received["MerchantId"] != "46645" || received["TerminalId"] != "GBHDTY98" {
-		t.Fatalf("unexpected request body: %+v", received)
+	if received["LocalDateTime"] != "10/02/2026 3:30:00 pm" {
+		t.Fatalf("LocalDateTime = %v", received["LocalDateTime"])
 	}
-	if received["PaymentIdentity"] != nil {
-		t.Fatalf("expected PaymentIdentity to be omitted in sandbox, got %v", received["PaymentIdentity"])
+	if received["OrderId"] != float64(1234567890123456) || received["Amount"] != float64(150000) {
+		t.Fatalf("unexpected amount or order id: %+v", received)
 	}
-	if received["MultiplexingData"] != nil {
-		t.Fatalf("expected MultiplexingData to be omitted in sandbox, got %v", received["MultiplexingData"])
+	muxData, _ := received["MultiplexingData"].(map[string]interface{})
+	rows, _ := muxData["MultiplexingRows"].([]interface{})
+	row0, _ := rows[0].(map[string]interface{})
+	if row0["IbanNumber"] != float64(1) || row0["Value"] != float64(150000) {
+		t.Fatalf("expected numeric iban row, got %+v", row0)
 	}
-	wantURL := sadad.SandboxEndpoints.GatewayURL + "?Token=sandbox-token"
+
+	wantURL := "https://sadad.shaparak.ir/Purchase?Token=abc%2Bdef%2Fghi%3D"
 	if got := resp.URL(); got != wantURL {
-		t.Fatalf("expected %q, got %q", wantURL, got)
+		t.Fatalf("purchase url %q", got)
+	}
+}
+
+func TestRequestPaymentRejectsNonNumericAccountIndex(t *testing.T) {
+	client := sadad.NewClientWithEndpoints(sadad.Endpoints{
+		PaymentRequestURL: "http://127.0.0.1:1",
+	})
+	_, err := client.RequestPayment(sadad.RequestParams{
+		TerminalID: "24095674",
+		SignData:   "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0",
+		OrderID:    1,
+		Amount:     10,
+		MultiplexingData: &sadad.MultiplexingData{
+			Type:             "Amount",
+			MultiplexingRows: []sadad.MultiplexingRow{{IbanNumber: "not-an-index", Value: 10}},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid iban number")
 	}
 }

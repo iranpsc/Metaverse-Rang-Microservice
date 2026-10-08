@@ -816,7 +816,8 @@ CREATE TABLE `follows` (
   `following_id` bigint(20) unsigned NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `follows_follower_following_index` (`follower_id`, `following_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=247 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -2212,7 +2213,8 @@ CREATE TABLE `users` (
   UNIQUE KEY `users_email_unique` (`email`),
   UNIQUE KEY `users_wallet_address_unique` (`wallet_address`),
   KEY `users_code_index` (`code`),
-  KEY `users_name_index` (`name`)
+  KEY `users_name_index` (`name`),
+  KEY `users_last_seen_index` (`last_seen`)
 ) ENGINE=InnoDB AUTO_INCREMENT=670 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -2379,6 +2381,79 @@ CREATE TABLE `websockets_statistics_entries` (
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `building_entry_configs`
+--
+
+DROP TABLE IF EXISTS `building_entry_sessions`;
+DROP TABLE IF EXISTS `building_entry_coupons`;
+DROP TABLE IF EXISTS `building_entry_configs`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `building_entry_configs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `feature_id` bigint(20) unsigned NOT NULL,
+  `fee_psc` decimal(18,2) NOT NULL DEFAULT 0.00,
+  `fee_irr` decimal(18,2) NOT NULL DEFAULT 0.00,
+  `about` varchar(1000) NOT NULL DEFAULT '',
+  `level_scope_type` enum('exact','and_upper','and_lower') DEFAULT NULL,
+  `level_slug` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `building_entry_configs_feature_id_unique` (`feature_id`),
+  CONSTRAINT `building_entry_configs_feature_id_foreign` FOREIGN KEY (`feature_id`) REFERENCES `features` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `building_entry_coupons`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `building_entry_coupons` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `feature_id` bigint(20) unsigned NOT NULL,
+  `code` varchar(64) NOT NULL,
+  `discount_percentage` tinyint(3) unsigned NOT NULL,
+  `max_usage_count` int(10) unsigned NOT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `building_entry_coupons_code_unique` (`code`),
+  KEY `building_entry_coupons_feature_id_index` (`feature_id`),
+  CONSTRAINT `building_entry_coupons_feature_id_foreign` FOREIGN KEY (`feature_id`) REFERENCES `features` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `building_entry_sessions`
+--
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `building_entry_sessions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `feature_id` bigint(20) unsigned NOT NULL,
+  `user_id` bigint(20) unsigned NOT NULL,
+  `fee_psc_paid` decimal(18,2) NOT NULL DEFAULT 0.00,
+  `fee_irr_paid` decimal(18,2) NOT NULL DEFAULT 0.00,
+  `coupon_id` bigint(20) unsigned DEFAULT NULL,
+  `entered_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `exited_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `building_entry_sessions_active_index` (`feature_id`,`user_id`,`exited_at`),
+  KEY `building_entry_sessions_window_index` (`feature_id`,`user_id`,`entered_at`),
+  KEY `building_entry_sessions_coupon_id_index` (`coupon_id`),
+  CONSTRAINT `building_entry_sessions_feature_id_foreign` FOREIGN KEY (`feature_id`) REFERENCES `features` (`id`),
+  CONSTRAINT `building_entry_sessions_coupon_id_foreign` FOREIGN KEY (`coupon_id`) REFERENCES `building_entry_coupons` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

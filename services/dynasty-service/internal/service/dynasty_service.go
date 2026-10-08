@@ -4,10 +4,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/repository"
+	"metarang/dynasty-service/internal/validation"
 )
 
 type DynastyService struct {
@@ -15,6 +17,7 @@ type DynastyService struct {
 	familyRepo              *repository.FamilyRepository
 	prizeRepo               *repository.PrizeRepository
 	notificationServiceAddr string
+	notifier                NotificationPort
 }
 
 func NewDynastyService(
@@ -31,6 +34,11 @@ func NewDynastyService(
 	}
 }
 
+// SetNotifier attaches the notification client used for dynasty lifecycle messages.
+func (s *DynastyService) SetNotifier(notifier NotificationPort) {
+	s.notifier = notifier
+}
+
 // CreateDynasty creates a new dynasty for a user
 func (s *DynastyService) CreateDynasty(ctx context.Context, userID, featureID uint64) (*models.Dynasty, *models.Family, error) {
 	// Check if user already has a dynasty
@@ -40,6 +48,10 @@ func (s *DynastyService) CreateDynasty(ctx context.Context, userID, featureID ui
 	}
 	if existing != nil {
 		return nil, nil, fmt.Errorf("user already has a dynasty")
+	}
+
+	if err := s.authorizeFeatureForDynasty(ctx, userID, featureID, true); err != nil {
+		return nil, nil, err
 	}
 
 	// Create dynasty
@@ -67,8 +79,9 @@ func (s *DynastyService) CreateDynasty(ctx context.Context, userID, featureID ui
 		return nil, nil, fmt.Errorf("failed to add owner to family: %w", err)
 	}
 
-	// TODO: Send notification via gRPC call to notification service
-	// This would be implemented once notification service is ready
+	s.notifyDynasty(ctx, userID, "dynasty_created", "سلسله شما تاسیس شد.", "سلسله شما تاسیس شد.", map[string]string{
+		"feature_id": fmt.Sprintf("%d", featureID),
+	})
 
 	return dynasty, family, nil
 }
@@ -113,6 +126,10 @@ func (s *DynastyService) UpdateDynastyFeature(ctx context.Context, dynastyID, fe
 		return fmt.Errorf("feature is already dynasty feature")
 	}
 
+	if err := s.authorizeFeatureForDynasty(ctx, userID, featureID, false); err != nil {
+		return err
+	}
+
 	// Apply penalty rules if changing within 30 days.
 	if time.Since(dynasty.UpdatedAt) < 30*24*time.Hour {
 		karbari, stability, err := s.dynastyRepo.GetFeaturePenaltyData(ctx, dynasty.FeatureID)
@@ -139,7 +156,64 @@ func (s *DynastyService) UpdateDynastyFeature(ctx context.Context, dynastyID, fe
 		return fmt.Errorf("failed to update dynasty feature: %w", err)
 	}
 
+	s.notifyDynasty(ctx, userID, "dynasty_feature_changed", "ملک بنای سلسله جایگزین شد.", "ملک بنای سلسله جایگزین شد.", map[string]string{
+		"feature_id": fmt.Sprintf("%d", featureID),
+	})
+
 	return nil
+}
+
+// authorizeFeatureForDynasty enforces DynastyPolicy create/update rules against the selected feature.
+// requireResidential is true for create (karbari must be maskoni) and false for feature replacement.
+func (s *DynastyService) authorizeFeatureForDynasty(ctx context.Context, userID, featureID uint64, requireResidential bool) error {
+	if requireResidential {
+		verified, err := s.dynastyRepo.UserIsVerified(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("failed to check user verification: %w", err)
+		}
+		if !verified {
+			return &validation.ValidationError{Message: "باید احراز هویت را کامل کنید", Code: 403}
+		}
+	}
+
+	ownerID, karbari, err := s.dynastyRepo.GetFeatureEligibility(ctx, featureID)
+	if err != nil {
+		return err
+	}
+	if ownerID != userID {
+		return &validation.ValidationError{Message: "شما مالک این ملک نیستید", Code: 403}
+	}
+	if requireResidential && karbari != "m" {
+		return &validation.ValidationError{Message: "این ملک مسکونی نیست", Code: 403}
+	}
+
+	hasPending, err := s.dynastyRepo.CheckFeatureHasPendingRequest(ctx, featureID)
+	if err != nil {
+		return fmt.Errorf("failed to check pending requests: %w", err)
+	}
+	if hasPending {
+		return &validation.ValidationError{Message: "این ملک درخواست در انتظار دارد", Code: 403}
+	}
+	return nil
+}
+
+func (s *DynastyService) notifyDynasty(ctx context.Context, userID uint64, notificationType, title, message string, data map[string]string) {
+	if s.notifier == nil {
+		return
+	}
+	sendSMS := false
+	if s.dynastyRepo != nil {
+		verifiedPhone, err := s.dynastyRepo.UserHasVerifiedPhone(ctx, userID)
+		if err != nil {
+			log.Printf("Warning: dynasty notification phone lookup failed for user %d: %v", userID, err)
+		}
+		sendSMS = verifiedPhone
+	}
+	notifyCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
+	defer cancel()
+	if err := s.notifier.SendNotification(notifyCtx, userID, notificationType, title, message, data, sendSMS, false); err != nil {
+		log.Printf("Warning: failed to send %s notification to user %d: %v", notificationType, userID, err)
+	}
 }
 
 func featureColorByKarbari(karbari string) string {

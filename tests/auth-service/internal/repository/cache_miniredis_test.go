@@ -47,6 +47,10 @@ func TestCacheRepository_Miniredis(t *testing.T) {
 	ok, err = repo.TryAcquireAccountSecurityVerificationSlot(ctx, 7, time.Minute)
 	require.NoError(t, err)
 	require.False(t, ok)
+	require.NoError(t, repo.ReleaseAccountSecurityVerificationSlot(ctx, 7))
+	ok, err = repo.TryAcquireAccountSecurityVerificationSlot(ctx, 7, time.Minute)
+	require.NoError(t, err)
+	require.True(t, ok)
 
 	ok, err = repo.TryAcquireMobileChangeSendSlot(ctx, 9, 2*time.Minute)
 	require.NoError(t, err)

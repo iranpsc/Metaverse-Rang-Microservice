@@ -455,6 +455,9 @@ func TestHTTPContract_NotesCRUDAndMethodSpoof(t *testing.T) {
 	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"n.png"`) {
 		t.Fatalf("list code=%d body=%s", rr.Code, rr.Body.String())
 	}
+	if strings.Contains(rr.Body.String(), `"attachment":`) {
+		t.Fatalf("note responses must not include attachment: %s", rr.Body.String())
+	}
 
 	rr = doJSON(mux, http.MethodPost, "/api/notes", `{"title":"T","content":"C","attachment":"n.png"}`)
 	if rr.Code != http.StatusCreated {
