@@ -80,7 +80,11 @@ func TestPersonalInfoService(t *testing.T) {
 		if !errors.Is(err, service.ErrInvalidEducation) {
 			t.Fatalf("err=%v", err)
 		}
-		err = svc.UpdatePersonalInfo(ctx, 1, "", "", strings.Repeat("a", 10001), "", "", "", "", "", "", nil)
+		err = svc.UpdatePersonalInfo(ctx, 1, "", "", strings.Repeat("a", 20000), "", "", "", "", "", "", nil)
+		if err != nil {
+			t.Fatalf("err=%v", err)
+		}
+		err = svc.UpdatePersonalInfo(ctx, 1, "", "", strings.Repeat("a", 20001), "", "", "", "", "", "", nil)
 		if !errors.Is(err, service.ErrInvalidMemory) {
 			t.Fatalf("err=%v", err)
 		}
@@ -96,11 +100,19 @@ func TestPersonalInfoService(t *testing.T) {
 		if !errors.Is(err, service.ErrInvalidLovedLanguage) {
 			t.Fatalf("err=%v", err)
 		}
-		err = svc.UpdatePersonalInfo(ctx, 1, "", "", "", "", "", "", strings.Repeat("a", 10001), "", "", nil)
+		err = svc.UpdatePersonalInfo(ctx, 1, "", "", "", "", "", "", strings.Repeat("a", 20000), "", "", nil)
+		if err != nil {
+			t.Fatalf("err=%v", err)
+		}
+		err = svc.UpdatePersonalInfo(ctx, 1, "", "", "", "", "", "", strings.Repeat("a", 20001), "", "", nil)
 		if !errors.Is(err, service.ErrInvalidProblemSolving) {
 			t.Fatalf("err=%v", err)
 		}
-		err = svc.UpdatePersonalInfo(ctx, 1, "", "", "", "", "", "", "", strings.Repeat("a", 10001), "", nil)
+		err = svc.UpdatePersonalInfo(ctx, 1, "", "", "", "", "", "", "", strings.Repeat("a", 20000), "", nil)
+		if err != nil {
+			t.Fatalf("err=%v", err)
+		}
+		err = svc.UpdatePersonalInfo(ctx, 1, "", "", "", "", "", "", "", strings.Repeat("a", 20001), "", nil)
 		if !errors.Is(err, service.ErrInvalidPrediction) {
 			t.Fatalf("err=%v", err)
 		}
