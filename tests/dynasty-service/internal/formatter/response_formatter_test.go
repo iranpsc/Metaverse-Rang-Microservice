@@ -17,13 +17,17 @@ func TestFormatDynastyResponse(t *testing.T) {
 	photo := "p.jpg"
 
 	t.Run("profit increase when stability > 10000", func(t *testing.T) {
-		resp := formatter.FormatDynastyResponse(d, 9, 4, 3, "props", "area", "den", 25000, "1403/01/01", &photo, []formatter.AvailableFeature{{ID: 1}})
+		resp := formatter.FormatDynastyResponse(d, 9, 4, 3, "props", "area", "den", 25000, "1403/01/01", &photo, []formatter.AvailableFeature{{
+			ID:          1,
+			Coordinates: []formatter.FeatureCoordinate{{ID: 9, X: "51.389000", Y: "35.689200"}},
+		}})
 		require.NotNil(t, resp)
 		assert.True(t, resp.UserHasDynasty)
 		assert.Equal(t, uint64(1), resp.ID)
 		assert.Equal(t, "p.jpg", resp.ProfileImage)
 		assert.Equal(t, "1.500", resp.DynastyFeature.FeatureProfitIncrease)
-		assert.Len(t, resp.Features, 1)
+		require.Len(t, resp.Features, 1)
+		assert.Equal(t, []formatter.FeatureCoordinate{{ID: 9, X: "51.389000", Y: "35.689200"}}, resp.Features[0].Coordinates)
 	})
 
 	t.Run("zero profit when stability low", func(t *testing.T) {

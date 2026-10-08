@@ -376,11 +376,18 @@ func TestDynastyService_PassthroughLookups(t *testing.T) {
 		mock.ExpectQuery("SELECT f.id, fp.id as properties_id").
 			WithArgs(uint64(1), uint64(100)).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability", "karbari"}).
-				AddRow(101, "p2", "a", "d", "s", "m"))
+				AddRow(uint64(101), "p2", "a", "d", "s", "m"))
+		mock.ExpectQuery("FROM coordinates c").
+			WithArgs(uint64(101)).
+			WillReturnRows(sqlmock.NewRows([]string{"feature_id", "id", "x", "y"}).
+				AddRow(uint64(101), uint64(8), "1.250000", "3.500000"))
 		features, err := svc.GetUserFeatures(ctx, 1, 100)
 		require.NoError(t, err)
 		require.Len(t, features, 1)
 		assert.Equal(t, uint64(101), features[0]["id"])
+		assert.Equal(t, []map[string]interface{}{
+			{"id": uint64(8), "x": "1.250000", "y": "3.500000"},
+		}, features[0]["coordinates"])
 		require.NoError(t, mock.ExpectationsWereMet())
 	})
 

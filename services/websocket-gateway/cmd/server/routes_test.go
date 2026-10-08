@@ -3,7 +3,6 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -16,11 +15,8 @@ func TestRegisterRoutes(t *testing.T) {
 	for _, path := range []string{"/", "/tester"} {
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
-		if rec.Code != http.StatusOK {
-			t.Fatalf("%s status = %d", path, rec.Code)
-		}
-		if !strings.Contains(rec.Body.String(), `id="connect"`) {
-			t.Fatalf("%s did not serve the tester page", path)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s status = %d, want 404", path, rec.Code)
 		}
 	}
 

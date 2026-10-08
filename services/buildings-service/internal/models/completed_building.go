@@ -1,4 +1,4 @@
-﻿package models
+package models
 
 const (
 	CompletedBuildingPerPage = 10

@@ -77,6 +77,7 @@ func availableFeatureHTTP(feature *dynastypb.AvailableFeature) map[string]interf
 			"density":       "",
 			"stability":     "",
 			"area":          "",
+			"coordinates":   featureCoordinatesHTTP(nil),
 		}
 	}
 	return map[string]interface{}{
@@ -85,7 +86,23 @@ func availableFeatureHTTP(feature *dynastypb.AvailableFeature) map[string]interf
 		"density":       feature.Density,
 		"stability":     feature.Stability,
 		"area":          feature.Area,
+		"coordinates":   featureCoordinatesHTTP(feature.Coordinates),
 	}
+}
+
+func featureCoordinatesHTTP(coords []*dynastypb.FeatureCoordinate) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(coords))
+	for _, coord := range coords {
+		if coord == nil {
+			continue
+		}
+		out = append(out, map[string]interface{}{
+			"id": coord.Id,
+			"x":  coord.X,
+			"y":  coord.Y,
+		})
+	}
+	return out
 }
 
 // buildFamilyMembersHTTPResponse formats GET /api/dynasty/{dynasty}/family/{family}

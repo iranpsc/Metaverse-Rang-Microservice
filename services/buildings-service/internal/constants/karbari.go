@@ -1,3 +1,4 @@
+// Package constants holds domain constants for the buildings service.
 package constants
 
 const (

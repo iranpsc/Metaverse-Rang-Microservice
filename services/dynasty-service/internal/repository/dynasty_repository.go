@@ -178,10 +178,83 @@ func (r *DynastyRepository) GetUserFeatures(ctx context.Context, userID, exclude
 			"area":          area,
 			"density":       density,
 			"stability":     stability,
+			"coordinates":   []map[string]interface{}{},
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed iterating user features: %w", err)
+	}
+
+	if err := r.attachFeatureCoordinates(ctx, features); err != nil {
+		return nil, err
 	}
 
 	return features, nil
+}
+
+// attachFeatureCoordinates loads polygon points for each feature.
+// x and y stay strings so the varchar coordinate precision is preserved.
+func (r *DynastyRepository) attachFeatureCoordinates(ctx context.Context, features []map[string]interface{}) error {
+	if len(features) == 0 {
+		return nil
+	}
+
+	args := make([]interface{}, 0, len(features))
+	placeholders := make([]string, 0, len(features))
+	for _, feature := range features {
+		id, ok := feature["id"].(uint64)
+		if !ok {
+			continue
+		}
+		args = append(args, id)
+		placeholders = append(placeholders, "?")
+	}
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := `
+		SELECT g.feature_id, c.id, c.x, c.y
+		FROM coordinates c
+		INNER JOIN geometries g ON g.id = c.geometry_id
+		WHERE g.feature_id IN (` + strings.Join(placeholders, ",") + `)
+		ORDER BY g.feature_id, c.id
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to get feature coordinates: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	byFeature := make(map[uint64][]map[string]interface{}, len(features))
+	for rows.Next() {
+		var featureID, coordinateID uint64
+		var x, y string
+		if err := rows.Scan(&featureID, &coordinateID, &x, &y); err != nil {
+			return fmt.Errorf("failed to scan feature coordinates: %w", err)
+		}
+		byFeature[featureID] = append(byFeature[featureID], map[string]interface{}{
+			"id": coordinateID,
+			"x":  x,
+			"y":  y,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("failed iterating feature coordinates: %w", err)
+	}
+
+	for _, feature := range features {
+		id, ok := feature["id"].(uint64)
+		if !ok {
+			continue
+		}
+		if coords, found := byFeature[id]; found {
+			feature["coordinates"] = coords
+		}
+	}
+
+	return nil
 }
 
 // GetUserProfilePhoto retrieves user's latest profile photo

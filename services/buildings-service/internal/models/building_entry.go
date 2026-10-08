@@ -1,3 +1,4 @@
+// Package models defines domain types for the buildings service.
 package models
 
 // BuildingEntryConfig is the owner's entry-fee and level-scope settings for one feature.

@@ -220,7 +220,10 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 						FeatureProfitIncrease: "0.5", FamilyMembersCount: 3, LastUpdated: "1403/01/02",
 					},
 					Features: []*dynastypb.AvailableFeature{
-						{Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3"},
+						{
+							Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3",
+							Coordinates: []*dynastypb.FeatureCoordinate{{Id: 9, X: "51.389000", Y: "35.689200"}},
+						},
 					},
 					Prizes: []*dynastypb.IntroductionPrize{{
 						Member: "brother", Satisfaction: 1, IntroductionProfitIncrease: 2,
@@ -246,6 +249,9 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
 			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
+			"coordinates": []interface{}{
+				map[string]interface{}{"id": float64(9), "x": "51.389000", "y": "35.689200"},
+			},
 		}, features[0])
 		_, prizesOK := data["prizes"].([]interface{})
 		assert.True(t, prizesOK)
@@ -281,6 +287,7 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
 			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
+			"coordinates": []interface{}{},
 		}, features[0])
 		_, hasID := data["id"]
 		assert.False(t, hasID)

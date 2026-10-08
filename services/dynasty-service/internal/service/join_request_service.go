@@ -61,7 +61,7 @@ func (s *JoinRequestService) SendJoinRequest(ctx context.Context, fromUserID, to
 		}
 		if isUnder18 && permissions == nil {
 			return nil, &validation.ValidationError{
-				Message: "دسترسی‌های فرزند الزامی است.",
+				Message: "دسترسی\u200cهای فرزند الزامی است.",
 				Code:    400,
 			}
 		}

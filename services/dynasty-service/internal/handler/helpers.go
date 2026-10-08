@@ -102,7 +102,28 @@ func availableFeatureFromDetails(details map[string]interface{}) *dynastypb.Avai
 		Density:      getString(details["density"]),
 		Stability:    getString(details["stability"]),
 		Area:         getString(details["area"]),
+		Coordinates:  featureCoordinatesFromDetails(details["coordinates"]),
 	}
+}
+
+func featureCoordinatesFromDetails(value interface{}) []*dynastypb.FeatureCoordinate {
+	items, ok := value.([]map[string]interface{})
+	if !ok || len(items) == 0 {
+		return nil
+	}
+
+	coordinates := make([]*dynastypb.FeatureCoordinate, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		coordinates = append(coordinates, &dynastypb.FeatureCoordinate{
+			Id: getUint64(item["id"]),
+			X:  getString(item["x"]),
+			Y:  getString(item["y"]),
+		})
+	}
+	return coordinates
 }
 
 func memberTitle(member string) string {

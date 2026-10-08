@@ -29,13 +29,21 @@ type DynastyFeature struct {
 	LastUpdated           string `json:"last-updated"`            // Note: kebab-case!
 }
 
+// FeatureCoordinate is one polygon point for an available dynasty feature.
+type FeatureCoordinate struct {
+	ID uint64 `json:"id"`
+	X  string `json:"x"`
+	Y  string `json:"y"`
+}
+
 // AvailableFeature represents a feature available for dynasty
 type AvailableFeature struct {
-	ID           uint64 `json:"id"`
-	PropertiesID string `json:"properties_id"`
-	Density      string `json:"density"`
-	Stability    string `json:"stability"`
-	Area         string `json:"area"`
+	ID           uint64              `json:"id"`
+	PropertiesID string              `json:"properties_id"`
+	Density      string              `json:"density"`
+	Stability    string              `json:"stability"`
+	Area         string              `json:"area"`
+	Coordinates  []FeatureCoordinate `json:"coordinates"`
 }
 
 func FormatDynastyResponse(

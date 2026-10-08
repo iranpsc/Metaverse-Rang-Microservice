@@ -10,7 +10,6 @@ Real-time event broadcasting gateway for the MetaRGB microservices architecture 
 - Private room with auth: `user:{id}` (notifications)
 - Redis pub/sub channels: `user-status`, `feature-status`, `notifications` (also accepts legacy `user-status-changed` / `feature-events`)
 - Health (`/health`) and metrics (`/metrics`) endpoints
-- Browser tester at `/` and `/tester`
 - CORS via `CORS_ORIGIN`
 
 ## Configuration
@@ -20,16 +19,6 @@ See `config.env.sample`.
 ## Docker
 
 Built from `services/websocket-gateway/Dockerfile` and exposed on port `3002` via docker-compose.
-
-## Browser tester
-
-Open `http://localhost:3002/` (also served at `/tester`) to try a connection.
-
-- **WebSocket host** — Socket.IO base URL, for example `http://localhost:3002`
-- **Channel** — `feature-status` and `user-status` are public. `notifications` is private and asks for a Sanctum token
-- **Event** — Socket.IO event to print, such as `feature-status-changed`, `user-status-changed`, or `notification-received`
-
-The gateway joins public rooms on connect. A valid token also joins `user:{id}` for private notifications. The page shows a success or failure alert and appends matching broadcasts below the form.
 
 ## Client usage
 

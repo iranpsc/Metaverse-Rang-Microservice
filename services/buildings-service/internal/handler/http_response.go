@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -107,19 +106,3 @@ func publicBaseURL(r *http.Request) string {
 }
 
 func requestPath(r *http.Request) string { return publicBaseURL(r) + r.URL.Path }
-
-func buildSimplePaginationLinks(r *http.Request, page int32, hasMore bool) map[string]interface{} {
-	base := requestPath(r)
-	query := r.URL.Query()
-	query.Set("page", "1")
-	links := map[string]interface{}{"first": base + "?" + query.Encode(), "last": nil, "prev": nil, "next": nil}
-	if page > 1 {
-		query.Set("page", strconv.FormatInt(int64(page-1), 10))
-		links["prev"] = base + "?" + query.Encode()
-	}
-	if hasMore {
-		query.Set("page", strconv.FormatInt(int64(page+1), 10))
-		links["next"] = base + "?" + query.Encode()
-	}
-	return links
-}
