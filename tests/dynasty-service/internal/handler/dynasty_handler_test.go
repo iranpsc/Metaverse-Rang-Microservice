@@ -79,6 +79,10 @@ func TestDynastyHandler_CreateDynasty(t *testing.T) {
 			WithArgs(featureID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability"}).
 				AddRow(featureID, 1, "1000", "50", "15000"))
+		mock.ExpectQuery("FROM coordinates c").
+			WithArgs(featureID).
+			WillReturnRows(sqlmock.NewRows([]string{"feature_id", "id", "x", "y"}).
+				AddRow(featureID, uint64(4), "51.400000", "35.700000"))
 
 		// Get user features
 		mock.ExpectQuery("SELECT f.id, fp.id as properties_id").
@@ -109,6 +113,10 @@ func TestDynastyHandler_CreateDynasty(t *testing.T) {
 		assert.NotEmpty(t, resp.CreatedAt) // Jalali formatted date
 		assert.NotNil(t, resp.DynastyFeature)
 		assert.Equal(t, featureID, resp.DynastyFeature.Id)
+		require.Len(t, resp.DynastyFeature.Coordinates, 1)
+		assert.Equal(t, uint64(4), resp.DynastyFeature.Coordinates[0].Id)
+		assert.Equal(t, "51.400000", resp.DynastyFeature.Coordinates[0].X)
+		assert.Equal(t, "35.700000", resp.DynastyFeature.Coordinates[0].Y)
 		assert.Empty(t, resp.Features)
 
 		require.NoError(t, mock.ExpectationsWereMet())
@@ -215,6 +223,9 @@ func TestDynastyHandler_UpdateDynastyFeature(t *testing.T) {
 			WithArgs(newFeatureID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability"}).
 				AddRow(newFeatureID, "2", "2000", "60", "20000"))
+		mock.ExpectQuery("FROM coordinates c").
+			WithArgs(newFeatureID).
+			WillReturnRows(sqlmock.NewRows([]string{"feature_id", "id", "x", "y"}))
 
 		// GetDynasty: Get user features
 		mock.ExpectQuery("SELECT").
@@ -244,6 +255,7 @@ func TestDynastyHandler_UpdateDynastyFeature(t *testing.T) {
 		assert.Equal(t, dynastyID, resp.Id)
 		assert.NotNil(t, resp.DynastyFeature)
 		assert.Equal(t, newFeatureID, resp.DynastyFeature.Id)
+		assert.Empty(t, resp.DynastyFeature.Coordinates)
 		assert.Empty(t, resp.Features)
 
 		require.NoError(t, mock.ExpectationsWereMet())
@@ -361,10 +373,6 @@ func TestDynastyHandler_GetUserDynasty_NoDynasty_AllMemberTitles(t *testing.T) {
 		WithArgs(userID, uint64(0)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "properties_id", "area", "density", "stability", "karbari"}).
 			AddRow(uint64(1), "p", "a", "d", "s", "m")) // all maskoni features when no dynasty
-	mock.ExpectQuery("FROM coordinates c").
-		WithArgs(uint64(1)).
-		WillReturnRows(sqlmock.NewRows([]string{"feature_id", "id", "x", "y"}).
-			AddRow(uint64(1), uint64(9), "51.389000", "35.689200"))
 	rows := sqlmock.NewRows([]string{
 		"id", "member", "satisfaction", "introduction_profit_increase",
 		"accumulated_capital_reserve", "data_storage", "psc", "created_at", "updated_at",
@@ -383,10 +391,6 @@ func TestDynastyHandler_GetUserDynasty_NoDynasty_AllMemberTitles(t *testing.T) {
 	require.Len(t, resp.Features, 1)
 	assert.Equal(t, uint64(1), resp.Features[0].Id)
 	assert.Equal(t, "p", resp.Features[0].PropertiesId)
-	require.Len(t, resp.Features[0].Coordinates, 1)
-	assert.Equal(t, uint64(9), resp.Features[0].Coordinates[0].Id)
-	assert.Equal(t, "51.389000", resp.Features[0].Coordinates[0].X)
-	assert.Equal(t, "35.689200", resp.Features[0].Coordinates[0].Y)
 	require.Len(t, resp.Prizes, len(members))
 	assert.Equal(t, "خواهر", resp.Prizes[1].Member)
 	assert.Equal(t, "other", resp.Prizes[7].Member)

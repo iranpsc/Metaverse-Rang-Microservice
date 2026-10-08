@@ -18,22 +18,23 @@ func TestFormatDynastyResponse(t *testing.T) {
 
 	t.Run("profit increase when stability > 10000", func(t *testing.T) {
 		resp := formatter.FormatDynastyResponse(d, 9, 4, 3, "props", "area", "den", 25000, "1403/01/01", &photo, []formatter.AvailableFeature{{
-			ID:          1,
-			Coordinates: []formatter.FeatureCoordinate{{ID: 9, X: "51.389000", Y: "35.689200"}},
-		}})
+			ID: 1,
+		}}, []formatter.FeatureCoordinate{{ID: 4, X: "51.400000", Y: "35.700000"}})
 		require.NotNil(t, resp)
 		assert.True(t, resp.UserHasDynasty)
 		assert.Equal(t, uint64(1), resp.ID)
 		assert.Equal(t, "p.jpg", resp.ProfileImage)
 		assert.Equal(t, "1.500", resp.DynastyFeature.FeatureProfitIncrease)
+		assert.Equal(t, []formatter.FeatureCoordinate{{ID: 4, X: "51.400000", Y: "35.700000"}}, resp.DynastyFeature.Coordinates)
 		require.Len(t, resp.Features, 1)
-		assert.Equal(t, []formatter.FeatureCoordinate{{ID: 9, X: "51.389000", Y: "35.689200"}}, resp.Features[0].Coordinates)
+		assert.Equal(t, uint64(1), resp.Features[0].ID)
 	})
 
 	t.Run("zero profit when stability low", func(t *testing.T) {
-		resp := formatter.FormatDynastyResponse(d, 1, 0, 3, "p", "a", "d", 5000, "x", nil, nil)
+		resp := formatter.FormatDynastyResponse(d, 1, 0, 3, "p", "a", "d", 5000, "x", nil, nil, nil)
 		assert.Equal(t, "0", resp.DynastyFeature.FeatureProfitIncrease)
 		assert.Equal(t, "", resp.ProfileImage)
+		assert.Empty(t, resp.DynastyFeature.Coordinates)
 	})
 }
 

@@ -20,16 +20,17 @@ type DynastyResponse struct {
 
 // DynastyFeature represents the dynasty's selected feature
 type DynastyFeature struct {
-	ID                    uint64 `json:"id"`
-	PropertiesID          string `json:"properties_id"`
-	Area                  string `json:"area"`
-	Density               string `json:"density"`
-	FeatureProfitIncrease string `json:"feature-profit-increase"` // Note: kebab-case!
-	FamilyMembersCount    int    `json:"family-members-count"`    // Note: kebab-case!
-	LastUpdated           string `json:"last-updated"`            // Note: kebab-case!
+	ID                    uint64              `json:"id"`
+	PropertiesID          string              `json:"properties_id"`
+	Area                  string              `json:"area"`
+	Density               string              `json:"density"`
+	FeatureProfitIncrease string              `json:"feature-profit-increase"` // Note: kebab-case!
+	FamilyMembersCount    int                 `json:"family-members-count"`    // Note: kebab-case!
+	LastUpdated           string              `json:"last-updated"`            // Note: kebab-case!
+	Coordinates           []FeatureCoordinate `json:"coordinates"`
 }
 
-// FeatureCoordinate is one polygon point for an available dynasty feature.
+// FeatureCoordinate is one polygon point for the dynasty feature.
 type FeatureCoordinate struct {
 	ID uint64 `json:"id"`
 	X  string `json:"x"`
@@ -38,12 +39,11 @@ type FeatureCoordinate struct {
 
 // AvailableFeature represents a feature available for dynasty
 type AvailableFeature struct {
-	ID           uint64              `json:"id"`
-	PropertiesID string              `json:"properties_id"`
-	Density      string              `json:"density"`
-	Stability    string              `json:"stability"`
-	Area         string              `json:"area"`
-	Coordinates  []FeatureCoordinate `json:"coordinates"`
+	ID           uint64 `json:"id"`
+	PropertiesID string `json:"properties_id"`
+	Density      string `json:"density"`
+	Stability    string `json:"stability"`
+	Area         string `json:"area"`
 }
 
 func FormatDynastyResponse(
@@ -57,6 +57,7 @@ func FormatDynastyResponse(
 	dynastyUpdatedAt string,
 	profilePhoto *string,
 	userFeatures []AvailableFeature,
+	coordinates []FeatureCoordinate,
 ) *DynastyResponse {
 	// Calculate feature profit increase
 	var profitIncrease string
@@ -70,6 +71,9 @@ func FormatDynastyResponse(
 	profileImageStr := ""
 	if profilePhoto != nil {
 		profileImageStr = *profilePhoto
+	}
+	if coordinates == nil {
+		coordinates = []FeatureCoordinate{}
 	}
 
 	return &DynastyResponse{
@@ -86,6 +90,7 @@ func FormatDynastyResponse(
 			FeatureProfitIncrease: profitIncrease,
 			FamilyMembersCount:    familyMembersCount,
 			LastUpdated:           dynastyUpdatedAt, // Already in Jalali format
+			Coordinates:           coordinates,
 		},
 		Features: userFeatures,
 	}
