@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -126,7 +127,7 @@ func buildRedisURL() string {
 	redisPassword := getEnv("REDIS_PASSWORD", "")
 	redisDB := getEnv("REDIS_DB", "0")
 	if redisPassword != "" {
-		return fmt.Sprintf("redis://:%s@%s:%s/%s", redisPassword, redisHost, redisPort, redisDB)
+		return fmt.Sprintf("redis://%s@%s:%s/%s", url.UserPassword("", redisPassword).String(), redisHost, redisPort, redisDB)
 	}
 	return fmt.Sprintf("redis://%s:%s/%s", redisHost, redisPort, redisDB)
 }

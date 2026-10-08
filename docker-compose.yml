@@ -31,8 +31,10 @@ x-migrate-depends: &migrate-depends
   migrate:
     condition: service_completed_successfully
 
-# Shared MySQL credentials (Dokploy env / local .env). Go services keep DB_HOST=mysql
-# on metarang-network; the admin panel reaches this instance as metarang-mysql on metarang-shared.
+# Shared MySQL credentials (Dokploy env / local .env). Services only on metarang-network
+# keep DB_HOST=mysql. storage-service also joins dokploy-network, where SSO publishes
+# the mysql alias, so that service overrides DB_HOST to metarang-mysql. The admin
+# panel reaches this instance as metarang-mysql on metarang-shared.
 x-db-environment: &db-environment
   DB_HOST: mysql
   DB_PORT: 3306
@@ -88,6 +90,8 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       metarang-network:
+        aliases:
+          - metarang-mysql
       metarang-shared:
         aliases:
           - metarang-mysql
@@ -108,19 +112,34 @@ services:
     # Default stop timeout is 10s, which can SIGKILL mysqld before InnoDB finishes.
     stop_grace_period: 1m
 
-  # Redis (for pub/sub and caching). Keep off metarang-shared — the admin panel has its own Redis.
+  # Redis for pub/sub and caching. Stays on metarang-network only; the admin panel has its own Redis.
+  # Kong and websocket-gateway also join dokploy-network, where another container is named redis
+  # and requires AUTH. They connect via the metarang-redis alias so Docker DNS stays on this instance.
   redis:
     <<: *service-defaults
     image: redis:7.4-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    # Call the image entrypoint so /data is prepared and the server drops to the redis user.
+    # --requirepass is omitted when REDIS_PASSWORD is empty; an empty value still enables AUTH.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -n "$$REDIS_PASSWORD" ]; then
+          exec /usr/local/bin/docker-entrypoint.sh redis-server --requirepass "$$REDIS_PASSWORD"
+        fi
+        exec /usr/local/bin/docker-entrypoint.sh redis-server
     ports:
       - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
     # Named volume: the Redis image writes RDB snapshots to /data.
     volumes:
       - redis_data:/data
     networks:
-      - metarang-network
+      metarang-network:
+        aliases:
+          - metarang-redis
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then export REDISCLI_AUTH=\"$$REDIS_PASSWORD\"; fi; redis-cli ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -185,7 +204,10 @@ services:
       HTTP_PORT: 8066
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_URL: redis://redis:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      # Empty so buildRedisURL applies REDIS_PASSWORD. A fixed URL skips AUTH.
+      REDIS_URL: ""
       NOTIFICATIONS_SERVICE_ADDR: notifications-service:50058
       LEVELS_SERVICE_ADDR: levels-service:50054
       FEATURES_SERVICE_ADDR: features-service:50053
@@ -281,6 +303,8 @@ services:
       APP_URL: ${APP_URL:-http://localhost:8000}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       COMMERCIAL_SERVICE_ADDR: commercial-service:50052
       STORAGE_SERVICE_ADDR: storage-service:50060
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
@@ -812,6 +836,8 @@ services:
       UPLOAD_DIR: /app/uploads
       TEMP_DIR: /tmp/storage-chunks
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
+      # Wins over x-db-environment. Unqualified mysql on dokploy-network is the SSO database.
+      DB_HOST: metarang-mysql
     depends_on:
       <<: [*grpc-certs-depends, *migrate-depends]
       mysql:
@@ -849,7 +875,12 @@ services:
       - ./services/websocket-gateway/config.env
     environment:
       PORT: 3002
-      REDIS_URL: redis://redis:6379
+      # metarang-redis: this stack's Redis. The short name redis is ambiguous on dokploy-network.
+      REDIS_HOST: metarang-redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      REDIS_URL: redis://metarang-redis:6379
       AUTH_SERVICE_ADDR: auth-service:50051
       AUTH_SERVICE_HTTP_URL: http://auth-service:8066
       <<: [*sentry-environment, *internal-auth, *grpc-tls]
@@ -891,6 +922,11 @@ services:
       dockerfile: ./services/health-check-service/Dockerfile
     ports:
       - "127.0.0.1:8090:8090"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: "0"
     networks:
       - metarang-network
     restart: unless-stopped
@@ -980,6 +1016,8 @@ services:
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 127.0.0.1:8001
       KONG_PROXY_LISTEN: 0.0.0.0:8000
+      # Rendered into rate-limiting redis.password by kong/docker-entrypoint-wrapper.sh.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     ports:
       - "8000:8000" # Proxy port (main API endpoint)
       # Admin API listens on 127.0.0.1:8001 inside the container only — not exposed on the host
@@ -988,6 +1026,8 @@ services:
       - ./kong/docker-entrypoint-wrapper.sh:/kong/docker-entrypoint-wrapper.sh:ro
       - ./shared/proto:/kong/protos:ro
     depends_on:
+      redis:
+        condition: service_healthy
       auth-service:
         condition: service_healthy
       commercial-service:
