@@ -142,6 +142,11 @@ func TestBuildRedisURL(t *testing.T) {
 	if got := buildRedisURL(); got != "redis://:pw@rhost:6380/2" {
 		t.Fatalf("got %q", got)
 	}
+
+	t.Setenv("REDIS_PASSWORD", "p@ss")
+	if got := buildRedisURL(); got != "redis://:p%40ss@rhost:6380/2" {
+		t.Fatalf("got %q", got)
+	}
 }
 
 func TestNewRedisOptions(t *testing.T) {

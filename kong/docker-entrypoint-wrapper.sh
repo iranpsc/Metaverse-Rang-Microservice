@@ -73,6 +73,28 @@ EOF
     ;;
 esac
 
+# Rate-limiting stores counters in Redis. Insert the password only when
+# REDIS_PASSWORD is set; an empty password makes Redis reject AUTH.
+if [ -n "${REDIS_PASSWORD:-}" ]; then
+  quoted=$(printf '%s' "$REDIS_PASSWORD" | sed "s/'/''/g")
+  tmp="${dst}.next"
+  : > "$tmp"
+  while IFS= read -r line || [ -n "$line" ]; do
+    clean=$(printf '%s' "$line" | tr -d '\r')
+    case "$clean" in
+      *"# redis-password")
+        indent=${clean%%#*}
+        printf '%spassword: '"'"'%s'"'"'\n' "$indent" "$quoted" >> "$tmp"
+        ;;
+      *)
+        printf '%s\n' "$clean" >> "$tmp"
+        ;;
+    esac
+  done < "$dst"
+  mv "$tmp" "$dst"
+  echo "kong: redis password configured for rate-limiting" >&2
+fi
+
 export KONG_DECLARATIVE_CONFIG="$dst"
 
 # Validate the rendered file without starting the proxy:

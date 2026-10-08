@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -28,7 +30,7 @@ func main() {
 	defer sentry.Flush(2 * time.Second)
 
 	port := getEnv("PORT", "3002")
-	redisURL := getEnv("REDIS_URL", "redis://redis:6379")
+	redisURL := redisURLFromEnv()
 	authAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:50051")
 	corsOrigins := parseCORSOrigins(getEnv("CORS_ORIGIN", "http://localhost:5173"))
 
@@ -123,6 +125,19 @@ func loadConfig() {
 			return
 		}
 	}
+}
+
+func redisURLFromEnv() string {
+	if explicit := getEnv("REDIS_URL", ""); explicit != "" {
+		return explicit
+	}
+	host := getEnv("REDIS_HOST", "redis")
+	port := getEnv("REDIS_PORT", "6379")
+	db := getEnv("REDIS_DB", "0")
+	if password := getEnv("REDIS_PASSWORD", ""); password != "" {
+		return fmt.Sprintf("redis://%s@%s:%s/%s", url.UserPassword("", password).String(), host, port, db)
+	}
+	return fmt.Sprintf("redis://%s:%s/%s", host, port, db)
 }
 
 func getEnv(key, fallback string) string {

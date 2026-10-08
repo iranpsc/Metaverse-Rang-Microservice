@@ -211,8 +211,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -236,8 +237,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -264,8 +266,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -303,8 +306,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -335,8 +339,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -361,8 +366,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -392,8 +398,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -419,8 +426,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -446,8 +454,9 @@ routes:
           minute: 120
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -473,8 +482,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -503,8 +513,9 @@ routes:
           minute: 120
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -556,8 +567,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
@@ -588,8 +600,9 @@ routes:
           minute: 60
           policy: redis
           redis:
-            host: redis
+            host: metarang-redis
             port: 6379
+            # redis-password
             ssl: false
             ssl_verify: false
 
