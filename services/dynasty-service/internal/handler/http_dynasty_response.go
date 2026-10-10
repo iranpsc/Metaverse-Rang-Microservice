@@ -66,6 +66,7 @@ func buildDynastyFeatureHTTP(feature *dynastypb.DynastyFeature) map[string]inter
 		"feature-profit-increase": feature.FeatureProfitIncrease,
 		"family-members-count":    feature.FamilyMembersCount,
 		"last-updated":            feature.LastUpdated,
+		"coordinates":             featureCoordinatesHTTP(feature.Coordinates),
 	}
 }
 
@@ -77,7 +78,6 @@ func availableFeatureHTTP(feature *dynastypb.AvailableFeature) map[string]interf
 			"density":       "",
 			"stability":     "",
 			"area":          "",
-			"coordinates":   featureCoordinatesHTTP(nil),
 		}
 	}
 	return map[string]interface{}{
@@ -86,7 +86,6 @@ func availableFeatureHTTP(feature *dynastypb.AvailableFeature) map[string]interf
 		"density":       feature.Density,
 		"stability":     feature.Stability,
 		"area":          feature.Area,
-		"coordinates":   featureCoordinatesHTTP(feature.Coordinates),
 	}
 }
 

@@ -79,6 +79,7 @@ func buildDynastyFeature(details map[string]interface{}, memberCount int32, upda
 		FeatureProfitIncrease: profitIncrease,
 		FamilyMembersCount:    memberCount,
 		LastUpdated:           formatJalaliDateTime(updatedAt),
+		Coordinates:           featureCoordinatesFromDetails(details["coordinates"]),
 	}
 }
 
@@ -102,7 +103,6 @@ func availableFeatureFromDetails(details map[string]interface{}) *dynastypb.Avai
 		Density:      getString(details["density"]),
 		Stability:    getString(details["stability"]),
 		Area:         getString(details["area"]),
-		Coordinates:  featureCoordinatesFromDetails(details["coordinates"]),
 	}
 }
 

@@ -218,12 +218,10 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 					DynastyFeature: &dynastypb.DynastyFeature{
 						Id: 100, PropertiesId: "p1", Area: "a", Density: "d",
 						FeatureProfitIncrease: "0.5", FamilyMembersCount: 3, LastUpdated: "1403/01/02",
+						Coordinates: []*dynastypb.FeatureCoordinate{{Id: 4, X: "51.400000", Y: "35.700000"}},
 					},
 					Features: []*dynastypb.AvailableFeature{
-						{
-							Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3",
-							Coordinates: []*dynastypb.FeatureCoordinate{{Id: 9, X: "51.389000", Y: "35.689200"}},
-						},
+						{Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3"},
 					},
 					Prizes: []*dynastypb.IntroductionPrize{{
 						Member: "brother", Satisfaction: 1, IntroductionProfitIncrease: 2,
@@ -244,14 +242,23 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, true, data["user-has-dynasty"])
 		assert.Equal(t, photo, data["profile-image"])
+		assert.Equal(t, map[string]interface{}{
+			"id":                      float64(100),
+			"properties_id":           "p1",
+			"area":                    "a",
+			"density":                 "d",
+			"feature-profit-increase": "0.5",
+			"family-members-count":    float64(3),
+			"last-updated":            "1403/01/02",
+			"coordinates": []interface{}{
+				map[string]interface{}{"id": float64(4), "x": "51.400000", "y": "35.700000"},
+			},
+		}, data["dynasty-feature"])
 		features, ok := data["features"].([]interface{})
 		require.True(t, ok)
 		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
 			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
-			"coordinates": []interface{}{
-				map[string]interface{}{"id": float64(9), "x": "51.389000", "y": "35.689200"},
-			},
 		}, features[0])
 		_, prizesOK := data["prizes"].([]interface{})
 		assert.True(t, prizesOK)
@@ -287,7 +294,6 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
 			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
-			"coordinates": []interface{}{},
 		}, features[0])
 		_, hasID := data["id"]
 		assert.False(t, hasID)
