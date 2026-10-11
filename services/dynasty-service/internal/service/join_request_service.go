@@ -697,6 +697,24 @@ func (s *JoinRequestService) GetPrizeByRelationship(ctx context.Context, relatio
 	return s.prizeRepo.GetPrizeByRelationship(ctx, relationship)
 }
 
+const joinRequestAcceptedStatus int16 = 1
+
+// JoinRequestPrizeCollected reports whether the requester has already redeemed
+// the awarded relationship prize. Pending and rejected requests are not collected.
+func (s *JoinRequestService) JoinRequestPrizeCollected(ctx context.Context, request *models.JoinRequest, prizeID uint64) (bool, error) {
+	if request == nil || prizeID == 0 || s.prizeRepo == nil {
+		return false, nil
+	}
+	if request.Status != joinRequestAcceptedStatus {
+		return false, nil
+	}
+	unclaimed, err := s.prizeRepo.CheckPrizeClaimed(ctx, request.FromUser, prizeID)
+	if err != nil {
+		return false, err
+	}
+	return !unclaimed, nil
+}
+
 // GetDefaultPermissions retrieves default dynasty permissions for offspring
 func (s *JoinRequestService) GetDefaultPermissions(ctx context.Context) (*models.DynastyPermission, error) {
 	return s.joinRequestRepo.GetDynastyPermission(ctx)

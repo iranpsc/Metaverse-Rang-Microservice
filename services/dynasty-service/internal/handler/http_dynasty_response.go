@@ -203,6 +203,10 @@ func buildReceivedJoinRequestHTTP(req *dynastypb.JoinRequestResponse) map[string
 		item["from_user"] = buildJoinRequestUserHTTP(req.ToUserInfo)
 	}
 
+	if req.RequestPrize != nil {
+		item["prize"] = buildJoinRequestPrizeHTTP(req.RequestPrize)
+	}
+
 	return item
 }
 
@@ -258,6 +262,9 @@ func buildJoinRequestPrizeHTTP(prize *dynastypb.DynastyPrize) map[string]interfa
 	}
 	if prize.DataStorage != "" {
 		result["data_storage"] = prize.DataStorage
+	}
+	if prize.Collected != nil {
+		result["collected"] = *prize.Collected
 	}
 	return result
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"metarang/dynasty-service/internal/handler"
 	commonpb "metarang/shared/pb/common"
@@ -414,9 +415,20 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 		GetReceivedRequestsFunc: func(context.Context, *dynastypb.GetReceivedRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
 			return &dynastypb.JoinRequestsResponse{Requests: []*dynastypb.JoinRequestResponse{{
 				Id: 2, Status: 0, Relationship: "sister", CreatedAt: "1403/01/02",
-				Message:    "hello there",
-				ToUserInfo: &commonpb.UserBasic{Id: 3, Code: "C3", Name: "Ann"},
+				Message:      "hello there",
+				ToUserInfo:   &commonpb.UserBasic{Id: 3, Code: "C3", Name: "Ann"},
+				RequestPrize: &dynastypb.DynastyPrize{Id: 4, Psc: 2, Member: "sister"},
 			}}}, nil
+		},
+		GetJoinRequestFunc: func(context.Context, *dynastypb.GetJoinRequestRequest) (*dynastypb.JoinRequestResponse, error) {
+			return &dynastypb.JoinRequestResponse{
+				Id:           9,
+				Status:       1,
+				Relationship: "brother",
+				CreatedAt:    "1403/01/01 12:00",
+				ToUserInfo:   &commonpb.UserBasic{Id: 2, Code: "C2", Name: "Bob"},
+				RequestPrize: &dynastypb.DynastyPrize{Id: 9, Psc: 1, Member: "brother", Collected: proto.Bool(true)},
+			}, nil
 		},
 	}
 	h := newHTTPHandler(nil, join, nil, nil)
@@ -435,6 +447,8 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"from_user"`)
 	assert.Contains(t, rr.Body.String(), `"message":"hello there"`)
+	assert.Contains(t, rr.Body.String(), `"prize"`)
+	assert.NotContains(t, rr.Body.String(), `"collected"`)
 
 	body := `{"user":5,"relationship":"offspring","message":"hi","permissions":{"BFR":true,"SF":false,"W":true,"JU":false,"DM":false,"PIUP":false,"PITC":false,"PIC":false,"ESOO":false,"COTB":false}}`
 	rr = httptest.NewRecorder()
@@ -456,10 +470,14 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 	rr = httptest.NewRecorder()
 	h.GetSentRequest(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/sent/9", nil)))
 	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `"prize"`)
+	assert.Contains(t, rr.Body.String(), `"collected":true`)
 
 	rr = httptest.NewRecorder()
 	h.GetReceivedRequest(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/recieved/9", nil)))
 	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `"prize"`)
+	assert.Contains(t, rr.Body.String(), `"collected":true`)
 
 	rr = httptest.NewRecorder()
 	h.DeleteJoinRequest(rr, withUser(1, httptest.NewRequest(http.MethodDelete, "/api/dynasty/requests/sent/9", nil)))

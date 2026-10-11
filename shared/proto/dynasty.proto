@@ -282,5 +282,6 @@ message DynastyPrize {
   string accumulated_capital_reserve = 5;
   string data_storage = 6;
   int32 psc = 7;
+  optional bool collected = 8; // set on join-request details: requester already redeemed the prize
 }
 

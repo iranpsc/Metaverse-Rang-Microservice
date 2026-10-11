@@ -188,6 +188,32 @@ func TestJoinRequestHandler_SendAndListHappyPaths(t *testing.T) {
 	require.NotNil(t, one)
 
 	mock.ExpectQuery("SELECT id, from_user, to_user").
+		WithArgs(uint64(12)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "from_user", "to_user", "status", "relationship", "message", "created_at", "updated_at"}).
+			AddRow(12, fromUser, toUser, 1, "brother", "hi", now, now))
+	mock.ExpectQuery("SELECT u.id, u.code, u.name").
+		WithArgs(toUser).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "code", "name"}).AddRow(toUser, "C2", "Bob"))
+	mock.ExpectQuery("SELECT url FROM images").
+		WithArgs(toUser).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("FROM dynasty_prizes").
+		WithArgs("brother").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "member", "satisfaction", "introduction_profit_increase",
+			"accumulated_capital_reserve", "data_storage", "psc", "created_at", "updated_at",
+		}).AddRow(1, "brother", 0.5, 0.1, 0.2, 0.3, 10, now, now))
+	mock.ExpectQuery("FROM received_prizes").
+		WithArgs(fromUser, uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
+	accepted, err := h.GetJoinRequest(ctx, &dynastypb.GetJoinRequestRequest{RequestId: 12, UserId: fromUser})
+	require.NoError(t, err)
+	require.NotNil(t, accepted.RequestPrize)
+	require.NotNil(t, accepted.RequestPrize.Collected)
+	assert.True(t, *accepted.RequestPrize.Collected)
+
+	mock.ExpectQuery("SELECT id, from_user, to_user").
 		WithArgs(uint64(11)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "from_user", "to_user", "status", "relationship", "message", "created_at", "updated_at"}).
 			AddRow(11, fromUser, toUser, 0, "brother", nil, now, now))
