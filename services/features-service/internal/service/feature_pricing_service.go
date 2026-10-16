@@ -83,9 +83,11 @@ func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featur
 
 	totalPrice := properties.Stability * colorRate * float64(minimumPricePercentage) / 100.0
 
+	fmt.Println("totalPrice", totalPrice)
+
 	// Split 50/50 between PSC and IRR
-	pricePSC := (totalPrice * 0.5) / pscRate
 	priceIRR := totalPrice * 0.5
+	pricePSC := (totalPrice - priceIRR) / pscRate
 
 	// Convert to strings (stored as VARCHAR in database)
 	pricePSCStr := fmt.Sprintf("%.10f", pricePSC)
