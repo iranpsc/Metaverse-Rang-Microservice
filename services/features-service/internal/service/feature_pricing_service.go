@@ -81,6 +81,10 @@ func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featur
 	colorRate := s.getVariableRate(ctx, color)
 	pscRate := s.getVariableRate(ctx, "psc")
 
+	s.log.Info("color", "color", color)
+	s.log.Info("colorRate", "colorRate", colorRate)
+	s.log.Info("pscRate", "pscRate", pscRate)
+
 	totalPrice := properties.Stability * colorRate * float64(minimumPricePercentage) / 100.0
 
 	fmt.Println("totalPrice", totalPrice)
