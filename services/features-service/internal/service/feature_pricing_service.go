@@ -191,9 +191,10 @@ func (s *FeaturePricingService) isUserUnder18(ctx context.Context, userID uint64
 
 func (s *FeaturePricingService) getVariableRate(ctx context.Context, asset string) float64 {
 	var rate float64
-	query := "SELECT value FROM variables WHERE `key` = ?"
-	result := s.db.QueryRowContext(ctx, query, asset).Scan(&rate)
-	s.log.Info("asset", "result", result)
+	query := "SELECT price FROM variables WHERE `asset` = ?"
+	if err := s.db.QueryRowContext(ctx, query, asset).Scan(&rate); err != nil {
+		return 1.0 // Default
+	}
 	return rate
 }
 
