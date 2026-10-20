@@ -4,27 +4,33 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
+	"metarang/dynasty-service/tests/internal/testutil"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 
-	"metarang/dynasty-service/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"metarang/dynasty-service/internal/service"
 
 	"metarang/dynasty-service/internal/repository"
 )
 
 type stubWallet struct {
-	pscCalls int
-	satCalls int
-	pscErr   error
-	satErr   error
+	pscCalls  int
+	pscAmount float64
+	pscUser   uint64
+	satCalls  int
+	pscErr    error
+	satErr    error
 }
 
 func (s *stubWallet) IncrementWalletPSC(ctx context.Context, userID uint64, amount float64) error {
 	s.pscCalls++
+	s.pscAmount = amount
+	s.pscUser = userID
 	return s.pscErr
 }
 
@@ -104,6 +110,8 @@ func TestPrizeService_ClaimPrize(t *testing.T) {
 		err = svc.ClaimPrize(ctx, receivedPrizeID, userID)
 		require.NoError(t, err)
 		assert.Equal(t, 1, wallet.pscCalls)
+		assert.Equal(t, 10.0, wallet.pscAmount)
+		assert.Equal(t, userID, wallet.pscUser)
 		assert.Equal(t, 1, wallet.satCalls)
 
 		require.NoError(t, mock.ExpectationsWereMet())
@@ -512,4 +520,47 @@ func TestPrizeService_ClaimPrize_WalletErrorBeforeTx(t *testing.T) {
 	assert.Contains(t, err.Error(), "wallet psc credit")
 
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestPrizeService_ClaimPrize_CommercialRate(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		rate    float64
+		err     error
+		success bool
+	}{
+		{"fractional", 400, nil, true}, {"conversion overflow", math.SmallestNonzeroFloat64, nil, false}, {"zero", 0, nil, false}, {"negative", -1, nil, false},
+		{"nan", math.NaN(), nil, false}, {"infinite", math.Inf(1), nil, false}, {"unavailable", 0, errors.New("down"), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
+			commercial, dependency := testutil.StartCommercial(t, tc.rate, tc.err)
+			svc := service.NewPrizeService(db, repository.NewPrizeRepository(db), commercial, repository.NewUserVariableRepository(db), commercial)
+			mock.ExpectQuery("SELECT rp.id, rp.user_id").WithArgs(uint64(1)).WillReturnRows(
+				sqlmock.NewRows([]string{"id", "user_id", "prize_id", "message", "created_at", "updated_at", "member", "satisfaction", "introduction_profit_increase", "accumulated_capital_reserve", "data_storage", "psc"}).
+					AddRow(1, 7, 2, "prize", time.Now(), time.Now(), "brother", 0.1, 0.2, 0.3, 0.4, 1000))
+			if tc.success {
+				mock.ExpectBegin()
+				mock.ExpectExec("UPDATE user_variables SET").WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectExec("DELETE FROM received_prizes WHERE id").WithArgs(uint64(1)).WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectCommit()
+			}
+			err = svc.ClaimPrize(context.Background(), 1, 7)
+			if tc.success {
+				require.NoError(t, err)
+				require.Len(t, dependency.Credits, 2)
+				credit := <-dependency.Credits
+				assert.Equal(t, "psc", credit.Asset)
+				assert.Equal(t, uint64(7), credit.UserId)
+				assert.Equal(t, 2.5, credit.Amount)
+			} else {
+				require.Error(t, err)
+				assert.Empty(t, dependency.Credits)
+			}
+			assert.Equal(t, int32(1), dependency.RateCalls.Load())
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }

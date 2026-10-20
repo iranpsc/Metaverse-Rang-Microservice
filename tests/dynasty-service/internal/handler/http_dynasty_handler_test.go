@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"metarang/dynasty-service/internal/handler"
+	"metarang/dynasty-service/tests/internal/testutil"
 	commonpb "metarang/shared/pb/common"
 	dynastypb "metarang/shared/pb/dynasty"
 	authpkg "metarang/shared/pkg/auth"
@@ -184,7 +187,7 @@ func newHTTPHandler(d *fakeDynastyAPI, j *fakeJoinRequestAPI, f *fakeFamilyAPI, 
 	if p == nil {
 		p = &fakePrizeAPI{}
 	}
-	return handler.NewHTTPDynastyHandler(d, j, f, p)
+	return handler.NewHTTPDynastyHandler(d, j, f, p, nil)
 }
 
 func TestHTTPDynastyHandler_StartHTTPServer_InvalidPort(t *testing.T) {
@@ -431,7 +434,8 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 			}, nil
 		},
 	}
-	h := newHTTPHandler(nil, join, nil, nil)
+	rates, dependency := testutil.StartCommercial(t, 4, nil)
+	h := handler.NewHTTPDynastyHandler(nil, join, nil, nil, rates)
 
 	rr := httptest.NewRecorder()
 	req := withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/sent?page=2", nil))
@@ -441,6 +445,7 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), `"prize"`)
 	assert.Contains(t, rr.Body.String(), "برادر")
 	assert.Contains(t, rr.Body.String(), `"message":"please join"`)
+	assert.Contains(t, rr.Body.String(), `"psc":0.25`)
 
 	rr = httptest.NewRecorder()
 	h.GetReceivedRequests(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/recieved?page=1", nil)))
@@ -449,6 +454,8 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), `"message":"hello there"`)
 	assert.Contains(t, rr.Body.String(), `"prize"`)
 	assert.NotContains(t, rr.Body.String(), `"collected"`)
+	assert.Contains(t, rr.Body.String(), `"psc":0.5`)
+	assert.Equal(t, int32(2), dependency.RateCalls.Load())
 
 	body := `{"user":5,"relationship":"offspring","message":"hi","permissions":{"BFR":true,"SF":false,"W":true,"JU":false,"DM":false,"PIUP":false,"PITC":false,"PIC":false,"ESOO":false,"COTB":false}}`
 	rr = httptest.NewRecorder()
@@ -733,4 +740,86 @@ func TestHTTPDynastyHandler_UpdateChildPermissionCanDisable(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "DM", family.lastPermission)
 	assert.False(t, family.lastEnabled)
+}
+
+func TestHTTPDynastyHandler_JoinRequestPrizeRateFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		rate float64
+		err  error
+	}{
+		{"zero", 0, nil}, {"negative", -1, nil}, {"nan", math.NaN(), nil}, {"infinite", math.Inf(1), nil},
+		{"unavailable", 0, status.Error(codes.Unavailable, "down")},
+		{"conversion overflow", math.SmallestNonzeroFloat64, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rates, dependency := testutil.StartCommercial(t, tc.rate, tc.err)
+			response := &dynastypb.JoinRequestsResponse{Requests: []*dynastypb.JoinRequestResponse{{RequestPrize: &dynastypb.DynastyPrize{Psc: 1000}}}}
+			join := &fakeJoinRequestAPI{
+				GetSentRequestsFunc: func(context.Context, *dynastypb.GetSentRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
+					return response, nil
+				},
+				GetReceivedRequestsFunc: func(context.Context, *dynastypb.GetReceivedRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
+					return response, nil
+				},
+			}
+			h := handler.NewHTTPDynastyHandler(nil, join, nil, nil, rates)
+			for _, call := range []func(http.ResponseWriter, *http.Request){h.GetSentRequests, h.GetReceivedRequests} {
+				rr := httptest.NewRecorder()
+				call(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/", nil)))
+				assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+				assert.NotContains(t, rr.Body.String(), `"psc":1000`)
+			}
+			assert.Equal(t, int32(2), dependency.RateCalls.Load())
+		})
+	}
+}
+
+func TestHTTPDynastyHandler_JoinRequestPrizesReuseRate(t *testing.T) {
+	for _, received := range []bool{false, true} {
+		t.Run(fmt.Sprint(received), func(t *testing.T) {
+			rates, dependency := testutil.StartCommercial(t, 400, nil)
+			response := &dynastypb.JoinRequestsResponse{Requests: []*dynastypb.JoinRequestResponse{
+				{RequestPrize: &dynastypb.DynastyPrize{Psc: 3000000000}},
+				{RequestPrize: &dynastypb.DynastyPrize{Psc: 0}},
+				{RequestPrize: &dynastypb.DynastyPrize{Psc: 200}}, {},
+			}}
+			join := &fakeJoinRequestAPI{
+				GetSentRequestsFunc: func(context.Context, *dynastypb.GetSentRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
+					return response, nil
+				},
+				GetReceivedRequestsFunc: func(context.Context, *dynastypb.GetReceivedRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
+					return response, nil
+				},
+			}
+			h := handler.NewHTTPDynastyHandler(nil, join, nil, nil, rates)
+			call := h.GetSentRequests
+			if received {
+				call = h.GetReceivedRequests
+			}
+			rr := httptest.NewRecorder()
+			call(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/", nil)))
+			require.Equal(t, http.StatusOK, rr.Code)
+			var body struct {
+				Data []struct {
+					Prize *struct {
+						PSC float64 `json:"psc"`
+					} `json:"prize"`
+				} `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &body))
+			require.Len(t, body.Data, 4)
+			assert.Equal(t, 7500000.0, body.Data[0].Prize.PSC)
+			assert.Zero(t, body.Data[1].Prize.PSC)
+			assert.Equal(t, 0.5, body.Data[2].Prize.PSC)
+			assert.Nil(t, body.Data[3].Prize)
+			assert.Equal(t, int32(1), dependency.RateCalls.Load())
+			assert.Equal(t, int64(3000000000), response.Requests[0].RequestPrize.Psc)
+			response.Requests = nil
+			rr = httptest.NewRecorder()
+			call(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/", nil)))
+			assert.Equal(t, http.StatusOK, rr.Code)
+			assert.Equal(t, int32(1), dependency.RateCalls.Load())
+		})
+	}
 }

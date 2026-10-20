@@ -201,7 +201,7 @@ func buildDynastyPrize(prize *models.DynastyPrize) *dynastypb.DynastyPrize {
 		IntroductionProfitIncrease: fmt.Sprintf("%.0f", prize.IntroductionProfitIncrease*100),
 		AccumulatedCapitalReserve:  fmt.Sprintf("%.0f", prize.AccumulatedCapitalReserve*100),
 		DataStorage:                fmt.Sprintf("%.0f", prize.DataStorage*100),
-		Psc:                        int32(prize.PSC),
+		Psc:                        int64(prize.PSC),
 	}
 }
 

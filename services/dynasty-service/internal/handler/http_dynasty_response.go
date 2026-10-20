@@ -1,7 +1,10 @@
 package handler
 
 import (
+	"context"
 	"strings"
+
+	"metarang/dynasty-service/internal/service"
 
 	commonpb "metarang/shared/pb/common"
 	dynastypb "metarang/shared/pb/dynasty"
@@ -134,28 +137,35 @@ func buildFamilyMembersHTTPResponse(resp *dynastypb.FamilyResponse) []map[string
 	return members
 }
 
-func buildSentJoinRequestsHTTPResponse(resp *dynastypb.JoinRequestsResponse) []map[string]interface{} {
-	if resp == nil || len(resp.Requests) == 0 {
-		return []map[string]interface{}{}
+// buildJoinRequestsHTTPResponse uses one rate for all prizes and leaves the
+// source protobuf response unchanged.
+func (h *HTTPDynastyHandler) buildJoinRequestsHTTPResponse(ctx context.Context, resp *dynastypb.JoinRequestsResponse, build func(*dynastypb.JoinRequestResponse) map[string]interface{}) ([]map[string]interface{}, error) {
+	items := make([]map[string]interface{}, 0)
+	if resp == nil {
+		return items, nil
 	}
-
-	requests := make([]map[string]interface{}, 0, len(resp.Requests))
+	var rate float64
 	for _, req := range resp.Requests {
-		requests = append(requests, buildSentJoinRequestHTTP(req))
+		item := build(req)
+		if req != nil && req.RequestPrize != nil {
+			if rate == 0 {
+				var err error
+				rate, err = service.PSCRate(ctx, h.rates)
+				if err != nil {
+					return nil, err
+				}
+			}
+			amount, err := service.RialsToPSC(req.RequestPrize.Psc, rate)
+			if err != nil {
+				return nil, err
+			}
+			prize := buildJoinRequestPrizeHTTP(req.RequestPrize)
+			prize["psc"] = amount
+			item["prize"] = prize
+		}
+		items = append(items, item)
 	}
-	return requests
-}
-
-func buildReceivedJoinRequestsHTTPResponse(resp *dynastypb.JoinRequestsResponse) []map[string]interface{} {
-	if resp == nil || len(resp.Requests) == 0 {
-		return []map[string]interface{}{}
-	}
-
-	requests := make([]map[string]interface{}, 0, len(resp.Requests))
-	for _, req := range resp.Requests {
-		requests = append(requests, buildReceivedJoinRequestHTTP(req))
-	}
-	return requests
+	return items, nil
 }
 
 func buildSentJoinRequestHTTP(req *dynastypb.JoinRequestResponse) map[string]interface{} {

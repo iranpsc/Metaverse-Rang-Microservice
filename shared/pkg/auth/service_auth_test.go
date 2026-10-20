@@ -12,6 +12,9 @@ import (
 )
 
 func TestRequiresServiceAuth(t *testing.T) {
+	if !RequiresServiceAuth("/commercial.AssetRateService/GetAssetRate") {
+		t.Fatal("expected GetAssetRate to require service auth")
+	}
 	if !RequiresServiceAuth("/commercial.WalletService/AddBalance") {
 		t.Fatal("expected AddBalance to require service auth")
 	}

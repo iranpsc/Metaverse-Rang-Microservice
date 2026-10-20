@@ -17,6 +17,7 @@ import (
 	"metarang/commercial-service/internal/repository"
 	"metarang/commercial-service/internal/service"
 	authpb "metarang/shared/pb/auth"
+	commercialpb "metarang/shared/pb/commercial"
 	"metarang/shared/pkg/auth"
 	"metarang/shared/pkg/db"
 	grpcutil "metarang/shared/pkg/grpc"
@@ -120,6 +121,7 @@ func main() {
 	grpcServer := grpc.NewServer(serverOpts...)
 
 	handler.RegisterWalletHandler(grpcServer, walletService)
+	commercialpb.RegisterAssetRateServiceServer(grpcServer, handler.NewAssetRateHandler(variableRepo))
 	transactionHandler := handler.RegisterTransactionHandler(grpcServer, transactionService)
 	handler.RegisterReferralHandler(grpcServer, referralService)
 	handler.RegisterUserVariableHandler(grpcServer, userVariableService)

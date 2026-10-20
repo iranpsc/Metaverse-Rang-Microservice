@@ -10,6 +10,7 @@ const ServiceTokenMetadataKey = "x-service-token"
 
 // InternalServiceMethods require a valid service token (not public user auth bypass).
 var InternalServiceMethods = map[string]struct{}{
+	"/commercial.AssetRateService/GetAssetRate":           {},
 	"/commercial.WalletService/CreateWallet":              {},
 	"/commercial.WalletService/AddBalance":                {},
 	"/commercial.WalletService/DeductBalance":             {},

@@ -2322,7 +2322,7 @@ type DynastyPrize struct {
 	IntroductionProfitIncrease string                 `protobuf:"bytes,4,opt,name=introduction_profit_increase,json=introductionProfitIncrease,proto3" json:"introduction_profit_increase,omitempty"`
 	AccumulatedCapitalReserve  string                 `protobuf:"bytes,5,opt,name=accumulated_capital_reserve,json=accumulatedCapitalReserve,proto3" json:"accumulated_capital_reserve,omitempty"`
 	DataStorage                string                 `protobuf:"bytes,6,opt,name=data_storage,json=dataStorage,proto3" json:"data_storage,omitempty"`
-	Psc                        int32                  `protobuf:"varint,7,opt,name=psc,proto3" json:"psc,omitempty"`
+	Psc                        int64                  `protobuf:"varint,7,opt,name=psc,proto3" json:"psc,omitempty"`                   // Stored rial amount; HTTP join-request lists convert it to PSC.
 	Collected                  *bool                  `protobuf:"varint,8,opt,name=collected,proto3,oneof" json:"collected,omitempty"` // set on join-request details: requester already redeemed the prize
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
@@ -2400,7 +2400,7 @@ func (x *DynastyPrize) GetDataStorage() string {
 	return ""
 }
 
-func (x *DynastyPrize) GetPsc() int32 {
+func (x *DynastyPrize) GetPsc() int64 {
 	if x != nil {
 		return x.Psc
 	}
@@ -2615,7 +2615,7 @@ const file_dynasty_proto_rawDesc = "" +
 	"\x1cintroduction_profit_increase\x18\x04 \x01(\tR\x1aintroductionProfitIncrease\x12>\n" +
 	"\x1baccumulated_capital_reserve\x18\x05 \x01(\tR\x19accumulatedCapitalReserve\x12!\n" +
 	"\fdata_storage\x18\x06 \x01(\tR\vdataStorage\x12\x10\n" +
-	"\x03psc\x18\a \x01(\x05R\x03psc\x12!\n" +
+	"\x03psc\x18\a \x01(\x03R\x03psc\x12!\n" +
 	"\tcollected\x18\b \x01(\bH\x00R\tcollected\x88\x01\x01B\f\n" +
 	"\n" +
 	"_collected2\xc2\x02\n" +

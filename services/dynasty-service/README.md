@@ -49,6 +49,23 @@ gRPC remains available internally on `:50055`.
 - `POST /api/dynasty/requests/recieved/{joinRequest}` - Accept join request
 - `DELETE /api/dynasty/requests/recieved/{joinRequest}` - Reject join request
 
+The sent and received list responses expose `prize.psc` in PSC (a JSON number,
+including fractions). The stored `dynasty_prizes.psc` value remains in rials.
+Dynasty fetches the current rials-per-PSC rate once per nonempty prize response
+from commercial-service's `AssetRateService/GetAssetRate`, then divides the
+stored amount by that rate. For example, 1,000 rials at 400 rials/PSC returns
+`"psc": 2.5`. A missing, nonpositive, nonfinite, or unavailable rate returns HTTP
+503 instead of an unconverted prize. Negative prize amounts or nonfinite
+conversion results are also rejected before responding or crediting a wallet.
+Responses without prizes need no rate call. The internal protobuf rial field is
+64-bit to avoid overflow for prizes above 2,147,483,647 rials; generated consumers
+should be updated to read those larger values.
+
+Prize claims use the same commercial rate source and validation before crediting
+the user's PSC wallet. Deploy the commercial-service rate RPC before the updated
+dynasty-service. Both services must share `INTERNAL_SERVICE_SECRET`; the existing
+`COMMERCIAL_SERVICE_ADDR` setting selects the commercial gRPC endpoint.
+
 ### Children Permissions
 - `POST /api/dynasty/children/{user}` - Update child permission
 - `POST /api/dynasty/add/member/get/permissions` - Get default permissions
