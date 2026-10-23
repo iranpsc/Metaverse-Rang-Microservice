@@ -29,6 +29,9 @@ func (w *FileWriter) Write(filename string, body []byte) error {
 		return err
 	}
 	path := filepath.Join(w.dir, filename)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create sitemap dir: %w", err)
+	}
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, body, 0o644); err != nil {
 		return fmt.Errorf("write temp sitemap %s: %w", filename, err)
@@ -52,8 +55,35 @@ func (w *FileWriter) Remove(filename string) error {
 	return nil
 }
 
+// CleanupInactive removes generated files for languages absent from the latest list.
+func (w *FileWriter) CleanupInactive(active []string) error {
+	keep := make(map[string]bool, len(active))
+	for _, language := range active {
+		keep[language] = true
+	}
+	entries, err := os.ReadDir(w.dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() && languageCode.MatchString(name) && !keep[name] {
+			if err := os.RemoveAll(filepath.Join(w.dir, name)); err != nil {
+				return err
+			}
+		}
+		if !entry.IsDir() && strings.HasSuffix(name, ".xml") {
+			if err := os.Remove(filepath.Join(w.dir, name)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func validateFilename(filename string) error {
-	if filename == "" || filename != filepath.Base(filename) || strings.Contains(filename, "..") {
+	parts := strings.Split(filepath.ToSlash(filename), "/")
+	if len(parts) != 2 || !languageCode.MatchString(parts[0]) || parts[1] == "" || parts[1] != filepath.Base(parts[1]) || strings.Contains(parts[1], "..") || !strings.HasSuffix(parts[1], ".xml") {
 		return fmt.Errorf("invalid sitemap filename %q", filename)
 	}
 	return nil

@@ -146,28 +146,19 @@ func SplitEntries(entries []models.URLEntry, maxPerFile int) [][]models.URLEntry
 	return chunks
 }
 
-// VideoURLs returns fa/en watch URLs for a video slug.
-func VideoURLs(slug string) []string {
-	return []string{
-		SiteBaseURL + "/fa/education/watch/" + slug,
-		SiteBaseURL + "/en/education/watch/" + slug,
-	}
+// VideoURLs returns a watch URL for the given language and video slug.
+func VideoURLs(language, slug string) []string {
+	return []string{SiteBaseURL + "/" + language + "/education/watch/" + slug}
 }
 
-// CategoryURLs returns fa/en category URLs.
-func CategoryURLs(slug string) []string {
-	return []string{
-		SiteBaseURL + "/fa/education/category/" + slug,
-		SiteBaseURL + "/en/education/category/" + slug,
-	}
+// CategoryURLs returns a category URL for the given language.
+func CategoryURLs(language, slug string) []string {
+	return []string{SiteBaseURL + "/" + language + "/education/category/" + slug}
 }
 
-// SubCategoryURLs returns fa/en sub-category URLs.
-func SubCategoryURLs(categorySlug, subSlug string) []string {
-	return []string{
-		SiteBaseURL + "/fa/education/category/" + categorySlug + "/" + subSlug,
-		SiteBaseURL + "/en/education/category/" + categorySlug + "/" + subSlug,
-	}
+// SubCategoryURLs returns a sub-category URL for the given language.
+func SubCategoryURLs(language, categorySlug, subSlug string) []string {
+	return []string{SiteBaseURL + "/" + language + "/education/category/" + categorySlug + "/" + subSlug}
 }
 
 // ImageLoc builds an admin panel uploads URL.
@@ -177,40 +168,31 @@ func ImageLoc(adminBase, image string) string {
 	return base + "/uploads/" + image
 }
 
-// EventURLs returns fa/en calendar event URLs.
-func EventURLs(id uint64) []string {
-	return []string{
-		fmt.Sprintf("%s/fa/calendar/%d", SiteBaseURL, id),
-		fmt.Sprintf("%s/en/calendar/%d", SiteBaseURL, id),
-	}
+// EventURLs returns a calendar event URL for the given language.
+func EventURLs(language string, id uint64) []string {
+	return []string{fmt.Sprintf("%s/%s/calendar/%d", SiteBaseURL, language, id)}
 }
 
-// VersionURLs returns fa/en calendar version URLs.
-func VersionURLs(versionTitle string) []string {
-	return []string{
-		SiteBaseURL + "/fa/versions/" + versionTitle,
-		SiteBaseURL + "/en/versions/" + versionTitle,
-	}
+// VersionURLs returns a calendar version URL for the given language.
+func VersionURLs(language, versionTitle string) []string {
+	return []string{SiteBaseURL + "/" + language + "/versions/" + versionTitle}
 }
 
-// UserWalletURLs returns fa/en citizen wallet page URLs.
-func UserWalletURLs(code string) []string {
-	return citizenPathURLs(code, "wallet")
+// UserWalletURLs returns a citizen wallet URL for the given language.
+func UserWalletURLs(language, code string) []string {
+	return citizenPathURLs(language, code, "wallet")
 }
 
-// UserLandsURLs returns fa/en citizen summary/lands page URLs.
-func UserLandsURLs(code string) []string {
-	return citizenPathURLs(code, "summary")
+// UserLandsURLs returns a citizen summary URL for the given language.
+func UserLandsURLs(language, code string) []string {
+	return citizenPathURLs(language, code, "summary")
 }
 
-// UserBuildingsURLs returns fa/en citizen buildings page URLs.
-func UserBuildingsURLs(code string) []string {
-	return citizenPathURLs(code, "buildings")
+// UserBuildingsURLs returns a citizen buildings URL for the given language.
+func UserBuildingsURLs(language, code string) []string {
+	return citizenPathURLs(language, code, "buildings")
 }
 
-func citizenPathURLs(code, path string) []string {
-	return []string{
-		SiteBaseURL + "/fa/citizens/" + code + "/" + path,
-		SiteBaseURL + "/en/citizens/" + code + "/" + path,
-	}
+func citizenPathURLs(language, code, path string) []string {
+	return []string{SiteBaseURL + "/" + language + "/citizens/" + code + "/" + path}
 }
