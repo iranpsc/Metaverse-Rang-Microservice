@@ -156,18 +156,18 @@ def add(string_key: str, message: str, category: str, http_code: int | None = No
 
 def scan_go_files():
     pat_err = re.compile(
-        r"(?:var\s+)?(Err[A-Za-z0-9_]+)\s*=\s*errors\.New\(\"((?:\\.|[^\"])*)\"\)"
+        r'(?:var\s+)?(Err[A-Za-z0-9_]+)\s*=\s*errors\.New\("([^"\\]*(?:\\.[^"\\]*)*)"\)'
     )
-    pat_inline = re.compile(r'return[^;]*errors\.New\(\"((?:\\.|[^\"])*)\"\)')
+    pat_inline = re.compile(r'return[^;]*errors\.New\("([^"\\]*(?:\\.[^"\\]*)*)"\)')
     pat_we = re.compile(
-        r'writeError\(w,\s*(?:http\.)?Status(\w+),\s*"((?:\\.|[^\"])*)"'
+        r'writeError\(w,\s*(?:http\.)?Status(\w+),\s*"([^"\\]*(?:\\.[^"\\]*)*)"'
     )
-    pat_we_num = re.compile(r'writeError\(w,\s*(\d+),\s*"((?:\\.|[^\"])*)"')
+    pat_we_num = re.compile(r'writeError\(w,\s*(\d+),\s*"([^"\\]*(?:\\.[^"\\]*)*)"')
     pat_grpc = re.compile(
-        r'status\.Error(?:f)?\(codes\.(\w+),\s*"((?:\\.|[^\"])*)"'
+        r'status\.Error(?:f)?\(codes\.(\w+),\s*"([^"\\]*(?:\\.[^"\\]*)*)"'
     )
     pat_fmt = re.compile(
-        r'fmt\.Errorf\(\"((?:\\.|[^\"%])*)\"'
+        r'fmt\.Errorf\("([^"%\\]*(?:\\.[^"%\\]*)*)"'
     )
 
     for path in SERVICES.rglob("*.go"):

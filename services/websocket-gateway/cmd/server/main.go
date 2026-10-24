@@ -88,7 +88,7 @@ func main() {
 
 	go func() {
 		log.Printf("WebSocket gateway listening on port %s", port)
-		log.Printf("Redis URL: %s", redisURL)
+		log.Printf("Redis: connected")
 		log.Printf("Auth Service: %s", authAddr)
 		log.Printf("CORS origins: %v", corsOrigins)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

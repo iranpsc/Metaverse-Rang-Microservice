@@ -1,6 +1,6 @@
 module metarang/websocket-gateway
 
-go 1.25.13
+go 1.26.0
 
 require (
 	github.com/joho/godotenv v1.5.1
@@ -17,7 +17,7 @@ require (
 	github.com/getsentry/sentry-go v0.47.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.60.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
@@ -26,10 +26,10 @@ require (
 	github.com/zishang520/engine.io-go-parser v1.3.2 // indirect
 	github.com/zishang520/socket.io-go-parser/v2 v2.5.0 // indirect
 	github.com/zishang520/webtransport-go v0.9.1 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
