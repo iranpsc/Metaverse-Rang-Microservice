@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Multi-stage build for Storage Service
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.10-alpine AS builder
 
 ENV CGO_ENABLED=0
 
@@ -19,7 +19,7 @@ WORKDIR /src
 # Module files only, so a source edit does not download modules again.
 COPY shared/go.mod shared/go.sum shared/
 COPY services/storage-service/go.mod services/storage-service/go.sum* services/storage-service/
-RUN printf 'go 1.25.13\n\nuse (\n\t./services/storage-service\n\t./shared\n)\n' > go.work
+RUN printf 'go 1.26.0\n\nuse (\n\t./services/storage-service\n\t./shared\n)\n' > go.work
 
 ENV GOWORK=/src/go.work
 WORKDIR /src/services/storage-service

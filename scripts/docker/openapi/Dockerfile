@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Builds gen-openapi and serves Swagger UI, regenerating the spec on every start.
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.10-alpine AS builder
 
 ENV CGO_ENABLED=0
 WORKDIR /src

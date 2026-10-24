@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Multi-stage build for WebSocket Gateway (Go)
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.10-alpine AS builder
 
 ENV CGO_ENABLED=0
 # Module zips from proxy.golang.org redirect to storage.googleapis.com, which returns 403
@@ -24,7 +24,7 @@ WORKDIR /src
 COPY shared/go.mod shared/go.sum shared/
 COPY services/websocket-gateway/go.mod services/websocket-gateway/go.sum* services/websocket-gateway/
 COPY services/websocket-gateway/third_party/ services/websocket-gateway/third_party/
-RUN printf 'go 1.25.13\n\nuse (\n\t./services/websocket-gateway\n\t./shared\n)\n' > go.work
+RUN printf 'go 1.26.0\n\nuse (\n\t./services/websocket-gateway\n\t./shared\n)\n' > go.work
 
 ENV GOWORK=/src/go.work
 WORKDIR /src/services/websocket-gateway

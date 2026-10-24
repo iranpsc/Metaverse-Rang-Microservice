@@ -941,7 +941,7 @@ services:
   # `make openapi` is the same command used on the host. Swagger UI starts after this exits.
   openapi-generate:
     <<: *service-defaults
-    image: golang:1.25
+    image: golang:1.26.10
     working_dir: /workspace
     environment:
       APP_URL: ${APP_URL:-http://localhost:8000}
