@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -217,8 +218,21 @@ func main() {
 	}
 }
 
+func redisURLFromEnv() string {
+	if explicit := getEnv("REDIS_URL", ""); explicit != "" {
+		return explicit
+	}
+	host := getEnv("REDIS_HOST", "redis")
+	port := getEnv("REDIS_PORT", "6379")
+	db := getEnv("REDIS_DB", "0")
+	if password := getEnv("REDIS_PASSWORD", ""); password != "" {
+		return fmt.Sprintf("redis://%s@%s:%s/%s", url.UserPassword("", password).String(), host, port, db)
+	}
+	return fmt.Sprintf("redis://%s:%s/%s", host, port, db)
+}
+
 func initRedisClient() {
-	redisURL := getEnv("REDIS_URL", "redis://redis:6379")
+	redisURL := redisURLFromEnv()
 	opts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		log.Printf("⚠️  Warning: Failed to parse Redis URL: %v", err)

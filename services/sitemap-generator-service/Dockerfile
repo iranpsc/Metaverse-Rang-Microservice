@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Multi-stage build for Sitemap Generator Service
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.10-alpine AS builder
 
 ENV CGO_ENABLED=0
 
@@ -9,7 +9,7 @@ WORKDIR /src
 
 COPY shared/go.mod shared/go.sum shared/
 COPY services/sitemap-generator-service/go.mod services/sitemap-generator-service/go.sum* services/sitemap-generator-service/
-RUN printf 'go 1.25.13\n\nuse (\n\t./services/sitemap-generator-service\n\t./shared\n)\n' > go.work
+RUN printf 'go 1.26.0\n\nuse (\n\t./services/sitemap-generator-service\n\t./shared\n)\n' > go.work
 
 ENV GOWORK=/src/go.work
 WORKDIR /src/services/sitemap-generator-service
