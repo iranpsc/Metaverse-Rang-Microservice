@@ -230,6 +230,10 @@ func buildCitizenCustoms(
 		customs.LovedLanguage = pi.LovedLanguage
 		hasField = true
 	}
+	if check("problem_solving") && pi.ProblemSolving != "" {
+		customs.ProblemSolving = pi.ProblemSolving
+		hasField = true
+	}
 	if check("prediction") && pi.Prediction != "" {
 		customs.Prediction = pi.Prediction
 		hasField = true
