@@ -180,12 +180,13 @@ type walletOp struct {
 }
 
 type entryWalletMock struct {
-	ops    []walletOp
-	txns   []walletOp
-	err    error
-	addErr error
-	script []error
-	txnErr error
+	ops       []walletOp
+	txns      []walletOp
+	err       error
+	addErr    error
+	script    []error
+	txnErr    error
+	txnScript []error
 }
 
 func (m *entryWalletMock) take(action string, userID uint64, asset string, amount float64) error {
@@ -211,6 +212,11 @@ func (m *entryWalletMock) AddBalance(_ context.Context, userID uint64, asset str
 
 func (m *entryWalletMock) RecordTransaction(_ context.Context, userID uint64, asset string, amount float64, action string, _ int32, _ string, _ uint64) error {
 	m.txns = append(m.txns, walletOp{action: action, userID: userID, asset: asset, amount: amount})
+	if len(m.txnScript) > 0 {
+		err := m.txnScript[0]
+		m.txnScript = m.txnScript[1:]
+		return err
+	}
 	return m.txnErr
 }
 
