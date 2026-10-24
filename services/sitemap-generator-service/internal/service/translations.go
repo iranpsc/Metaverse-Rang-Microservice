@@ -62,7 +62,7 @@ func (s *TranslationSource) fetch(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("admin translations returned HTTP %d", resp.StatusCode)
 	}

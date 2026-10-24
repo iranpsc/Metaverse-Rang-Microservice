@@ -15,6 +15,12 @@ import (
 	"metarang/sitemap-generator-service/internal/testutil"
 )
 
+type fixedTranslations []string
+
+func (languages fixedTranslations) Active(context.Context) ([]string, error) {
+	return languages, nil
+}
+
 func TestGenerateAll_WritesExpectedFiles(t *testing.T) {
 	now := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
 	repo := &testutil.MockSitemapRepository{
@@ -31,6 +37,7 @@ func TestGenerateAll_WritesExpectedFiles(t *testing.T) {
 	svc := service.NewSitemapService(repo, writer, service.Config{
 		TemplatesPath:  templatesPath,
 		AdminPanelURL:  "https://admin.metarang.com",
+		Translations:   fixedTranslations{"fa", "en"},
 		CitizenMaxURLs: 5000,
 		PageSize:       100,
 	})
@@ -51,30 +58,33 @@ func TestGenerateAll_WritesExpectedFiles(t *testing.T) {
 		"calendar-events-sitemap.xml",
 		"calendar-versions-sitemap.xml",
 	}
-	for _, want := range wantPrefix {
-		found := false
-		for _, name := range names {
-			if name == want {
-				found = true
-				break
+	for _, language := range []string{"fa", "en"} {
+		for _, base := range wantPrefix {
+			want := filepath.Join(language, base)
+			found := false
+			for _, name := range names {
+				if name == want {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			t.Fatalf("missing file %q in %v", want, names)
+			if !found {
+				t.Fatalf("missing file %q in %v", want, names)
+			}
 		}
 	}
 
-	assertContains(t, string(writer.Existing["citizen-sitemap.xml"]), "https://metarang.com/fa/citizens/U1")
-	assertContains(t, string(writer.Existing["citizen-sitemap.xml"]), "https://metarang.com/en/citizens/U1")
-	assertContains(t, string(writer.Existing["user-wallet-sitemaps.xml"]), "https://metarang.com/fa/citizens/U1/wallet")
-	assertContains(t, string(writer.Existing["user-lands-sitemap.xml"]), "https://metarang.com/en/citizens/U1/summary")
-	assertContains(t, string(writer.Existing["user-buildings-sitemap.xml"]), "https://metarang.com/fa/citizens/U1/buildings")
-	assertContains(t, string(writer.Existing["education-single-video-sitemap.xml"]), "https://metarang.com/fa/education/watch/vid-1")
-	assertContains(t, string(writer.Existing["education-category-sitemap.xml"]), "https://admin.metarang.com/uploads/c.jpg")
-	assertContains(t, string(writer.Existing["education-sub-category-sitemap.xml"]), "https://metarang.com/fa/education/category/cat-1/sub-1")
-	assertContains(t, string(writer.Existing["calendar-events-sitemap.xml"]), "https://metarang.com/fa/calendar/10")
-	assertContains(t, string(writer.Existing["calendar-events-sitemap.xml"]), "<priority>0.6</priority>")
-	assertContains(t, string(writer.Existing["calendar-versions-sitemap.xml"]), "https://metarang.com/en/versions/v1")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "citizen-sitemap.xml")]), "https://metarang.com/fa/citizens/U1")
+	assertContains(t, string(writer.Existing[filepath.Join("en", "citizen-sitemap.xml")]), "https://metarang.com/en/citizens/U1")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "user-wallet-sitemaps.xml")]), "https://metarang.com/fa/citizens/U1/wallet")
+	assertContains(t, string(writer.Existing[filepath.Join("en", "user-lands-sitemap.xml")]), "https://metarang.com/en/citizens/U1/summary")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "user-buildings-sitemap.xml")]), "https://metarang.com/fa/citizens/U1/buildings")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-single-video-sitemap.xml")]), "https://metarang.com/fa/education/watch/vid-1")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-category-sitemap.xml")]), "https://admin.metarang.com/uploads/c.jpg")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-sub-category-sitemap.xml")]), "https://metarang.com/fa/education/category/cat-1/sub-1")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "calendar-events-sitemap.xml")]), "https://metarang.com/fa/calendar/10")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "calendar-events-sitemap.xml")]), "<priority>0.6</priority>")
+	assertContains(t, string(writer.Existing[filepath.Join("en", "calendar-versions-sitemap.xml")]), "https://metarang.com/en/versions/v1")
 }
 
 func TestGenerateAll_SkipsCitizenWhenNoTemplates(t *testing.T) {
@@ -91,12 +101,13 @@ func TestGenerateAll_SkipsCitizenWhenNoTemplates(t *testing.T) {
 	svc := service.NewSitemapService(repo, writer, service.Config{
 		TemplatesPath: path,
 		AdminPanelURL: "https://admin.metarang.com",
+		Translations:  fixedTranslations{"fa"},
 	})
 	if err := svc.GenerateAll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	for name := range writer.Existing {
-		if strings.HasPrefix(name, "citizen-") {
+		if strings.HasPrefix(filepath.Base(name), "citizen-") {
 			t.Fatalf("unexpected citizen file %q", name)
 		}
 	}
@@ -111,25 +122,26 @@ func TestGenerateAll_CitizenSplitAndCleanup(t *testing.T) {
 	repo := &testutil.MockSitemapRepository{Users: users}
 	writer := &testutil.MockWriter{
 		Existing: map[string][]byte{
-			"citizen-sitemap-3.xml": []byte("stale"),
+			filepath.Join("fa", "citizen-sitemap-3.xml"): []byte("stale"),
 		},
 	}
 	svc := service.NewSitemapService(repo, writer, service.Config{
 		TemplatesPath:  writeTempTemplates(t),
 		AdminPanelURL:  "https://admin.metarang.com",
-		CitizenMaxURLs: 5000,
+		Translations:   fixedTranslations{"fa"},
+		CitizenMaxURLs: 2500,
 		PageSize:       500,
 	})
 	if err := svc.GenerateAll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := writer.Existing["citizen-sitemap.xml"]; !ok {
+	if _, ok := writer.Existing[filepath.Join("fa", "citizen-sitemap.xml")]; !ok {
 		t.Fatal("missing citizen-sitemap.xml")
 	}
-	if _, ok := writer.Existing["citizen-sitemap-2.xml"]; !ok {
+	if _, ok := writer.Existing[filepath.Join("fa", "citizen-sitemap-2.xml")]; !ok {
 		t.Fatal("missing citizen-sitemap-2.xml")
 	}
-	if _, ok := writer.Existing["citizen-sitemap-3.xml"]; ok {
+	if _, ok := writer.Existing[filepath.Join("fa", "citizen-sitemap-3.xml")]; ok {
 		t.Fatal("stale citizen-sitemap-3.xml should be removed")
 	}
 }
@@ -151,6 +163,7 @@ func TestGenerateAll_SingleFlight(t *testing.T) {
 	svc := service.NewSitemapService(repo, writer, service.Config{
 		TemplatesPath: writeTempTemplates(t),
 		AdminPanelURL: "https://admin.metarang.com",
+		Translations:  fixedTranslations{"fa"},
 		PageSize:      10,
 	})
 
@@ -161,13 +174,19 @@ func TestGenerateAll_SingleFlight(t *testing.T) {
 		_ = svc.GenerateAll(context.Background())
 	}()
 
-	<-started
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		close(release)
+		wg.Wait()
+		t.Fatal("first generation did not reach repository")
+	}
 	err := svc.GenerateAll(context.Background())
+	close(release)
+	wg.Wait()
 	if !errors.Is(err, service.ErrGenerationInProgress) {
 		t.Fatalf("want ErrGenerationInProgress, got %v", err)
 	}
-	close(release)
-	wg.Wait()
 }
 
 func TestStartScheduler_RunsAndStops(t *testing.T) {
@@ -177,6 +196,7 @@ func TestStartScheduler_RunsAndStops(t *testing.T) {
 	svc := service.NewSitemapService(repo, writer, service.Config{
 		TemplatesPath: writeTempTemplates(t),
 		AdminPanelURL: "https://admin.metarang.com",
+		Translations:  fixedTranslations{"fa"},
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
