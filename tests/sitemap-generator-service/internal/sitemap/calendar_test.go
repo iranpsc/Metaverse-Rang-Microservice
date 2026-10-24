@@ -7,19 +7,11 @@ import (
 )
 
 func TestEventURLs(t *testing.T) {
-	got := sitemap.EventURLs(42)
-	want := []string{
-		"https://metarang.com/fa/calendar/42",
-		"https://metarang.com/en/calendar/42",
-	}
-	assertStrings(t, got, want)
+	assertStrings(t, sitemap.EventURLs("fa", 42), []string{"https://metarang.com/fa/calendar/42"})
+	assertStrings(t, sitemap.EventURLs("en", 42), []string{"https://metarang.com/en/calendar/42"})
 }
 
 func TestVersionURLs(t *testing.T) {
-	got := sitemap.VersionURLs("v2024")
-	want := []string{
-		"https://metarang.com/fa/versions/v2024",
-		"https://metarang.com/en/versions/v2024",
-	}
-	assertStrings(t, got, want)
+	assertStrings(t, sitemap.VersionURLs("fa", "v2024"), []string{"https://metarang.com/fa/versions/v2024"})
+	assertStrings(t, sitemap.VersionURLs("en", "v2024"), []string{"https://metarang.com/en/versions/v2024"})
 }
