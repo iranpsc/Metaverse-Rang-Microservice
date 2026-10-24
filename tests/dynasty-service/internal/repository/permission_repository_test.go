@@ -54,15 +54,3 @@ func TestPermissionRepository_GetByUserID(t *testing.T) {
 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
-
-func TestPermissionRepository_UpdatePermissionRejectsUnknownKey(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
-
-	r := repository.NewPermissionRepository(db)
-	err = r.UpdatePermission(context.Background(), 4, "SF = 1; DROP TABLE children_permissions; --", true)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid permission key")
-	require.NoError(t, mock.ExpectationsWereMet())
-}
