@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # One-shot Laravel-style SQL migrator (shared/cmd/migrate).
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.10-alpine AS builder
 
 ENV CGO_ENABLED=0
 WORKDIR /src
