@@ -17,6 +17,15 @@ type stubGenerator struct {
 	err error
 }
 
+func TestHealth(t *testing.T) {
+	h := handler.NewHTTPHandler(&stubGenerator{})
+	rec := httptest.NewRecorder()
+	h.Health(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/json" || !strings.Contains(rec.Body.String(), `"status":"ok"`) {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func (s *stubGenerator) GenerateAll(ctx context.Context) error {
 	return s.err
 }

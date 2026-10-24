@@ -34,14 +34,20 @@ func main() {
 	authAddr := getEnv("AUTH_SERVICE_ADDR", "auth-service:50051")
 	corsOrigins := parseCORSOrigins(getEnv("CORS_ORIGIN", "http://localhost:5173"))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	validator, err := auth.NewValidator(ctx, authAddr)
 	if err != nil {
 		log.Fatalf("Failed to connect to auth service: %v", err)
 	}
 
+	if err := runGateway(ctx, validator, redisURL, authAddr, port, corsOrigins); err != nil {
+		log.Fatalf("WebSocket gateway failed: %v", err)
+	}
+}
+
+func runGateway(ctx context.Context, validator hub.TokenValidator, redisURL, authAddr, port string, corsOrigins []string) error {
 	eventHub := hub.New(validator, corsOrigins)
 	defer func() {
 		if err := eventHub.Close(); err != nil {
@@ -51,7 +57,7 @@ func main() {
 
 	subscriber, err := redisbus.NewSubscriber(ctx, redisURL, eventHub)
 	if err != nil {
-		log.Fatalf("Failed to subscribe to Redis: %v", err)
+		return fmt.Errorf("subscribe to Redis: %w", err)
 	}
 	defer func() {
 		if err := subscriber.Close(); err != nil {
@@ -86,25 +92,28 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
+	serveErr := make(chan error, 1)
 	go func() {
 		log.Printf("WebSocket gateway listening on port %s", port)
 		log.Printf("Redis: connected")
 		log.Printf("Auth Service: %s", authAddr)
 		log.Printf("CORS origins: %v", corsOrigins)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("HTTP server failed: %v", err)
-		}
+		serveErr <- server.ListenAndServe()
 	}()
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	select {
+	case <-ctx.Done():
+	case err := <-serveErr:
+		if err != http.ErrServerClosed {
+			return fmt.Errorf("serve HTTP: %w", err)
+		}
+	}
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Server shutdown error: %v", err)
+		return fmt.Errorf("shutdown HTTP server: %w", err)
 	}
+	return nil
 }
 
 var startedAt = time.Now()
