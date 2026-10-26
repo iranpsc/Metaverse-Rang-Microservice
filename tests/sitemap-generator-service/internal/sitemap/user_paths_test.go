@@ -32,9 +32,9 @@ func TestChunkedFileName(t *testing.T) {
 		index int
 		want  string
 	}{
-		{"user-wallet-sitemaps.xml", 0, "user-wallet-sitemaps.xml"},
-		{"user-wallet-sitemaps.xml", 1, "user-wallet-sitemaps-2.xml"},
-		{"user-lands-sitemap.xml", 2, "user-lands-sitemap-3.xml"},
+		{"user-wallet.xml", 0, "user-wallet.xml"},
+		{"user-wallet.xml", 1, "user-wallet-2.xml"},
+		{"user-lands.xml", 2, "user-lands-3.xml"},
 	}
 	for _, tc := range cases {
 		if got := sitemap.ChunkedFileName(tc.base, tc.index); got != tc.want {

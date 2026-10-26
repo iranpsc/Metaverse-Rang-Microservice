@@ -45,7 +45,7 @@ func TestGenerateAllByActiveTranslation(t *testing.T) {
 	if err := svc.GenerateAll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	names := []string{"citizen-sitemap.xml", "user-wallet-sitemaps.xml", "user-lands-sitemap.xml", "user-buildings-sitemap.xml", "education-single-video-sitemap.xml", "education-category-sitemap.xml", "education-sub-category-sitemap.xml", "calendar-events-sitemap.xml", "calendar-versions-sitemap.xml"}
+	names := []string{"citizen.xml", "user-wallet.xml", "user-lands.xml", "user-buildings.xml", "education-single-video.xml", "education-category.xml", "education-sub-category.xml", "calendar-events.xml", "calendar-versions.xml"}
 	for _, lang := range []string{"en", "fa"} {
 		for _, name := range names {
 			data, err := os.ReadFile(filepath.Join(dir, lang, name))
@@ -79,7 +79,7 @@ func TestGenerateAllByActiveTranslation(t *testing.T) {
 	if err := svc.GenerateAll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "fr", "citizen-sitemap.xml")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "fr", "citizen.xml")); err != nil {
 		t.Fatalf("new language citizen sitemap: %v", err)
 	}
 }

@@ -113,7 +113,7 @@ func ExpandCitizenURLs(templates map[string][]string, code string) []string {
 
 // CitizenFileName returns the public filename for citizen chunk index (0-based).
 func CitizenFileName(index int) string {
-	return ChunkedFileName("citizen-sitemap.xml", index)
+	return ChunkedFileName("citizen.xml", index)
 }
 
 // ChunkedFileName returns base for index 0, or base-N.xml for index >= 1.

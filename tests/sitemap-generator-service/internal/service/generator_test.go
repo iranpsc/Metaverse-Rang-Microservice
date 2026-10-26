@@ -48,15 +48,15 @@ func TestGenerateAll_WritesExpectedFiles(t *testing.T) {
 
 	names := writer.Filenames()
 	wantPrefix := []string{
-		"citizen-sitemap.xml",
-		"user-wallet-sitemaps.xml",
-		"user-lands-sitemap.xml",
-		"user-buildings-sitemap.xml",
-		"education-single-video-sitemap.xml",
-		"education-category-sitemap.xml",
-		"education-sub-category-sitemap.xml",
-		"calendar-events-sitemap.xml",
-		"calendar-versions-sitemap.xml",
+		"citizen.xml",
+		"user-wallet.xml",
+		"user-lands.xml",
+		"user-buildings.xml",
+		"education-single-video.xml",
+		"education-category.xml",
+		"education-sub-category.xml",
+		"calendar-events.xml",
+		"calendar-versions.xml",
 	}
 	for _, language := range []string{"fa", "en"} {
 		for _, base := range wantPrefix {
@@ -74,17 +74,17 @@ func TestGenerateAll_WritesExpectedFiles(t *testing.T) {
 		}
 	}
 
-	assertContains(t, string(writer.Existing[filepath.Join("fa", "citizen-sitemap.xml")]), "https://metarang.com/fa/citizens/U1")
-	assertContains(t, string(writer.Existing[filepath.Join("en", "citizen-sitemap.xml")]), "https://metarang.com/en/citizens/U1")
-	assertContains(t, string(writer.Existing[filepath.Join("fa", "user-wallet-sitemaps.xml")]), "https://metarang.com/fa/citizens/U1/wallet")
-	assertContains(t, string(writer.Existing[filepath.Join("en", "user-lands-sitemap.xml")]), "https://metarang.com/en/citizens/U1/summary")
-	assertContains(t, string(writer.Existing[filepath.Join("fa", "user-buildings-sitemap.xml")]), "https://metarang.com/fa/citizens/U1/buildings")
-	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-single-video-sitemap.xml")]), "https://metarang.com/fa/education/watch/vid-1")
-	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-category-sitemap.xml")]), "https://admin.metarang.com/uploads/c.jpg")
-	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-sub-category-sitemap.xml")]), "https://metarang.com/fa/education/category/cat-1/sub-1")
-	assertContains(t, string(writer.Existing[filepath.Join("fa", "calendar-events-sitemap.xml")]), "https://metarang.com/fa/calendar/10")
-	assertContains(t, string(writer.Existing[filepath.Join("fa", "calendar-events-sitemap.xml")]), "<priority>0.6</priority>")
-	assertContains(t, string(writer.Existing[filepath.Join("en", "calendar-versions-sitemap.xml")]), "https://metarang.com/en/versions/v1")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "citizen.xml")]), "https://metarang.com/fa/citizens/U1")
+	assertContains(t, string(writer.Existing[filepath.Join("en", "citizen.xml")]), "https://metarang.com/en/citizens/U1")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "user-wallet.xml")]), "https://metarang.com/fa/citizens/U1/wallet")
+	assertContains(t, string(writer.Existing[filepath.Join("en", "user-lands.xml")]), "https://metarang.com/en/citizens/U1/summary")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "user-buildings.xml")]), "https://metarang.com/fa/citizens/U1/buildings")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-single-video.xml")]), "https://metarang.com/fa/education/watch/vid-1")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-category.xml")]), "https://admin.metarang.com/uploads/c.jpg")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "education-sub-category.xml")]), "https://metarang.com/fa/education/category/cat-1/sub-1")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "calendar-events.xml")]), "https://metarang.com/fa/calendar/10")
+	assertContains(t, string(writer.Existing[filepath.Join("fa", "calendar-events.xml")]), "<priority>0.6</priority>")
+	assertContains(t, string(writer.Existing[filepath.Join("en", "calendar-versions.xml")]), "https://metarang.com/en/versions/v1")
 }
 
 func TestGenerateAll_SkipsCitizenWhenNoTemplates(t *testing.T) {
@@ -122,7 +122,7 @@ func TestGenerateAll_CitizenSplitAndCleanup(t *testing.T) {
 	repo := &testutil.MockSitemapRepository{Users: users}
 	writer := &testutil.MockWriter{
 		Existing: map[string][]byte{
-			filepath.Join("fa", "citizen-sitemap-3.xml"): []byte("stale"),
+			filepath.Join("fa", "citizen-3.xml"): []byte("stale"),
 		},
 	}
 	svc := service.NewSitemapService(repo, writer, service.Config{
@@ -135,14 +135,14 @@ func TestGenerateAll_CitizenSplitAndCleanup(t *testing.T) {
 	if err := svc.GenerateAll(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := writer.Existing[filepath.Join("fa", "citizen-sitemap.xml")]; !ok {
-		t.Fatal("missing citizen-sitemap.xml")
+	if _, ok := writer.Existing[filepath.Join("fa", "citizen.xml")]; !ok {
+		t.Fatal("missing citizen.xml")
 	}
-	if _, ok := writer.Existing[filepath.Join("fa", "citizen-sitemap-2.xml")]; !ok {
-		t.Fatal("missing citizen-sitemap-2.xml")
+	if _, ok := writer.Existing[filepath.Join("fa", "citizen-2.xml")]; !ok {
+		t.Fatal("missing citizen-2.xml")
 	}
-	if _, ok := writer.Existing[filepath.Join("fa", "citizen-sitemap-3.xml")]; ok {
-		t.Fatal("stale citizen-sitemap-3.xml should be removed")
+	if _, ok := writer.Existing[filepath.Join("fa", "citizen-3.xml")]; ok {
+		t.Fatal("stale citizen-3.xml should be removed")
 	}
 }
 

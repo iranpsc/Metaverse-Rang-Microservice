@@ -222,19 +222,19 @@ func (s *SitemapService) generateCitizens(ctx context.Context) error {
 }
 
 func (s *SitemapService) cleanupCitizenFiles(keepCount int) error {
-	return s.cleanupChunkedFiles("citizen-sitemap.xml", keepCount)
+	return s.cleanupChunkedFiles("citizen.xml", keepCount)
 }
 
 func (s *SitemapService) generateUserWallets(ctx context.Context) error {
-	return s.generateUserCodeSitemaps(ctx, "user-wallet-sitemaps.xml", sitemap.UserWalletURLs)
+	return s.generateUserCodeSitemaps(ctx, "user-wallet.xml", sitemap.UserWalletURLs)
 }
 
 func (s *SitemapService) generateUserLands(ctx context.Context) error {
-	return s.generateUserCodeSitemaps(ctx, "user-lands-sitemap.xml", sitemap.UserLandsURLs)
+	return s.generateUserCodeSitemaps(ctx, "user-lands.xml", sitemap.UserLandsURLs)
 }
 
 func (s *SitemapService) generateUserBuildings(ctx context.Context) error {
-	return s.generateUserCodeSitemaps(ctx, "user-buildings-sitemap.xml", sitemap.UserBuildingsURLs)
+	return s.generateUserCodeSitemaps(ctx, "user-buildings.xml", sitemap.UserBuildingsURLs)
 }
 
 func (s *SitemapService) generateUserCodeSitemaps(ctx context.Context, baseFile string, urlsForCode func(language, code string) []string) error {
@@ -311,7 +311,7 @@ func (s *SitemapService) cleanupChunkedFiles(baseFile string, keepCount int) err
 }
 
 func (s *SitemapService) generateVideos(ctx context.Context) error {
-	return s.writePaged(ctx, "education-single-video-sitemap.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
+	return s.writePaged(ctx, "education-single-video.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
 		videos, err := s.repo.ListVideos(ctx, afterID, limit)
 		if err != nil {
 			return nil, afterID, 0, err
@@ -331,7 +331,7 @@ func (s *SitemapService) generateVideos(ctx context.Context) error {
 }
 
 func (s *SitemapService) generateCategories(ctx context.Context) error {
-	return s.writePaged(ctx, "education-category-sitemap.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
+	return s.writePaged(ctx, "education-category.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
 		cats, err := s.repo.ListCategories(ctx, afterID, limit)
 		if err != nil {
 			return nil, afterID, 0, err
@@ -355,7 +355,7 @@ func (s *SitemapService) generateCategories(ctx context.Context) error {
 }
 
 func (s *SitemapService) generateSubCategories(ctx context.Context) error {
-	return s.writePaged(ctx, "education-sub-category-sitemap.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
+	return s.writePaged(ctx, "education-sub-category.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
 		subs, err := s.repo.ListSubCategories(ctx, afterID, limit)
 		if err != nil {
 			return nil, afterID, 0, err
@@ -379,7 +379,7 @@ func (s *SitemapService) generateSubCategories(ctx context.Context) error {
 }
 
 func (s *SitemapService) generateEvents(ctx context.Context) error {
-	return s.writePaged(ctx, "calendar-events-sitemap.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
+	return s.writePaged(ctx, "calendar-events.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
 		events, err := s.repo.ListEvents(ctx, afterID, limit)
 		if err != nil {
 			return nil, afterID, 0, err
@@ -399,7 +399,7 @@ func (s *SitemapService) generateEvents(ctx context.Context) error {
 }
 
 func (s *SitemapService) generateVersions(ctx context.Context) error {
-	return s.writePaged(ctx, "calendar-versions-sitemap.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
+	return s.writePaged(ctx, "calendar-versions.xml", MaxURLsPerFile, func(ctx context.Context, afterID uint64, limit int) ([]models.URLEntry, uint64, int, error) {
 		versions, err := s.repo.ListVersions(ctx, afterID, limit)
 		if err != nil {
 			return nil, afterID, 0, err
