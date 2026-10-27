@@ -201,8 +201,17 @@ func TestTicketHandler_AddResponse_SuccessDefaultUserNameAndValidation(t *testin
 		t.Fatalf("got %v", err)
 	}
 
+	_, err = client.AddResponse(context.Background(), &pb.AddResponseRequest{
+		TicketId: 1, UserId: 1, Response: strings.Repeat("a", 5001),
+	})
+	st, ok = status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("response over limit got %v", err)
+	}
+
 	tk := ticketRelations(8, 1)
 	var userName string
+	responseText := strings.Repeat("a", 5000)
 	repo := &testutil.MockTicketRepo{
 		GetTicketSenderReceiverFunc: func(ctx context.Context, ticketID uint64) (uint64, uint64, error) {
 			return 1, 2, nil
@@ -212,6 +221,9 @@ func TestTicketHandler_AddResponse_SuccessDefaultUserNameAndValidation(t *testin
 		},
 		CreateResponseFunc: func(ctx context.Context, response *models.TicketResponse) (*models.TicketResponse, error) {
 			userName = response.ResponserName
+			if response.Response != responseText {
+				t.Fatalf("stored response len=%d", len(response.Response))
+			}
 			return response, nil
 		},
 		UpdateStatusFunc: func(ctx context.Context, ticketID uint64, status int32) error {
@@ -222,7 +234,7 @@ func TestTicketHandler_AddResponse_SuccessDefaultUserNameAndValidation(t *testin
 	client, cleanup = ticketClient(t, repo)
 	defer cleanup()
 	resp, err := client.AddResponse(context.Background(), &pb.AddResponseRequest{
-		TicketId: 8, UserId: 2, Response: "reply",
+		TicketId: 8, UserId: 2, Response: responseText,
 	})
 	if err != nil || resp.Status != models.TicketStatusAnswered || userName != "User" {
 		t.Fatalf("err=%v status=%d userName=%q", err, resp.Status, userName)

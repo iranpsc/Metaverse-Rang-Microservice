@@ -40,7 +40,7 @@ func (h *ReportHandler) CreateReport(ctx context.Context, req *pb.CreateReportRe
 		ValidateRequired("reason", req.Reason, locale),
 		ValidateMaxLen("reason", req.Reason, 130, locale),
 		ValidateRequired("description", req.Description, locale),
-		ValidateMaxLen("description", req.Description, 2000, locale),
+		ValidateMaxLen("description", req.Description, 5000, locale),
 		ValidateRequired("url", req.Url, locale),
 	)
 	if len(req.ImagePaths) > 5 {

@@ -166,7 +166,7 @@ func (h *TicketHandler) AddResponse(ctx context.Context, req *pb.AddResponseRequ
 		ValidateRequired("ticket_id", req.TicketId, locale),
 		ValidateRequired("user_id", req.UserId, locale),
 		ValidateRequired("response", req.Response, locale),
-		ValidateMaxLen("response", req.Response, 2000, locale),
+		ValidateMaxLen("response", req.Response, 5000, locale),
 	)
 	if len(validationErrors) > 0 {
 		return nil, returnValidationError(validationErrors)
