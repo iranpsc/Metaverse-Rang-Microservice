@@ -123,6 +123,29 @@ func TestCitizenHandler(t *testing.T) {
 		}
 	})
 
+	t.Run("profile makes missing privacy keys public", func(t *testing.T) {
+		h := handler.RegisterCitizenHandler(grpc.NewServer(), &mockCitizenService{
+			profile: &models.CitizenProfile{
+				ID: 1, Code: "hm-1", Name: "n", Score: 10,
+				Privacy: map[string]bool{"email": false},
+				KYC:     &models.CitizenKYC{Fname: "first"},
+				Phone:   "0912", Email: "hidden@example.test",
+				PersonalInfo: &models.CitizenPersonalInfo{Occupation: "engineer"},
+			},
+		})
+
+		resp, err := h.GetCitizenProfile(context.Background(), &pb.GetCitizenProfileRequest{Code: "hm-1"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.GetName() != "n" || resp.GetScore() != 10 || resp.GetKyc().GetFname() != "first" || resp.GetKyc().GetPhone() != "0912" || resp.GetCustoms().GetOccupation() != "engineer" {
+			t.Fatalf("missing privacy keys should be public, got %+v", resp)
+		}
+		if resp.GetKyc().GetEmail() != "" {
+			t.Fatalf("explicitly private email was exposed: %+v", resp.GetKyc())
+		}
+	})
+
 	t.Run("referrals and chart", func(t *testing.T) {
 		h := handler.RegisterCitizenHandler(grpc.NewServer(), &mockCitizenService{})
 		_, err := h.GetCitizenReferrals(context.Background(), &pb.GetCitizenReferralsRequest{Code: ""})

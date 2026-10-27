@@ -117,6 +117,17 @@ func TestCitizenService(t *testing.T) {
 		}
 	})
 
+	t.Run("loads levels when the privacy key is absent", func(t *testing.T) {
+		repo := &fakeCitizenRepository{profile: &models.CitizenProfile{
+			ID: 1, Code: "hm-1", Privacy: map[string]bool{"name": true},
+		}}
+		svc := service.NewCitizenService(repo, users, nil, "https://app.example")
+		profile, err := svc.GetCitizenProfile(ctx, "hm-1")
+		if err != nil || profile.CurrentLevel == nil || len(profile.AchievedLevels) != 1 {
+			t.Fatalf("profile=%+v err=%v", profile, err)
+		}
+	})
+
 	t.Run("referrals chart helpers", func(t *testing.T) {
 		repo := &fakeCitizenRepository{
 			referrals: []*models.CitizenReferral{{ID: 9, Code: "hm-9"}},

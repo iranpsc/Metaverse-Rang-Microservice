@@ -109,10 +109,10 @@ func (h *citizenHandler) GetCitizenProfile(ctx context.Context, req *pb.GetCitiz
 func buildCitizenProfileResponse(ctx context.Context, svc service.CitizenService, profile *models.CitizenProfile) *pb.CitizenProfileResponse {
 	privacy := profile.Privacy
 	check := func(field string) bool {
-		if privacy == nil {
-			return false
-		}
-		return privacy[field]
+		// Privacy settings are opt-out for public citizen profiles: an omitted
+		// key is public, while an explicit false value hides the field.
+		value, exists := privacy[field]
+		return !exists || value
 	}
 
 	resp := &pb.CitizenProfileResponse{

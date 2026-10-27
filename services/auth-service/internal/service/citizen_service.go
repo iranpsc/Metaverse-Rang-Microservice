@@ -229,10 +229,8 @@ func (s *citizenService) CitizenAvatar() string {
 }
 
 func (s *citizenService) checkPrivacy(privacy map[string]bool, field string) bool {
-	if privacy == nil {
-		return false
-	}
-	return privacy[field]
+	value, exists := privacy[field]
+	return !exists || value
 }
 
 func FormatRegisteredAt(t time.Time) string {
