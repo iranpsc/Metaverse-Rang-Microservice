@@ -99,11 +99,22 @@ func TestHTTP_GetAllLevels_Error(t *testing.T) {
 func TestHTTP_GetLevel_Success(t *testing.T) {
 	h := newHTTPHandler(&testutil.MockLevelRepository{
 		FindBySlugFunc: func(ctx context.Context, slug string) (*pb.Level, error) {
-			return &pb.Level{Id: 2, Name: "silver", Slug: slug}, nil
+			return &pb.Level{
+				Id:              2,
+				Name:            "silver",
+				Slug:            slug,
+				ImageUrl:        "level-image.png",
+				BackgroundImage: "level-background.png",
+			}, nil
 		},
-	}, "")
+	}, "https://admin.example.com")
 	rr := doRequest(h, http.MethodGet, "/api/levels/silver")
 	assert.Equal(t, http.StatusOK, rr.Code)
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(rr.Body).Decode(&body))
+	data := body["data"].(map[string]interface{})
+	assert.Equal(t, "https://admin.example.com/uploads/level-image.png", data["image"])
+	assert.Equal(t, "https://admin.example.com/uploads/level-background.png", data["background_image"])
 }
 
 func TestHTTP_GetLevel_NotFound(t *testing.T) {

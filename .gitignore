@@ -90,6 +90,5 @@ coverage-final.json
 /scripts/metarang_db.sql
 /.cursor/
 /docs/
-AGENTS.md
 ci-issues-report.md
 certs/
