@@ -68,6 +68,25 @@ func TestLevelRepository_FormatImageURL_ViaGetAllLevels(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestLevelRepository_GetUserLatestLevel_SelectsNewestImage(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := repository.NewLevelRepository(db, "https://admin.example.com")
+	mock.ExpectQuery("ORDER BY i\\.created_at DESC, i\\.id DESC").
+		WithArgs(uint64(8)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "name", "slug", "score", "background_image", "image_url", "gem_fbx_file",
+		}).AddRow(uint64(1), "Citizen", "1", int32(10), "background.jpg", "current.png", "gem.fbx"))
+
+	level, err := repo.GetUserLatestLevel(context.Background(), 8)
+	require.NoError(t, err)
+	require.NotNil(t, level)
+	assert.Equal(t, "https://admin.example.com/uploads/current.png", level.ImageUrl)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestLevelRepository_GetLevelPrize_JalaliFormat(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
