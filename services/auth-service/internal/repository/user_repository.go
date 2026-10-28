@@ -565,10 +565,16 @@ func (r *userRepository) GetUsersLevelsForList(ctx context.Context, userIDs []ui
 	placeholders := buildUserIDPlaceholders(len(userIDs))
 	query := fmt.Sprintf(`
 		SELECT lu.user_id, l.id, l.name, l.slug, CAST(l.score AS SIGNED) as score,
-		       COALESCE(i.url, '') as image_url
+		       COALESCE((
+				   SELECT i.url
+				   FROM images i
+				   WHERE i.imageable_id = l.id
+				     AND i.imageable_type = 'App\\Models\\Levels\\Level'
+				   ORDER BY i.created_at DESC, i.id DESC
+				   LIMIT 1
+			   ), '') as image_url
 		FROM level_user lu
 		INNER JOIN levels l ON l.id = lu.level_id
-		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
 		WHERE lu.user_id IN (%s)
 		ORDER BY lu.user_id ASC, l.id ASC
 	`, placeholders)
