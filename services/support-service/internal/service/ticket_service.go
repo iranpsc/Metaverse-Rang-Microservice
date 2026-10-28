@@ -70,7 +70,7 @@ func (s *ticketService) CreateTicket(ctx context.Context, userID uint64, title, 
 	}
 
 	if receiverID != nil {
-		go s.sendTicketNotification(*receiverID, fullTicket, fullTicket.SenderName, senderImage(fullTicket))
+		go s.sendTicketNotification(*receiverID, fullTicket, fullTicket.SenderName, senderImage(fullTicket), ticketNotificationReceived)
 	}
 
 	return fullTicket, nil
@@ -179,7 +179,7 @@ func (s *ticketService) AddResponse(ctx context.Context, ticketID, userID uint64
 	}
 
 	if otherID := ticket.OtherParticipantID(userID); otherID != 0 {
-		go s.sendTicketNotification(otherID, updatedTicket, userName, actorImage(ticket, userID))
+		go s.sendTicketNotification(otherID, updatedTicket, userName, actorImage(ticket, userID), ticketNotificationResponse)
 	}
 
 	return updatedTicket, nil
@@ -270,7 +270,14 @@ func actorImage(ticket *models.TicketWithRelations, userID uint64) string {
 	return "uploads/img/logo.png"
 }
 
-func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.TicketWithRelations, actorName, actorImage string) {
+type ticketNotificationKind string
+
+const (
+	ticketNotificationReceived ticketNotificationKind = "received"
+	ticketNotificationResponse ticketNotificationKind = "response"
+)
+
+func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.TicketWithRelations, actorName, actorImage string, kind ticketNotificationKind) {
 	conn, err := grpcutil.NewClient(s.notificationServiceAddr)
 	if err != nil {
 		fmt.Printf("Failed to connect to notification service: %v\n", err)
@@ -290,23 +297,33 @@ func (s *ticketService) sendTicketNotification(userID uint64, ticket *models.Tic
 		actorImage = senderImage(ticket)
 	}
 
-	message := fmt.Sprintf("تیکتی از طرف %s دریافت شده است", actorName)
+	title, message := ticketNotificationText(ticket, actorName, kind)
 
 	_, err = client.SendNotification(ctx, &pbNotification.SendNotificationRequest{
 		UserId:  userID,
 		Type:    "ticket_received",
-		Title:   "تیکت جدید",
+		Title:   title,
 		Message: message,
 		Data: map[string]string{
 			"related-to":   "tickets",
 			"sender-image": actorImage,
 			"sender-name":  actorName,
 			"ticket-id":    fmt.Sprintf("%d", ticket.ID),
+			"ticket-code":  fmt.Sprintf("%d", ticket.Code),
 		},
 	})
 
 	if err != nil {
 		fmt.Printf("Failed to send notification: %v\n", err)
+	}
+}
+
+func ticketNotificationText(ticket *models.TicketWithRelations, actorName string, kind ticketNotificationKind) (string, string) {
+	switch kind {
+	case ticketNotificationResponse:
+		return "پاسخ جدید به تیکت", fmt.Sprintf("%s به تیکت شما با کد %d پاسخ داده است", actorName, ticket.Code)
+	default:
+		return "تیکت جدید", fmt.Sprintf("%s یک تیکت جدید با کد %d برای شما ارسال کرده است", actorName, ticket.Code)
 	}
 }
 
