@@ -23,7 +23,7 @@ func TestTradeRepository_Create(t *testing.T) {
 	db, mock := testutil.NewSQLMock(t)
 	repo := repository.NewTradeRepository(db)
 
-	mock.ExpectExec("INSERT INTO trades").
+	mock.ExpectExec("INSERT INTO trades \\(feature_id, buyer_id, seller_id, type, irr_amount").
 		WithArgs(uint64(1), uint64(2), uint64(3), 50.0, 10.0).
 		WillReturnResult(sqlmock.NewResult(9, 1))
 
@@ -121,9 +121,9 @@ func TestTradeRepository_ListByFeatureWithDetails(t *testing.T) {
 	mock.ExpectQuery("FROM trades t").
 		WithArgs(uint64(10)).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "feature_id", "buyer_id", "seller_id", "irr_amount", "psc_amount",
+			"id", "feature_id", "buyer_id", "seller_id", "type", "irr_amount", "psc_amount",
 			"date", "created_at", "buyer_code", "buyer_name",
-		}).AddRow(287, 10, 491, 1, 0.0, 0.0, now, now, "hm-2000491", "Parsa"))
+		}).AddRow(287, 10, 491, 1, "gift", 0.0, 0.0, now, now, "hm-2000491", "Parsa"))
 
 	mock.ExpectQuery("FROM transactions").
 		WithArgs(`App\Models\Trade`, uint64(287)).
@@ -134,6 +134,7 @@ func TestTradeRepository_ListByFeatureWithDetails(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, trades, 1)
 	assert.Equal(t, uint64(287), trades[0].ID)
+	assert.Equal(t, "gift", trades[0].Type)
 	assert.Equal(t, "hm-2000491", trades[0].BuyerCode)
 	assert.Equal(t, "Parsa", trades[0].BuyerName)
 	require.Len(t, trades[0].Transactions, 1)

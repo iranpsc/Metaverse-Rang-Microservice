@@ -2032,6 +2032,7 @@ CREATE TABLE `trades` (
   `feature_id` bigint(20) unsigned NOT NULL,
   `buyer_id` bigint(20) unsigned NOT NULL,
   `seller_id` bigint(20) unsigned NOT NULL,
+  `type` varchar(191) NOT NULL DEFAULT 'land',
   `irr_amount` bigint(20) unsigned DEFAULT NULL,
   `psc_amount` bigint(20) unsigned DEFAULT NULL,
   `date` date NOT NULL,

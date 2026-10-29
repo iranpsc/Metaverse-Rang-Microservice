@@ -28,6 +28,7 @@ type TradeHistoryTrade struct {
 	FeatureID    uint64
 	BuyerID      uint64
 	SellerID     uint64
+	Type         string
 	IRRAmount    float64
 	PSCAmount    float64
 	Date         sql.NullTime
