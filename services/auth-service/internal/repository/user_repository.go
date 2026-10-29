@@ -569,7 +569,7 @@ func (r *userRepository) GetUsersLevelsForList(ctx context.Context, userIDs []ui
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url
@@ -720,7 +720,7 @@ func (r *userRepository) GetUserLatestLevel(ctx context.Context, userID uint64) 
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url,
@@ -754,7 +754,7 @@ func (r *userRepository) GetLevelsBelowScore(ctx context.Context, score int32) (
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url,

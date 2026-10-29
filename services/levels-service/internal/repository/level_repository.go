@@ -82,7 +82,7 @@ func (r *LevelRepository) GetUserLatestLevel(ctx context.Context, userID uint64)
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url,
@@ -140,7 +140,7 @@ func (r *LevelRepository) GetLevelsBelowScore(ctx context.Context, score int32) 
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url
@@ -187,7 +187,7 @@ func (r *LevelRepository) GetNextLevel(ctx context.Context, currentScore int32) 
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url
@@ -235,7 +235,7 @@ func (r *LevelRepository) GetAllLevels(ctx context.Context) ([]*pb.Level, error)
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url
@@ -280,7 +280,7 @@ func (r *LevelRepository) FindByID(ctx context.Context, id uint64) (*pb.Level, e
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url
@@ -329,7 +329,7 @@ func (r *LevelRepository) FindBySlug(ctx context.Context, slug string) (*pb.Leve
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url
@@ -694,7 +694,7 @@ func (r *LevelRepository) GetNextLevelForScore(ctx context.Context, userID uint6
 				   SELECT i.url
 				   FROM images i
 				   WHERE i.imageable_id = l.id
-				     AND i.imageable_type IN ('App\\Models\\Levels\\Level', 'App\\Models\\Level\\Level')
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
 				   ORDER BY i.created_at DESC, i.id DESC
 				   LIMIT 1
 			   ), '') as image_url
