@@ -44,7 +44,7 @@ func TestUserRepo_GetUserLatestLevel_SelectsNewestImage(t *testing.T) {
 	defer db.Close()
 
 	repo := repository.NewUserRepository(db, "https://admin")
-	mock.ExpectQuery("(?s)App.*Models.*Levels.*Level.*App.*Models.*Level.*Level.*ORDER BY i\\.created_at DESC, i\\.id DESC").
+	mock.ExpectQuery("(?s)App.*Models.*Level.*Level.*ORDER BY i\\.created_at DESC, i\\.id DESC").
 		WithArgs(uint64(8)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "slug", "score", "image_url", "gem_png_file"}).
 			AddRow(uint64(1), "Citizen", "1", int32(10), "current.png", "gem.png"))
