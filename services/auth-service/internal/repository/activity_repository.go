@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"metarang/auth-service/internal/models"
@@ -303,8 +304,9 @@ func (r *activityRepository) GetLatestActivity(ctx context.Context, userID uint6
 		LIMIT 1
 	`
 	activity := &models.UserActivity{}
+	var start, end sql.NullString
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
-		&activity.ID, &activity.UserID, &activity.Start, &activity.End,
+		&activity.ID, &activity.UserID, &start, &end,
 		&activity.Total, &activity.IP, &activity.CreatedAt, &activity.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -313,7 +315,34 @@ func (r *activityRepository) GetLatestActivity(ctx context.Context, userID uint6
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest activity: %w", err)
 	}
+	activity.Start, err = parseActivityTime(start.String)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse activity start: %w", err)
+	}
+	if end.Valid {
+		activity.End.Time, err = parseActivityTime(end.String)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse activity end: %w", err)
+		}
+		activity.End.Valid = true
+	}
 	return activity, nil
+}
+
+// user_activities.start and end are legacy VARCHAR columns. Scan them as text
+// instead of time.Time because MySQL returns VARCHAR values as []byte.
+func parseActivityTime(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05",
+	} {
+		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid timestamp %q", value)
 }
 
 // UpdateActivity updates an activity record
