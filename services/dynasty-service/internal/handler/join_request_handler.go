@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"metarang/dynasty-service/internal/models"
 	"metarang/dynasty-service/internal/service"
@@ -177,7 +178,15 @@ func (h *JoinRequestHandler) GetJoinRequest(ctx context.Context, req *dynastypb.
 
 	prize, _ := h.joinRequestService.GetPrizeByRelationship(ctx, joinRequest.Relationship)
 
-	return buildJoinRequestResponse(joinRequest, userInfo, prize), nil
+	resp := buildJoinRequestResponse(joinRequest, userInfo, prize)
+	if resp.RequestPrize != nil {
+		collected, err := h.joinRequestService.JoinRequestPrizeCollected(ctx, joinRequest, prize.ID)
+		if err == nil {
+			resp.RequestPrize.Collected = proto.Bool(collected)
+		}
+	}
+
+	return resp, nil
 }
 
 // AcceptJoinRequest accepts a join request

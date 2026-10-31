@@ -3149,18 +3149,19 @@ func (x *CitizenKYC) GetAddress() string {
 }
 
 type CitizenCustoms struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Occupation    string                 `protobuf:"bytes,1,opt,name=occupation,proto3" json:"occupation,omitempty"`
-	Education     string                 `protobuf:"bytes,2,opt,name=education,proto3" json:"education,omitempty"`
-	LovedCity     string                 `protobuf:"bytes,3,opt,name=loved_city,json=lovedCity,proto3" json:"loved_city,omitempty"`
-	LovedCountry  string                 `protobuf:"bytes,4,opt,name=loved_country,json=lovedCountry,proto3" json:"loved_country,omitempty"`
-	LovedLanguage string                 `protobuf:"bytes,5,opt,name=loved_language,json=lovedLanguage,proto3" json:"loved_language,omitempty"`
-	Prediction    string                 `protobuf:"bytes,6,opt,name=prediction,proto3" json:"prediction,omitempty"`
-	Memory        string                 `protobuf:"bytes,7,opt,name=memory,proto3" json:"memory,omitempty"`
-	About         string                 `protobuf:"bytes,8,opt,name=about,proto3" json:"about,omitempty"`
-	Passions      map[string]string      `protobuf:"bytes,9,rep,name=passions,proto3" json:"passions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Occupation     string                 `protobuf:"bytes,1,opt,name=occupation,proto3" json:"occupation,omitempty"`
+	Education      string                 `protobuf:"bytes,2,opt,name=education,proto3" json:"education,omitempty"`
+	LovedCity      string                 `protobuf:"bytes,3,opt,name=loved_city,json=lovedCity,proto3" json:"loved_city,omitempty"`
+	LovedCountry   string                 `protobuf:"bytes,4,opt,name=loved_country,json=lovedCountry,proto3" json:"loved_country,omitempty"`
+	LovedLanguage  string                 `protobuf:"bytes,5,opt,name=loved_language,json=lovedLanguage,proto3" json:"loved_language,omitempty"`
+	Prediction     string                 `protobuf:"bytes,6,opt,name=prediction,proto3" json:"prediction,omitempty"`
+	Memory         string                 `protobuf:"bytes,7,opt,name=memory,proto3" json:"memory,omitempty"`
+	About          string                 `protobuf:"bytes,8,opt,name=about,proto3" json:"about,omitempty"`
+	Passions       map[string]string      `protobuf:"bytes,9,rep,name=passions,proto3" json:"passions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	ProblemSolving string                 `protobuf:"bytes,10,opt,name=problem_solving,json=problemSolving,proto3" json:"problem_solving,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CitizenCustoms) Reset() {
@@ -3254,6 +3255,13 @@ func (x *CitizenCustoms) GetPassions() map[string]string {
 		return x.Passions
 	}
 	return nil
+}
+
+func (x *CitizenCustoms) GetProblemSolving() string {
+	if x != nil {
+		return x.ProblemSolving
+	}
+	return ""
 }
 
 type CitizenLevel struct {
@@ -8588,7 +8596,7 @@ const file_auth_proto_rawDesc = "" +
 	"birth_date\x18\x04 \x01(\tR\tbirthDate\x12\x14\n" +
 	"\x05phone\x18\x05 \x01(\tR\x05phone\x12\x14\n" +
 	"\x05email\x18\x06 \x01(\tR\x05email\x12\x18\n" +
-	"\aaddress\x18\a \x01(\tR\aaddress\"\x84\x03\n" +
+	"\aaddress\x18\a \x01(\tR\aaddress\"\xad\x03\n" +
 	"\x0eCitizenCustoms\x12\x1e\n" +
 	"\n" +
 	"occupation\x18\x01 \x01(\tR\n" +
@@ -8603,7 +8611,9 @@ const file_auth_proto_rawDesc = "" +
 	"prediction\x12\x16\n" +
 	"\x06memory\x18\a \x01(\tR\x06memory\x12\x14\n" +
 	"\x05about\x18\b \x01(\tR\x05about\x12>\n" +
-	"\bpassions\x18\t \x03(\v2\".auth.CitizenCustoms.PassionsEntryR\bpassions\x1a;\n" +
+	"\bpassions\x18\t \x03(\v2\".auth.CitizenCustoms.PassionsEntryR\bpassions\x12'\n" +
+	"\x0fproblem_solving\x18\n" +
+	" \x01(\tR\x0eproblemSolving\x1a;\n" +
 	"\rPassionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"r\n" +

@@ -84,8 +84,8 @@ func (s *FeaturePricingService) UpdateFeaturePricing(ctx context.Context, featur
 	totalPrice := properties.Stability * colorRate * float64(minimumPricePercentage) / 100.0
 
 	// Split 50/50 between PSC and IRR
-	pricePSC := (totalPrice * 0.5) / pscRate
 	priceIRR := totalPrice * 0.5
+	pricePSC := (totalPrice - priceIRR) / pscRate
 
 	// Convert to strings (stored as VARCHAR in database)
 	pricePSCStr := fmt.Sprintf("%.10f", pricePSC)
@@ -191,7 +191,7 @@ func (s *FeaturePricingService) isUserUnder18(ctx context.Context, userID uint64
 
 func (s *FeaturePricingService) getVariableRate(ctx context.Context, asset string) float64 {
 	var rate float64
-	query := "SELECT value FROM variables WHERE `key` = ?"
+	query := "SELECT price FROM variables WHERE `asset` = ?"
 	if err := s.db.QueryRowContext(ctx, query, asset).Scan(&rate); err != nil {
 		return 1.0 // Default
 	}

@@ -27,3 +27,7 @@ generate_go common
 for name in auth calendar commercial dynasty features financial levels notifications social storage support training; do
 	generate_grpc "${name}"
 done
+
+protoc --go_out="${PB_DIR}/commercial" --go_opt=paths=source_relative \
+ --go-grpc_out="${PB_DIR}/commercial" --go-grpc_opt=paths=source_relative \
+ -I="${PROTO_DIR}" "${PROTO_DIR}/commercial_rates.proto"

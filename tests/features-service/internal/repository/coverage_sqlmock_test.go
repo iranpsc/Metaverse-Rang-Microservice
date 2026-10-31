@@ -42,7 +42,7 @@ func TestTradeRepository_ListByFeatureWithDetails_EmptyAndWithTx(t *testing.T) {
 	mock.ExpectQuery("FROM trades t").
 		WithArgs(uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "feature_id", "buyer_id", "seller_id", "irr", "psc", "date", "created_at", "buyer_code", "buyer_name",
+			"id", "feature_id", "buyer_id", "seller_id", "type", "irr", "psc", "date", "created_at", "buyer_code", "buyer_name",
 		}))
 	list, err := repo.ListByFeatureWithDetails(context.Background(), 1)
 	require.NoError(t, err)
@@ -51,8 +51,8 @@ func TestTradeRepository_ListByFeatureWithDetails_EmptyAndWithTx(t *testing.T) {
 	mock.ExpectQuery("FROM trades t").
 		WithArgs(uint64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "feature_id", "buyer_id", "seller_id", "irr", "psc", "date", "created_at", "buyer_code", "buyer_name",
-		}).AddRow(9, 1, 2, 3, 50.0, 10.0, now, now, "hm-2", "Ali"))
+			"id", "feature_id", "buyer_id", "seller_id", "type", "irr", "psc", "date", "created_at", "buyer_code", "buyer_name",
+		}).AddRow(9, 1, 2, 3, nil, 50.0, 10.0, now, now, "hm-2", "Ali"))
 	mock.ExpectQuery("FROM transactions").
 		WillReturnRows(sqlmock.NewRows([]string{"payable_id", "asset", "amount", "action"}).
 			AddRow(uint64(9), "yellow", 1.5, "withdraw"))
@@ -60,6 +60,7 @@ func TestTradeRepository_ListByFeatureWithDetails_EmptyAndWithTx(t *testing.T) {
 	list, err = repo.ListByFeatureWithDetails(context.Background(), 1)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
+	assert.Empty(t, list[0].Type)
 	require.Len(t, list[0].Transactions, 1)
 	assert.Equal(t, "yellow", list[0].Transactions[0].Asset)
 	require.NoError(t, mock.ExpectationsWereMet())

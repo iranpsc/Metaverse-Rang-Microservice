@@ -229,7 +229,7 @@ func featureColorByKarbari(karbari string) string {
 	}
 }
 
-// GetFeatureDetails retrieves feature details for dynasty
+// GetFeatureDetails retrieves dynasty feature details, including polygon coordinates.
 func (s *DynastyService) GetFeatureDetails(ctx context.Context, featureID uint64) (map[string]interface{}, error) {
 	return s.dynastyRepo.GetFeatureDetails(ctx, featureID)
 }

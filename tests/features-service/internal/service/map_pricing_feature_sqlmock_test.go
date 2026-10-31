@@ -111,12 +111,11 @@ func TestFeaturePricingService_SQLMock(t *testing.T) {
 		repository.NewPropertiesRepository(db),
 		db, log,
 	)
-
 	expectFeatureFindByID(mock, 3, "m", 1000, 80)
-	mock.ExpectQuery("SELECT value FROM variables").
+	mock.ExpectQuery("SELECT price FROM variables").
 		WithArgs("yellow").
 		WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1.0))
-	mock.ExpectQuery("SELECT value FROM variables").
+	mock.ExpectQuery("SELECT price FROM variables").
 		WithArgs("psc").
 		WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1.0))
 	info, err := svc.GetFeaturePriceInfo(context.Background(), 1)
@@ -138,10 +137,10 @@ func TestFeaturePricingService_SQLMock(t *testing.T) {
 	mock.ExpectQuery("SELECT birthdate FROM kycs").
 		WithArgs(uint64(3)).
 		WillReturnError(sql.ErrNoRows)
-	mock.ExpectQuery("SELECT value FROM variables").
+	mock.ExpectQuery("SELECT price FROM variables").
 		WithArgs("yellow").
 		WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1.0))
-	mock.ExpectQuery("SELECT value FROM variables").
+	mock.ExpectQuery("SELECT price FROM variables").
 		WithArgs("psc").
 		WillReturnRows(sqlmock.NewRows([]string{"value"}).AddRow(1.0))
 	mock.ExpectExec("SET price_psc").

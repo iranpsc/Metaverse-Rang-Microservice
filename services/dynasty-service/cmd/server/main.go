@@ -87,7 +87,6 @@ func main() {
 	familyRepo := repository.NewFamilyRepository(db)
 	prizeRepo := repository.NewPrizeRepository(db)
 	permissionRepo := repository.NewPermissionRepository(db)
-	variableRepo := repository.NewVariableRepository(db)
 	userVariableRepo := repository.NewUserVariableRepository(db)
 	validationRepo := repository.NewValidationRepository(db)
 
@@ -107,11 +106,13 @@ func main() {
 	}
 
 	var walletPort service.WalletPort
+	var ratePort service.AssetRatePort
 	commercialAddr := getEnv("COMMERCIAL_SERVICE_ADDR", "localhost:50052")
 	if comm, err := client.NewCommercialClient(commercialAddr); err != nil {
 		log.Printf("Warning: commercial service unavailable (%v); dynasty prize claims will fail until it is reachable", err)
 	} else {
 		walletPort = comm
+		ratePort = comm
 		defer func() {
 			if err := comm.Close(); err != nil {
 				log.Printf("commercial client close: %v", err)
@@ -150,7 +151,7 @@ func main() {
 	dynastyService.SetNotifier(notificationPort)
 	joinRequestService := service.NewJoinRequestService(joinRequestRepo, dynastyRepo, familyRepo, prizeRepo, validation.NewFamilyValidator(validationRepo), notificationPort, notificationServiceAddr)
 	familyService := service.NewFamilyService(familyRepo, dynastyRepo, levelsPort)
-	prizeService := service.NewPrizeService(db, prizeRepo, variableRepo, userVariableRepo, walletPort)
+	prizeService := service.NewPrizeService(db, prizeRepo, ratePort, userVariableRepo, walletPort)
 	permissionService := service.NewPermissionService(permissionRepo, joinRequestRepo, familyRepo, dynastyRepo)
 	userSearchService := service.NewUserSearchService(db, kycPort, levelsPort)
 
@@ -208,7 +209,7 @@ func main() {
 		}
 	}()
 
-	httpHandler := handler.NewHTTPDynastyHandler(dynastyHandler, joinRequestHandler, familyHandler, prizeHandler)
+	httpHandler := handler.NewHTTPDynastyHandler(dynastyHandler, joinRequestHandler, familyHandler, prizeHandler, ratePort)
 	httpPort := getEnv("HTTP_PORT", "8068")
 	authMW := middleware.AuthMiddleware(authClient)
 

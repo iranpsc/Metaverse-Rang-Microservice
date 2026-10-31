@@ -39,9 +39,9 @@ func TestCitizenFileName(t *testing.T) {
 		index int
 		want  string
 	}{
-		{0, "citizen-sitemap.xml"},
-		{1, "citizen-sitemap-2.xml"},
-		{2, "citizen-sitemap-3.xml"},
+		{0, "citizen.xml"},
+		{1, "citizen-2.xml"},
+		{2, "citizen-3.xml"},
 	}
 	for _, tc := range cases {
 		if got := sitemap.CitizenFileName(tc.index); got != tc.want {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -67,6 +68,7 @@ func main() {
 	sitemapService := service.NewSitemapService(repo, writer, service.Config{
 		TemplatesPath: templatesPath,
 		AdminPanelURL: adminPanelURL,
+		Translations:  service.NewTranslationSource(adminPanelURL, filepath.Join(exportPath, ".translations-cache.json")),
 	}).WithLogger(log)
 
 	httpPort := getEnv("HTTP_PORT", "8071")

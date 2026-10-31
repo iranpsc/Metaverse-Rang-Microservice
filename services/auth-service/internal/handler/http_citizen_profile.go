@@ -130,6 +130,10 @@ func buildCitizenCustomsHTTP(customs *pb.CitizenCustoms) map[string]interface{} 
 		out["loved_language"] = customs.LovedLanguage
 		has = true
 	}
+	if customs.ProblemSolving != "" {
+		out["problem_solving"] = customs.ProblemSolving
+		has = true
+	}
 	if customs.Prediction != "" {
 		out["prediction"] = customs.Prediction
 		has = true

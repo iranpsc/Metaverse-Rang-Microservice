@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,8 +17,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"metarang/dynasty-service/internal/handler"
+	"metarang/dynasty-service/tests/internal/testutil"
 	commonpb "metarang/shared/pb/common"
 	dynastypb "metarang/shared/pb/dynasty"
 	authpkg "metarang/shared/pkg/auth"
@@ -183,7 +187,7 @@ func newHTTPHandler(d *fakeDynastyAPI, j *fakeJoinRequestAPI, f *fakeFamilyAPI, 
 	if p == nil {
 		p = &fakePrizeAPI{}
 	}
-	return handler.NewHTTPDynastyHandler(d, j, f, p)
+	return handler.NewHTTPDynastyHandler(d, j, f, p, nil)
 }
 
 func TestHTTPDynastyHandler_StartHTTPServer_InvalidPort(t *testing.T) {
@@ -218,12 +222,10 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 					DynastyFeature: &dynastypb.DynastyFeature{
 						Id: 100, PropertiesId: "p1", Area: "a", Density: "d",
 						FeatureProfitIncrease: "0.5", FamilyMembersCount: 3, LastUpdated: "1403/01/02",
+						Coordinates: []*dynastypb.FeatureCoordinate{{Id: 4, X: "51.400000", Y: "35.700000"}},
 					},
 					Features: []*dynastypb.AvailableFeature{
-						{
-							Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3",
-							Coordinates: []*dynastypb.FeatureCoordinate{{Id: 9, X: "51.389000", Y: "35.689200"}},
-						},
+						{Id: 1, PropertiesId: "x", Density: "1", Stability: "2", Area: "3"},
 					},
 					Prizes: []*dynastypb.IntroductionPrize{{
 						Member: "brother", Satisfaction: 1, IntroductionProfitIncrease: 2,
@@ -244,14 +246,23 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, true, data["user-has-dynasty"])
 		assert.Equal(t, photo, data["profile-image"])
+		assert.Equal(t, map[string]interface{}{
+			"id":                      float64(100),
+			"properties_id":           "p1",
+			"area":                    "a",
+			"density":                 "d",
+			"feature-profit-increase": "0.5",
+			"family-members-count":    float64(3),
+			"last-updated":            "1403/01/02",
+			"coordinates": []interface{}{
+				map[string]interface{}{"id": float64(4), "x": "51.400000", "y": "35.700000"},
+			},
+		}, data["dynasty-feature"])
 		features, ok := data["features"].([]interface{})
 		require.True(t, ok)
 		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
 			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
-			"coordinates": []interface{}{
-				map[string]interface{}{"id": float64(9), "x": "51.389000", "y": "35.689200"},
-			},
 		}, features[0])
 		_, prizesOK := data["prizes"].([]interface{})
 		assert.True(t, prizesOK)
@@ -287,7 +298,6 @@ func TestHTTPDynastyHandler_GetDynasty(t *testing.T) {
 		require.Len(t, features, 1)
 		assert.Equal(t, map[string]interface{}{
 			"id": float64(1), "properties_id": "x", "density": "1", "stability": "2", "area": "3",
-			"coordinates": []interface{}{},
 		}, features[0])
 		_, hasID := data["id"]
 		assert.False(t, hasID)
@@ -408,12 +418,24 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 		GetReceivedRequestsFunc: func(context.Context, *dynastypb.GetReceivedRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
 			return &dynastypb.JoinRequestsResponse{Requests: []*dynastypb.JoinRequestResponse{{
 				Id: 2, Status: 0, Relationship: "sister", CreatedAt: "1403/01/02",
-				Message:    "hello there",
-				ToUserInfo: &commonpb.UserBasic{Id: 3, Code: "C3", Name: "Ann"},
+				Message:      "hello there",
+				ToUserInfo:   &commonpb.UserBasic{Id: 3, Code: "C3", Name: "Ann"},
+				RequestPrize: &dynastypb.DynastyPrize{Id: 4, Psc: 2, Member: "sister"},
 			}}}, nil
 		},
+		GetJoinRequestFunc: func(context.Context, *dynastypb.GetJoinRequestRequest) (*dynastypb.JoinRequestResponse, error) {
+			return &dynastypb.JoinRequestResponse{
+				Id:           9,
+				Status:       1,
+				Relationship: "brother",
+				CreatedAt:    "1403/01/01 12:00",
+				ToUserInfo:   &commonpb.UserBasic{Id: 2, Code: "C2", Name: "Bob"},
+				RequestPrize: &dynastypb.DynastyPrize{Id: 9, Psc: 1, Member: "brother", Collected: proto.Bool(true)},
+			}, nil
+		},
 	}
-	h := newHTTPHandler(nil, join, nil, nil)
+	rates, dependency := testutil.StartCommercial(t, 4, nil)
+	h := handler.NewHTTPDynastyHandler(nil, join, nil, nil, rates)
 
 	rr := httptest.NewRecorder()
 	req := withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/sent?page=2", nil))
@@ -423,12 +445,17 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), `"prize"`)
 	assert.Contains(t, rr.Body.String(), "برادر")
 	assert.Contains(t, rr.Body.String(), `"message":"please join"`)
+	assert.Contains(t, rr.Body.String(), `"psc":0.25`)
 
 	rr = httptest.NewRecorder()
 	h.GetReceivedRequests(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/recieved?page=1", nil)))
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), `"from_user"`)
 	assert.Contains(t, rr.Body.String(), `"message":"hello there"`)
+	assert.Contains(t, rr.Body.String(), `"prize"`)
+	assert.NotContains(t, rr.Body.String(), `"collected"`)
+	assert.Contains(t, rr.Body.String(), `"psc":0.5`)
+	assert.Equal(t, int32(2), dependency.RateCalls.Load())
 
 	body := `{"user":5,"relationship":"offspring","message":"hi","permissions":{"BFR":true,"SF":false,"W":true,"JU":false,"DM":false,"PIUP":false,"PITC":false,"PIC":false,"ESOO":false,"COTB":false}}`
 	rr = httptest.NewRecorder()
@@ -450,10 +477,14 @@ func TestHTTPDynastyHandler_JoinRequestFlows(t *testing.T) {
 	rr = httptest.NewRecorder()
 	h.GetSentRequest(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/sent/9", nil)))
 	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `"prize"`)
+	assert.Contains(t, rr.Body.String(), `"collected":true`)
 
 	rr = httptest.NewRecorder()
 	h.GetReceivedRequest(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/api/dynasty/requests/recieved/9", nil)))
 	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, rr.Body.String(), `"prize"`)
+	assert.Contains(t, rr.Body.String(), `"collected":true`)
 
 	rr = httptest.NewRecorder()
 	h.DeleteJoinRequest(rr, withUser(1, httptest.NewRequest(http.MethodDelete, "/api/dynasty/requests/sent/9", nil)))
@@ -709,4 +740,86 @@ func TestHTTPDynastyHandler_UpdateChildPermissionCanDisable(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "DM", family.lastPermission)
 	assert.False(t, family.lastEnabled)
+}
+
+func TestHTTPDynastyHandler_JoinRequestPrizeRateFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		rate float64
+		err  error
+	}{
+		{"zero", 0, nil}, {"negative", -1, nil}, {"nan", math.NaN(), nil}, {"infinite", math.Inf(1), nil},
+		{"unavailable", 0, status.Error(codes.Unavailable, "down")},
+		{"conversion overflow", math.SmallestNonzeroFloat64, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rates, dependency := testutil.StartCommercial(t, tc.rate, tc.err)
+			response := &dynastypb.JoinRequestsResponse{Requests: []*dynastypb.JoinRequestResponse{{RequestPrize: &dynastypb.DynastyPrize{Psc: 1000}}}}
+			join := &fakeJoinRequestAPI{
+				GetSentRequestsFunc: func(context.Context, *dynastypb.GetSentRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
+					return response, nil
+				},
+				GetReceivedRequestsFunc: func(context.Context, *dynastypb.GetReceivedRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
+					return response, nil
+				},
+			}
+			h := handler.NewHTTPDynastyHandler(nil, join, nil, nil, rates)
+			for _, call := range []func(http.ResponseWriter, *http.Request){h.GetSentRequests, h.GetReceivedRequests} {
+				rr := httptest.NewRecorder()
+				call(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/", nil)))
+				assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+				assert.NotContains(t, rr.Body.String(), `"psc":1000`)
+			}
+			assert.Equal(t, int32(2), dependency.RateCalls.Load())
+		})
+	}
+}
+
+func TestHTTPDynastyHandler_JoinRequestPrizesReuseRate(t *testing.T) {
+	for _, received := range []bool{false, true} {
+		t.Run(fmt.Sprint(received), func(t *testing.T) {
+			rates, dependency := testutil.StartCommercial(t, 400, nil)
+			response := &dynastypb.JoinRequestsResponse{Requests: []*dynastypb.JoinRequestResponse{
+				{RequestPrize: &dynastypb.DynastyPrize{Psc: 3000000000}},
+				{RequestPrize: &dynastypb.DynastyPrize{Psc: 0}},
+				{RequestPrize: &dynastypb.DynastyPrize{Psc: 200}}, {},
+			}}
+			join := &fakeJoinRequestAPI{
+				GetSentRequestsFunc: func(context.Context, *dynastypb.GetSentRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
+					return response, nil
+				},
+				GetReceivedRequestsFunc: func(context.Context, *dynastypb.GetReceivedRequestsRequest) (*dynastypb.JoinRequestsResponse, error) {
+					return response, nil
+				},
+			}
+			h := handler.NewHTTPDynastyHandler(nil, join, nil, nil, rates)
+			call := h.GetSentRequests
+			if received {
+				call = h.GetReceivedRequests
+			}
+			rr := httptest.NewRecorder()
+			call(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/", nil)))
+			require.Equal(t, http.StatusOK, rr.Code)
+			var body struct {
+				Data []struct {
+					Prize *struct {
+						PSC float64 `json:"psc"`
+					} `json:"prize"`
+				} `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &body))
+			require.Len(t, body.Data, 4)
+			assert.Equal(t, 7500000.0, body.Data[0].Prize.PSC)
+			assert.Zero(t, body.Data[1].Prize.PSC)
+			assert.Equal(t, 0.5, body.Data[2].Prize.PSC)
+			assert.Nil(t, body.Data[3].Prize)
+			assert.Equal(t, int32(1), dependency.RateCalls.Load())
+			assert.Equal(t, int64(3000000000), response.Requests[0].RequestPrize.Psc)
+			response.Requests = nil
+			rr = httptest.NewRecorder()
+			call(rr, withUser(1, httptest.NewRequest(http.MethodGet, "/", nil)))
+			assert.Equal(t, http.StatusOK, rr.Code)
+			assert.Equal(t, int32(1), dependency.RateCalls.Load())
+		})
+	}
 }

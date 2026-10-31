@@ -38,6 +38,24 @@ func TestUserRepo_FormatImageURLViaLevels(t *testing.T) {
 	require.Equal(t, "https://cdn/gem.png", levels[0].GemPngFile)
 }
 
+func TestUserRepo_GetUserLatestLevel_SelectsNewestImage(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := repository.NewUserRepository(db, "https://admin")
+	mock.ExpectQuery("(?s)App.*Models.*Level.*Level.*ORDER BY i\\.created_at DESC, i\\.id DESC").
+		WithArgs(uint64(8)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "slug", "score", "image_url", "gem_png_file"}).
+			AddRow(uint64(1), "Citizen", "1", int32(10), "current.png", "gem.png"))
+
+	level, err := repo.GetUserLatestLevel(context.Background(), 8)
+	require.NoError(t, err)
+	require.NotNil(t, level)
+	require.Equal(t, "https://admin/uploads/current.png", level.Image)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 type chartBucketRow struct {
 	label  string
 	count  int32

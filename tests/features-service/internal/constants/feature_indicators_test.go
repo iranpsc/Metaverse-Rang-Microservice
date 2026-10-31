@@ -27,6 +27,18 @@ func TestGetKarbariTitle(t *testing.T) {
 	assert.Equal(t, constants.TitleTejari, constants.GetKarbariTitle("t"))
 	assert.Equal(t, constants.TitleAmozeshi, constants.GetKarbariTitle("a"))
 	assert.Equal(t, "", constants.GetKarbariTitle("unknown"))
+	for _, tc := range []struct{ code, title string }{
+		{constants.Edari, constants.TitleEdari},
+		{constants.Behdashti, constants.TitleBehdashti},
+		{constants.FazaSabz, constants.TitleFazaSabz},
+		{constants.Farhangi, constants.TitleFarhangi},
+		{constants.Parking, constants.TitleParking},
+		{constants.Mazhabi, constants.TitleMazhabi},
+		{constants.Nemayeshgah, constants.TitleNemayeshgah},
+		{constants.Gardeshgari, constants.TitleGardeshgari},
+	} {
+		assert.Equal(t, tc.title, constants.GetKarbariTitle(tc.code))
+	}
 }
 
 func TestGetKarbariCoefficient(t *testing.T) {

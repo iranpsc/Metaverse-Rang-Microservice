@@ -135,6 +135,7 @@ func TestFeatureTradeHistoryService_RGBPurchaseFallsBackToFeatureProperties(t *t
 			FeatureID: 10,
 			BuyerID:   491,
 			SellerID:  systemUserID,
+			Type:      "gift",
 			PSCAmount: 0,
 			IRRAmount: 0,
 			CreatedAt: sql.NullTime{Time: tradeAt, Valid: true},
@@ -159,7 +160,7 @@ func TestFeatureTradeHistoryService_RGBPurchaseFallsBackToFeatureProperties(t *t
 	item := page.Items[0]
 	require.NotNil(t, item.ID)
 	assert.Equal(t, uint64(287), *item.ID)
-	assert.Equal(t, models.TradeHistoryTypeTrade, item.Type)
+	assert.Equal(t, "gift", item.Type)
 	require.NotNil(t, item.ParticipantCode)
 	assert.Equal(t, "HM-2000491", *item.ParticipantCode)
 	assert.Equal(t, "Parsa", item.ParticipantLabel)

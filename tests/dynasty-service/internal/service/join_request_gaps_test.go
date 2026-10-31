@@ -460,6 +460,44 @@ func TestJoinRequestService_GetJoinRequest(t *testing.T) {
 	})
 }
 
+func TestJoinRequestService_JoinRequestPrizeCollected(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now()
+
+	t.Run("PendingNotCollected", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		req := &models.JoinRequest{ID: 5, FromUser: 1, ToUser: 2, Status: 0, Relationship: "brother", CreatedAt: now}
+		collected, err := svc.JoinRequestPrizeCollected(ctx, req, 9)
+		require.NoError(t, err)
+		assert.False(t, collected)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("AcceptedUnclaimed", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		req := &models.JoinRequest{ID: 5, FromUser: 1, ToUser: 2, Status: 1, Relationship: "brother", CreatedAt: now}
+		mock.ExpectQuery("FROM received_prizes").
+			WithArgs(uint64(1), uint64(9)).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+		collected, err := svc.JoinRequestPrizeCollected(ctx, req, 9)
+		require.NoError(t, err)
+		assert.False(t, collected)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("AcceptedRedeemed", func(t *testing.T) {
+		mock, _, svc := newJoinRequestService(t, nil, nil)
+		req := &models.JoinRequest{ID: 5, FromUser: 1, ToUser: 2, Status: 1, Relationship: "brother", CreatedAt: now}
+		mock.ExpectQuery("FROM received_prizes").
+			WithArgs(uint64(1), uint64(9)).
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+		collected, err := svc.JoinRequestPrizeCollected(ctx, req, 9)
+		require.NoError(t, err)
+		assert.True(t, collected)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
 func TestJoinRequestService_AcceptJoinRequest_ErrorAndFatherPath(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()

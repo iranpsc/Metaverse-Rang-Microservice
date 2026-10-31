@@ -415,6 +415,7 @@ type DynastyFeature struct {
 	FeatureProfitIncrease string                 `protobuf:"bytes,5,opt,name=feature_profit_increase,json=featureProfitIncrease,proto3" json:"feature_profit_increase,omitempty"`
 	FamilyMembersCount    int32                  `protobuf:"varint,6,opt,name=family_members_count,json=familyMembersCount,proto3" json:"family_members_count,omitempty"`
 	LastUpdated           string                 `protobuf:"bytes,7,opt,name=last_updated,json=lastUpdated,proto3" json:"last_updated,omitempty"` // Jalali formatted
+	Coordinates           []*FeatureCoordinate   `protobuf:"bytes,8,rep,name=coordinates,proto3" json:"coordinates,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -498,6 +499,13 @@ func (x *DynastyFeature) GetLastUpdated() string {
 	return ""
 }
 
+func (x *DynastyFeature) GetCoordinates() []*FeatureCoordinate {
+	if x != nil {
+		return x.Coordinates
+	}
+	return nil
+}
+
 type AvailableFeature struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -505,7 +513,6 @@ type AvailableFeature struct {
 	Density       string                 `protobuf:"bytes,3,opt,name=density,proto3" json:"density,omitempty"`
 	Stability     string                 `protobuf:"bytes,4,opt,name=stability,proto3" json:"stability,omitempty"`
 	Area          string                 `protobuf:"bytes,5,opt,name=area,proto3" json:"area,omitempty"`
-	Coordinates   []*FeatureCoordinate   `protobuf:"bytes,6,rep,name=coordinates,proto3" json:"coordinates,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -573,13 +580,6 @@ func (x *AvailableFeature) GetArea() string {
 		return x.Area
 	}
 	return ""
-}
-
-func (x *AvailableFeature) GetCoordinates() []*FeatureCoordinate {
-	if x != nil {
-		return x.Coordinates
-	}
-	return nil
 }
 
 type FeatureCoordinate struct {
@@ -2322,7 +2322,8 @@ type DynastyPrize struct {
 	IntroductionProfitIncrease string                 `protobuf:"bytes,4,opt,name=introduction_profit_increase,json=introductionProfitIncrease,proto3" json:"introduction_profit_increase,omitempty"`
 	AccumulatedCapitalReserve  string                 `protobuf:"bytes,5,opt,name=accumulated_capital_reserve,json=accumulatedCapitalReserve,proto3" json:"accumulated_capital_reserve,omitempty"`
 	DataStorage                string                 `protobuf:"bytes,6,opt,name=data_storage,json=dataStorage,proto3" json:"data_storage,omitempty"`
-	Psc                        int32                  `protobuf:"varint,7,opt,name=psc,proto3" json:"psc,omitempty"`
+	Psc                        int64                  `protobuf:"varint,7,opt,name=psc,proto3" json:"psc,omitempty"`                   // Stored rial amount; HTTP join-request lists convert it to PSC.
+	Collected                  *bool                  `protobuf:"varint,8,opt,name=collected,proto3,oneof" json:"collected,omitempty"` // set on join-request details: requester already redeemed the prize
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
@@ -2399,11 +2400,18 @@ func (x *DynastyPrize) GetDataStorage() string {
 	return ""
 }
 
-func (x *DynastyPrize) GetPsc() int32 {
+func (x *DynastyPrize) GetPsc() int64 {
 	if x != nil {
 		return x.Psc
 	}
 	return 0
+}
+
+func (x *DynastyPrize) GetCollected() bool {
+	if x != nil && x.Collected != nil {
+		return *x.Collected
+	}
+	return false
 }
 
 var File_dynasty_proto protoreflect.FileDescriptor
@@ -2442,7 +2450,7 @@ const file_dynasty_proto_rawDesc = "" +
 	"\x1cintroduction_profit_increase\x18\x03 \x01(\x05R\x1aintroductionProfitIncrease\x12>\n" +
 	"\x1baccumulated_capital_reserve\x18\x04 \x01(\x05R\x19accumulatedCapitalReserve\x12!\n" +
 	"\fdata_storage\x18\x05 \x01(\x05R\vdataStorage\x12\x10\n" +
-	"\x03psc\x18\x06 \x01(\tR\x03psc\"\x80\x02\n" +
+	"\x03psc\x18\x06 \x01(\tR\x03psc\"\xbe\x02\n" +
 	"\x0eDynastyFeature\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12#\n" +
 	"\rproperties_id\x18\x02 \x01(\tR\fpropertiesId\x12\x12\n" +
@@ -2450,14 +2458,14 @@ const file_dynasty_proto_rawDesc = "" +
 	"\adensity\x18\x04 \x01(\tR\adensity\x126\n" +
 	"\x17feature_profit_increase\x18\x05 \x01(\tR\x15featureProfitIncrease\x120\n" +
 	"\x14family_members_count\x18\x06 \x01(\x05R\x12familyMembersCount\x12!\n" +
-	"\flast_updated\x18\a \x01(\tR\vlastUpdated\"\xd1\x01\n" +
+	"\flast_updated\x18\a \x01(\tR\vlastUpdated\x12<\n" +
+	"\vcoordinates\x18\b \x03(\v2\x1a.dynasty.FeatureCoordinateR\vcoordinates\"\x93\x01\n" +
 	"\x10AvailableFeature\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12#\n" +
 	"\rproperties_id\x18\x02 \x01(\tR\fpropertiesId\x12\x18\n" +
 	"\adensity\x18\x03 \x01(\tR\adensity\x12\x1c\n" +
 	"\tstability\x18\x04 \x01(\tR\tstability\x12\x12\n" +
-	"\x04area\x18\x05 \x01(\tR\x04area\x12<\n" +
-	"\vcoordinates\x18\x06 \x03(\v2\x1a.dynasty.FeatureCoordinateR\vcoordinates\"?\n" +
+	"\x04area\x18\x05 \x01(\tR\x04area\"?\n" +
 	"\x11FeatureCoordinate\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\f\n" +
 	"\x01x\x18\x02 \x01(\tR\x01x\x12\f\n" +
@@ -2599,7 +2607,7 @@ const file_dynasty_proto_rawDesc = "" +
 	"\x05prize\x18\x01 \x01(\v2\x15.dynasty.DynastyPrizeR\x05prize\"G\n" +
 	"\x11ClaimPrizeRequest\x12\x19\n" +
 	"\bprize_id\x18\x01 \x01(\x04R\aprizeId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\x04R\x06userId\"\x91\x02\n" +
+	"\auser_id\x18\x02 \x01(\x04R\x06userId\"\xc2\x02\n" +
 	"\fDynastyPrize\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x04R\x02id\x12\x16\n" +
 	"\x06member\x18\x02 \x01(\tR\x06member\x12\"\n" +
@@ -2607,7 +2615,10 @@ const file_dynasty_proto_rawDesc = "" +
 	"\x1cintroduction_profit_increase\x18\x04 \x01(\tR\x1aintroductionProfitIncrease\x12>\n" +
 	"\x1baccumulated_capital_reserve\x18\x05 \x01(\tR\x19accumulatedCapitalReserve\x12!\n" +
 	"\fdata_storage\x18\x06 \x01(\tR\vdataStorage\x12\x10\n" +
-	"\x03psc\x18\a \x01(\x05R\x03psc2\xc2\x02\n" +
+	"\x03psc\x18\a \x01(\x03R\x03psc\x12!\n" +
+	"\tcollected\x18\b \x01(\bH\x00R\tcollected\x88\x01\x01B\f\n" +
+	"\n" +
+	"_collected2\xc2\x02\n" +
 	"\x0eDynastyService\x12H\n" +
 	"\rCreateDynasty\x12\x1d.dynasty.CreateDynastyRequest\x1a\x18.dynasty.DynastyResponse\x12B\n" +
 	"\n" +
@@ -2695,7 +2706,7 @@ var file_dynasty_proto_depIdxs = []int32{
 	6,  // 0: dynasty.DynastyResponse.dynasty_feature:type_name -> dynasty.DynastyFeature
 	7,  // 1: dynasty.DynastyResponse.features:type_name -> dynasty.AvailableFeature
 	5,  // 2: dynasty.DynastyResponse.prizes:type_name -> dynasty.IntroductionPrize
-	8,  // 3: dynasty.AvailableFeature.coordinates:type_name -> dynasty.FeatureCoordinate
+	8,  // 3: dynasty.DynastyFeature.coordinates:type_name -> dynasty.FeatureCoordinate
 	31, // 4: dynasty.SendJoinRequestRequest.permissions:type_name -> dynasty.ChildPermissions
 	38, // 5: dynasty.JoinRequestResponse.to_user_info:type_name -> common.UserBasic
 	37, // 6: dynasty.JoinRequestResponse.request_prize:type_name -> dynasty.DynastyPrize
@@ -2767,6 +2778,7 @@ func file_dynasty_proto_init() {
 	if File_dynasty_proto != nil {
 		return
 	}
+	file_dynasty_proto_msgTypes[37].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

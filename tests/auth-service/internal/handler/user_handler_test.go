@@ -168,7 +168,7 @@ func TestUserHandler_GetUserLevels(t *testing.T) {
 					Name:       "Beginner",
 					Score:      100,
 					Slug:       "beginner",
-					Image:      "https://admin.example.com/uploads/level1.png",
+					Image:      "https://admin.example.com/uploads/level-image.png",
 					GemPngFile: "https://admin.example.com/uploads/gem1.png",
 				},
 				PreviousLevels: []*service.LevelDetail{
@@ -207,7 +207,7 @@ func TestUserHandler_GetUserLevels(t *testing.T) {
 			t.Errorf("Expected level ID 1, got %d", resp.Data.LatestLevel.Id)
 		}
 
-		if resp.Data.LatestLevel.ImageUrl != "https://admin.example.com/uploads/level1.png" {
+		if resp.Data.LatestLevel.ImageUrl != "https://admin.example.com/uploads/level-image.png" {
 			t.Errorf("Expected level image URL, got %q", resp.Data.LatestLevel.ImageUrl)
 		}
 

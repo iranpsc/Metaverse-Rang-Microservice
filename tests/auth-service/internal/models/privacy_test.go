@@ -124,3 +124,15 @@ func TestPrivacyIntToInt32Map(t *testing.T) {
 		t.Fatalf("nil input should use defaults, got name=%d", defaults["name"])
 	}
 }
+
+func TestParsePublicPrivacyJSON(t *testing.T) {
+	t.Run("missing keys default to public", func(t *testing.T) {
+		got := models.ParsePublicPrivacyJSON(`{"name":1,"email":0}`)
+		if got["phone"] != 1 || got["occupation"] != 1 {
+			t.Fatalf("missing keys must be public, got phone=%d occupation=%d", got["phone"], got["occupation"])
+		}
+		if got["email"] != 0 {
+			t.Fatalf("explicit private key must remain private, got email=%d", got["email"])
+		}
+	})
+}

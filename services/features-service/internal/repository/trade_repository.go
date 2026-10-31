@@ -21,8 +21,8 @@ func NewTradeRepository(db *sql.DB) *TradeRepository {
 // Create creates a new trade record
 func (r *TradeRepository) Create(ctx context.Context, featureID, buyerID, sellerID uint64, irrAmount, pscAmount float64) (uint64, error) {
 	query := `
-		INSERT INTO trades (feature_id, buyer_id, seller_id, irr_amount, psc_amount, date, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, NOW(), NOW(), NOW())
+		INSERT INTO trades (feature_id, buyer_id, seller_id, type, irr_amount, psc_amount, date, created_at, updated_at)
+		VALUES (?, ?, ?, 'trade', ?, ?, NOW(), NOW(), NOW())
 	`
 
 	result, err := r.db.ExecContext(ctx, query, featureID, buyerID, sellerID, irrAmount, pscAmount)
@@ -165,6 +165,7 @@ func (r *TradeRepository) ListByFeatureWithDetails(ctx context.Context, featureI
 	query := `
 		SELECT
 			t.id, t.feature_id, t.buyer_id, t.seller_id,
+			t.type,
 			COALESCE(t.irr_amount, 0), COALESCE(t.psc_amount, 0),
 			t.date, t.created_at,
 			COALESCE(buyer.code, ''), COALESCE(buyer.name, '')
@@ -187,14 +188,17 @@ func (r *TradeRepository) ListByFeatureWithDetails(ctx context.Context, featureI
 	for rows.Next() {
 		var trade models.TradeHistoryTrade
 		var date, createdAt sql.NullTime
+		var tradeType sql.NullString
 		if err := rows.Scan(
 			&trade.ID, &trade.FeatureID, &trade.BuyerID, &trade.SellerID,
+			&tradeType,
 			&trade.IRRAmount, &trade.PSCAmount,
 			&date, &createdAt,
 			&trade.BuyerCode, &trade.BuyerName,
 		); err != nil {
 			return nil, fmt.Errorf("scan trade: %w", err)
 		}
+		trade.Type = tradeType.String
 		trade.Date = date
 		trade.CreatedAt = createdAt
 		trade.Transactions = []models.TradeHistoryTransaction{}

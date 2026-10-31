@@ -74,6 +74,41 @@ func TestReportHandler_CreateReport_ValidationEmptySubjectTooManyImagesAndIntern
 	}
 }
 
+func TestReportHandler_CreateReport_DescriptionMaxLen(t *testing.T) {
+	client, cleanup := reportClient(t, &testutil.MockReportRepo{})
+	defer cleanup()
+
+	_, err := client.CreateReport(context.Background(), &pb.CreateReportRequest{
+		UserId: 1, ReportableType: "displayError", Reason: "r", Description: strings.Repeat("a", 5001), Url: "https://u.test",
+	})
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("description over limit got %v", err)
+	}
+
+	description := strings.Repeat("a", 5000)
+	repo := &testutil.MockReportRepo{
+		CreateFunc: func(_ context.Context, report *models.Report) (*models.Report, error) {
+			if report.Content != description {
+				t.Fatalf("stored description len=%d", len(report.Content))
+			}
+			report.ID = 77
+			return report, nil
+		},
+		GetByIDFunc: func(_ context.Context, reportID uint64) (*models.ReportWithImages, error) {
+			return &models.ReportWithImages{Report: models.Report{ID: reportID, Content: description}}, nil
+		},
+	}
+	client, cleanup = reportClient(t, repo)
+	defer cleanup()
+	resp, err := client.CreateReport(context.Background(), &pb.CreateReportRequest{
+		UserId: 1, ReportableType: "displayError", Reason: "r", Description: description, Url: "https://u.test",
+	})
+	if err != nil || resp.Id != 77 {
+		t.Fatalf("create at limit err=%v resp=%+v", err, resp)
+	}
+}
+
 func TestReportHandler_GetReports_DefaultPaginationAndInternal(t *testing.T) {
 	var page, per int32
 	repo := &testutil.MockReportRepo{

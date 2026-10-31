@@ -16,26 +16,26 @@ type WalletPort interface {
 }
 
 type PrizeService struct {
-	prizeRepo    *repository.PrizeRepository
-	variableRepo *repository.VariableRepository
-	userVarRepo  *repository.UserVariableRepository
-	wallet       WalletPort
-	db           *sql.DB
+	prizeRepo   *repository.PrizeRepository
+	rates       AssetRatePort
+	userVarRepo *repository.UserVariableRepository
+	wallet      WalletPort
+	db          *sql.DB
 }
 
 func NewPrizeService(
 	db *sql.DB,
 	prizeRepo *repository.PrizeRepository,
-	variableRepo *repository.VariableRepository,
+	rates AssetRatePort,
 	userVarRepo *repository.UserVariableRepository,
 	wallet WalletPort,
 ) *PrizeService {
 	return &PrizeService{
-		prizeRepo:    prizeRepo,
-		variableRepo: variableRepo,
-		userVarRepo:  userVarRepo,
-		wallet:       wallet,
-		db:           db,
+		prizeRepo:   prizeRepo,
+		rates:       rates,
+		userVarRepo: userVarRepo,
+		wallet:      wallet,
+		db:          db,
 	}
 }
 
@@ -61,7 +61,7 @@ func (s *PrizeService) ClaimPrize(ctx context.Context, receivedPrizeID, userID u
 	if s.wallet == nil {
 		return fmt.Errorf("wallet client not configured")
 	}
-	if s.variableRepo == nil || s.userVarRepo == nil || s.db == nil {
+	if s.rates == nil || s.userVarRepo == nil || s.db == nil {
 		return fmt.Errorf("prize claim dependencies not configured")
 	}
 
@@ -82,15 +82,15 @@ func (s *PrizeService) ClaimPrize(ctx context.Context, receivedPrizeID, userID u
 		return fmt.Errorf("prize definition not found")
 	}
 
-	rate, err := s.variableRepo.GetPriceByAsset(ctx, "psc")
+	rate, err := PSCRate(ctx, s.rates)
 	if err != nil {
-		return fmt.Errorf("psc rate: %w", err)
-	}
-	if rate <= 0 {
-		rate = 1
+		return err
 	}
 
-	pscAmount := float64(prize.PSC) / rate
+	pscAmount, err := RialsToPSC(int64(prize.PSC), rate)
+	if err != nil {
+		return err
+	}
 	if err := s.wallet.IncrementWalletPSC(ctx, userID, pscAmount); err != nil {
 		return fmt.Errorf("wallet psc credit: %w", err)
 	}

@@ -14,6 +14,7 @@ import (
 // CommercialClient wraps gRPC client for Commercial Service (wallet operations)
 type CommercialClient struct {
 	walletClient pb.WalletServiceClient
+	rateClient   pb.AssetRateServiceClient
 	conn         *grpc.ClientConn
 }
 
@@ -26,16 +27,35 @@ func NewCommercialClient(address string) (*CommercialClient, error) {
 
 	return &CommercialClient{
 		walletClient: pb.NewWalletServiceClient(conn),
+		rateClient:   pb.NewAssetRateServiceClient(conn),
 		conn:         conn,
 	}, nil
 }
 
+// GetPriceByAsset fetches the current rial price per asset unit.
+func (c *CommercialClient) GetPriceByAsset(ctx context.Context, asset string) (float64, error) {
+	if c.rateClient == nil {
+		return 0, fmt.Errorf("commercial rate client not configured")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	resp, err := c.rateClient.GetAssetRate(ctx, &pb.GetAssetRateRequest{Asset: asset})
+	if err != nil {
+		return 0, fmt.Errorf("get commercial asset rate: %w", err)
+	}
+	return resp.GetRialPerUnit(), nil
+}
+
 // NewCommercialClientFromGRPC builds a CommercialClient from an existing gRPC stub (used in tests).
 func NewCommercialClientFromGRPC(walletClient pb.WalletServiceClient, conn *grpc.ClientConn) *CommercialClient {
-	return &CommercialClient{
+	c := &CommercialClient{
 		walletClient: walletClient,
 		conn:         conn,
 	}
+	if conn != nil {
+		c.rateClient = pb.NewAssetRateServiceClient(conn)
+	}
+	return c
 }
 
 // Close closes the gRPC connection

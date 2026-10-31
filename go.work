@@ -1,8 +1,8 @@
-go 1.25.13
+go 1.26.0
 
 use (
-	./services/buildings-service
 	./services/auth-service
+	./services/buildings-service
 	./services/calendar-service
 	./services/commercial-service
 	./services/dynasty-service

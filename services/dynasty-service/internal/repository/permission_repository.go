@@ -100,6 +100,14 @@ func (r *PermissionRepository) CreatePermission(ctx context.Context, perm *model
 
 // UpdatePermission updates a single permission field
 func (r *PermissionRepository) UpdatePermission(ctx context.Context, userID uint64, permissionKey string, status bool) error {
+	allowedPermissions := map[string]struct{}{
+		"BFR": {}, "SF": {}, "W": {}, "JU": {}, "DM": {},
+		"PIUP": {}, "PITC": {}, "PIC": {}, "ESOO": {}, "COTB": {},
+	}
+	if _, ok := allowedPermissions[permissionKey]; !ok {
+		return fmt.Errorf("invalid permission key %q", permissionKey)
+	}
+
 	query := fmt.Sprintf(`UPDATE children_permissions SET %s = ?, updated_at = NOW() WHERE user_id = ?`, permissionKey)
 
 	_, err := r.db.ExecContext(ctx, query, status, userID)

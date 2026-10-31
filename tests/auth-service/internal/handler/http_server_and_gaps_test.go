@@ -146,7 +146,7 @@ func TestCitizenRichProfileAndHTTPBuilders(t *testing.T) {
 	privacyAll := map[string]bool{}
 	for _, k := range []string{
 		"nationality", "fname", "lname", "birthdate", "phone", "email", "address",
-		"code", "name", "position", "registered_at", "occupation", "education",
+		"code", "name", "position", "registered_at", "occupation", "education", "problem_solving",
 		"loved_city", "loved_country", "loved_language", "prediction", "memory", "about",
 		"passions", "score", "level", "avatar",
 	} {
@@ -162,7 +162,7 @@ func TestCitizenRichProfileAndHTTPBuilders(t *testing.T) {
 			},
 			PersonalInfo: &models.CitizenPersonalInfo{
 				Occupation: "o", Education: "e", LovedCity: "c", LovedCountry: "ir",
-				LovedLanguage: "fa", Prediction: "p", Memory: "m", About: "a",
+				LovedLanguage: "fa", ProblemSolving: "solves problems", Prediction: "p", Memory: "m", About: "a",
 				Passions: map[string]bool{"music": true, "art": true},
 			},
 			CurrentLevel:   &models.CitizenLevel{ID: 2, Name: "L", Slug: "l", Score: 10, Image: "/l.png"},
@@ -171,7 +171,7 @@ func TestCitizenRichProfileAndHTTPBuilders(t *testing.T) {
 		},
 	})
 	resp, err := h.GetCitizenProfile(context.Background(), &pb.GetCitizenProfileRequest{Code: "hm-1"})
-	if err != nil || resp.Customs == nil || resp.Customs.Passions["music"] == "" {
+	if err != nil || resp.Customs == nil || resp.Customs.Passions["music"] == "" || resp.Customs.ProblemSolving != "solves problems" {
 		t.Fatalf("resp=%v err=%v", resp, err)
 	}
 	refSvc := &richCitizenServiceWithOrders{}
@@ -181,7 +181,7 @@ func TestCitizenRichProfileAndHTTPBuilders(t *testing.T) {
 		t.Fatalf("referrals=%v err=%v", refs, err)
 	}
 	out := handler.BuildCitizenProfileHTTPResponseForTest(resp)
-	if out["current_level"] == nil || out["customs"] == nil || out["kyc"] == nil {
+	if out["current_level"] == nil || out["customs"] == nil || out["kyc"] == nil || out["customs"].(map[string]interface{})["problem_solving"] != "solves problems" {
 		t.Fatalf("http map=%v", out)
 	}
 

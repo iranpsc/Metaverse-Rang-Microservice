@@ -79,6 +79,7 @@ func buildDynastyFeature(details map[string]interface{}, memberCount int32, upda
 		FeatureProfitIncrease: profitIncrease,
 		FamilyMembersCount:    memberCount,
 		LastUpdated:           formatJalaliDateTime(updatedAt),
+		Coordinates:           featureCoordinatesFromDetails(details["coordinates"]),
 	}
 }
 
@@ -102,7 +103,6 @@ func availableFeatureFromDetails(details map[string]interface{}) *dynastypb.Avai
 		Density:      getString(details["density"]),
 		Stability:    getString(details["stability"]),
 		Area:         getString(details["area"]),
-		Coordinates:  featureCoordinatesFromDetails(details["coordinates"]),
 	}
 }
 
@@ -201,7 +201,7 @@ func buildDynastyPrize(prize *models.DynastyPrize) *dynastypb.DynastyPrize {
 		IntroductionProfitIncrease: fmt.Sprintf("%.0f", prize.IntroductionProfitIncrease*100),
 		AccumulatedCapitalReserve:  fmt.Sprintf("%.0f", prize.AccumulatedCapitalReserve*100),
 		DataStorage:                fmt.Sprintf("%.0f", prize.DataStorage*100),
-		Psc:                        int32(prize.PSC),
+		Psc:                        int64(prize.PSC),
 	}
 }
 

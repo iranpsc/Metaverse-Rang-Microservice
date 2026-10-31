@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"metarang/dynasty-service/internal/middleware"
+	"metarang/dynasty-service/internal/service"
 	commonpb "metarang/shared/pb/common"
 	dynastypb "metarang/shared/pb/dynasty"
 	"metarang/shared/pkg/sentry"
@@ -49,6 +50,7 @@ type HTTPDynastyHandler struct {
 	joinRequest joinRequestAPI
 	family      familyAPI
 	prize       prizeAPI
+	rates       service.AssetRatePort
 }
 
 // NewHTTPDynastyHandler wraps local gRPC handlers for HTTP use.
@@ -57,12 +59,14 @@ func NewHTTPDynastyHandler(
 	joinRequest joinRequestAPI,
 	family familyAPI,
 	prize prizeAPI,
+	rates service.AssetRatePort,
 ) *HTTPDynastyHandler {
 	return &HTTPDynastyHandler{
 		dynasty:     dynasty,
 		joinRequest: joinRequest,
 		family:      family,
 		prize:       prize,
+		rates:       rates,
 	}
 }
 
@@ -366,7 +370,12 @@ func (h *HTTPDynastyHandler) GetSentRequests(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": buildSentJoinRequestsHTTPResponse(resp)})
+	data, err := h.buildJoinRequestsHTTPResponse(r.Context(), resp, buildSentJoinRequestHTTP)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "PSC rate unavailable")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"data": data})
 }
 
 // GetReceivedRequests handles GET /api/dynasty/requests/recieved
@@ -396,7 +405,12 @@ func (h *HTTPDynastyHandler) GetReceivedRequests(w http.ResponseWriter, r *http.
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": buildReceivedJoinRequestsHTTPResponse(resp)})
+	data, err := h.buildJoinRequestsHTTPResponse(r.Context(), resp, buildReceivedJoinRequestHTTP)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "PSC rate unavailable")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"data": data})
 }
 
 // SendJoinRequest handles POST /api/dynasty/add/member

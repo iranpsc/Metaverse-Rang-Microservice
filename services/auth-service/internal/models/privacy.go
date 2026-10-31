@@ -27,6 +27,29 @@ func ParsePrivacyJSON(raw string) map[string]int {
 	return privacy
 }
 
+// ParsePublicPrivacyJSON decodes settings.privacy for the public citizen
+// profile. Public profile privacy is opt-out, so every omitted key is public;
+// only an explicitly stored zero hides a field.
+func ParsePublicPrivacyJSON(raw string) map[string]int {
+	privacy := DefaultPrivacySettings()
+	for key := range privacy {
+		privacy[key] = 1
+	}
+	if strings.TrimSpace(raw) == "" {
+		return privacy
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil || parsed == nil {
+		return privacy
+	}
+
+	for key, value := range parsed {
+		privacy[key] = PrivacyValueToInt(value)
+	}
+	return privacy
+}
+
 // PrivacyValueToInt normalizes a JSON privacy value to 0 (private) or 1 (public).
 func PrivacyValueToInt(value interface{}) int {
 	switch v := value.(type) {

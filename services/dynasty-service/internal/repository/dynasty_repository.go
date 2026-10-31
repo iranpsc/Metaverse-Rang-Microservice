@@ -127,13 +127,19 @@ func (r *DynastyRepository) GetFeatureDetails(ctx context.Context, featureID uin
 		return nil, fmt.Errorf("failed to get feature details: %w", err)
 	}
 
-	return map[string]interface{}{
+	feature := map[string]interface{}{
 		"id":            id,
 		"properties_id": propertiesID,
 		"area":          area,
 		"density":       density,
 		"stability":     stability,
-	}, nil
+		"coordinates":   []map[string]interface{}{},
+	}
+	if err := r.attachFeatureCoordinates(ctx, []map[string]interface{}{feature}); err != nil {
+		return nil, err
+	}
+
+	return feature, nil
 }
 
 // GetUserFeatures retrieves user's features excluding dynasty feature
@@ -178,15 +184,10 @@ func (r *DynastyRepository) GetUserFeatures(ctx context.Context, userID, exclude
 			"area":          area,
 			"density":       density,
 			"stability":     stability,
-			"coordinates":   []map[string]interface{}{},
 		})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed iterating user features: %w", err)
-	}
-
-	if err := r.attachFeatureCoordinates(ctx, features); err != nil {
-		return nil, err
 	}
 
 	return features, nil

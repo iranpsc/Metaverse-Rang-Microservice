@@ -78,11 +78,17 @@ func (r *LevelRepository) formatJalaliDateTime(t time.Time) string {
 func (r *LevelRepository) GetUserLatestLevel(ctx context.Context, userID uint64) (*pb.Level, error) {
 	query := `
 		SELECT l.id, l.name, l.slug, CAST(l.score AS UNSIGNED) as score, l.background_image,
-		       COALESCE(i.url, '') as image_url,
+		       COALESCE((
+				   SELECT i.url
+				   FROM images i
+				   WHERE i.imageable_id = l.id
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
+				   ORDER BY i.created_at DESC, i.id DESC
+				   LIMIT 1
+			   ), '') as image_url,
 		       COALESCE(lg.fbx_file, '') as gem_fbx_file
 		FROM levels l
 		INNER JOIN level_user lu ON l.id = lu.level_id
-		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
 		LEFT JOIN level_gems lg ON lg.level_id = l.id
 		WHERE lu.user_id = ?
 		ORDER BY l.id DESC
@@ -130,9 +136,15 @@ func (r *LevelRepository) GetUserLatestLevel(ctx context.Context, userID uint64)
 func (r *LevelRepository) GetLevelsBelowScore(ctx context.Context, score int32) ([]*pb.Level, error) {
 	query := `
 		SELECT l.id, l.name, l.slug, CAST(l.score AS UNSIGNED) as score, l.background_image,
-		       COALESCE(i.url, '') as image_url
+		       COALESCE((
+				   SELECT i.url
+				   FROM images i
+				   WHERE i.imageable_id = l.id
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
+				   ORDER BY i.created_at DESC, i.id DESC
+				   LIMIT 1
+			   ), '') as image_url
 		FROM levels l
-		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
 		WHERE CAST(l.score AS UNSIGNED) < ?
 		ORDER BY CAST(l.score AS UNSIGNED) ASC
 	`
@@ -171,9 +183,15 @@ func (r *LevelRepository) GetLevelsBelowScore(ctx context.Context, score int32) 
 func (r *LevelRepository) GetNextLevel(ctx context.Context, currentScore int32) (*pb.Level, error) {
 	query := `
 		SELECT l.id, l.name, l.slug, CAST(l.score AS UNSIGNED) as score, l.background_image,
-		       COALESCE(i.url, '') as image_url
+		       COALESCE((
+				   SELECT i.url
+				   FROM images i
+				   WHERE i.imageable_id = l.id
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
+				   ORDER BY i.created_at DESC, i.id DESC
+				   LIMIT 1
+			   ), '') as image_url
 		FROM levels l
-		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
 		WHERE CAST(l.score AS UNSIGNED) > ?
 		ORDER BY CAST(l.score AS UNSIGNED) ASC
 		LIMIT 1
@@ -213,9 +231,15 @@ func (r *LevelRepository) GetNextLevel(ctx context.Context, currentScore int32) 
 func (r *LevelRepository) GetAllLevels(ctx context.Context) ([]*pb.Level, error) {
 	query := `
 		SELECT l.id, l.name, l.slug, CAST(l.score AS UNSIGNED) as score, l.background_image,
-		       COALESCE(i.url, '') as image_url
+		       COALESCE((
+				   SELECT i.url
+				   FROM images i
+				   WHERE i.imageable_id = l.id
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
+				   ORDER BY i.created_at DESC, i.id DESC
+				   LIMIT 1
+			   ), '') as image_url
 		FROM levels l
-		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
 		ORDER BY CAST(l.score AS UNSIGNED) ASC
 	`
 
@@ -252,9 +276,15 @@ func (r *LevelRepository) GetAllLevels(ctx context.Context) ([]*pb.Level, error)
 func (r *LevelRepository) FindByID(ctx context.Context, id uint64) (*pb.Level, error) {
 	query := `
 		SELECT l.id, l.name, l.slug, CAST(l.score AS UNSIGNED) as score, l.background_image,
-		       COALESCE(i.url, '') as image_url
+		       COALESCE((
+				   SELECT i.url
+				   FROM images i
+				   WHERE i.imageable_id = l.id
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
+				   ORDER BY i.created_at DESC, i.id DESC
+				   LIMIT 1
+			   ), '') as image_url
 		FROM levels l
-		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
 		WHERE l.id = ?
 	`
 
@@ -295,9 +325,15 @@ func (r *LevelRepository) FindByID(ctx context.Context, id uint64) (*pb.Level, e
 func (r *LevelRepository) FindBySlug(ctx context.Context, slug string) (*pb.Level, error) {
 	query := `
 		SELECT l.id, l.name, l.slug, CAST(l.score AS UNSIGNED) as score, l.background_image,
-		       COALESCE(i.url, '') as image_url
+		       COALESCE((
+				   SELECT i.url
+				   FROM images i
+				   WHERE i.imageable_id = l.id
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
+				   ORDER BY i.created_at DESC, i.id DESC
+				   LIMIT 1
+			   ), '') as image_url
 		FROM levels l
-		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
 		WHERE l.slug = ?
 	`
 
@@ -654,9 +690,15 @@ func (r *LevelRepository) GetLevelLicenses(ctx context.Context, levelID uint64) 
 func (r *LevelRepository) GetNextLevelForScore(ctx context.Context, userID uint64, score int32) (*pb.Level, error) {
 	query := `
 		SELECT l.id, l.name, l.slug, CAST(l.score AS UNSIGNED) as score, l.background_image,
-		       COALESCE(i.url, '') as image_url
+		       COALESCE((
+				   SELECT i.url
+				   FROM images i
+				   WHERE i.imageable_id = l.id
+				     AND i.imageable_type = 'App\\Models\\Level\\Level'
+				   ORDER BY i.created_at DESC, i.id DESC
+				   LIMIT 1
+			   ), '') as image_url
 		FROM levels l
-		LEFT JOIN images i ON i.imageable_id = l.id AND i.imageable_type = 'App\\Models\\Levels\\Level'
 		WHERE CAST(l.score AS UNSIGNED) <= ?
 		  AND l.id NOT IN (
 		      SELECT level_id FROM level_user WHERE user_id = ?

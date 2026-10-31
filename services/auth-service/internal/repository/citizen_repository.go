@@ -134,7 +134,7 @@ func (r *citizenRepository) GetCitizenByCode(ctx context.Context, code string) (
 	if err == nil && privacyJSON.Valid {
 		rawPrivacy = privacyJSON.String
 	}
-	user.Privacy = models.PrivacyIntToBoolMap(models.ParsePrivacyJSON(rawPrivacy))
+	user.Privacy = models.PrivacyIntToBoolMap(models.ParsePublicPrivacyJSON(rawPrivacy))
 
 	// Get profile photos
 	photosQuery := `

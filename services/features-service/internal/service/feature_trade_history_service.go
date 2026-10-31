@@ -131,6 +131,10 @@ func (s *FeatureTradeHistoryService) transformTrade(
 	properties *models.FeatureProperties,
 ) models.TradeHistoryItem {
 	id := trade.ID
+	tradeType := trade.Type
+	if tradeType == "" {
+		tradeType = models.TradeHistoryTypeTrade
+	}
 	var participantCode *string
 	if trade.BuyerCode != "" {
 		code := strings.ToUpper(trade.BuyerCode)
@@ -139,7 +143,7 @@ func (s *FeatureTradeHistoryService) transformTrade(
 
 	return models.TradeHistoryItem{
 		ID:               &id,
-		Type:             models.TradeHistoryTypeTrade,
+		Type:             tradeType,
 		ParticipantCode:  participantCode,
 		ParticipantLabel: trade.BuyerName,
 		DateTime:         formatTradeHistoryDateTime(trade.TradeTimestamp(s.now())),

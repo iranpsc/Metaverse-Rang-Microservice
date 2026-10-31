@@ -439,6 +439,7 @@ message CitizenCustoms {
   string memory = 7;
   string about = 8;
   map<string, string> passions = 9;
+  string problem_solving = 10;
 }
 
 message CitizenLevel {

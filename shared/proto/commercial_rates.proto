@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package commercial;
+
+option go_package = "metarang/shared/pb/commercial";
+
+// Asset rates are owned by commercial-service.
+service AssetRateService {
+  rpc GetAssetRate(GetAssetRateRequest) returns (GetAssetRateResponse);
+}
+
+message GetAssetRateRequest {
+  string asset = 1;
+}
+
+message GetAssetRateResponse {
+  // Rials per unit of the requested asset.
+  double rial_per_unit = 1;
+}
