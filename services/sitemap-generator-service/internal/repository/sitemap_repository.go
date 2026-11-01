@@ -24,16 +24,36 @@ func NewSitemapRepository(db *sql.DB) *SitemapRepository {
 
 // ListUsers returns users with id > afterID ordered by id, limited to limit rows.
 func (r *SitemapRepository) ListUsers(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
+	return r.listUsers(ctx, afterID, limit, "")
+}
+
+func (r *SitemapRepository) ListWalletUsers(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
+	return r.listUsers(ctx, afterID, limit, "EXISTS (SELECT 1 FROM wallets w WHERE w.user_id = users.id)")
+}
+
+func (r *SitemapRepository) ListLandOwners(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
+	return r.listUsers(ctx, afterID, limit, "EXISTS (SELECT 1 FROM features f WHERE f.owner_id = users.id)")
+}
+
+func (r *SitemapRepository) ListBuildingOwners(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
+	return r.listUsers(ctx, afterID, limit, "EXISTS (SELECT 1 FROM buildings b INNER JOIN features f ON f.id = b.feature_id WHERE f.owner_id = users.id)")
+}
+
+func (r *SitemapRepository) listUsers(ctx context.Context, afterID uint64, limit int, predicate string) ([]models.UserRow, error) {
 	if limit <= 0 {
 		limit = DefaultPageSize
 	}
-	rows, err := r.db.QueryContext(ctx, `
+	query := `
 		SELECT id, code, updated_at
 		FROM users
-		WHERE id > ?
+		WHERE id > ? AND code IS NOT NULL AND code != ''
 		ORDER BY id ASC
 		LIMIT ?
-	`, afterID, limit)
+	`
+	if predicate != "" {
+		query = `SELECT id, code, updated_at FROM users WHERE id > ? AND code IS NOT NULL AND code != '' AND ` + predicate + ` ORDER BY id ASC LIMIT ?`
+	}
+	rows, err := r.db.QueryContext(ctx, query, afterID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}

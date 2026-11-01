@@ -138,11 +138,11 @@ func TestGenerateAll_CitizenSplitAndCleanup(t *testing.T) {
 	if _, ok := writer.Existing[filepath.Join("fa", "citizen.xml")]; !ok {
 		t.Fatal("missing citizen.xml")
 	}
-	if _, ok := writer.Existing[filepath.Join("fa", "citizen-2.xml")]; !ok {
-		t.Fatal("missing citizen-2.xml")
+	if _, ok := writer.Existing[filepath.Join("fa", "citizen2.xml")]; !ok {
+		t.Fatal("missing citizen2.xml")
 	}
-	if _, ok := writer.Existing[filepath.Join("fa", "citizen-3.xml")]; ok {
-		t.Fatal("stale citizen-3.xml should be removed")
+	if _, ok := writer.Existing[filepath.Join("fa", "citizen3.xml")]; ok {
+		t.Fatal("stale citizen3.xml should be removed")
 	}
 }
 

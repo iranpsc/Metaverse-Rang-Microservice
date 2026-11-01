@@ -62,17 +62,23 @@ func main() {
 
 	templatesPath := getEnv("TEMPLATES_PATH", "./templates/templates.json")
 	adminPanelURL := getEnv("ADMIN_PANEL_URL", "https://admin.metarang.com")
-	interval := parseDurationHours(getEnv("SITEMAP_SCHEDULER_INTERVAL_HOURS", "3"), 3*time.Hour)
+	publicSiteURL := getEnv("PUBLIC_SITE_URL", "https://metarang.com")
+	publicSitemapURL := getEnv("PUBLIC_SITEMAP_URL", publicSiteURL+"/sitemaps")
+	interval := parseDurationHours(getEnv("SITEMAP_SCHEDULER_INTERVAL_HOURS", "24"), 24*time.Hour)
 
 	repo := repository.NewSitemapRepository(conn.DB)
+	managementRepo := repository.NewManagementRepository(conn.DB)
 	sitemapService := service.NewSitemapService(repo, writer, service.Config{
-		TemplatesPath: templatesPath,
-		AdminPanelURL: adminPanelURL,
-		Translations:  service.NewTranslationSource(adminPanelURL, filepath.Join(exportPath, ".translations-cache.json")),
+		TemplatesPath:    templatesPath,
+		AdminPanelURL:    adminPanelURL,
+		PublicSiteURL:    publicSiteURL,
+		PublicSitemapURL: publicSitemapURL,
+		Translations:     service.NewTranslationSource(adminPanelURL, filepath.Join(exportPath, ".translations-cache.json")),
 	}).WithLogger(log)
 
 	httpPort := getEnv("HTTP_PORT", "8071")
-	httpHandler := handler.NewHTTPHandler(sitemapService)
+	managementService := service.NewManagementService(managementRepo, writer, sitemapService)
+	httpHandler := handler.NewHTTPHandler(sitemapService, managementService)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
