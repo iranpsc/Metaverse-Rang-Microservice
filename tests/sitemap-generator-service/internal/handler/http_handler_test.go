@@ -42,6 +42,36 @@ func TestGenerate_RequiresServiceToken(t *testing.T) {
 	}
 }
 
+func TestGenerate_RejectsNonPostRequests(t *testing.T) {
+	t.Setenv("INTERNAL_SERVICE_SECRET", "test-secret")
+	h := handler.NewHTTPHandler(&stubGenerator{})
+
+	req := httptest.NewRequest(http.MethodGet, "/generate", nil)
+	rec := httptest.NewRecorder()
+	h.Generate(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("got %d want 405", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `"error":"method not allowed"`) {
+		t.Fatalf("unexpected body: %s", rec.Body.String())
+	}
+}
+
+func TestGenerate_RejectsWhenSecretIsUnset(t *testing.T) {
+	t.Setenv("INTERNAL_SERVICE_SECRET", "")
+	h := handler.NewHTTPHandler(&stubGenerator{})
+
+	req := httptest.NewRequest(http.MethodPost, "/generate", nil)
+	req.Header.Set("X-Service-Token", "test-secret")
+	rec := httptest.NewRecorder()
+	h.Generate(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d want 401", rec.Code)
+	}
+}
+
 func TestGenerate_SuccessWithToken(t *testing.T) {
 	t.Setenv("INTERNAL_SERVICE_SECRET", "test-secret")
 	h := handler.NewHTTPHandler(&stubGenerator{})

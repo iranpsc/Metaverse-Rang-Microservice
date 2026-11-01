@@ -75,6 +75,27 @@ func TestKYCRepository_SQLMock(t *testing.T) {
 	require.True(t, ok)
 }
 
+func TestActivityRepository_GetLatestActivityScansLegacyVarcharTimes(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := repository.NewActivityRepository(db)
+	start := "2026-10-31 10:20:30"
+	end := "2026-10-31 11:20:30"
+	mock.ExpectQuery("FROM user_activities").
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "start", "end", "total", "ip", "created_at", "updated_at"}).
+			AddRow(uint64(9), uint64(1), []byte(start), []byte(end), int32(60), "127.0.0.1", time.Now(), time.Now()))
+
+	activity, err := repo.GetLatestActivity(context.Background(), 1)
+	require.NoError(t, err)
+	require.Equal(t, start, activity.Start.Format("2006-01-02 15:04:05"))
+	require.True(t, activity.End.Valid)
+	require.Equal(t, end, activity.End.Time.Format("2006-01-02 15:04:05"))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestPersonalInfoRepository_SQLMock(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
