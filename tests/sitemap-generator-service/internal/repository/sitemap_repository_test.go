@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -110,4 +111,46 @@ func values(in []any) []driver.Value {
 		out[i] = value
 	}
 	return out
+}
+
+func TestUserSitemapEligibilityQueries(t *testing.T) {
+	base := "SELECT id, code, updated_at FROM users WHERE id > ? AND code IS NOT NULL AND code != '' AND code != 'hm-2000000' AND "
+	tests := []struct {
+		name      string
+		predicate string
+		call      func(*repository.SitemapRepository) error
+	}{
+		{"citizens require verified email", "email_verified_at IS NOT NULL", func(r *repository.SitemapRepository) error {
+			_, err := r.ListUsers(context.Background(), 0, 10)
+			return err
+		}},
+		{"wallets exclude default balances", "EXISTS ( SELECT 1 FROM wallets w WHERE w.user_id = users.id AND (w.psc != 0 OR w.irr != 0 OR w.red != 0 OR w.blue != 0 OR w.yellow != 0 OR w.satisfaction != 0.1) )", func(r *repository.SitemapRepository) error {
+			_, err := r.ListWalletUsers(context.Background(), 0, 10)
+			return err
+		}},
+		{"land owners exclude reserved user", "EXISTS (SELECT 1 FROM features f WHERE f.owner_id = users.id)", func(r *repository.SitemapRepository) error {
+			_, err := r.ListLandOwners(context.Background(), 0, 10)
+			return err
+		}},
+		{"building owners exclude reserved user", "EXISTS (SELECT 1 FROM buildings b INNER JOIN features f ON f.id = b.feature_id WHERE f.owner_id = users.id)", func(r *repository.SitemapRepository) error {
+			_, err := r.ListBuildingOwners(context.Background(), 0, 10)
+			return err
+		}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			mock.ExpectQuery(regexp.QuoteMeta(base+tc.predicate+" ORDER BY id ASC LIMIT ?")).WithArgs(uint64(0), 10).WillReturnRows(sqlmock.NewRows([]string{"id", "code", "updated_at"}))
+			if err := tc.call(repository.NewSitemapRepository(db)); err != nil {
+				t.Fatal(err)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }

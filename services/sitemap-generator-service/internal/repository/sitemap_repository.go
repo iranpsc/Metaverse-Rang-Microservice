@@ -22,13 +22,16 @@ func NewSitemapRepository(db *sql.DB) *SitemapRepository {
 	return &SitemapRepository{db: db}
 }
 
-// ListUsers returns users with id > afterID ordered by id, limited to limit rows.
+// ListUsers returns email-verified citizens with id > afterID, ordered by id.
 func (r *SitemapRepository) ListUsers(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
-	return r.listUsers(ctx, afterID, limit, "")
+	return r.listUsers(ctx, afterID, limit, "email_verified_at IS NOT NULL")
 }
 
 func (r *SitemapRepository) ListWalletUsers(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
-	return r.listUsers(ctx, afterID, limit, "EXISTS (SELECT 1 FROM wallets w WHERE w.user_id = users.id)")
+	return r.listUsers(ctx, afterID, limit, `EXISTS (
+		SELECT 1 FROM wallets w WHERE w.user_id = users.id
+		AND (w.psc != 0 OR w.irr != 0 OR w.red != 0 OR w.blue != 0 OR w.yellow != 0 OR w.satisfaction != 0.1)
+	)`)
 }
 
 func (r *SitemapRepository) ListLandOwners(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
@@ -46,12 +49,12 @@ func (r *SitemapRepository) listUsers(ctx context.Context, afterID uint64, limit
 	query := `
 		SELECT id, code, updated_at
 		FROM users
-		WHERE id > ? AND code IS NOT NULL AND code != ''
+		WHERE id > ? AND code IS NOT NULL AND code != '' AND code != 'hm-2000000'
 		ORDER BY id ASC
 		LIMIT ?
 	`
 	if predicate != "" {
-		query = `SELECT id, code, updated_at FROM users WHERE id > ? AND code IS NOT NULL AND code != '' AND ` + predicate + ` ORDER BY id ASC LIMIT ?`
+		query = `SELECT id, code, updated_at FROM users WHERE id > ? AND code IS NOT NULL AND code != '' AND code != 'hm-2000000' AND ` + predicate + ` ORDER BY id ASC LIMIT ?`
 	}
 	rows, err := r.db.QueryContext(ctx, query, afterID, limit)
 	if err != nil {
