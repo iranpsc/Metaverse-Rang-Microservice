@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -62,8 +63,10 @@ func main() {
 
 	templatesPath := getEnv("TEMPLATES_PATH", "./templates/templates.json")
 	adminPanelURL := getEnv("ADMIN_PANEL_URL", "https://admin.metarang.com")
-	publicSiteURL := getEnv("PUBLIC_SITE_URL", "https://metarang.com")
-	publicSitemapURL := getEnv("PUBLIC_SITEMAP_URL", publicSiteURL+"/sitemaps")
+	// FRONTEND_URL is the public frontend origin used by generated sitemap URLs.
+	// Keep the older variable as a fallback for existing deployments.
+	publicSiteURL := getEnv("FRONTEND_URL", getEnv("PUBLIC_SITE_URL", "https://metarang.com"))
+	publicSitemapURL := getEnv("PUBLIC_SITEMAP_URL", strings.TrimRight(publicSiteURL, "/")+"/sitemaps")
 	interval := parseDurationHours(getEnv("SITEMAP_SCHEDULER_INTERVAL_HOURS", "24"), 24*time.Hour)
 
 	repo := repository.NewSitemapRepository(conn.DB)

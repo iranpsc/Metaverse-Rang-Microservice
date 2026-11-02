@@ -781,8 +781,7 @@ services:
       TEMPLATES_PATH: ./templates/templates.json
       ADMIN_PANEL_URL: ${ADMIN_PANEL_URL:-https://admin.metarang.com}
       SITEMAP_SCHEDULER_INTERVAL_HOURS: 24
-      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://metarang.com}
-      PUBLIC_SITEMAP_URL: ${PUBLIC_SITEMAP_URL:-https://metarang.com/sitemaps}
+      FRONTEND_URL: ${FRONTEND_URL:-https://metarang.com}
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: ${MYSQL_DATABASE:-metarang_db}
@@ -1190,7 +1189,9 @@ networks:
   # Traefik / Dokploy public routing. Create once locally: docker network create dokploy-network
   dokploy-network:
     external: true
-  # Cross-stack MySQL for the admin panel. Create once: docker network create metarang-shared
+  # Cross-stack services for the admin panel. Set SHARED_NETWORK_NAME in the
+  # Compose/Dokploy environment (not a service env_file) before deployment.
+  # Create the chosen network once, for example: docker network create metarang-shared
   metarang-shared:
     name: ${SHARED_NETWORK_NAME:-metarang-shared}
     external: true
