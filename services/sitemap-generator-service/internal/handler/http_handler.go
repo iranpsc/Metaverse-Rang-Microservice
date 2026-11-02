@@ -129,10 +129,14 @@ func (h *HTTPHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "file is required")
 		return
 	}
-	defer file.Close()
-	item, err := h.management.Upload(language, header.Filename, file)
-	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+	item, uploadErr := h.management.Upload(language, header.Filename, file)
+	closeErr := file.Close()
+	if uploadErr != nil {
+		writeJSONError(w, http.StatusBadRequest, uploadErr.Error())
+		return
+	}
+	if closeErr != nil {
+		writeJSONError(w, http.StatusInternalServerError, "close uploaded file")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": item})

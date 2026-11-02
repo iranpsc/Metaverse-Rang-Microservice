@@ -57,17 +57,28 @@ func (r *ManagementRepository) LogsPage(ctx context.Context, page, perPage int) 
 	if err != nil {
 		return nil, 0, fmt.Errorf("list sitemap logs: %w", err)
 	}
-	defer rows.Close()
 	// Keep the JSON contract stable for empty pages (`[]`, never `null`).
 	out := make([]models.GenerationRun, 0)
 	for rows.Next() {
 		var item models.GenerationRun
 		if err := rows.Scan(&item.ID, &item.Trigger, &item.Target, &item.Language, &item.Status, &item.StartedAt, &item.FinishedAt, &item.DurationMS, &item.URLCount, &item.AddedCount, &item.RemovedCount, &item.Error); err != nil {
+			if closeErr := rows.Close(); closeErr != nil {
+				return nil, 0, fmt.Errorf("close sitemap logs: %w", closeErr)
+			}
 			return nil, 0, fmt.Errorf("scan sitemap log: %w", err)
 		}
 		out = append(out, item)
 	}
-	return out, total, rows.Err()
+	if err := rows.Err(); err != nil {
+		if closeErr := rows.Close(); closeErr != nil {
+			return nil, 0, fmt.Errorf("close sitemap logs: %w", closeErr)
+		}
+		return nil, 0, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, 0, fmt.Errorf("close sitemap logs: %w", err)
+	}
+	return out, total, nil
 }
 
 func (r *ManagementRepository) UpsertFile(ctx context.Context, item models.SitemapFile) error {

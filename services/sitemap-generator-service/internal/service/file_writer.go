@@ -3,12 +3,13 @@ package service
 import (
 	"encoding/xml"
 	"fmt"
-	"metarang/sitemap-generator-service/internal/models"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"metarang/sitemap-generator-service/internal/models"
 )
 
 // FileWriter writes sitemap XML files to an export directory.
