@@ -1192,6 +1192,6 @@ networks:
     external: true
   # Cross-stack MySQL for the admin panel. Create once: docker network create metarang-shared
   metarang-shared:
-    name: metarang-shared
+    name: ${SHARED_NETWORK_NAME:-metarang-shared}
     external: true
 
