@@ -1,15 +1,67 @@
 package service
 
 import (
+	"encoding/xml"
 	"fmt"
+	"metarang/sitemap-generator-service/internal/models"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 )
 
 // FileWriter writes sitemap XML files to an export directory.
 type FileWriter struct {
 	dir string
+}
+
+var generatedSitemap = regexp.MustCompile(`^(citizen|user-wallet|user-lands|user-buildings|education-single-video|education-category|education-sub-category|calendar-events|calendar-versions)([0-9]+)?\.xml$`)
+
+func (w *FileWriter) List() ([]models.SitemapFile, error) {
+	var out []models.SitemapFile
+	languages, err := os.ReadDir(w.dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, lang := range languages {
+		if !lang.IsDir() {
+			continue
+		}
+		files, err := os.ReadDir(filepath.Join(w.dir, lang.Name()))
+		if err != nil {
+			return nil, err
+		}
+		for _, file := range files {
+			if file.IsDir() || !strings.HasSuffix(file.Name(), ".xml") {
+				continue
+			}
+			info, err := file.Info()
+			if err != nil {
+				return nil, err
+			}
+			data, err := os.ReadFile(filepath.Join(w.dir, lang.Name(), file.Name()))
+			if err != nil {
+				return nil, err
+			}
+			var root struct {
+				XMLName  xml.Name   `xml:""`
+				URLs     []struct{} `xml:"url"`
+				Children []struct{} `xml:"sitemap"`
+			}
+			_ = xml.Unmarshal(data, &root)
+			count := len(root.URLs)
+			if root.XMLName.Local == "sitemapindex" {
+				count = len(root.Children)
+			}
+			fileType := "static"
+			if generatedSitemap.MatchString(file.Name()) {
+				fileType = "dynamic"
+			}
+			out = append(out, models.SitemapFile{Language: lang.Name(), Filename: file.Name(), Type: fileType, URLCount: count, Status: "available", UpdatedAt: info.ModTime().UTC(), GeneratedAt: func() *time.Time { t := info.ModTime().UTC(); return &t }()})
+		}
+	}
+	return out, nil
 }
 
 // NewFileWriter creates a FileWriter that writes into exportDir.
@@ -68,13 +120,23 @@ func (w *FileWriter) CleanupInactive(active []string) error {
 	for _, entry := range entries {
 		name := entry.Name()
 		if entry.IsDir() && languageCode.MatchString(name) && !keep[name] {
-			if err := os.RemoveAll(filepath.Join(w.dir, name)); err != nil {
-				return err
+			files, readErr := os.ReadDir(filepath.Join(w.dir, name))
+			if readErr != nil {
+				return readErr
 			}
-		}
-		if !entry.IsDir() && strings.HasSuffix(name, ".xml") {
-			if err := os.Remove(filepath.Join(w.dir, name)); err != nil {
-				return err
+			for _, file := range files {
+				if !file.IsDir() && generatedSitemap.MatchString(file.Name()) {
+					if err := os.Remove(filepath.Join(w.dir, name, file.Name())); err != nil && !os.IsNotExist(err) {
+						return err
+					}
+				}
+			}
+			remaining, readErr := os.ReadDir(filepath.Join(w.dir, name))
+			if readErr != nil {
+				return readErr
+			}
+			if len(remaining) == 0 {
+				_ = os.Remove(filepath.Join(w.dir, name))
 			}
 		}
 	}

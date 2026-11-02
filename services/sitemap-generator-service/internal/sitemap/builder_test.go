@@ -37,13 +37,13 @@ func TestBuilderHelpers(t *testing.T) {
 	if got := ChunkedFileName("citizen.xml", 0); got != "citizen.xml" {
 		t.Fatal(got)
 	}
-	if got := ChunkedFileName("citizen.xml", 1); got != "citizen-2.xml" {
+	if got := ChunkedFileName("citizen.xml", 1); got != "citizen2.xml" {
 		t.Fatal(got)
 	}
-	if got := ChunkedFileName("citizen", 1); got != "citizen-2" {
+	if got := ChunkedFileName("citizen", 1); got != "citizen2" {
 		t.Fatal(got)
 	}
-	if got := CitizenFileName(1); got != "citizen-2.xml" {
+	if got := CitizenFileName(1); got != "citizen2.xml" {
 		t.Fatal(got)
 	}
 	if got := SplitEntries([]models.URLEntry{{}, {}, {}}, 2); len(got) != 2 || len(got[0]) != 2 {

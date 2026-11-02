@@ -8,12 +8,15 @@ import (
 
 // MockSitemapRepository is a func-field mock for sitemap data access.
 type MockSitemapRepository struct {
-	Users         []models.UserRow
-	Videos        []models.VideoRow
-	Categories    []models.CategoryRow
-	SubCategories []models.SubCategoryRow
-	Events        []models.CalendarRow
-	Versions      []models.CalendarRow
+	Users          []models.UserRow
+	WalletUsers    []models.UserRow
+	LandOwners     []models.UserRow
+	BuildingOwners []models.UserRow
+	Videos         []models.VideoRow
+	Categories     []models.CategoryRow
+	SubCategories  []models.SubCategoryRow
+	Events         []models.CalendarRow
+	Versions       []models.CalendarRow
 
 	ListUsersFunc         func(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error)
 	ListVideosFunc        func(ctx context.Context, afterID uint64, limit int) ([]models.VideoRow, error)
@@ -45,6 +48,25 @@ func (m *MockSitemapRepository) ListUsers(ctx context.Context, afterID uint64, l
 		return m.ListUsersFunc(ctx, afterID, limit)
 	}
 	return pageSlice(m.Users, afterID, limit, func(u models.UserRow) uint64 { return u.ID }), nil
+}
+
+func (m *MockSitemapRepository) ListWalletUsers(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
+	if m.WalletUsers != nil {
+		return pageSlice(m.WalletUsers, afterID, limit, func(u models.UserRow) uint64 { return u.ID }), nil
+	}
+	return m.ListUsers(ctx, afterID, limit)
+}
+func (m *MockSitemapRepository) ListLandOwners(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
+	if m.LandOwners != nil {
+		return pageSlice(m.LandOwners, afterID, limit, func(u models.UserRow) uint64 { return u.ID }), nil
+	}
+	return m.ListUsers(ctx, afterID, limit)
+}
+func (m *MockSitemapRepository) ListBuildingOwners(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error) {
+	if m.BuildingOwners != nil {
+		return pageSlice(m.BuildingOwners, afterID, limit, func(u models.UserRow) uint64 { return u.ID }), nil
+	}
+	return m.ListUsers(ctx, afterID, limit)
 }
 
 func (m *MockSitemapRepository) ListVideos(ctx context.Context, afterID uint64, limit int) ([]models.VideoRow, error) {
