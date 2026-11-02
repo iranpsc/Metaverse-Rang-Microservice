@@ -802,7 +802,12 @@ services:
     ports:
       - "127.0.0.1:${SITEMAP_GENERATOR_HOST_PORT:-8071}:8071"
     networks:
-      - metarang-network
+      metarang-network: {}
+      # The Laravel admin panel runs in a separate Dokploy compose project and
+      # reaches management endpoints over this shared network, just like MySQL.
+      metarang-shared:
+        aliases:
+          - sitemap-generator-service
     # Resolve the Herd virtual host from inside the container during local runs.
     extra_hosts:
       - "admin-panel.test:host-gateway"
