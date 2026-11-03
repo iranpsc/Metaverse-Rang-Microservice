@@ -165,12 +165,8 @@ WHERE `feature_id` IN (
 
 UPDATE `feature_properties`
 SET
-  `rgb` = CASE `karbari`
-    WHEN 'm' THEN 'c'
-    WHEN 't' THEN 'j'
-    WHEN 'a' THEN 'q'
-  END,
-  `owner` = '',
+  `rgb` = 'j',
+  `owner` = 'rgb',
   `label` = '',
   `price_psc` = '0',
   `price_irr` = '0',
