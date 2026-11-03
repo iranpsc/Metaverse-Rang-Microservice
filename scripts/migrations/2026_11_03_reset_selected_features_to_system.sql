@@ -1,4 +1,4 @@
--- Reset five explicitly identified features to pristine system inventory.
+-- Reset eight explicitly identified features to pristine system inventory.
 --
 -- The property IDs are the scope authority.  We deliberately resolve the
 -- target owner by its stable code and assert that it remains user ID 1: map
@@ -28,15 +28,15 @@ SELECT CASE
   WHEN
     (SELECT COUNT(*)
        FROM `feature_properties`
-      WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')) = 5
+      WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')) = 8
     AND
     (SELECT COUNT(DISTINCT `feature_id`)
        FROM `feature_properties`
-      WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')) = 5
+      WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')) = 8
     AND NOT EXISTS (
       SELECT 1
       FROM `feature_properties`
-      WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+      WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
         AND `karbari` NOT IN ('m', 't', 'a')
     )
     AND EXISTS (
@@ -47,7 +47,7 @@ SELECT CASE
       FROM `buy_feature_requests`
       WHERE `feature_id` IN (
         SELECT `feature_id` FROM `feature_properties`
-        WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+        WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
       )
         AND `status` = 0
         AND `deleted_at` IS NULL
@@ -57,7 +57,7 @@ SELECT CASE
       FROM `locked_assets`
       WHERE `feature_id` IN (
         SELECT `feature_id` FROM `feature_properties`
-        WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+        WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
       )
     )
     AND NOT EXISTS (
@@ -65,7 +65,7 @@ SELECT CASE
       FROM `building_entry_sessions`
       WHERE `feature_id` IN (
         SELECT `feature_id` FROM `feature_properties`
-        WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+        WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
       )
         AND (`fee_psc_paid` <> 0 OR `fee_irr_paid` <> 0)
     )
@@ -77,31 +77,31 @@ END;
 DELETE FROM `building_entry_sessions`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 DELETE FROM `building_entry_coupons`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 DELETE FROM `building_entry_configs`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 DELETE FROM `buildings`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 DELETE FROM `feature_hourly_profits`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 -- Remove the database image attachments. The underlying storage-service files
@@ -111,7 +111,7 @@ DELETE FROM `images`
 WHERE `imageable_type` = 'App\\Models\\Feature'
   AND `imageable_id` IN (
     SELECT `feature_id` FROM `feature_properties`
-    WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+    WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
   );
 
 -- A trade has dependent commission and polymorphic transaction ledger rows.
@@ -121,7 +121,7 @@ FROM `comissions` AS c
 INNER JOIN `trades` AS t ON t.`id` = c.`trade_id`
 WHERE t.`feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 DELETE tx
@@ -131,48 +131,48 @@ INNER JOIN `trades` AS t
  AND tx.`payable_type` = 'App\\Models\\Trade'
 WHERE t.`feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 DELETE FROM `trades`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 -- `limited_feature_purchases` has no feature_id in the deployed schema: it
 -- records a user's purchase count for an entire campaign. Do not delete it
--- here, because there is no safe way to attribute a row to one of these five
+-- here, because there is no safe way to attribute a row to one of these eight
 -- features without altering the user's unrelated campaign eligibility.
 
 DELETE FROM `locked_features`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 DELETE FROM `sell_feature_requests`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 DELETE FROM `buy_feature_requests`
 WHERE `feature_id` IN (
   SELECT `feature_id` FROM `feature_properties`
-  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
+  WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005')
 );
 
 UPDATE `feature_properties`
 SET
-  `rgb` = 'j',
+  `rgb` = 'k',
   `owner` = 'rgb',
   `label` = '',
   `price_psc` = '0',
   `price_irr` = '0',
   `minimum_price_percentage` = 100,
   `updated_at` = NOW()
-WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522');
+WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005');
 
 UPDATE `features` AS f
 INNER JOIN `feature_properties` AS fp ON fp.`feature_id` = f.`id`
@@ -180,7 +180,7 @@ INNER JOIN `users` AS system_user
   ON system_user.`id` = 1 AND system_user.`code` = 'hm-2000000'
 SET f.`owner_id` = system_user.`id`,
     f.`updated_at` = NOW()
-WHERE fp.`id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522');
+WHERE fp.`id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522', 'ar-1524', 'ar-1139', 'ar-1005');
 
 DROP TABLE `_feature_reset_guard_20261103`;
 
