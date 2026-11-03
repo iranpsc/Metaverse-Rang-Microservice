@@ -9,10 +9,10 @@
 -- image objects in storage-service are not reachable from this SQL migration
 -- and must be garbage-collected by that service if desired.
 --
--- Safety preflight: do not discard state that can represent money owed to a
--- user. Pending buy requests / locked assets must first be cancelled and
--- refunded through commercial-service, and non-zero hourly profit must first
--- be settled. Paid building-entry sessions are retained rather than erased.
+-- Safety preflight: pending buy requests / locked assets must first be
+-- cancelled and refunded through commercial-service. Paid building-entry
+-- sessions are retained rather than erased. Hourly-profit rows are deleted as
+-- part of this explicitly destructive reset, including accrued amounts.
 -- The temporary guard table is left in place only when a preflight assertion
 -- fails, making the failed migration safe to rerun after reconciliation.
 
@@ -59,15 +59,6 @@ SELECT CASE
         SELECT `feature_id` FROM `feature_properties`
         WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
       )
-    )
-    AND NOT EXISTS (
-      SELECT 1
-      FROM `feature_hourly_profits`
-      WHERE `feature_id` IN (
-        SELECT `feature_id` FROM `feature_properties`
-        WHERE `id` IN ('ar-1674', 'ar-1675', 'ar-1676', 'ar-1600', 'ar-1522')
-      )
-        AND `amount` <> 0
     )
     AND NOT EXISTS (
       SELECT 1
