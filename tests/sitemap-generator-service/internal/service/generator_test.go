@@ -204,7 +204,7 @@ func TestStartScheduler_RunsAndStops(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		svc.StartScheduler(ctx, 20*time.Millisecond, func() {
+		svc.StartScheduler(ctx, 20*time.Millisecond, svc.GenerateAll, func() {
 			calls++
 			if calls >= 2 {
 				cancel()
