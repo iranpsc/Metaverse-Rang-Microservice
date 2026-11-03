@@ -86,7 +86,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go sitemapService.StartScheduler(ctx, interval, nil)
+	go sitemapService.StartScheduler(ctx, interval, func(ctx context.Context) error {
+		_, err := managementService.Generate(ctx, "scheduled", "all", "")
+
+		return err
+	}, nil)
 
 	go func() {
 		log.Info("HTTP server listening", "port", httpPort)

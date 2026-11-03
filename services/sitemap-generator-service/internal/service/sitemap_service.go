@@ -614,9 +614,10 @@ func (s *SitemapService) removeFile(filename string) error {
 	return s.writer.Remove(filepath.Join(s.language, filename))
 }
 
-// StartScheduler runs GenerateAll immediately and then every interval until ctx is cancelled.
-// onRun is an optional hook invoked after each successful or attempted run (used by tests).
-func (s *SitemapService) StartScheduler(ctx context.Context, interval time.Duration, onRun func()) {
+// StartScheduler runs generate immediately and then every interval until ctx is cancelled.
+// The caller supplies generate so scheduled runs can use the same persistence path as other
+// generation triggers. onRun is an optional hook invoked after each attempted run (used by tests).
+func (s *SitemapService) StartScheduler(ctx context.Context, interval time.Duration, generate func(context.Context) error, onRun func()) {
 	if interval <= 0 {
 		interval = 3 * time.Hour
 	}
@@ -628,7 +629,7 @@ func (s *SitemapService) StartScheduler(ctx context.Context, interval time.Durat
 	}
 
 	run := func() {
-		if err := s.GenerateAll(ctx); err != nil {
+		if err := generate(ctx); err != nil {
 			if errors.Is(err, ErrGenerationInProgress) {
 				if s.log != nil {
 					s.log.Warn("Sitemap generation skipped; already in progress")
