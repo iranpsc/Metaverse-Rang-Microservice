@@ -457,14 +457,14 @@ func (r *HourlyProfitRepository) DeactivateProfitsForFeature(ctx context.Context
 	return err
 }
 
-// FindOldestByUserID returns the user's still-open hourly profit with the earliest
-// dead_line (the oldest withdraw window: last withdraw was longest ago).
+// FindOldestByUserID returns the user's hourly profit with the earliest dead_line
+// (the oldest withdraw window: last withdraw was longest ago). Expired records
+// are included so callers can report a completed 100% withdrawal window.
 func (r *HourlyProfitRepository) FindOldestByUserID(ctx context.Context, userID uint64) (*models.FeatureHourlyProfit, error) {
 	query := `
 		SELECT id, user_id, feature_id, asset, amount, dead_line, is_active, created_at, updated_at
 		FROM feature_hourly_profits
 		WHERE user_id = ?
-		  AND dead_line > NOW()
 		ORDER BY dead_line ASC
 		LIMIT 1
 	`

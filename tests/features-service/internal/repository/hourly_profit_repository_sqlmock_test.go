@@ -248,7 +248,7 @@ func TestHourlyProfitRepository_FindOldestByUserID(t *testing.T) {
 	repo := repository.NewHourlyProfitRepository(db)
 	now := time.Now()
 
-	mock.ExpectQuery("ORDER BY dead_line ASC").
+	mock.ExpectQuery("WHERE user_id = \\?\\s+ORDER BY dead_line ASC").
 		WithArgs(uint64(2)).
 		WillReturnRows(sqlmock.NewRows(hourlyProfitBaseCols()).
 			AddRow(11, 2, 5, "yellow", 0.0, now, true, now, now))
@@ -257,7 +257,7 @@ func TestHourlyProfitRepository_FindOldestByUserID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(11), p.ID)
 
-	mock.ExpectQuery("ORDER BY dead_line ASC").
+	mock.ExpectQuery("WHERE user_id = \\?\\s+ORDER BY dead_line ASC").
 		WithArgs(uint64(3)).
 		WillReturnError(sql.ErrNoRows)
 	p, err = repo.FindOldestByUserID(context.Background(), 3)
