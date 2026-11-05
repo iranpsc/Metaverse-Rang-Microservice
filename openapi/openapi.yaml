@@ -4353,12 +4353,12 @@ paths:
         get:
             operationId: get_my-features
             parameters:
-                - description: Optional filter by karbari code (e.g. m, t, a)
+                - description: Optional comma-separated filter by karbari codes (e.g. m or m,t,a)
                   in: query
                   name: filter
                   required: false
                   schema:
-                    example: m
+                    example: m,t
                     type: string
                 - description: Page number (default 1, 5 items per page)
                   in: query

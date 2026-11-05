@@ -1600,8 +1600,8 @@ routes:
       - name: filter
         in: query
         type: string
-        description: Optional filter by karbari code (e.g. m, t, a)
-        example: m
+        description: Optional comma-separated filter by karbari codes (e.g. m or m,t,a)
+        example: m,t
   - path: /api/buy-requests
     methods: [get, post]
     tag: Features
