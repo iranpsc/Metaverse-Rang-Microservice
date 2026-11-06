@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -103,6 +104,12 @@ func (h *HTTPBuildingsHandler) BuildFeature(w http.ResponseWriter, r *http.Reque
 	}
 	req := buildingRequest(id, parts[2], body)
 	if _, err = h.building.BuildFeature(r.Context(), req); err != nil {
+		slog.Error("http build feature request failed",
+			"feature_id", id,
+			"building_model_id", parts[2],
+			"request_id", r.Header.Get("X-Request-Id"),
+			"error", err,
+		)
 		writeGRPCError(w, err)
 		return
 	}

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"regexp"
 	"strconv"
@@ -149,14 +150,17 @@ func (s *BuildingService) loadBuildingModel(ctx context.Context, buildingModelID
 
 func (s *BuildingService) walletSatisfaction(ctx context.Context, userID uint64) (float64, error) {
 	if s.commercialClient == nil {
+		slog.Error("wallet satisfaction lookup unavailable because commercial client is nil", "user_id", userID)
 		return 0, fmt.Errorf("commercial client not available")
 	}
 	wallet, err := s.commercialClient.GetWallet(ctx, userID)
 	if err != nil {
+		slog.Error("wallet satisfaction lookup failed", "user_id", userID, "error", err)
 		return 0, fmt.Errorf("failed to get wallet: %w", err)
 	}
 	balance, err := strconv.ParseFloat(wallet.Satisfaction, 64)
 	if err != nil {
+		slog.Error("wallet satisfaction value could not be parsed", "user_id", userID, "error", err)
 		return 0, fmt.Errorf("invalid wallet satisfaction: %w", err)
 	}
 	return balance, nil
@@ -171,9 +175,11 @@ func (s *BuildingService) chargeSatisfaction(ctx context.Context, userID uint64,
 		return err
 	}
 	if amount > balance {
+		slog.Warn("wallet satisfaction is insufficient for build", "user_id", userID)
 		return fmt.Errorf("insufficient satisfaction: required %f, available %f", amount, balance)
 	}
 	if err := s.commercialClient.DeductBalance(ctx, userID, "satisfaction", amount); err != nil {
+		slog.Error("wallet satisfaction deduction failed", "user_id", userID, "error", err)
 		return fmt.Errorf("failed to deduct satisfaction: %w", err)
 	}
 	return nil
@@ -184,9 +190,11 @@ func (s *BuildingService) refundSatisfaction(ctx context.Context, userID uint64,
 		return nil
 	}
 	if s.commercialClient == nil {
+		slog.Error("wallet satisfaction refund unavailable because commercial client is nil", "user_id", userID)
 		return fmt.Errorf("commercial client not available")
 	}
 	if err := s.commercialClient.AddBalance(ctx, userID, "satisfaction", amount); err != nil {
+		slog.Error("wallet satisfaction refund failed", "user_id", userID, "error", err)
 		return fmt.Errorf("failed to refund satisfaction: %w", err)
 	}
 	return nil

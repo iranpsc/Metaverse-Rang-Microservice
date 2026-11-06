@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 
 	"metarang/buildings-service/internal/models"
 )
@@ -39,6 +40,7 @@ func (r *FeatureRepository) FindByID(ctx context.Context, id uint64) (*models.Fe
 		&properties.CreatedAt, &properties.UpdatedAt,
 	)
 	if err != nil {
+		slog.Error("load feature from database failed", "feature_id", id, "error", err)
 		return nil, nil, err
 	}
 

@@ -159,6 +159,27 @@ func TestBuildingHandler_BuildFeature(t *testing.T) {
 			t.Fatalf("got %v", st.Code())
 		}
 	})
+
+	for _, tc := range []struct {
+		name    string
+		message string
+		code    codes.Code
+	}{
+		{name: "wallet unavailable", message: "failed to get wallet: service_unavailable", code: codes.Unavailable},
+		{name: "model not found", message: "building model not found", code: codes.NotFound},
+		{name: "database failure", message: "failed to create building: duplicate key", code: codes.Internal},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := &mockBuildingPort{buildFeature: func(context.Context, *pb.BuildFeatureRequest) (*pb.Feature, error) {
+				return nil, errors.New(tc.message)
+			}}
+			h := handler.NewBuildingHandler(m, nil)
+			_, err := h.BuildFeature(ctx, &pb.BuildFeatureRequest{FeatureId: 1, BuildingModelId: "1"})
+			if got := status.Code(err); got != tc.code {
+				t.Fatalf("status.Code() = %v, want %v; err=%v", got, tc.code, err)
+			}
+		})
+	}
 }
 
 func TestBuildingHandler_GetBuildings(t *testing.T) {

@@ -54,6 +54,9 @@ func mapBuildingServiceError(err error, locale string, opts buildingErrorMap) er
 	if strings.Contains(msg, "unauthorized") || strings.Contains(msg, "does not own") {
 		return status.Errorf(codes.PermissionDenied, "%s", msg)
 	}
+	if strings.Contains(strings.ToLower(msg), "unavailable") {
+		return status.Errorf(codes.Unavailable, "%s", msg)
+	}
 	if opts.mapNotFound && strings.Contains(msg, "not found") {
 		return status.Errorf(codes.NotFound, "%s", msg)
 	}
