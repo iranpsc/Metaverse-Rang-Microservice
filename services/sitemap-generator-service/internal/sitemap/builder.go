@@ -11,11 +11,26 @@ import (
 )
 
 const (
-	SiteBaseURL    = "https://metarang.com"
-	CitizenMaxURLs = 5000
-	xmlnsSitemap   = "http://www.sitemaps.org/schemas/sitemap/0.9"
-	xmlnsImage     = "http://www.google.com/schemas/sitemap-image/1.1"
+	DefaultSiteBaseURL = "https://metarang.com"
+	CitizenMaxURLs     = 5000
+	xmlnsSitemap       = "http://www.sitemaps.org/schemas/sitemap/0.9"
+	xmlnsImage         = "http://www.google.com/schemas/sitemap-image/1.1"
 )
+
+var SiteBaseURL = DefaultSiteBaseURL
+var SitemapBaseURL = DefaultSiteBaseURL + "/sitemaps"
+
+func ConfigureSiteBaseURL(base string) {
+	if strings.TrimSpace(base) != "" {
+		SiteBaseURL = strings.TrimRight(base, "/")
+	}
+}
+
+func ConfigureSitemapBaseURL(base string) {
+	if strings.TrimSpace(base) != "" {
+		SitemapBaseURL = strings.TrimRight(base, "/")
+	}
+}
 
 // RenderURLSet encodes entries as a sitemap XML document.
 func RenderURLSet(entries []models.URLEntry) ([]byte, error) {
@@ -122,9 +137,29 @@ func ChunkedFileName(base string, index int) string {
 		return base
 	}
 	if len(base) > 4 && base[len(base)-4:] == ".xml" {
-		return fmt.Sprintf("%s-%d.xml", base[:len(base)-4], index+1)
+		return fmt.Sprintf("%s%d.xml", base[:len(base)-4], index+1)
 	}
-	return fmt.Sprintf("%s-%d", base, index+1)
+	return fmt.Sprintf("%s%d", base, index+1)
+}
+
+func IndexedChunkFileName(base string, index int) string {
+	if len(base) > 4 && base[len(base)-4:] == ".xml" {
+		return fmt.Sprintf("%s%d.xml", base[:len(base)-4], index+1)
+	}
+	return fmt.Sprintf("%s%d", base, index+1)
+}
+
+// RenderSitemapIndex renders a standards-compliant sitemap index document.
+func RenderSitemapIndex(locations []string) ([]byte, error) {
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n<sitemapindex xmlns=\"" + xmlnsSitemap + "\">\n")
+	for _, location := range locations {
+		b.WriteString("  <sitemap><loc>")
+		b.WriteString(html.EscapeString(location))
+		b.WriteString("</loc></sitemap>\n")
+	}
+	b.WriteString("</sitemapindex>\n")
+	return []byte(b.String()), nil
 }
 
 // SplitEntries chunks entries into slices of at most maxPerFile.

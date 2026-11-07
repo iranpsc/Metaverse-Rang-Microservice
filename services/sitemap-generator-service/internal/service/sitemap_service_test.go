@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"metarang/sitemap-generator-service/internal/models"
 	"metarang/sitemap-generator-service/internal/service"
@@ -81,5 +82,30 @@ func TestGenerateAllByActiveTranslation(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "fr", "citizen.xml")); err != nil {
 		t.Fatalf("new language citizen sitemap: %v", err)
+	}
+}
+
+func TestStartSchedulerUsesSuppliedGenerationRunner(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	completed := make(chan struct{})
+	var calls int
+	svc := &service.SitemapService{}
+	svc.StartScheduler(ctx, time.Hour, func(context.Context) error {
+		calls++
+		cancel()
+		return nil
+	}, func() {
+		close(completed)
+	})
+
+	select {
+	case <-completed:
+	case <-time.After(time.Second):
+		t.Fatal("scheduler did not invoke the supplied generation runner")
+	}
+	if calls != 1 {
+		t.Fatalf("generation runner calls = %d, want 1", calls)
 	}
 }

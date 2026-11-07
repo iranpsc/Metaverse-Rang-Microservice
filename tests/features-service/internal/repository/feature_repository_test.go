@@ -26,15 +26,21 @@ func TestBuildMyFeaturesWhere(t *testing.T) {
 
 	t.Run("filter by karbari", func(t *testing.T) {
 		where, args := repository.BuildMyFeaturesWhere(7, "", "m")
-		assert.Contains(t, where, "fp.karbari = ?")
+		assert.Contains(t, where, "fp.karbari IN (?)")
 		require.Equal(t, []interface{}{uint64(7), "m"}, args)
+	})
+
+	t.Run("filter by multiple karbaris", func(t *testing.T) {
+		where, args := repository.BuildMyFeaturesWhere(7, "", "m,t")
+		assert.Contains(t, where, "fp.karbari IN (?,?)")
+		require.Equal(t, []interface{}{uint64(7), "m", "t"}, args)
 	})
 
 	t.Run("search and filter together", func(t *testing.T) {
 		where, args := repository.BuildMyFeaturesWhere(3, "block", "t")
 		assert.Contains(t, where, "fp.id LIKE ?")
 		assert.Contains(t, where, "fp.address LIKE ?")
-		assert.Contains(t, where, "fp.karbari = ?")
+		assert.Contains(t, where, "fp.karbari IN (?)")
 		require.Equal(t, []interface{}{uint64(3), "%block%", "%block%", "t"}, args)
 	})
 
@@ -42,6 +48,12 @@ func TestBuildMyFeaturesWhere(t *testing.T) {
 		where, args := repository.BuildMyFeaturesWhere(1, "  TO111  ", "  a  ")
 		assert.NotContains(t, where, "  TO111  ")
 		require.Equal(t, []interface{}{uint64(1), "%TO111%", "%TO111%", "a"}, args)
+	})
+
+	t.Run("trims and ignores empty karbari values", func(t *testing.T) {
+		where, args := repository.BuildMyFeaturesWhere(1, "", " , m, , t, ")
+		assert.Contains(t, where, "fp.karbari IN (?,?)")
+		require.Equal(t, []interface{}{uint64(1), "m", "t"}, args)
 	})
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,11 +24,14 @@ var ErrGenerationInProgress = errors.New("sitemap generation already in progress
 const DefaultGenerationTimeout = 30 * time.Minute
 
 // MaxURLsPerFile is the sitemap protocol soft cap used for non-citizen files.
-const MaxURLsPerFile = 50000
+const MaxURLsPerFile = 5000
 
 // Repository loads sitemap source rows in keyset pages.
 type Repository interface {
 	ListUsers(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error)
+	ListWalletUsers(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error)
+	ListLandOwners(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error)
+	ListBuildingOwners(ctx context.Context, afterID uint64, limit int) ([]models.UserRow, error)
 	ListVideos(ctx context.Context, afterID uint64, limit int) ([]models.VideoRow, error)
 	ListCategories(ctx context.Context, afterID uint64, limit int) ([]models.CategoryRow, error)
 	ListSubCategories(ctx context.Context, afterID uint64, limit int) ([]models.SubCategoryRow, error)
@@ -43,9 +47,11 @@ type Writer interface {
 
 // Config holds generator settings.
 type Config struct {
-	TemplatesPath string
-	AdminPanelURL string
-	Translations  interface {
+	TemplatesPath    string
+	AdminPanelURL    string
+	PublicSiteURL    string
+	PublicSitemapURL string
+	Translations     interface {
 		Active(context.Context) ([]string, error)
 	}
 	CitizenMaxURLs    int
@@ -71,6 +77,14 @@ func NewSitemapService(repo Repository, writer Writer, cfg Config) *SitemapServi
 	if cfg.AdminPanelURL == "" {
 		cfg.AdminPanelURL = "https://admin.metarang.com"
 	}
+	if cfg.PublicSiteURL == "" {
+		cfg.PublicSiteURL = sitemap.DefaultSiteBaseURL
+	}
+	sitemap.ConfigureSiteBaseURL(cfg.PublicSiteURL)
+	if cfg.PublicSitemapURL == "" {
+		cfg.PublicSitemapURL = strings.TrimRight(cfg.PublicSiteURL, "/") + "/sitemaps"
+	}
+	sitemap.ConfigureSitemapBaseURL(cfg.PublicSitemapURL)
 	if cfg.PageSize <= 0 {
 		cfg.PageSize = repository.DefaultPageSize
 	}
@@ -89,6 +103,18 @@ func (s *SitemapService) WithLogger(log *logger.Logger) *SitemapService {
 // GenerateAll builds every sitemap type and writes them via Writer.
 // Concurrent calls return ErrGenerationInProgress.
 func (s *SitemapService) GenerateAll(ctx context.Context) error {
+	return s.generate(ctx, "all", "")
+}
+
+// GenerateTarget regenerates one logical sitemap for one language, or all active languages when language is empty.
+func (s *SitemapService) GenerateTarget(ctx context.Context, target, language string) error {
+	if target == "" {
+		target = "all"
+	}
+	return s.generate(ctx, target, language)
+}
+
+func (s *SitemapService) generate(ctx context.Context, target, requestedLanguage string) error {
 	if !s.mu.TryLock() {
 		return ErrGenerationInProgress
 	}
@@ -103,18 +129,54 @@ func (s *SitemapService) GenerateAll(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("active translations: %w", err)
 	}
+	if requestedLanguage != "" {
+		languages = []string{requestedLanguage}
+	}
 	for _, language := range languages {
 		s.language = language
-		if err := s.generateLanguage(ctx); err != nil {
+		var err error
+		if target == "all" {
+			err = s.generateLanguage(ctx)
+		} else {
+			err = s.generateTargetLanguage(ctx, target)
+		}
+		if err != nil {
 			return fmt.Errorf("language %s: %w", language, err)
 		}
 	}
-	if cleaner, ok := s.writer.(interface{ CleanupInactive([]string) error }); ok {
-		if err := cleaner.CleanupInactive(languages); err != nil {
-			return fmt.Errorf("cleanup inactive translations: %w", err)
+	if requestedLanguage == "" && target == "all" {
+		if cleaner, ok := s.writer.(interface{ CleanupInactive([]string) error }); ok {
+			if err := cleaner.CleanupInactive(languages); err != nil {
+				return fmt.Errorf("cleanup inactive translations: %w", err)
+			}
 		}
 	}
 	return nil
+}
+
+func (s *SitemapService) generateTargetLanguage(ctx context.Context, target string) error {
+	switch target {
+	case "citizen.xml":
+		return s.generateCitizens(ctx)
+	case "user-wallet.xml":
+		return s.generateUserWallets(ctx)
+	case "user-lands.xml":
+		return s.generateUserLands(ctx)
+	case "user-buildings.xml":
+		return s.generateUserBuildings(ctx)
+	case "education-single-video.xml":
+		return s.generateVideos(ctx)
+	case "education-category.xml":
+		return s.generateCategories(ctx)
+	case "education-sub-category.xml":
+		return s.generateSubCategories(ctx)
+	case "calendar-events.xml":
+		return s.generateEvents(ctx)
+	case "calendar-versions.xml":
+		return s.generateVersions(ctx)
+	default:
+		return fmt.Errorf("unsupported sitemap target %q", target)
+	}
 }
 
 func (s *SitemapService) generateLanguage(ctx context.Context) error {
@@ -161,23 +223,17 @@ func (s *SitemapService) generateCitizens(ctx context.Context) error {
 	}
 
 	entries := make([]models.URLEntry, 0, s.cfg.CitizenMaxURLs)
-	chunkIndex := 0
+	var chunks [][]models.URLEntry
 	var afterID uint64
 
-	flush := func() error {
+	flush := func() {
 		if len(entries) == 0 {
-			return nil
+			return
 		}
-		body, err := sitemap.RenderURLSet(entries)
-		if err != nil {
-			return err
-		}
-		if err := s.writeRaw(sitemap.CitizenFileName(chunkIndex), body); err != nil {
-			return err
-		}
-		chunkIndex++
+		chunk := make([]models.URLEntry, len(entries))
+		copy(chunk, entries)
+		chunks = append(chunks, chunk)
 		entries = entries[:0]
-		return nil
 	}
 
 	for {
@@ -204,9 +260,7 @@ func (s *SitemapService) generateCitizens(ctx context.Context) error {
 					Priority:   "0.8",
 				})
 				if len(entries) >= s.cfg.CitizenMaxURLs {
-					if err := flush(); err != nil {
-						return err
-					}
+					flush()
 				}
 			}
 			afterID = u.ID
@@ -215,10 +269,39 @@ func (s *SitemapService) generateCitizens(ctx context.Context) error {
 			break
 		}
 	}
-	if err := flush(); err != nil {
+	flush()
+	if len(chunks) == 0 {
+		if err := s.writeFile("citizen.xml", nil); err != nil {
+			return err
+		}
+		return s.cleanupCitizenFiles(0)
+	}
+	if len(chunks) == 1 {
+		if err := s.writeFile("citizen.xml", chunks[0]); err != nil {
+			return err
+		}
+		return s.cleanupCitizenFiles(0)
+	}
+	locations := make([]string, 0, len(chunks))
+	for i, chunk := range chunks {
+		name := sitemap.IndexedChunkFileName("citizen.xml", i)
+		body, err := sitemap.RenderURLSet(chunk)
+		if err != nil {
+			return err
+		}
+		if err := s.writeRaw(name, body); err != nil {
+			return err
+		}
+		locations = append(locations, sitemap.SitemapBaseURL+"/"+s.language+"/"+name)
+	}
+	index, err := sitemap.RenderSitemapIndex(locations)
+	if err != nil {
 		return err
 	}
-	return s.cleanupCitizenFiles(chunkIndex)
+	if err := s.writeRaw("citizen.xml", index); err != nil {
+		return err
+	}
+	return s.cleanupCitizenFiles(len(chunks))
 }
 
 func (s *SitemapService) cleanupCitizenFiles(keepCount int) error {
@@ -226,43 +309,37 @@ func (s *SitemapService) cleanupCitizenFiles(keepCount int) error {
 }
 
 func (s *SitemapService) generateUserWallets(ctx context.Context) error {
-	return s.generateUserCodeSitemaps(ctx, "user-wallet.xml", sitemap.UserWalletURLs)
+	return s.generateUserCodeSitemaps(ctx, "user-wallet.xml", sitemap.UserWalletURLs, s.repo.ListWalletUsers)
 }
 
 func (s *SitemapService) generateUserLands(ctx context.Context) error {
-	return s.generateUserCodeSitemaps(ctx, "user-lands.xml", sitemap.UserLandsURLs)
+	return s.generateUserCodeSitemaps(ctx, "user-lands.xml", sitemap.UserLandsURLs, s.repo.ListLandOwners)
 }
 
 func (s *SitemapService) generateUserBuildings(ctx context.Context) error {
-	return s.generateUserCodeSitemaps(ctx, "user-buildings.xml", sitemap.UserBuildingsURLs)
+	return s.generateUserCodeSitemaps(ctx, "user-buildings.xml", sitemap.UserBuildingsURLs, s.repo.ListBuildingOwners)
 }
 
-func (s *SitemapService) generateUserCodeSitemaps(ctx context.Context, baseFile string, urlsForCode func(language, code string) []string) error {
+func (s *SitemapService) generateUserCodeSitemaps(ctx context.Context, baseFile string, urlsForCode func(language, code string) []string, loadUsers func(context.Context, uint64, int) ([]models.UserRow, error)) error {
 	entries := make([]models.URLEntry, 0, s.cfg.CitizenMaxURLs)
-	chunkIndex := 0
+	var chunks [][]models.URLEntry
 	var afterID uint64
 
-	flush := func() error {
+	flush := func() {
 		if len(entries) == 0 {
-			return nil
+			return
 		}
-		body, err := sitemap.RenderURLSet(entries)
-		if err != nil {
-			return err
-		}
-		if err := s.writeRaw(sitemap.ChunkedFileName(baseFile, chunkIndex), body); err != nil {
-			return err
-		}
-		chunkIndex++
+		chunk := make([]models.URLEntry, len(entries))
+		copy(chunk, entries)
+		chunks = append(chunks, chunk)
 		entries = entries[:0]
-		return nil
 	}
 
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		users, err := s.repo.ListUsers(ctx, afterID, s.cfg.PageSize)
+		users, err := loadUsers(ctx, afterID, s.cfg.PageSize)
 		if err != nil {
 			return err
 		}
@@ -278,9 +355,7 @@ func (s *SitemapService) generateUserCodeSitemaps(ctx context.Context, baseFile 
 					Priority:   "0.8",
 				})
 				if len(entries) >= s.cfg.CitizenMaxURLs {
-					if err := flush(); err != nil {
-						return err
-					}
+					flush()
 				}
 			}
 			afterID = u.ID
@@ -289,21 +364,48 @@ func (s *SitemapService) generateUserCodeSitemaps(ctx context.Context, baseFile 
 			break
 		}
 	}
-	if err := flush(); err != nil {
-		return err
-	}
-	if chunkIndex == 0 {
+	flush()
+	if len(chunks) == 0 {
 		if err := s.writeFile(baseFile, nil); err != nil {
 			return err
 		}
-		chunkIndex = 1
+		return s.cleanupChunkedFiles(baseFile, 0)
 	}
-	return s.cleanupChunkedFiles(baseFile, chunkIndex)
+	if len(chunks) == 1 {
+		body, err := sitemap.RenderURLSet(chunks[0])
+		if err != nil {
+			return err
+		}
+		if err := s.writeRaw(baseFile, body); err != nil {
+			return err
+		}
+		return s.cleanupChunkedFiles(baseFile, 0)
+	}
+	locations := make([]string, 0, len(chunks))
+	for i, chunk := range chunks {
+		name := sitemap.IndexedChunkFileName(baseFile, i)
+		body, err := sitemap.RenderURLSet(chunk)
+		if err != nil {
+			return err
+		}
+		if err := s.writeRaw(name, body); err != nil {
+			return err
+		}
+		locations = append(locations, sitemap.SitemapBaseURL+"/"+s.language+"/"+name)
+	}
+	index, err := sitemap.RenderSitemapIndex(locations)
+	if err != nil {
+		return err
+	}
+	if err := s.writeRaw(baseFile, index); err != nil {
+		return err
+	}
+	return s.cleanupChunkedFiles(baseFile, len(chunks))
 }
 
 func (s *SitemapService) cleanupChunkedFiles(baseFile string, keepCount int) error {
 	for i := keepCount; i < keepCount+100; i++ {
-		if err := s.removeFile(sitemap.ChunkedFileName(baseFile, i)); err != nil {
+		if err := s.removeFile(sitemap.IndexedChunkFileName(baseFile, i)); err != nil {
 			return err
 		}
 	}
@@ -427,29 +529,16 @@ type pageLoader func(ctx context.Context, afterID uint64, limit int) (entries []
 // (or numbered parts when exceeding maxPerFile).
 func (s *SitemapService) writePaged(ctx context.Context, baseName string, maxPerFile int, load pageLoader) error {
 	entries := make([]models.URLEntry, 0, s.cfg.PageSize*2)
-	part := 0
+	var chunks [][]models.URLEntry
 	var afterID uint64
-	wroteAny := false
-
-	flush := func() error {
+	flush := func() {
 		if len(entries) == 0 {
-			return nil
+			return
 		}
-		filename := baseName
-		if part > 0 {
-			filename = numberedFilename(baseName, part+1)
-		}
-		body, err := sitemap.RenderURLSet(entries)
-		if err != nil {
-			return err
-		}
-		if err := s.writeRaw(filename, body); err != nil {
-			return err
-		}
-		wroteAny = true
-		part++
+		chunk := make([]models.URLEntry, len(entries))
+		copy(chunk, entries)
+		chunks = append(chunks, chunk)
 		entries = entries[:0]
-		return nil
 	}
 
 	for {
@@ -466,9 +555,7 @@ func (s *SitemapService) writePaged(ctx context.Context, baseName string, maxPer
 		for _, e := range page {
 			entries = append(entries, e)
 			if maxPerFile > 0 && len(entries) >= maxPerFile {
-				if err := flush(); err != nil {
-					return err
-				}
+				flush()
 			}
 		}
 		afterID = lastID
@@ -476,28 +563,39 @@ func (s *SitemapService) writePaged(ctx context.Context, baseName string, maxPer
 			break
 		}
 	}
-	if err := flush(); err != nil {
-		return err
-	}
-	if !wroteAny {
+	flush()
+	if len(chunks) == 0 {
 		if err := s.writeFile(baseName, nil); err != nil {
 			return err
 		}
-		part = 1
+		return s.cleanupChunkedFiles(baseName, 0)
 	}
-	for i := part + 1; i < part+101; i++ {
-		if err := s.removeFile(numberedFilename(baseName, i)); err != nil {
+	if len(chunks) == 1 {
+		if err := s.writeFile(baseName, chunks[0]); err != nil {
 			return err
 		}
+		return s.cleanupChunkedFiles(baseName, 0)
 	}
-	return nil
-}
-
-func numberedFilename(base string, n int) string {
-	if len(base) > 4 && base[len(base)-4:] == ".xml" {
-		return fmt.Sprintf("%s-%d.xml", base[:len(base)-4], n)
+	locations := make([]string, 0, len(chunks))
+	for i, chunk := range chunks {
+		name := sitemap.IndexedChunkFileName(baseName, i)
+		body, err := sitemap.RenderURLSet(chunk)
+		if err != nil {
+			return err
+		}
+		if err := s.writeRaw(name, body); err != nil {
+			return err
+		}
+		locations = append(locations, sitemap.SitemapBaseURL+"/"+s.language+"/"+name)
 	}
-	return fmt.Sprintf("%s-%d", base, n)
+	index, err := sitemap.RenderSitemapIndex(locations)
+	if err != nil {
+		return err
+	}
+	if err := s.writeRaw(baseName, index); err != nil {
+		return err
+	}
+	return s.cleanupChunkedFiles(baseName, len(chunks))
 }
 
 func (s *SitemapService) writeFile(filename string, entries []models.URLEntry) error {
@@ -516,9 +614,10 @@ func (s *SitemapService) removeFile(filename string) error {
 	return s.writer.Remove(filepath.Join(s.language, filename))
 }
 
-// StartScheduler runs GenerateAll immediately and then every interval until ctx is cancelled.
-// onRun is an optional hook invoked after each successful or attempted run (used by tests).
-func (s *SitemapService) StartScheduler(ctx context.Context, interval time.Duration, onRun func()) {
+// StartScheduler runs generate immediately and then every interval until ctx is cancelled.
+// The caller supplies generate so scheduled runs can use the same persistence path as other
+// generation triggers. onRun is an optional hook invoked after each attempted run (used by tests).
+func (s *SitemapService) StartScheduler(ctx context.Context, interval time.Duration, generate func(context.Context) error, onRun func()) {
 	if interval <= 0 {
 		interval = 3 * time.Hour
 	}
@@ -530,7 +629,7 @@ func (s *SitemapService) StartScheduler(ctx context.Context, interval time.Durat
 	}
 
 	run := func() {
-		if err := s.GenerateAll(ctx); err != nil {
+		if err := generate(ctx); err != nil {
 			if errors.Is(err, ErrGenerationInProgress) {
 				if s.log != nil {
 					s.log.Warn("Sitemap generation skipped; already in progress")

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -160,51 +161,122 @@ func (s *BuildingService) GetBuildPackage(ctx context.Context, featureID uint64,
 
 // BuildFeature starts construction of a building on a feature
 func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeatureRequest) (*pb.Feature, error) {
+	slog.Info("build feature started",
+		"feature_id", req.FeatureId,
+		"building_model_id", strings.TrimSpace(req.BuildingModelId),
+	)
+
 	feature, properties, user, err := s.ownedFeature(ctx, req.FeatureId)
 	if err != nil {
+		slog.Error("build feature ownership lookup failed",
+			"feature_id", req.FeatureId,
+			"error", err,
+		)
 		return nil, err
 	}
+	slog.Debug("build feature ownership verified",
+		"feature_id", req.FeatureId,
+		"user_id", user.UserID,
+	)
 
 	hasBuilding, err := s.buildingRepo.HasBuilding(ctx, req.FeatureId)
 	if err != nil {
+		slog.Error("build feature existence check failed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+			"error", err,
+		)
 		return nil, fmt.Errorf("failed to check building existence: %w", err)
 	}
 	if hasBuilding {
+		slog.Warn("build feature rejected because feature already has a building",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+		)
 		return nil, fmt.Errorf("feature already has a building")
 	}
 
 	buildingModel, err := s.loadBuildingModel(ctx, req.BuildingModelId)
 	if err != nil {
+		slog.Error("build feature model lookup failed",
+			"feature_id", req.FeatureId,
+			"building_model_id", strings.TrimSpace(req.BuildingModelId),
+			"user_id", user.UserID,
+			"error", err,
+		)
 		return nil, err
 	}
 
 	requiredSatisfaction, err := requiredSatisfactionForFeature(properties)
 	if err != nil {
+		slog.Error("build feature required satisfaction calculation failed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+			"error", err,
+		)
 		return nil, err
 	}
 	launchedSatisfaction, err := validateLaunchedAmount(req.LaunchedSatisfaction, requiredSatisfaction)
 	if err != nil {
+		slog.Warn("build feature launched satisfaction validation failed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+			"error", err,
+		)
 		return nil, err
 	}
 	if err := validateBuildPlacement(req.Rotation, req.Position); err != nil {
+		slog.Warn("build feature placement validation failed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+			"error", err,
+		)
 		return nil, err
 	}
 	informationJSON, err := s.prepareInformationJSON(ctx, req.Information)
 	if err != nil {
+		slog.Warn("build feature information validation failed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+			"error", err,
+		)
 		return nil, err
 	}
 
 	if err := s.chargeSatisfaction(ctx, user.UserID, launchedSatisfaction); err != nil {
+		slog.Error("build feature satisfaction charge failed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+			"error_type", "wallet_charge_failed",
+		)
 		return nil, err
 	}
+	slog.Debug("build feature satisfaction charged",
+		"feature_id", req.FeatureId,
+		"user_id", user.UserID,
+	)
 
 	constructionStartDate := time.Now()
 	constructionEndDate := constructionEndFromStart(constructionStartDate, requiredSatisfaction, launchedSatisfaction)
 
 	if err := s.hourlyProfitRepo.DeactivateProfitsForFeature(ctx, req.FeatureId); err != nil {
+		slog.Error("build feature hourly profit deactivation failed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+			"error", err,
+		)
 		if refundErr := s.refundSatisfaction(ctx, user.UserID, launchedSatisfaction); refundErr != nil {
+			slog.Error("build feature refund after profit deactivation failure failed",
+				"feature_id", req.FeatureId,
+				"user_id", user.UserID,
+				"error", refundErr,
+			)
 			return nil, fmt.Errorf("failed to deactivate profits: %w; %v", err, refundErr)
 		}
+		slog.Info("build feature satisfaction refunded after profit deactivation failure",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+		)
 		return nil, fmt.Errorf("failed to deactivate profits: %w", err)
 	}
 
@@ -214,19 +286,46 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 		strconv.FormatFloat(launchedSatisfaction, 'f', -1, 64), req.Rotation, req.Position, informationJSON,
 		constructionStartDate, constructionEndDate, bubbleDiameter)
 	if err != nil {
+		slog.Error("build feature database insert failed",
+			"feature_id", req.FeatureId,
+			"building_model_id", buildingModelIDStr,
+			"user_id", user.UserID,
+			"error", err,
+		)
 		activateErr := s.hourlyProfitRepo.ActivateProfitsForFeature(ctx, req.FeatureId)
 		refundErr := s.refundSatisfaction(ctx, user.UserID, launchedSatisfaction)
 		if activateErr != nil || refundErr != nil {
+			slog.Error("build feature rollback incomplete",
+				"feature_id", req.FeatureId,
+				"user_id", user.UserID,
+				"reactivate_error", activateErr,
+				"refund_error", refundErr,
+			)
 			return nil, fmt.Errorf("failed to create building: %w; reactivate: %v; refund: %v", err, activateErr, refundErr)
 		}
+		slog.Info("build feature rollback completed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+		)
 		return nil, fmt.Errorf("failed to create building: %w", err)
 	}
 
 	buildings, err := s.buildingRepo.FindByFeatureID(ctx, req.FeatureId)
 	if err != nil {
-		// Log error but return feature anyway
+		slog.Warn("build feature completed but loading created building failed",
+			"feature_id", req.FeatureId,
+			"user_id", user.UserID,
+			"error", err,
+		)
+		// Return the feature even when the post-insert response enrichment fails.
 		buildings = nil
 	}
+
+	slog.Info("build feature completed",
+		"feature_id", req.FeatureId,
+		"building_model_id", buildingModelIDStr,
+		"user_id", user.UserID,
+	)
 
 	// Build minimal Feature response with building models
 	// Note: We don't have all FeatureService dependencies, so we return minimal Feature

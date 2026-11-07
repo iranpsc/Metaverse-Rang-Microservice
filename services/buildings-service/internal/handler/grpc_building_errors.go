@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"strings"
 
 	"metarang/buildings-service/internal/lang"
+	buildingservice "metarang/buildings-service/internal/service"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -51,8 +53,16 @@ func mapBuildingServiceError(err error, locale string, opts buildingErrorMap) er
 		return nil
 	}
 	msg := err.Error()
+	lowerMsg := strings.ToLower(msg)
+	var validationErr *buildingservice.ValidationError
+	if errors.As(err, &validationErr) {
+		return status.Errorf(codes.InvalidArgument, "%s", msg)
+	}
 	if strings.Contains(msg, "unauthorized") || strings.Contains(msg, "does not own") {
 		return status.Errorf(codes.PermissionDenied, "%s", msg)
+	}
+	if strings.Contains(strings.ToLower(msg), "unavailable") {
+		return status.Errorf(codes.Unavailable, "%s", msg)
 	}
 	if opts.mapNotFound && strings.Contains(msg, "not found") {
 		return status.Errorf(codes.NotFound, "%s", msg)
@@ -60,7 +70,7 @@ func mapBuildingServiceError(err error, locale string, opts buildingErrorMap) er
 	if opts.mapPrecondition && (strings.Contains(msg, "already has") || strings.Contains(msg, "insufficient")) {
 		return status.Errorf(codes.FailedPrecondition, "%s", msg)
 	}
-	if strings.Contains(msg, "invalid") {
+	if strings.Contains(lowerMsg, "invalid") {
 		return status.Errorf(codes.InvalidArgument, "%s", msg)
 	}
 	return status.Error(codes.Internal, lang.T(locale, "internal server error"))

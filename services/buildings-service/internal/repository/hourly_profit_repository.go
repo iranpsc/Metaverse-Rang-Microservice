@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 )
 
 type HourlyProfitRepository struct {
@@ -17,6 +18,9 @@ func NewHourlyProfitRepository(db *sql.DB) *HourlyProfitRepository {
 func (r *HourlyProfitRepository) ActivateProfitsForFeature(ctx context.Context, featureID uint64) error {
 	query := "UPDATE feature_hourly_profits SET is_active = 1, updated_at = NOW() WHERE feature_id = ?"
 	_, err := r.db.ExecContext(ctx, query, featureID)
+	if err != nil {
+		slog.Error("activate feature hourly profits failed", "feature_id", featureID, "error", err)
+	}
 	return err
 }
 
@@ -24,5 +28,8 @@ func (r *HourlyProfitRepository) ActivateProfitsForFeature(ctx context.Context, 
 func (r *HourlyProfitRepository) DeactivateProfitsForFeature(ctx context.Context, featureID uint64) error {
 	query := "UPDATE feature_hourly_profits SET is_active = 0, updated_at = NOW() WHERE feature_id = ?"
 	_, err := r.db.ExecContext(ctx, query, featureID)
+	if err != nil {
+		slog.Error("deactivate feature hourly profits failed", "feature_id", featureID, "error", err)
+	}
 	return err
 }

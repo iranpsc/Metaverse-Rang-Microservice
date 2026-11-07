@@ -308,10 +308,10 @@ func (r *FeatureRepository) HasPendingBuyRequests(ctx context.Context, featureID
 }
 
 // BuildMyFeaturesWhere returns the WHERE clause and args for listing a user's features.
-// search matches feature_properties.id or address; filter matches karbari exactly.
+// search matches feature_properties.id or address; filter is a comma-separated
+// list of karbari codes, with each code matched exactly.
 func BuildMyFeaturesWhere(ownerID uint64, search, filter string) (string, []interface{}) {
 	search = strings.TrimSpace(search)
-	filter = strings.TrimSpace(filter)
 
 	where := `f.owner_id = ?`
 	args := []interface{}{ownerID}
@@ -321,15 +321,29 @@ func BuildMyFeaturesWhere(ownerID uint64, search, filter string) (string, []inte
 		args = append(args, like, like)
 	}
 	if filter != "" {
-		where += ` AND fp.karbari = ?`
-		args = append(args, filter)
+		karbaris := make([]string, 0)
+		for _, value := range strings.Split(filter, ",") {
+			value = strings.TrimSpace(value)
+			if value != "" {
+				karbaris = append(karbaris, value)
+			}
+		}
+		if len(karbaris) > 0 {
+			placeholders := make([]string, len(karbaris))
+			for i, karbari := range karbaris {
+				placeholders[i] = "?"
+				args = append(args, karbari)
+			}
+			where += ` AND fp.karbari IN (` + strings.Join(placeholders, ",") + `)`
+		}
 	}
 	return where, args
 }
 
 // FindByOwnerPaginated retrieves features owned by a user with pagination (5 per page)
 // Returns features with their properties eager-loaded
-// search filters by feature_properties.id or address; filter matches karbari
+// search filters by feature_properties.id or address; filter matches one or
+// more comma-separated karbari codes.
 // NOTE: features table does NOT have geometry_id column - geometries table has feature_id instead
 func (r *FeatureRepository) FindByOwnerPaginated(ctx context.Context, ownerID uint64, page int, search, filter string) ([]*models.Feature, []*models.FeatureProperties, error) {
 	if page < 1 {

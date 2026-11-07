@@ -2659,76 +2659,9 @@ paths:
             summary: List buildings on a feature
             tags:
                 - Features
-    /api/features/{feature}/build/buildings/{buildingModel}:
-        delete:
-            operationId: delete_features_feature_build_buildings_buildingModel
-            parameters:
-                - description: Feature ID. Caller must own the feature.
-                  in: path
-                  name: feature
-                  required: true
-                  schema:
-                    example: 1
-                    format: int64
-                    type: integer
-                - description: Catalog model_id of the building on this feature
-                  in: path
-                  name: buildingModel
-                  required: true
-                  schema:
-                    example: "1001"
-                    type: string
-                - description: Send POST with _method=DELETE to call this route. Also accepted as a form field.
-                  in: query
-                  name: _method
-                  required: false
-                  schema:
-                    example: DELETE
-                    type: string
-            responses:
-                "200":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/EmptyData'
-                    description: Building removed and satisfaction refunded.
-                "401":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/Error'
-                    description: Unauthenticated
-                "403":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ApiError'
-                    description: unauthorized - user does not own this feature
-                "404":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ApiError'
-                    description: building not found
-                "410":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/LockedAccount'
-                    description: Account security is locked. Wallet-login sessions are exempt.
-                "422":
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/schemas/ValidationError'
-                    description: Validation error
-            security:
-                - BearerAuth: []
-            summary: Remove a building and refund its staked satisfaction
-            tags:
-                - Features
+    /api/features/{feature}/build/buildings/{building_id}:
         patch:
-            operationId: patch_features_feature_build_buildings_buildingModel
+            operationId: patch_features_feature_build_buildings_building_id
             parameters:
                 - description: Feature ID. Caller must own the feature.
                   in: path
@@ -2738,13 +2671,14 @@ paths:
                     example: 1
                     format: int64
                     type: integer
-                - description: Catalog model_id of the building on this feature
+                - description: Building id returned by GET /api/features/{feature}/build/buildings
                   in: path
-                  name: buildingModel
+                  name: building_id
                   required: true
                   schema:
-                    example: "1001"
-                    type: string
+                    example: 11
+                    format: int64
+                    type: integer
                 - description: Send POST with _method=PATCH to call this route. Also accepted as a form field.
                   in: query
                   name: _method
@@ -2857,7 +2791,7 @@ paths:
             tags:
                 - Features
         put:
-            operationId: put_features_feature_build_buildings_buildingModel
+            operationId: put_features_feature_build_buildings_building_id
             parameters:
                 - description: Feature ID. Caller must own the feature.
                   in: path
@@ -2867,13 +2801,14 @@ paths:
                     example: 1
                     format: int64
                     type: integer
-                - description: Catalog model_id of the building on this feature
+                - description: Building id returned by GET /api/features/{feature}/build/buildings
                   in: path
-                  name: buildingModel
+                  name: building_id
                   required: true
                   schema:
-                    example: "1001"
-                    type: string
+                    example: 11
+                    format: int64
+                    type: integer
                 - description: Send POST with _method=PUT to call this route. Also accepted as a form field.
                   in: query
                   name: _method
@@ -3022,6 +2957,74 @@ paths:
             security:
                 - BearerAuth: []
             summary: Update building stake, placement, and optional information
+            tags:
+                - Features
+    /api/features/{feature}/build/buildings/{buildingModel}:
+        delete:
+            operationId: delete_features_feature_build_buildings_buildingModel
+            parameters:
+                - description: Feature ID. Caller must own the feature.
+                  in: path
+                  name: feature
+                  required: true
+                  schema:
+                    example: 1
+                    format: int64
+                    type: integer
+                - description: Catalog model_id of the building on this feature
+                  in: path
+                  name: buildingModel
+                  required: true
+                  schema:
+                    example: "1001"
+                    type: string
+                - description: Send POST with _method=DELETE to call this route. Also accepted as a form field.
+                  in: query
+                  name: _method
+                  required: false
+                  schema:
+                    example: DELETE
+                    type: string
+            responses:
+                "200":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EmptyData'
+                    description: Building removed and satisfaction refunded.
+                "401":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Error'
+                    description: Unauthenticated
+                "403":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: unauthorized - user does not own this feature
+                "404":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ApiError'
+                    description: building not found
+                "410":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LockedAccount'
+                    description: Account security is locked. Wallet-login sessions are exempt.
+                "422":
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationError'
+                    description: Validation error
+            security:
+                - BearerAuth: []
+            summary: Remove a building and refund its staked satisfaction
             tags:
                 - Features
     /api/features/{feature}/build/package:
@@ -4353,12 +4356,12 @@ paths:
         get:
             operationId: get_my-features
             parameters:
-                - description: Optional filter by karbari code (e.g. m, t, a)
+                - description: Optional comma-separated filter by karbari codes (e.g. m or m,t,a)
                   in: query
                   name: filter
                   required: false
                   schema:
-                    example: m
+                    example: m,t
                     type: string
                 - description: Page number (default 1, 5 items per page)
                   in: query

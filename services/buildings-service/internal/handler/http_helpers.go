@@ -16,6 +16,25 @@ import (
 	authpkg "metarang/shared/pkg/auth"
 )
 
+func requestID(r *http.Request) string {
+	for _, header := range []string{"X-Request-Id", "Kong-Request-ID", "X-Kong-Request-ID"} {
+		if value := strings.TrimSpace(r.Header.Get(header)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func buildFeatureErrorLogValue(err error) any {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "insufficient satisfaction") {
+		return "insufficient satisfaction"
+	}
+	return err
+}
+
 func effectiveHTTPMethod(r *http.Request) string {
 	if r.Method != http.MethodPost {
 		return r.Method

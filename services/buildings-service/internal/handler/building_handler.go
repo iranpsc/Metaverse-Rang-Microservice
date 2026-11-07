@@ -69,6 +69,7 @@ func (h *BuildingHandler) BuildFeature(ctx context.Context, req *pb.BuildFeature
 	featureResp, err := h.service.BuildFeature(ctx, req)
 	if err != nil {
 		return nil, mapBuildingServiceError(err, locale, buildingErrorMap{
+			mapNotFound:     true,
 			mapPrecondition: true,
 		})
 	}

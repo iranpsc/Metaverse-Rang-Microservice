@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"metarang/buildings-service/internal/handler"
+	buildingservice "metarang/buildings-service/internal/service"
 	pb "metarang/shared/pb/features"
 
 	"google.golang.org/grpc/codes"
@@ -159,6 +160,32 @@ func TestBuildingHandler_BuildFeature(t *testing.T) {
 			t.Fatalf("got %v", st.Code())
 		}
 	})
+
+	for _, tc := range []struct {
+		name    string
+		message string
+		err     error
+		code    codes.Code
+	}{
+		{name: "wallet unavailable", message: "failed to get wallet: service_unavailable", code: codes.Unavailable},
+		{name: "model not found", message: "building model not found", code: codes.NotFound},
+		{name: "launched satisfaction below minimum", err: &buildingservice.ValidationError{Message: "launched_satisfaction must be at least 0.097600"}, code: codes.InvalidArgument},
+		{name: "database failure", message: "failed to create building: duplicate key", code: codes.Internal},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := &mockBuildingPort{buildFeature: func(context.Context, *pb.BuildFeatureRequest) (*pb.Feature, error) {
+				if tc.err != nil {
+					return nil, tc.err
+				}
+				return nil, errors.New(tc.message)
+			}}
+			h := handler.NewBuildingHandler(m, nil)
+			_, err := h.BuildFeature(ctx, &pb.BuildFeatureRequest{FeatureId: 1, BuildingModelId: "1"})
+			if got := status.Code(err); got != tc.code {
+				t.Fatalf("status.Code() = %v, want %v; err=%v", got, tc.code, err)
+			}
+		})
+	}
 }
 
 func TestBuildingHandler_GetBuildings(t *testing.T) {

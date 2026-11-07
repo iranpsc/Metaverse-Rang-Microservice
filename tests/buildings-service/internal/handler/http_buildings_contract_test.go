@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"metarang/buildings-service/internal/handler"
+	buildingservice "metarang/buildings-service/internal/service"
 	pb "metarang/shared/pb/features"
 	authpkg "metarang/shared/pkg/auth"
 )
@@ -81,6 +83,10 @@ func requestWithUser(req *http.Request, userID uint64) *http.Request {
 func TestHTTPBuildingMutationRoutes(t *testing.T) {
 	var updated, patched, destroyed *pb.BuildingInformation
 	building := &mockHTTPBuildingAPI{
+		getBuildings: func(_ context.Context, req *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
+			assert.Equal(t, uint64(42), req.FeatureId)
+			return &pb.BuildingsResponse{Buildings: []*pb.Building{{Model: &pb.BuildingModel{Id: 11, ModelId: "1001"}}}}, nil
+		},
 		updateBuilding: func(_ context.Context, req *pb.UpdateBuildingRequest) (*pb.BuildingResponse, error) {
 			assert.Equal(t, uint64(42), req.FeatureId)
 			assert.Equal(t, "1001", req.BuildingModelId)
@@ -104,10 +110,10 @@ func TestHTTPBuildingMutationRoutes(t *testing.T) {
 	for _, test := range []struct {
 		name, method, target, body string
 	}{
-		{"PUT", http.MethodPut, "/api/features/42/build/buildings/1001", `{"launched_satisfaction":"50"}`},
-		{"POST method PUT", http.MethodPost, "/api/features/42/build/buildings/1001?_method=put", `{"launched_satisfaction":"50"}`},
-		{"PATCH", http.MethodPatch, "/api/features/42/build/buildings/1001", `{"information":{"name":"Updated Store"}}`},
-		{"POST method PATCH", http.MethodPost, "/api/features/42/build/buildings/1001?_method=patch", `{"information":{"name":"Updated Store"}}`},
+		{"PUT", http.MethodPut, "/api/features/42/build/buildings/11", `{"launched_satisfaction":"50"}`},
+		{"POST method PUT", http.MethodPost, "/api/features/42/build/buildings/11?_method=put", `{"launched_satisfaction":"50"}`},
+		{"PATCH", http.MethodPatch, "/api/features/42/build/buildings/11", `{"information":{"name":"Updated Store"}}`},
+		{"POST method PATCH", http.MethodPost, "/api/features/42/build/buildings/11?_method=patch", `{"information":{"name":"Updated Store"}}`},
 		{"DELETE", http.MethodDelete, "/api/features/42/build/buildings/1001", ""},
 		{"POST method DELETE", http.MethodPost, "/api/features/42/build/buildings/1001?_method=delete", ""},
 	} {
@@ -122,6 +128,26 @@ func TestHTTPBuildingMutationRoutes(t *testing.T) {
 	assert.NotNil(t, updated)
 	assert.Equal(t, "Updated Store", patched.Name)
 	assert.NotNil(t, destroyed)
+}
+
+func TestHTTPBuildingMutationRejectsCatalogModelID(t *testing.T) {
+	building := &mockHTTPBuildingAPI{
+		getBuildings: func(context.Context, *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
+			return &pb.BuildingsResponse{Buildings: []*pb.Building{{Model: &pb.BuildingModel{Id: 11, ModelId: "1001"}}}}, nil
+		},
+		updateBuilding: func(context.Context, *pb.UpdateBuildingRequest) (*pb.BuildingResponse, error) {
+			t.Fatal("catalog model_id must not be used as the public building_id")
+			return nil, nil
+		},
+	}
+	h := handler.NewHTTPBuildingsHandler(building)
+	req := requestWithUser(httptest.NewRequest(http.MethodPut, "/api/features/42/build/buildings/1001", bytes.NewBufferString(`{"launched_satisfaction":"50"}`)), 7)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.HandleFeaturesBuildRoutes(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestHTTPCompletedBuildingsRoutes(t *testing.T) {
@@ -212,6 +238,47 @@ func TestHTTPBuildFeatureRoute(t *testing.T) {
 	assert.True(t, hasData)
 }
 
+func TestHTTPBuildFeatureReturnsBuildingsResponseShape(t *testing.T) {
+	buildings := &pb.BuildingsResponse{Buildings: []*pb.Building{{
+		ConstructionStartDate: "2026-01-01T00:00:00Z",
+		ConstructionEndDate:   "2026-02-01T00:00:00Z",
+		LaunchedSatisfaction:  "50",
+		Rotation:              "45",
+		Position:              "1,2",
+		BubbleDiameter:        "3.5",
+		Information:           `{"name":"Store"}`,
+		Model: &pb.BuildingModel{
+			Id: 11, ModelId: "1001", Name: "Tower", Sku: "sku-1",
+			Images: "[]", Attributes: "[]", File: `{"url":"m.glb"}`, RequiredSatisfaction: "0.0976",
+		},
+	}}}
+	building := &mockHTTPBuildingAPI{
+		buildFeature: func(_ context.Context, _ *pb.BuildFeatureRequest) (*pb.BuildFeatureResponse, error) {
+			return &pb.BuildFeatureResponse{}, nil
+		},
+		getBuildings: func(_ context.Context, req *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
+			assert.Equal(t, uint64(42), req.FeatureId)
+			return buildings, nil
+		},
+	}
+	h := handler.NewHTTPBuildingsHandler(building)
+
+	buildRequest := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/features/42/build/1001", bytes.NewBufferString(`{"launched_satisfaction":"0.0976","rotation":"0","position":"1,2"}`)), 7)
+	buildRequest.Header.Set("Content-Type", "application/json")
+	buildResponse := httptest.NewRecorder()
+	h.HandleFeaturesBuildRoutes(buildResponse, buildRequest)
+	require.Equal(t, http.StatusOK, buildResponse.Code)
+
+	getResponse := httptest.NewRecorder()
+	h.HandleFeaturesBuildRoutes(getResponse, httptest.NewRequest(http.MethodGet, "/api/features/42/build/buildings", nil))
+	require.Equal(t, http.StatusOK, getResponse.Code)
+
+	var buildBody, getBody map[string]interface{}
+	require.NoError(t, json.Unmarshal(buildResponse.Body.Bytes(), &buildBody))
+	require.NoError(t, json.Unmarshal(getResponse.Body.Bytes(), &getBody))
+	assert.Equal(t, getBody, buildBody)
+}
+
 func TestHTTPBuildFeatureRequiresAuthAndPost(t *testing.T) {
 	h := handler.NewHTTPBuildingsHandler(&mockHTTPBuildingAPI{})
 
@@ -224,6 +291,57 @@ func TestHTTPBuildFeatureRequiresAuthAndPost(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	h.HandleFeaturesBuildRoutes(w, req)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestHTTPBuildFeatureRejectsMalformedOrMissingBody(t *testing.T) {
+	h := handler.NewHTTPBuildingsHandler(&mockHTTPBuildingAPI{})
+	for _, body := range []string{"", "{"} {
+		t.Run(body, func(t *testing.T) {
+			req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/features/42/build/1001", bytes.NewBufferString(body)), 7)
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			h.HandleFeaturesBuildRoutes(w, req)
+
+			assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+		})
+	}
+}
+
+func TestHTTPBuildFeatureMapsServiceUnavailableTo503(t *testing.T) {
+	servicePort := &mockBuildingPort{buildFeature: func(context.Context, *pb.BuildFeatureRequest) (*pb.Feature, error) {
+		return nil, errors.New("failed to deduct satisfaction: service_unavailable")
+	}}
+	h := handler.NewHTTPBuildingsHandler(handler.NewBuildingHandler(servicePort, nil))
+	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/features/42/build/1001", bytes.NewBufferString(`{"launched_satisfaction":"25","rotation":"0","position":"1,2"}`)), 7)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Kong-Request-ID", "test-build-request")
+	w := httptest.NewRecorder()
+
+	h.HandleFeaturesBuildRoutes(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, "service temporarily unavailable", body["error"])
+}
+
+func TestHTTPBuildFeatureMapsMinimumSatisfactionToValidationError(t *testing.T) {
+	servicePort := &mockBuildingPort{buildFeature: func(context.Context, *pb.BuildFeatureRequest) (*pb.Feature, error) {
+		return nil, &buildingservice.ValidationError{Message: "launched_satisfaction must be at least 0.097600"}
+	}}
+	h := handler.NewHTTPBuildingsHandler(handler.NewBuildingHandler(servicePort, nil))
+	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/features/5547/build/52", bytes.NewBufferString(`{"launched_satisfaction":"0.05","rotation":"0","position":"1,2"}`)), 8)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.HandleFeaturesBuildRoutes(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Contains(t, body, "errors")
+	assert.Contains(t, body, "message")
 }
 
 func TestHTTPGetBuildingsShape(t *testing.T) {

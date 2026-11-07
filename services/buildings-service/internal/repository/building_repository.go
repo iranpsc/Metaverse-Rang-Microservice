@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -154,23 +155,28 @@ func withFeatureLock[T any](ctx context.Context, db *sql.DB, featureID uint64, f
 func (r *BuildingRepository) CreateBuilding(ctx context.Context, featureID, userID uint64, buildingModelID string, launchedSatisfaction, rotation, position, information string, constructionStartDate, constructionEndDate time.Time, bubbleDiameter float64) error {
 	modelNum, err := parseExactModelID(buildingModelID)
 	if err != nil {
+		slog.Error("create building rejected invalid model id", "feature_id", featureID, "building_model_id", buildingModelID, "error", err)
 		return err
 	}
 	_, err = withFeatureLock(ctx, r.db, featureID, func(ctx context.Context, tx *sql.Tx) (struct{}, error) {
 		var count int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM buildings WHERE feature_id = ?`, featureID).Scan(&count); err != nil {
+			slog.Error("create building existence query failed", "feature_id", featureID, "error", err)
 			return struct{}{}, fmt.Errorf("failed to check building existence: %w", err)
 		}
 		if count > 0 {
+			slog.Warn("create building rejected because feature already has a building", "feature_id", featureID)
 			return struct{}{}, fmt.Errorf("feature already has a building")
 		}
 
 		var localID uint64
 		err := tx.QueryRowContext(ctx, `SELECT id FROM building_models WHERE model_id = ?`, modelNum).Scan(&localID)
 		if err == sql.ErrNoRows {
+			slog.Error("create building model row not found", "feature_id", featureID, "building_model_id", buildingModelID)
 			return struct{}{}, fmt.Errorf("building model not found: %s", buildingModelID)
 		}
 		if err != nil {
+			slog.Error("create building model lookup failed", "feature_id", featureID, "building_model_id", buildingModelID, "error", err)
 			return struct{}{}, fmt.Errorf("failed to find building model: %w", err)
 		}
 
@@ -184,10 +190,14 @@ func (r *BuildingRepository) CreateBuilding(ctx context.Context, featureID, user
 		`, featureID, userID, localID, constructionStartDate, constructionEndDate,
 			launchedSatisfaction, information, rotation, position, bubbleDiameter)
 		if err != nil {
+			slog.Error("create building insert query failed", "feature_id", featureID, "user_id", userID, "building_model_id", buildingModelID, "error", err)
 			return struct{}{}, fmt.Errorf("failed to create building: %w", err)
 		}
 		return struct{}{}, nil
 	})
+	if err != nil {
+		slog.Error("create building transaction failed", "feature_id", featureID, "user_id", userID, "building_model_id", buildingModelID, "error", err)
+	}
 	return err
 }
 

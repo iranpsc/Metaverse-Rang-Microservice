@@ -1008,7 +1008,7 @@ routes:
           application/json:
             schema:
               $ref: "#/components/schemas/ObjectValidationError"
-  - path: /api/features/{feature}/build/buildings/{buildingModel}
+  - path: /api/features/{feature}/build/buildings/{building_id}
     methods: [put]
     tag: Features
     summary: Update building stake, placement, and optional information
@@ -1020,11 +1020,12 @@ routes:
         format: int64
         description: Feature ID. Caller must own the feature.
         example: 1
-      - name: buildingModel
+      - name: building_id
         in: path
-        type: string
-        description: Catalog model_id of the building on this feature
-        example: "1001"
+        type: integer
+        format: int64
+        description: Building id returned by GET /api/features/{feature}/build/buildings
+        example: 11
       - name: _method
         in: query
         type: string
@@ -1159,7 +1160,7 @@ routes:
           application/json:
             schema:
               $ref: "#/components/schemas/LockedAccount"
-  - path: /api/features/{feature}/build/buildings/{buildingModel}
+  - path: /api/features/{feature}/build/buildings/{building_id}
     methods: [patch]
     tag: Features
     summary: Patch building information and return updated information
@@ -1171,11 +1172,12 @@ routes:
         format: int64
         description: Feature ID. Caller must own the feature.
         example: 1
-      - name: buildingModel
+      - name: building_id
         in: path
-        type: string
-        description: Catalog model_id of the building on this feature
-        example: "1001"
+        type: integer
+        format: int64
+        description: Building id returned by GET /api/features/{feature}/build/buildings
+        example: 11
       - name: _method
         in: query
         type: string
@@ -1600,8 +1602,8 @@ routes:
       - name: filter
         in: query
         type: string
-        description: Optional filter by karbari code (e.g. m, t, a)
-        example: m
+        description: Optional comma-separated filter by karbari codes (e.g. m or m,t,a)
+        example: m,t
   - path: /api/buy-requests
     methods: [get, post]
     tag: Features
