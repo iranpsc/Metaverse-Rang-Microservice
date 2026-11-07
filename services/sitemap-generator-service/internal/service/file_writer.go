@@ -86,7 +86,7 @@ func (w *FileWriter) Write(filename string, body []byte) error {
 	if err != nil {
 		return fmt.Errorf("open export dir: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	if err := root.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create sitemap dir: %w", err)
 	}
@@ -111,7 +111,7 @@ func (w *FileWriter) Remove(filename string) error {
 	if err != nil {
 		return fmt.Errorf("open export dir: %w", err)
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	if err := root.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove sitemap %s: %w", filename, err)
 	}
