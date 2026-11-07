@@ -82,15 +82,20 @@ func (w *FileWriter) Write(filename string, body []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	root, err := os.OpenRoot(w.dir)
+	if err != nil {
+		return fmt.Errorf("open export dir: %w", err)
+	}
+	defer root.Close()
+	if err := root.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create sitemap dir: %w", err)
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, body, 0o644); err != nil {
+	if err := root.WriteFile(tmp, body, 0o644); err != nil {
 		return fmt.Errorf("write temp sitemap %s: %w", filename, err)
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	if err := root.Rename(tmp, path); err != nil {
+		_ = root.Remove(tmp)
 		return fmt.Errorf("rename sitemap %s: %w", filename, err)
 	}
 	return nil
@@ -102,7 +107,12 @@ func (w *FileWriter) Remove(filename string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	root, err := os.OpenRoot(w.dir)
+	if err != nil {
+		return fmt.Errorf("open export dir: %w", err)
+	}
+	defer root.Close()
+	if err := root.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove sitemap %s: %w", filename, err)
 	}
 	return nil
@@ -118,7 +128,7 @@ func (w *FileWriter) pathFor(filename string) (string, error) {
 	if languageCode.FindString(language) != language || name != parts[1] {
 		return "", fmt.Errorf("invalid sitemap filename %q", filename)
 	}
-	return filepath.Join(w.dir, language, name), nil
+	return filepath.Join(language, name), nil
 }
 
 // CleanupInactive removes generated files for languages absent from the latest list.
