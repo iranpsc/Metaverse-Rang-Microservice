@@ -140,6 +140,11 @@ func (w *FileWriter) CleanupInactive(active []string) error {
 				_ = os.Remove(filepath.Join(w.dir, name))
 			}
 		}
+		if !entry.IsDir() && strings.HasSuffix(name, ".xml") {
+			if err := os.Remove(filepath.Join(w.dir, name)); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+		}
 	}
 	return nil
 }
