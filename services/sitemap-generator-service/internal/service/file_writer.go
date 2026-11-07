@@ -78,10 +78,10 @@ func NewFileWriter(exportDir string) (*FileWriter, error) {
 
 // Write writes body to filename under the export directory.
 func (w *FileWriter) Write(filename string, body []byte) error {
-	if err := validateFilename(filename); err != nil {
+	path, err := w.pathFor(filename)
+	if err != nil {
 		return err
 	}
-	path := filepath.Join(w.dir, filename)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create sitemap dir: %w", err)
 	}
@@ -98,14 +98,27 @@ func (w *FileWriter) Write(filename string, body []byte) error {
 
 // Remove deletes filename from the export directory if it exists.
 func (w *FileWriter) Remove(filename string) error {
-	if err := validateFilename(filename); err != nil {
+	path, err := w.pathFor(filename)
+	if err != nil {
 		return err
 	}
-	path := filepath.Join(w.dir, filename)
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove sitemap %s: %w", filename, err)
 	}
 	return nil
+}
+
+func (w *FileWriter) pathFor(filename string) (string, error) {
+	if err := validateFilename(filename); err != nil {
+		return "", err
+	}
+	parts := strings.Split(filepath.ToSlash(filename), "/")
+	language := parts[0]
+	name := filepath.Base(parts[1])
+	if languageCode.FindString(language) != language || name != parts[1] {
+		return "", fmt.Errorf("invalid sitemap filename %q", filename)
+	}
+	return filepath.Join(w.dir, language, name), nil
 }
 
 // CleanupInactive removes generated files for languages absent from the latest list.
