@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -156,7 +158,7 @@ func (h *HTTPBuildingsHandler) BuildingMutation(w http.ResponseWriter, r *http.R
 	}
 	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/features/"), "/"), "/")
 	if len(parts) < 4 {
-		writeError(w, 400, "feature ID and building model ID are required")
+		writeError(w, 400, "feature ID and building ID are required")
 		return
 	}
 	model := parts[3]
@@ -170,6 +172,11 @@ func (h *HTTPBuildingsHandler) BuildingMutation(w http.ResponseWriter, r *http.R
 			writeValidationError(w, "invalid request body")
 			return
 		}
+		model, err = h.resolveBuildingModelID(r.Context(), id, model)
+		if err != nil {
+			writeGRPCError(w, err)
+			return
+		}
 		_, err = h.building.UpdateBuilding(r.Context(), updateBuildingRequest(id, model, body))
 	case http.MethodPatch:
 		body := map[string]interface{}{}
@@ -180,6 +187,11 @@ func (h *HTTPBuildingsHandler) BuildingMutation(w http.ResponseWriter, r *http.R
 		info := parseBuildingInformation(body)
 		if info == nil {
 			writeValidationError(w, "information is required")
+			return
+		}
+		model, err = h.resolveBuildingModelID(r.Context(), id, model)
+		if err != nil {
+			writeGRPCError(w, err)
 			return
 		}
 		var resp *featurespb.UpdateBuildingInformationResponse
@@ -200,6 +212,34 @@ func (h *HTTPBuildingsHandler) BuildingMutation(w http.ResponseWriter, r *http.R
 		return
 	}
 	writeJSON(w, 200, map[string]interface{}{})
+}
+
+// resolveBuildingModelID translates the public building id returned by the
+// buildings list into the catalog model id expected by the internal service.
+func (h *HTTPBuildingsHandler) resolveBuildingModelID(ctx context.Context, featureID uint64, buildingID string) (string, error) {
+	requestedID, err := strconv.ParseUint(strings.TrimSpace(buildingID), 10, 64)
+	if err != nil || requestedID == 0 {
+		return "", status.Error(codes.NotFound, "building not found")
+	}
+
+	resp, err := h.building.GetBuildings(ctx, &featurespb.GetBuildingsRequest{FeatureId: featureID})
+	if err != nil {
+		return "", err
+	}
+	if resp == nil {
+		return "", status.Error(codes.NotFound, "building not found")
+	}
+	for _, building := range resp.Buildings {
+		if building == nil || building.Model == nil || building.Model.Id != requestedID {
+			continue
+		}
+		modelID := strings.TrimSpace(building.Model.ModelId)
+		if modelID == "" {
+			return "", status.Error(codes.NotFound, "building model not found")
+		}
+		return modelID, nil
+	}
+	return "", status.Error(codes.NotFound, "building not found")
 }
 
 func (h *HTTPBuildingsHandler) ListCompletedBuildings(w http.ResponseWriter, r *http.Request) {

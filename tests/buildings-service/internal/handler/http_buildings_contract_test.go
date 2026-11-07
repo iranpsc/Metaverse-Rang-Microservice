@@ -83,6 +83,10 @@ func requestWithUser(req *http.Request, userID uint64) *http.Request {
 func TestHTTPBuildingMutationRoutes(t *testing.T) {
 	var updated, patched, destroyed *pb.BuildingInformation
 	building := &mockHTTPBuildingAPI{
+		getBuildings: func(_ context.Context, req *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
+			assert.Equal(t, uint64(42), req.FeatureId)
+			return &pb.BuildingsResponse{Buildings: []*pb.Building{{Model: &pb.BuildingModel{Id: 11, ModelId: "1001"}}}}, nil
+		},
 		updateBuilding: func(_ context.Context, req *pb.UpdateBuildingRequest) (*pb.BuildingResponse, error) {
 			assert.Equal(t, uint64(42), req.FeatureId)
 			assert.Equal(t, "1001", req.BuildingModelId)
@@ -106,10 +110,10 @@ func TestHTTPBuildingMutationRoutes(t *testing.T) {
 	for _, test := range []struct {
 		name, method, target, body string
 	}{
-		{"PUT", http.MethodPut, "/api/features/42/build/buildings/1001", `{"launched_satisfaction":"50"}`},
-		{"POST method PUT", http.MethodPost, "/api/features/42/build/buildings/1001?_method=put", `{"launched_satisfaction":"50"}`},
-		{"PATCH", http.MethodPatch, "/api/features/42/build/buildings/1001", `{"information":{"name":"Updated Store"}}`},
-		{"POST method PATCH", http.MethodPost, "/api/features/42/build/buildings/1001?_method=patch", `{"information":{"name":"Updated Store"}}`},
+		{"PUT", http.MethodPut, "/api/features/42/build/buildings/11", `{"launched_satisfaction":"50"}`},
+		{"POST method PUT", http.MethodPost, "/api/features/42/build/buildings/11?_method=put", `{"launched_satisfaction":"50"}`},
+		{"PATCH", http.MethodPatch, "/api/features/42/build/buildings/11", `{"information":{"name":"Updated Store"}}`},
+		{"POST method PATCH", http.MethodPost, "/api/features/42/build/buildings/11?_method=patch", `{"information":{"name":"Updated Store"}}`},
 		{"DELETE", http.MethodDelete, "/api/features/42/build/buildings/1001", ""},
 		{"POST method DELETE", http.MethodPost, "/api/features/42/build/buildings/1001?_method=delete", ""},
 	} {
@@ -124,6 +128,26 @@ func TestHTTPBuildingMutationRoutes(t *testing.T) {
 	assert.NotNil(t, updated)
 	assert.Equal(t, "Updated Store", patched.Name)
 	assert.NotNil(t, destroyed)
+}
+
+func TestHTTPBuildingMutationRejectsCatalogModelID(t *testing.T) {
+	building := &mockHTTPBuildingAPI{
+		getBuildings: func(context.Context, *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
+			return &pb.BuildingsResponse{Buildings: []*pb.Building{{Model: &pb.BuildingModel{Id: 11, ModelId: "1001"}}}}, nil
+		},
+		updateBuilding: func(context.Context, *pb.UpdateBuildingRequest) (*pb.BuildingResponse, error) {
+			t.Fatal("catalog model_id must not be used as the public building_id")
+			return nil, nil
+		},
+	}
+	h := handler.NewHTTPBuildingsHandler(building)
+	req := requestWithUser(httptest.NewRequest(http.MethodPut, "/api/features/42/build/buildings/1001", bytes.NewBufferString(`{"launched_satisfaction":"50"}`)), 7)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.HandleFeaturesBuildRoutes(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestHTTPCompletedBuildingsRoutes(t *testing.T) {
