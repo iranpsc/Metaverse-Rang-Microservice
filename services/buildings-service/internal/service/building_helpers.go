@@ -122,7 +122,10 @@ func requiredSatisfactionForFeature(properties *models.FeatureProperties) (float
 	if required < 0 || math.IsNaN(required) || math.IsInf(required, 0) {
 		return 0, fmt.Errorf("invalid required_satisfaction")
 	}
-	return required, nil
+	// The public build package exposes this value with four decimal places.
+	// Validate against that same canonical value so sending the displayed
+	// required_satisfaction back to the build endpoint is accepted.
+	return math.Round(required*10000) / 10000, nil
 }
 
 func validateLaunchedAmount(launchedRaw string, required float64) (float64, error) {

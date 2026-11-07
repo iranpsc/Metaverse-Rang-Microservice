@@ -214,6 +214,47 @@ func TestHTTPBuildFeatureRoute(t *testing.T) {
 	assert.True(t, hasData)
 }
 
+func TestHTTPBuildFeatureReturnsBuildingsResponseShape(t *testing.T) {
+	buildings := &pb.BuildingsResponse{Buildings: []*pb.Building{{
+		ConstructionStartDate: "2026-01-01T00:00:00Z",
+		ConstructionEndDate:   "2026-02-01T00:00:00Z",
+		LaunchedSatisfaction:  "50",
+		Rotation:              "45",
+		Position:              "1,2",
+		BubbleDiameter:        "3.5",
+		Information:           `{"name":"Store"}`,
+		Model: &pb.BuildingModel{
+			Id: 11, ModelId: "1001", Name: "Tower", Sku: "sku-1",
+			Images: "[]", Attributes: "[]", File: `{"url":"m.glb"}`, RequiredSatisfaction: "0.0976",
+		},
+	}}}
+	building := &mockHTTPBuildingAPI{
+		buildFeature: func(_ context.Context, _ *pb.BuildFeatureRequest) (*pb.BuildFeatureResponse, error) {
+			return &pb.BuildFeatureResponse{}, nil
+		},
+		getBuildings: func(_ context.Context, req *pb.GetBuildingsRequest) (*pb.BuildingsResponse, error) {
+			assert.Equal(t, uint64(42), req.FeatureId)
+			return buildings, nil
+		},
+	}
+	h := handler.NewHTTPBuildingsHandler(building)
+
+	buildRequest := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/features/42/build/1001", bytes.NewBufferString(`{"launched_satisfaction":"0.0976","rotation":"0","position":"1,2"}`)), 7)
+	buildRequest.Header.Set("Content-Type", "application/json")
+	buildResponse := httptest.NewRecorder()
+	h.HandleFeaturesBuildRoutes(buildResponse, buildRequest)
+	require.Equal(t, http.StatusOK, buildResponse.Code)
+
+	getResponse := httptest.NewRecorder()
+	h.HandleFeaturesBuildRoutes(getResponse, httptest.NewRequest(http.MethodGet, "/api/features/42/build/buildings", nil))
+	require.Equal(t, http.StatusOK, getResponse.Code)
+
+	var buildBody, getBody map[string]interface{}
+	require.NoError(t, json.Unmarshal(buildResponse.Body.Bytes(), &buildBody))
+	require.NoError(t, json.Unmarshal(getResponse.Body.Bytes(), &getBody))
+	assert.Equal(t, getBody, buildBody)
+}
+
 func TestHTTPBuildFeatureRequiresAuthAndPost(t *testing.T) {
 	h := handler.NewHTTPBuildingsHandler(&mockHTTPBuildingAPI{})
 

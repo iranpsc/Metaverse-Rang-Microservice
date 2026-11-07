@@ -181,6 +181,21 @@ func TestBuildingService_BuildFeature_MinimumSatisfactionIsValidationError(t *te
 	}
 }
 
+func TestBuildingService_BuildFeature_AcceptsDisplayedRequiredSatisfaction(t *testing.T) {
+	svc, _, featureRepo, _, _ := newBuildErrorService()
+	featureRepo.findByIDFunc = func(context.Context, uint64) (*models.Feature, *models.FeatureProperties, error) {
+		return &models.Feature{ID: 10, OwnerID: 42}, &models.FeatureProperties{Area: 976, Density: 1, Karbari: "m"}, nil
+	}
+
+	req := validBuildRequest()
+	// The package endpoint exposes the calculated minimum as 0.0976. The
+	// unrounded calculation is 0.09760000000000002 in float64 arithmetic.
+	req.LaunchedSatisfaction = "0.0976"
+	if _, err := svc.BuildFeature(authContext(42), req); err != nil {
+		t.Fatalf("BuildFeature() rejected displayed required_satisfaction: %v", err)
+	}
+}
+
 func TestBuildingService_BuildFeature_WalletAndPersistenceErrors(t *testing.T) {
 	t.Run("nil commercial client", func(t *testing.T) {
 		svc, _, _, _, _ := newBuildErrorService()

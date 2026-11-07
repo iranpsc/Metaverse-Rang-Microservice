@@ -113,7 +113,18 @@ func (h *HTTPBuildingsHandler) BuildFeature(w http.ResponseWriter, r *http.Reque
 		writeGRPCError(w, err)
 		return
 	}
-	writeJSON(w, 200, map[string]interface{}{})
+	buildings, err := h.building.GetBuildings(r.Context(), &featurespb.GetBuildingsRequest{FeatureId: id})
+	if err != nil {
+		slog.Error("http build feature response lookup failed",
+			"feature_id", id,
+			"building_model_id", parts[2],
+			"request_id", requestID(r),
+			"error", err,
+		)
+		writeGRPCError(w, err)
+		return
+	}
+	writeJSON(w, 200, map[string]interface{}{"data": buildingModelsMap(id, buildings.Buildings)})
 }
 
 func (h *HTTPBuildingsHandler) GetBuildings(w http.ResponseWriter, r *http.Request) {
