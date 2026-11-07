@@ -107,8 +107,8 @@ func (h *HTTPBuildingsHandler) BuildFeature(w http.ResponseWriter, r *http.Reque
 		slog.Error("http build feature request failed",
 			"feature_id", id,
 			"building_model_id", parts[2],
-			"request_id", r.Header.Get("X-Request-Id"),
-			"error", err,
+			"request_id", requestID(r),
+			"error", buildFeatureErrorLogValue(err),
 		)
 		writeGRPCError(w, err)
 		return

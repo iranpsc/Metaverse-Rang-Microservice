@@ -247,7 +247,7 @@ func (s *BuildingService) BuildFeature(ctx context.Context, req *pb.BuildFeature
 		slog.Error("build feature satisfaction charge failed",
 			"feature_id", req.FeatureId,
 			"user_id", user.UserID,
-			"error", err,
+			"error_type", "wallet_charge_failed",
 		)
 		return nil, err
 	}

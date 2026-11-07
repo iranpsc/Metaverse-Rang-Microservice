@@ -128,10 +128,10 @@ func requiredSatisfactionForFeature(properties *models.FeatureProperties) (float
 func validateLaunchedAmount(launchedRaw string, required float64) (float64, error) {
 	launched, err := strconv.ParseFloat(strings.TrimSpace(launchedRaw), 64)
 	if err != nil || launched <= 0 || math.IsNaN(launched) || math.IsInf(launched, 0) {
-		return 0, fmt.Errorf("invalid launched_satisfaction")
+		return 0, newValidationError("invalid launched_satisfaction")
 	}
 	if launched < required {
-		return 0, fmt.Errorf("launched_satisfaction must be at least %f", required)
+		return 0, newValidationError(fmt.Sprintf("launched_satisfaction must be at least %f", required))
 	}
 	return launched, nil
 }

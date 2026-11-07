@@ -159,6 +159,28 @@ func TestBuildingService_BuildFeature_ErrorsBeforeCharging(t *testing.T) {
 	}
 }
 
+func TestBuildingService_BuildFeature_MinimumSatisfactionIsValidationError(t *testing.T) {
+	svc, _, _, _, commercial := newBuildErrorService()
+	commercial.deductBalanceFunc = func(context.Context, uint64, string, float64) error {
+		t.Fatal("wallet must not be charged for invalid launched satisfaction")
+		return nil
+	}
+
+	req := validBuildRequest()
+	req.LaunchedSatisfaction = "0.009"
+	_, err := svc.BuildFeature(authContext(42), req)
+	if err == nil {
+		t.Fatal("expected minimum satisfaction validation error")
+	}
+	var validationErr *service.ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("error type = %T, want *service.ValidationError; err=%v", err, err)
+	}
+	if validationErr.Message != "launched_satisfaction must be at least 0.010000" {
+		t.Fatalf("validation message = %q", validationErr.Message)
+	}
+}
+
 func TestBuildingService_BuildFeature_WalletAndPersistenceErrors(t *testing.T) {
 	t.Run("nil commercial client", func(t *testing.T) {
 		svc, _, _, _, _ := newBuildErrorService()

@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"metarang/buildings-service/internal/handler"
+	buildingservice "metarang/buildings-service/internal/service"
 	pb "metarang/shared/pb/features"
 	authpkg "metarang/shared/pkg/auth"
 )
@@ -249,7 +250,7 @@ func TestHTTPBuildFeatureMapsServiceUnavailableTo503(t *testing.T) {
 	h := handler.NewHTTPBuildingsHandler(handler.NewBuildingHandler(servicePort, nil))
 	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/features/42/build/1001", bytes.NewBufferString(`{"launched_satisfaction":"25","rotation":"0","position":"1,2"}`)), 7)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Request-Id", "test-build-request")
+	req.Header.Set("Kong-Request-ID", "test-build-request")
 	w := httptest.NewRecorder()
 
 	h.HandleFeaturesBuildRoutes(w, req)
@@ -258,6 +259,24 @@ func TestHTTPBuildFeatureMapsServiceUnavailableTo503(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	assert.Equal(t, "service temporarily unavailable", body["error"])
+}
+
+func TestHTTPBuildFeatureMapsMinimumSatisfactionToValidationError(t *testing.T) {
+	servicePort := &mockBuildingPort{buildFeature: func(context.Context, *pb.BuildFeatureRequest) (*pb.Feature, error) {
+		return nil, &buildingservice.ValidationError{Message: "launched_satisfaction must be at least 0.097600"}
+	}}
+	h := handler.NewHTTPBuildingsHandler(handler.NewBuildingHandler(servicePort, nil))
+	req := requestWithUser(httptest.NewRequest(http.MethodPost, "/api/features/5547/build/52", bytes.NewBufferString(`{"launched_satisfaction":"0.05","rotation":"0","position":"1,2"}`)), 8)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.HandleFeaturesBuildRoutes(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Contains(t, body, "errors")
+	assert.Contains(t, body, "message")
 }
 
 func TestHTTPGetBuildingsShape(t *testing.T) {
