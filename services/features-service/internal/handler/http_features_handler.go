@@ -898,6 +898,7 @@ func mapListBuildingModel(featureID uint64, building *featurespb.Building) map[s
 			"model_id":                modelID,
 			"construction_start_date": building.ConstructionStartDate,
 			"construction_end_date":   building.ConstructionEndDate,
+			"launched_satisfaction":   building.LaunchedSatisfaction,
 			"rotation":                building.Rotation,
 			"position":                parseJSONString(building.Position),
 		},

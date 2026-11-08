@@ -219,6 +219,7 @@ func TestHTTPListFeaturesBuildingModels(t *testing.T) {
 				BuildingModels: []*pb.Building{{
 					ConstructionStartDate: "2026-01-01T00:00:00Z",
 					ConstructionEndDate:   "2026-02-01T00:00:00Z",
+					LaunchedSatisfaction:  "1.2000",
 					Rotation:              "45",
 					Position:              `{"x":1,"y":2}`,
 					Model: &pb.BuildingModel{
@@ -256,10 +257,10 @@ func TestHTTPListFeaturesBuildingModels(t *testing.T) {
 	building := model["building"].(map[string]interface{})
 	assert.Equal(t, float64(7), building["feature_id"])
 	assert.Equal(t, float64(11), building["model_id"]) // local building_models.id
+	assert.Equal(t, "1.2000", building["launched_satisfaction"])
 	assert.Equal(t, "45", building["rotation"])
 	pos := building["position"].(map[string]interface{})
 	assert.Equal(t, float64(1), pos["x"])
-	assert.NotContains(t, building, "launched_satisfaction")
 	assert.NotContains(t, building, "bubble_diameter")
 }
 
