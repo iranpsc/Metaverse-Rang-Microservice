@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Multi-stage build for Auth Service
-FROM golang:1.26.10-alpine AS builder
+FROM golang:1.27.3-alpine AS builder
 
 ENV CGO_ENABLED=0
 
