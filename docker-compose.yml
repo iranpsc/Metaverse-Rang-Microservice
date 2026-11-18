@@ -31,10 +31,8 @@ x-migrate-depends: &migrate-depends
   migrate:
     condition: service_completed_successfully
 
-# Shared MySQL credentials (Dokploy env / local .env). Services only on metarang-network
-# keep DB_HOST=mysql. storage-service also joins dokploy-network, where SSO publishes
-# the mysql alias, so that service overrides DB_HOST to metarang-mysql. The admin
-# panel reaches this instance as metarang-mysql on metarang-shared.
+# Shared MySQL credentials (Dokploy env / local .env). The admin panel reaches
+# this instance as metarang-mysql on metarang-shared.
 x-db-environment: &db-environment
   DB_HOST: mysql
   DB_PORT: 3306
@@ -849,7 +847,6 @@ services:
       UPLOAD_DIR: /app/uploads
       TEMP_DIR: /tmp/storage-chunks
       <<: [*sentry-environment, *internal-auth, *grpc-tls, *db-environment]
-      # Wins over x-db-environment. Unqualified mysql on dokploy-network is the SSO database.
       DB_HOST: metarang-mysql
     depends_on:
       <<: [*grpc-certs-depends, *migrate-depends]
@@ -857,8 +854,8 @@ services:
         condition: service_healthy
         restart: true
     networks:
+      # Keep the storage-service DNS alias scoped to this Compose project.
       - metarang-network
-      - dokploy-network
     restart: unless-stopped
     develop:
       watch:
@@ -1085,7 +1082,7 @@ services:
   # Prometheus - Metrics Collection
   prometheus:
     <<: *service-defaults
-    image: docker.arvancloud.ir/prom/prometheus:v2.53.5
+    image: registry.docker.ir/prom/prometheus:v2.53.5
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
