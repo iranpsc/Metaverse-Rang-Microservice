@@ -315,7 +315,7 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus
-          image: prom/prometheus:v2.47.0
+          image: docker.arvancloud.ir/prom/prometheus:v2.47.0
           args:
             - '--config.file=/etc/prometheus/prometheus.yml'
             - '--storage.tsdb.path=/prometheus'

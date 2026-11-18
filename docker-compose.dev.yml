@@ -6,7 +6,7 @@
 services:
   # Mailpit — local SMTP catcher + web UI for inspecting outbound email
   mailpit:
-    image: axllent/mailpit:v1.31.0
+    image: docker.arvancloud.ir/axllent/mailpit:v1.31.0
     ports:
       # Web UI
       - "127.0.0.1:${MAILPIT_UI_HOST_PORT:-8025}:8025"

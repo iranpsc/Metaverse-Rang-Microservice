@@ -75,7 +75,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: docker.arvancloud.ir/mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root_password
           MYSQL_DATABASE: metarang_test
@@ -90,7 +90,7 @@ jobs:
           --health-retries=3
 
       redis:
-        image: redis:7-alpine
+        image: docker.arvancloud.ir/redis:7-alpine
         ports:
           - 6379:6379
         options: >-

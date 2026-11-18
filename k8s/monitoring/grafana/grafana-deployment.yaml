@@ -95,7 +95,7 @@ spec:
         runAsUser: 472
       containers:
         - name: grafana
-          image: grafana/grafana:10.1.5
+          image: docker.arvancloud.ir/grafana/grafana:10.1.5
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

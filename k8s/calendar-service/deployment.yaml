@@ -28,7 +28,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: calendar-service
-        image: abbasajorloo/calendar-service:latest
+        image: docker.arvancloud.ir/abbasajorloo/calendar-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 50059

@@ -28,7 +28,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: financial-service
-        image: abbasajorloo/financial-service:latest
+        image: docker.arvancloud.ir/abbasajorloo/financial-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 50062

@@ -33,7 +33,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: docker.arvancloud.ir/mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root_password
           MYSQL_DATABASE: metarang_test

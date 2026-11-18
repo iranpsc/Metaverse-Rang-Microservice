@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: redis
-        image: redis:7-alpine
+        image: docker.arvancloud.ir/redis:7-alpine
         ports:
         - containerPort: 6379
           name: redis

@@ -28,7 +28,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: notifications-service
-        image: abbasajorloo/notifications-service:latest
+        image: docker.arvancloud.ir/abbasajorloo/notifications-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 50058

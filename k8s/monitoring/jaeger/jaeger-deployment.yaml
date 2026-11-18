@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
         - name: jaeger
-          image: jaegertracing/all-in-one:1.50
+          image: docker.arvancloud.ir/jaegertracing/all-in-one:1.50
           env:
             - name: COLLECTOR_ZIPKIN_HOST_PORT
               value: ":9411"

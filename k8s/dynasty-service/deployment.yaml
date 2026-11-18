@@ -28,7 +28,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: dynasty-service
-        image: abbasajorloo/dynasty-service:latest
+        image: docker.arvancloud.ir/abbasajorloo/dynasty-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 50055

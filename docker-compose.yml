@@ -61,7 +61,7 @@ services:
   # new certificates when GRPC_TLS_ENABLED=true and none are present.
   grpc-certs-init:
     <<: *service-defaults
-    image: alpine:3.21
+    image: docker.arvancloud.ir/alpine:3.21
     environment:
       GRPC_TLS_ENABLED: ${GRPC_TLS_ENABLED:-false}
     volumes:
@@ -76,7 +76,7 @@ services:
   # MySQL Database (shared with the Laravel admin panel via metarang-shared)
   mysql:
     <<: *service-defaults
-    image: mysql:8.0.43
+    image: docker.arvancloud.ir/mysql:8.0.43
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-metarang_db}
@@ -117,7 +117,7 @@ services:
   # and requires AUTH. They connect via the metarang-redis alias so Docker DNS stays on this instance.
   redis:
     <<: *service-defaults
-    image: redis:7.4-alpine
+    image: docker.arvancloud.ir/redis:7.4-alpine
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     # Call the image entrypoint so /data is prepared and the server drops to the redis user.
@@ -954,7 +954,7 @@ services:
   # `make openapi` is the same command used on the host. Swagger UI starts after this exits.
   openapi-generate:
     <<: *service-defaults
-    image: golang:1.26.10
+    image: docker.arvancloud.ir/golang:1.26.10
     working_dir: /workspace
     environment:
       APP_URL: ${APP_URL:-http://localhost:8000}
@@ -1017,7 +1017,7 @@ services:
   # Unset or production: public sites only. staging or development: also dev frontends and localhost.
   kong:
     <<: *service-defaults
-    image: kong:3.9.3
+    image: docker.arvancloud.ir/kong:3.9.3
     entrypoint: ["/bin/sh", "/kong/docker-entrypoint-wrapper.sh"]
     environment:
       PROJECT_ENV: ${PROJECT_ENV:-production}
@@ -1085,7 +1085,7 @@ services:
   # Prometheus - Metrics Collection
   prometheus:
     <<: *service-defaults
-    image: prom/prometheus:v2.53.5
+    image: docker.arvancloud.ir/prom/prometheus:v2.53.5
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
@@ -1110,7 +1110,7 @@ services:
   # Grafana - Visualization & Dashboards
   grafana:
     <<: *service-defaults
-    image: grafana/grafana:11.6.16
+    image: docker.arvancloud.ir/grafana/grafana:11.6.16
     ports:
       - "127.0.0.1:3001:3001"
     environment:
@@ -1143,7 +1143,7 @@ services:
   # Node Exporter - Host-level infrastructure metrics (CPU, Memory, Disk, Network)
   node-exporter:
     <<: *service-defaults
-    image: prom/node-exporter:v1.11.1
+    image: docker.arvancloud.ir/prom/node-exporter:v1.11.1
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'
