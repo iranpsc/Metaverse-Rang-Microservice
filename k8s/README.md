@@ -140,7 +140,7 @@ kubectl describe pvc mysql-data-mysql-0 -n metarang
 ### Can't connect to MySQL
 ```bash
 # Test connection
-kubectl run mysql-client --rm -it --image=mysql:8.0 -n metarang -- \
+kubectl run mysql-client --rm -it --image=docker.arvancloud.ir/mysql:8.0 -n metarang -- \
   mysql -h mysql.metarang.svc.cluster.local -u metarang -p
 ```
 
@@ -150,7 +150,7 @@ kubectl run mysql-client --rm -it --image=mysql:8.0 -n metarang -- \
 kubectl logs -f deployment/redis -n metarang
 
 # Test connection
-kubectl run redis-client --rm -it --image=redis:7-alpine -n metarang -- \
+kubectl run redis-client --rm -it --image=docker.arvancloud.ir/redis:7-alpine -n metarang -- \
   redis-cli -h redis.metarang.svc.cluster.local ping
 ```
 
