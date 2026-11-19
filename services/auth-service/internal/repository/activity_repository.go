@@ -311,9 +311,10 @@ func (r *activityRepository) GetLatestActivity(ctx context.Context, userID uint6
 	`
 	activity := &models.UserActivity{}
 	var start, end sql.NullString
+	var total sql.NullInt32
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
 		&activity.ID, &activity.UserID, &start, &end,
-		&activity.Total, &activity.IP, &activity.CreatedAt, &activity.UpdatedAt,
+		&total, &activity.IP, &activity.CreatedAt, &activity.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -321,6 +322,7 @@ func (r *activityRepository) GetLatestActivity(ctx context.Context, userID uint6
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latest activity: %w", err)
 	}
+	activity.Total = total.Int32
 	activity.Start, err = parseActivityTime(start.String)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse activity start: %w", err)
