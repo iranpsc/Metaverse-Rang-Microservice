@@ -1,9 +1,11 @@
-# syntax=docker/dockerfile:1
+# syntax=docker.arvancloud.ir/docker/dockerfile:1
 
 # Builds gen-openapi and serves Swagger UI, regenerating the spec on every start.
-FROM golang:1.26.10-alpine AS builder
+FROM docker.arvancloud.ir/golang:1.26.10-alpine AS builder
 
 ENV CGO_ENABLED=0
+ENV GOPROXY=https://mirror.kargadan.ir/nexus/repository/go-group/,https://goproxy.cn,direct
+ENV GOSUMDB=off
 WORKDIR /src
 
 COPY scripts/gen-openapi/go.mod scripts/gen-openapi/go.sum ./
@@ -15,7 +17,7 @@ RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod,sharing=locked \
     --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     go build -trimpath -buildvcs=false -ldflags="-s -w" -o /gen-openapi .
 
-FROM swaggerapi/swagger-ui:v5.18.2
+FROM registry.docker.ir/swaggerapi/swagger-ui:v5.18.2
 
 COPY --link --from=builder /gen-openapi /usr/local/bin/gen-openapi
 COPY scripts/docker/openapi/entrypoint.sh /entrypoint.sh

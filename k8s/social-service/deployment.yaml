@@ -28,7 +28,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: social-service
-        image: abbasajorloo/social-service:latest
+        image: docker.arvancloud.ir/abbasajorloo/social-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 50061

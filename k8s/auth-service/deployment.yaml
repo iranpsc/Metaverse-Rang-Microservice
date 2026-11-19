@@ -27,7 +27,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: auth-service
-        image: abbasajorloo/auth-service:latest
+        image: docker.arvancloud.ir/abbasajorloo/auth-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 50051

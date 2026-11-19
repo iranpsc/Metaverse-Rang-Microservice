@@ -16,10 +16,12 @@ func TestFeatureBroadcastTargetsOwnersWithoutChangingInput(t *testing.T) {
 	t.Cleanup(srv.Close)
 	conn := dialEngineIO(t, srv.URL, "valid-token", false, nil)
 	t.Cleanup(func() { _ = conn.Close() })
-	_ = waitForEvent(t, conn, "connected", 3*time.Second)
+	// The CI test command runs with -race and can take longer to finish the
+	// Socket.IO handshake on a shared runner.
+	_ = waitForEvent(t, conn, "connected", 10*time.Second)
 	data := map[string]any{"old_owner_id": json.Number("42"), "new_owner_id": "43", "rgb": "R"}
 	h.BroadcastFeatureStatus(data)
-	event := waitForEvent(t, conn, "feature-status-changed", 3*time.Second)
+	event := waitForEvent(t, conn, "feature-status-changed", 10*time.Second)
 	var payload map[string]any
 	if err := json.Unmarshal(event.data, &payload); err != nil {
 		t.Fatal(err)

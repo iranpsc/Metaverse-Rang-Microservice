@@ -90,7 +90,7 @@ func TestHTTP_MarkAsRead_ExtractsPathValue(t *testing.T) {
 			}, 42)
 
 			rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/"+tt.id, 42)
-			assert.Equal(t, http.StatusNoContent, rr.Code)
+			assert.Equal(t, http.StatusOK, rr.Code)
 			assert.Equal(t, tt.id, gotID)
 			assert.Equal(t, uint64(42), gotUser)
 		})

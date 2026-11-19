@@ -1,9 +1,11 @@
-# syntax=docker/dockerfile:1
+# syntax=docker.arvancloud.ir/docker/dockerfile:1
 
 # Multi-stage build for Sitemap Generator Service
-FROM golang:1.26.10-alpine AS builder
+FROM docker.arvancloud.ir/golang:1.26.10-alpine AS builder
 
 ENV CGO_ENABLED=0
+ENV GOPROXY=https://mirror.kargadan.ir/nexus/repository/go-group/,https://goproxy.cn,direct
+ENV GOSUMDB=off
 
 WORKDIR /src
 
@@ -24,10 +26,11 @@ RUN --mount=type=cache,id=go-mod,target=/go/pkg/mod,sharing=locked \
     --mount=type=cache,id=go-build,target=/root/.cache/go-build,sharing=locked \
     go build -trimpath -buildvcs=false -ldflags="-s -w" -o /app/sitemap-generator-service ./cmd/server
 
-FROM alpine:3.21
+FROM docker.arvancloud.ir/alpine:3.21
 
 # Alpine already includes BusyBox wget, which accepts the healthcheck flags.
-RUN apk add --no-cache --upgrade ca-certificates tzdata libcrypto3 libssl3 \
+RUN sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirror.arvancloud.ir/alpine#g' /etc/apk/repositories \
+ && apk add --no-cache --upgrade ca-certificates tzdata libcrypto3 libssl3 \
     && addgroup -g 1000 appuser \
     && adduser -D -u 1000 -G appuser appuser
 

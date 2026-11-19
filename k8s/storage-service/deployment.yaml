@@ -42,7 +42,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: storage-service
-        image: abbasajorloo/storage-service:latest
+        image: docker.arvancloud.ir/abbasajorloo/storage-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 50060

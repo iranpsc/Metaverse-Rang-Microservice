@@ -34,6 +34,7 @@ if [ -f "$HOST_DIR/server.crt" ] && [ -f "$HOST_DIR/server.key" ] && [ -f "$HOST
 fi
 
 if ! command -v openssl >/dev/null 2>&1; then
+  sed -i 's#https://dl-cdn.alpinelinux.org/alpine#https://mirror.arvancloud.ir/alpine#g' /etc/apk/repositories
   apk add --no-cache openssl
 fi
 

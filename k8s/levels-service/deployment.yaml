@@ -27,7 +27,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: levels-service
-        image: abbasajorloo/levels-service:latest
+        image: docker.arvancloud.ir/abbasajorloo/levels-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 50054

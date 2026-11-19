@@ -5,7 +5,7 @@
 | Workflow | File | Triggers | Purpose |
 |----------|------|----------|---------|
 | Services CI/CD | `services-ci.yml` | Push/PR to `main`/`dev` (service, shared, or schema changes), manual | Detects changed services and runs the full CI/CD pipeline for each |
-| Service CI (Reusable) | `service-ci.yml` | Called by `services-ci.yml` | Lint → Test → Build/Scan → Deploy for a single service |
+| Service CI (Reusable) | `service-ci.yml` | Called by `services-ci.yml` | Lint → Test → Build/Scan for a single service |
 | Shared Packages CI | `shared-packages.yml` | Push/PR touching `shared/**`, manual | Lint, test, and vulnerability-check shared Go packages |
 
 ## How service CI works
@@ -23,16 +23,14 @@ The reusable pipeline per service:
 ```
 lint (golangci-lint)
   └─ test (unit + integration tests, govulncheck, coverage summary + Codecov, against MySQL/Redis containers)
-       └─ build (Docker build → Trivy scan → push on non-PR events)
-            └─ deploy (main only, production environment: kubectl set image + rollout + rollback on failure)
+            └─ build (Docker build → Trivy scan → push on non-PR events)
 ```
 
 Notes:
 
 - PRs build the Docker image but never push it.
-- Images are tagged with the commit SHA (used by deploy), branch name, `branch-shortsha`, semver (on tags), and `latest` on the default branch.
-- `health-check-service` skips the test and deploy jobs (`enable_test: false`, `enable_deploy: false`).
-- Deploys target the `production` GitHub environment — configure required reviewers there to gate deploys.
+- Images are tagged with the commit SHA, branch name, `branch-shortsha`, semver (on tags), and `latest` on the default branch.
+- `health-check-service` skips the test job (`enable_test: false`).
 
 ## Manual full rebuild
 
@@ -46,7 +44,6 @@ Use **Actions → Services CI/CD → Run workflow**:
 | Secret | Used by | Required |
 |--------|---------|----------|
 | `DOCKER_USERNAME` / `DOCKER_PASSWORD` | Image push to Docker Hub (`abbasajorloo/<service>`) | Yes |
-| `KUBE_CONFIG` | Deploy | For deploys |
 | `CODECOV_TOKEN` | Coverage upload | Optional |
 
 ## Shared building blocks

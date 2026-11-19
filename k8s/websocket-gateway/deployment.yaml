@@ -27,7 +27,7 @@ spec:
         - name: dockerhub-credentials
       containers:
       - name: websocket-gateway
-        image: abbasajorloo/websocket-gateway:latest
+        image: docker.arvancloud.ir/abbasajorloo/websocket-gateway:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3002

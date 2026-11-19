@@ -40,6 +40,8 @@ type socketFrame struct {
 	data json.RawMessage
 }
 
+const socketEventTimeout = 10 * time.Second
+
 func TestSocketIOAnonymousConnectAndFeatureBroadcast(t *testing.T) {
 	h := hub.New(stubValidator{userID: 42}, []string{"*"})
 	t.Cleanup(func() { _ = h.Close() })
@@ -301,7 +303,7 @@ func dialEngineIO(t *testing.T, baseURL, token string, authPacket bool, headers 
 		t.Fatalf("dial websocket: %v", err)
 	}
 
-	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(socketEventTimeout))
 	_, open, err := conn.ReadMessage()
 	if err != nil {
 		t.Fatalf("read engine.io open: %v", err)
@@ -326,6 +328,9 @@ func dialEngineIO(t *testing.T, baseURL, token string, authPacket bool, headers 
 
 func waitForEvent(t *testing.T, conn *websocket.Conn, name string, timeout time.Duration) socketFrame {
 	t.Helper()
+	if timeout < socketEventTimeout {
+		timeout = socketEventTimeout
+	}
 	// A single deadline: gorilla/websocket panics if ReadMessage is called again after any error.
 	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
 		t.Fatalf("set read deadline: %v", err)
