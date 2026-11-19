@@ -148,7 +148,7 @@ func TestHTTP_MarkAsRead_Success(t *testing.T) {
 	}
 	mux := newHTTPHandler(t, svc, 42)
 	rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/notif-1", 42)
-	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.True(t, called)
 }
 
@@ -165,7 +165,7 @@ func TestHTTP_MarkAsRead_UUID(t *testing.T) {
 	}
 	mux := newHTTPHandler(t, svc, 42)
 	rr := serveRequest(mux, http.MethodPost, "/api/notifications/read/"+id, 42)
-	assert.Equal(t, http.StatusNoContent, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.True(t, called)
 }
 

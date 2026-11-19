@@ -139,7 +139,7 @@ func (h *HTTPNotificationHandler) MarkAsRead(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 }
 
 // MarkAllAsRead handles POST /api/notifications/read/all
