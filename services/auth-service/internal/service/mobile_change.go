@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -156,6 +157,9 @@ func (s *authService) VerifyMobileChange(ctx context.Context, userID uint64, cod
 	}
 
 	if err := s.userRepo.UpdatePhone(ctx, user.ID, challenge.Phone); err != nil {
+		if errors.Is(err, repository.ErrUserPhoneTaken) {
+			return ErrPhoneAlreadyTaken
+		}
 		return fmt.Errorf("failed to update phone: %w", err)
 	}
 	if err := s.userRepo.MarkPhoneAsVerified(ctx, user.ID); err != nil {

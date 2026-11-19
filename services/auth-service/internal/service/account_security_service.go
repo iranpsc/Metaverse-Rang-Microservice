@@ -29,7 +29,6 @@ type AccountSecurityService interface {
 type accountSecurityService struct {
 	userRepo                      repository.UserRepository
 	accountSecurityRepo           repository.AccountSecurityRepository
-	activityRepo                  repository.ActivityRepository
 	cacheRepo                     repository.CacheRepository
 	notificationsClient           notificationspb.SMSServiceClient
 	rateLimitVerificationRequests bool
@@ -38,7 +37,6 @@ type accountSecurityService struct {
 func NewAccountSecurityService(
 	userRepo repository.UserRepository,
 	accountSecurityRepo repository.AccountSecurityRepository,
-	activityRepo repository.ActivityRepository,
 	cacheRepo repository.CacheRepository,
 	notificationsClient notificationspb.SMSServiceClient,
 	rateLimitVerificationRequests bool,
@@ -46,7 +44,6 @@ func NewAccountSecurityService(
 	return &accountSecurityService{
 		userRepo:                      userRepo,
 		accountSecurityRepo:           accountSecurityRepo,
-		activityRepo:                  activityRepo,
 		cacheRepo:                     cacheRepo,
 		notificationsClient:           notificationsClient,
 		rateLimitVerificationRequests: rateLimitVerificationRequests,
@@ -88,30 +85,21 @@ func (s *accountSecurityService) RequestAccountSecurity(ctx context.Context, use
 
 	// Validate phone before consuming a verification rate-limit slot so users
 	// without a verified mobile get a validation error instead of rate limiting.
-	hasVerifiedPhone := user.Phone.Valid && strings.TrimSpace(user.Phone.String) != "" && user.PhoneVerifiedAt.Valid
-	sanitizedPhone := ""
-	if !hasVerifiedPhone {
-		sanitizedPhone = strings.TrimSpace(phone)
-		if sanitizedPhone == "" {
+	phoneForOTP := strings.TrimSpace(user.Phone.String)
+	if !user.Phone.Valid || phoneForOTP == "" || !user.PhoneVerifiedAt.Valid {
+		phoneForOTP = strings.TrimSpace(phone)
+		if phoneForOTP == "" {
 			return ErrPhoneRequired
 		}
-		if !iranMobileRegex.MatchString(sanitizedPhone) {
+		if !iranMobileRegex.MatchString(phoneForOTP) {
 			return ErrInvalidPhoneFormat
 		}
-
-		// If the phone matches the user's current phone, skip the "phone already taken" check
-		currentPhone := ""
-		if user.Phone.Valid {
-			currentPhone = strings.TrimSpace(user.Phone.String)
+		taken, phoneErr := s.userRepo.IsPhoneTaken(ctx, phoneForOTP, user.ID)
+		if phoneErr != nil {
+			return fmt.Errorf("failed to validate phone uniqueness: %w", phoneErr)
 		}
-		if sanitizedPhone != currentPhone {
-			taken, phoneErr := s.userRepo.IsPhoneTaken(ctx, sanitizedPhone, user.ID)
-			if phoneErr != nil {
-				return fmt.Errorf("failed to validate phone uniqueness: %w", phoneErr)
-			}
-			if taken {
-				return ErrPhoneAlreadyTaken
-			}
+		if taken {
+			return ErrPhoneAlreadyTaken
 		}
 	}
 
@@ -129,17 +117,6 @@ func (s *accountSecurityService) RequestAccountSecurity(ctx context.Context, use
 			err = fmt.Errorf("%w (also failed to release verification rate limit: %v)", err, releaseErr)
 		}
 	}()
-
-	if !hasVerifiedPhone {
-		if err = s.userRepo.UpdatePhone(ctx, user.ID, sanitizedPhone); err != nil {
-			return fmt.Errorf("failed to update phone: %w", err)
-		}
-		user.Phone = sql.NullString{String: sanitizedPhone, Valid: true}
-	}
-
-	if user.Phone.Valid {
-		user.Phone = sql.NullString{String: strings.TrimSpace(user.Phone.String), Valid: true}
-	}
 
 	lengthSeconds := int64(minutes) * 60
 
@@ -181,16 +158,13 @@ func (s *accountSecurityService) RequestAccountSecurity(ctx context.Context, use
 		UserID:       user.ID,
 		VerifiableID: security.ID,
 		Code:         string(hashed),
+		Phone:        sql.NullString{String: phoneForOTP, Valid: true},
 	}
 
 	if err = s.accountSecurityRepo.UpsertOtp(ctx, otp); err != nil {
 		return fmt.Errorf("failed to persist otp: %w", err)
 	}
 
-	phoneForOTP := ""
-	if user.Phone.Valid {
-		phoneForOTP = user.Phone.String
-	}
 	if err = s.dispatchAccountSecurityOTP(ctx, phoneForOTP, code); err != nil {
 		return err
 	}
@@ -227,30 +201,19 @@ func (s *accountSecurityService) VerifyAccountSecurity(ctx context.Context, user
 	if err != nil {
 		return fmt.Errorf("failed to load otp: %w", err)
 	}
-	if otp == nil {
+	if otp == nil || otp.UserID != userID || !otp.Phone.Valid || otp.Phone.String == "" {
 		return ErrAccountSecurityNotFound
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(otp.Code), []byte(sanitizedCode)); err != nil {
 		return ErrInvalidOTPCode
 	}
-
-	if !user.PhoneVerifiedAt.Valid {
-		if err := s.userRepo.MarkPhoneAsVerified(ctx, user.ID); err != nil {
-			return fmt.Errorf("failed to mark phone as verified: %w", err)
-		}
-		user.PhoneVerifiedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	taken, err := s.userRepo.IsPhoneTaken(ctx, otp.Phone.String, userID)
+	if err != nil {
+		return fmt.Errorf("failed to validate phone uniqueness: %w", err)
 	}
-
-	expiresAt := time.Now().Unix() + security.Length
-	security.Unlocked = true
-	security.Until = sql.NullInt64{Int64: expiresAt, Valid: true}
-	if err := s.accountSecurityRepo.Update(ctx, security); err != nil {
-		return fmt.Errorf("failed to update account security: %w", err)
-	}
-
-	if err := s.accountSecurityRepo.DeleteOtp(ctx, otp.ID); err != nil {
-		return fmt.Errorf("failed to delete otp: %w", err)
+	if taken {
+		return ErrPhoneAlreadyTaken
 	}
 
 	event := &models.UserEvent{
@@ -260,10 +223,16 @@ func (s *accountSecurityService) VerifyAccountSecurity(ctx context.Context, user
 		Device: strings.TrimSpace(userAgent),
 		Status: 1,
 	}
-	if err := s.activityRepo.CreateUserEvent(ctx, event); err != nil {
-		return fmt.Errorf("failed to record account security event: %w", err)
+	if err := s.accountSecurityRepo.CompleteVerification(ctx, otp, event); err != nil {
+		switch {
+		case errors.Is(err, repository.ErrUserPhoneTaken):
+			return ErrPhoneAlreadyTaken
+		case errors.Is(err, repository.ErrAccountSecurityChallengeChanged):
+			return ErrInvalidOTPCode
+		default:
+			return fmt.Errorf("failed to complete account security verification: %w", err)
+		}
 	}
-
 	return nil
 }
 

@@ -50,11 +50,17 @@ func NewActivityRepository(db *sql.DB) ActivityRepository {
 
 // CreateUserEvent creates a new user event record
 func (r *activityRepository) CreateUserEvent(ctx context.Context, event *models.UserEvent) error {
+	return createUserEvent(ctx, r.db, event)
+}
+
+func createUserEvent(ctx context.Context, db interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}, event *models.UserEvent) error {
 	query := `
 		INSERT INTO user_events (user_id, event, ip, device, status, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := db.ExecContext(ctx, query,
 		event.UserID, event.Event, event.IP, event.Device, event.Status,
 		time.Now(), time.Now())
 	if err != nil {

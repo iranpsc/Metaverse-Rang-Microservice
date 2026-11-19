@@ -321,7 +321,9 @@ func (s *authService) Callback(ctx context.Context, state, code, ip string, wall
 		// Update existing user
 		user.Name = userData.Name
 		user.Email = userData.Email
-		user.Phone = sql.NullString{String: userData.Mobile, Valid: userData.Mobile != ""}
+		if userData.Mobile != "" && !user.PhoneVerifiedAt.Valid {
+			user.Phone = sql.NullString{String: userData.Mobile, Valid: true}
+		}
 		user.IP = ip // Update IP from gRPC metadata
 		user.AccessToken = sql.NullString{String: tokenData.AccessToken, Valid: true}
 		user.RefreshToken = sql.NullString{String: tokenData.RefreshToken, Valid: true}

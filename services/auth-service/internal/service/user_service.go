@@ -136,9 +136,14 @@ func (s *userService) UpdateProfile(ctx context.Context, userID uint64, name, em
 		email = normalized
 	}
 	user.Email = email
-	user.Phone = sql.NullString{String: phone, Valid: phone != ""}
+	if phone != "" && !user.PhoneVerifiedAt.Valid {
+		user.Phone = sql.NullString{String: phone, Valid: true}
+	}
 
 	if err := s.userRepo.Update(ctx, user); err != nil {
+		if errors.Is(err, repository.ErrUserPhoneTaken) {
+			return nil, ErrPhoneAlreadyTaken
+		}
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
