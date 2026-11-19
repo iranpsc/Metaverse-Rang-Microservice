@@ -472,6 +472,7 @@ type fakeCacheRepository struct {
 	setTime                  map[string]time.Time
 	verificationRequestSlots map[uint64]time.Time
 	mobileChangeSendSlots    map[uint64]time.Time
+	mobileChangeSendSlotTTL  time.Duration
 	mobileChangeChallenges   map[uint64]*repository.MobileChangeChallenge
 }
 
@@ -559,6 +560,7 @@ func (f *fakeCacheRepository) TryAcquireMobileChangeSendSlot(_ context.Context, 
 	if until, exists := f.mobileChangeSendSlots[userID]; exists && time.Now().Before(until) {
 		return false, nil
 	}
+	f.mobileChangeSendSlotTTL = period
 	f.mobileChangeSendSlots[userID] = time.Now().Add(period)
 	return true, nil
 }

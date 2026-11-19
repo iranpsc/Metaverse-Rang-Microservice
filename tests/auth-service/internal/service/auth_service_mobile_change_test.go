@@ -316,9 +316,9 @@ func TestSendMobileChangeCodeRateLimit(t *testing.T) {
 	if err := h.svc.SendMobileChangeCode(ctx, 1, "09121112233"); err != nil {
 		t.Fatalf("first send failed: %v", err)
 	}
-	remaining := time.Until(h.cacheRepo.mobileChangeSendSlots[1])
-	if remaining < 2*time.Minute-time.Second || remaining > 2*time.Minute+time.Second {
-		t.Fatalf("expected send slot TTL of 2 minutes, got %v", remaining)
+	ttl := h.cacheRepo.mobileChangeSendSlotTTL
+	if ttl != 2*time.Minute {
+		t.Fatalf("expected send slot TTL of 2 minutes, got %v", ttl)
 	}
 	err := h.svc.SendMobileChangeCode(ctx, 1, "09123334455")
 	if !errors.Is(err, service.ErrVerificationRequestRateLimited) {
