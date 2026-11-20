@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 
 	"metarang/auth-service/internal/models"
@@ -25,11 +26,10 @@ func TestRequestAccountSecurityCreatesAndDispatchesOTP(t *testing.T) {
 	}
 
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
 	smsClient := &fakeSMSServiceClient{}
 
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 	if err := svc.RequestAccountSecurity(ctx, 1, 15, " 09123456789 "); err != nil {
 		t.Fatalf("RequestAccountSecurity returned error: %v", err)
@@ -69,9 +69,10 @@ func TestRequestAccountSecurityCreatesAndDispatchesOTP(t *testing.T) {
 	}
 
 	updatedUser := users[1]
-	if !updatedUser.Phone.Valid || updatedUser.Phone.String != "09123456789" {
-		t.Errorf("expected user phone updated, got %v", updatedUser.Phone)
+	if updatedUser.Phone.Valid {
+		t.Error("expected user phone to remain unset before verification")
 	}
+	require.Equal(t, smsClient.lastRequest.Phone, otp.Phone.String)
 	if updatedUser.PhoneVerifiedAt.Valid {
 		t.Errorf("phone should remain unverified until verification step")
 	}
@@ -96,8 +97,7 @@ func TestRequestAccountSecurityUpdatesExistingRecord(t *testing.T) {
 	}
 
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
 	smsClient := &fakeSMSServiceClient{}
 
 	existing := &models.AccountSecurity{
@@ -109,7 +109,7 @@ func TestRequestAccountSecurityUpdatesExistingRecord(t *testing.T) {
 	}
 	accountRepo.records[1] = existing
 
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 	if err := svc.RequestAccountSecurity(ctx, 1, 20, ""); err != nil {
 		t.Fatalf("RequestAccountSecurity returned error: %v", err)
@@ -150,11 +150,10 @@ func TestRequestAccountSecurityValidations(t *testing.T) {
 	}
 
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
 	smsClient := &fakeSMSServiceClient{}
 
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 	t.Run("invalid duration", func(t *testing.T) {
 		err := svc.RequestAccountSecurity(ctx, 1, 3, "09111111111")
@@ -179,6 +178,13 @@ func TestRequestAccountSecurityValidations(t *testing.T) {
 			t.Fatalf("expected service.ErrPhoneAlreadyTaken, got %v", err)
 		}
 	})
+
+	t.Run("duplicate number already on the requesting unverified account", func(t *testing.T) {
+		users[1].Phone = users[2].Phone
+		err := svc.RequestAccountSecurity(ctx, 1, 10, users[1].Phone.String)
+		require.ErrorIs(t, err, service.ErrPhoneAlreadyTaken)
+		require.Nil(t, smsClient.lastRequest)
+	})
 }
 
 func TestRequestAccountSecurityNotificationError(t *testing.T) {
@@ -192,11 +198,10 @@ func TestRequestAccountSecurityNotificationError(t *testing.T) {
 	}
 
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
 	smsClient := &fakeSMSServiceClient{err: errors.New("dispatch failure")}
 
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 	err := svc.RequestAccountSecurity(ctx, 1, 15, "09122223333")
 	if err == nil || err.Error() == "" {
@@ -216,8 +221,7 @@ func TestVerifyAccountSecuritySuccess(t *testing.T) {
 	}
 
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
 	smsClient := &fakeSMSServiceClient{}
 
 	security := &models.AccountSecurity{
@@ -238,9 +242,10 @@ func TestVerifyAccountSecuritySuccess(t *testing.T) {
 		UserID:       1,
 		VerifiableID: security.ID,
 		Code:         string(hashed),
+		Phone:        users[1].Phone,
 	}
 
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 	err = svc.VerifyAccountSecurity(ctx, 1, plainCode, " 127.0.0.1 ", " Mozilla/5.0 ")
 	if err != nil {
@@ -267,10 +272,10 @@ func TestVerifyAccountSecuritySuccess(t *testing.T) {
 		t.Fatalf("expected phone to be marked verified")
 	}
 
-	if len(activityRepo.events) != 1 {
-		t.Fatalf("expected one user event, got %d", len(activityRepo.events))
+	if len(accountRepo.events) != 1 {
+		t.Fatalf("expected one user event, got %d", len(accountRepo.events))
 	}
-	event := activityRepo.events[0]
+	event := accountRepo.events[0]
 	if event.Event != "غیر فعال سازی امنیت حساب کاربری" {
 		t.Fatalf("unexpected event message: %q", event.Event)
 	}
@@ -280,6 +285,43 @@ func TestVerifyAccountSecuritySuccess(t *testing.T) {
 	if event.Device != "Mozilla/5.0" {
 		t.Fatalf("expected trimmed user agent, got %q", event.Device)
 	}
+}
+
+func TestAccountSecurityPersistsVerifiedPhoneAndReusesItAfterProfileUpdate(t *testing.T) {
+	ctx := context.Background()
+	const phone = "09123456789"
+	users := map[uint64]*models.User{1: {ID: 1}, 2: {ID: 2}}
+	userRepo := newFakeUserRepository(users)
+	userRepo.updateFunc = func(_ context.Context, user *models.User) error {
+		users[user.ID] = user
+		return nil
+	}
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
+	sms := &fakeSMSServiceClient{}
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, sms, false)
+
+	require.NoError(t, svc.RequestAccountSecurity(ctx, 1, 15, phone))
+	require.False(t, users[1].Phone.Valid)
+	code := sms.lastRequest.Code
+	users[2].Phone = sql.NullString{String: phone, Valid: true}
+	require.ErrorIs(t, svc.VerifyAccountSecurity(ctx, 1, code, "", ""), service.ErrPhoneAlreadyTaken)
+	require.False(t, users[1].Phone.Valid)
+	require.False(t, accountRepo.records[1].Unlocked)
+
+	users[2].Phone = sql.NullString{}
+	require.NoError(t, svc.VerifyAccountSecurity(ctx, 1, code, "", ""))
+	require.Equal(t, phone, users[1].Phone.String)
+	require.True(t, users[1].PhoneVerifiedAt.Valid)
+
+	profile := service.NewUserService(userRepo)
+	updated, err := profile.UpdateProfile(ctx, 1, "Updated", "test@example.com", "")
+	require.NoError(t, err)
+	require.Equal(t, phone, updated.Phone.String)
+	updated, err = profile.UpdateProfile(ctx, 1, "Updated again", "test@example.com", "09111111111")
+	require.NoError(t, err)
+	require.Equal(t, phone, updated.Phone.String)
+	require.NoError(t, svc.RequestAccountSecurity(ctx, 1, 15, ""))
+	require.Equal(t, phone, sms.lastRequest.Phone)
 }
 
 func TestVerifyAccountSecurityFailures(t *testing.T) {
@@ -304,8 +346,7 @@ func TestVerifyAccountSecurityFailures(t *testing.T) {
 	}
 
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
 	smsClient := &fakeSMSServiceClient{}
 
 	security := &models.AccountSecurity{
@@ -320,9 +361,9 @@ func TestVerifyAccountSecurityFailures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to hash otp: %v", err)
 	}
-	accountRepo.otps[security.ID] = &models.Otp{ID: 7, UserID: 1, VerifiableID: security.ID, Code: string(hashed)}
+	accountRepo.otps[security.ID] = &models.Otp{ID: 7, UserID: 1, VerifiableID: security.ID, Code: string(hashed), Phone: users[1].Phone}
 
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 	t.Run("invalid code format - non-numeric", func(t *testing.T) {
 		err := svc.VerifyAccountSecurity(ctx, 1, "abc123", "", "")
@@ -414,11 +455,10 @@ func TestRequestAccountSecurityPhoneHandling(t *testing.T) {
 		}
 
 		userRepo := newFakeUserRepository(users)
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
+		accountRepo := newFakeAccountSecurityRepository(userRepo)
 		smsClient := &fakeSMSServiceClient{}
 
-		svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+		svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 		err := svc.RequestAccountSecurity(ctx, 1, 15, "")
 		if err != nil {
@@ -443,20 +483,18 @@ func TestRequestAccountSecurityPhoneHandling(t *testing.T) {
 		}
 
 		userRepo := newFakeUserRepository(users)
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
+		accountRepo := newFakeAccountSecurityRepository(userRepo)
 		smsClient := &fakeSMSServiceClient{}
 
-		svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+		svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 		err := svc.RequestAccountSecurity(ctx, 1, 15, "  09123456789  ")
 		if err != nil {
 			t.Fatalf("RequestAccountSecurity failed: %v", err)
 		}
 
-		if !users[1].Phone.Valid || users[1].Phone.String != "09123456789" {
-			t.Errorf("expected phone to be trimmed, got %v", users[1].Phone)
-		}
+		require.Equal(t, "09123456789", smsClient.lastRequest.Phone)
+		require.False(t, users[1].Phone.Valid)
 	})
 
 	t.Run("invalid phone format", func(t *testing.T) {
@@ -469,11 +507,10 @@ func TestRequestAccountSecurityPhoneHandling(t *testing.T) {
 		}
 
 		userRepo := newFakeUserRepository(users)
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
+		accountRepo := newFakeAccountSecurityRepository(userRepo)
 		smsClient := &fakeSMSServiceClient{}
 
-		svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+		svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 		testCases := []struct {
 			name  string
@@ -506,11 +543,10 @@ func TestRequestAccountSecurityPhoneHandling(t *testing.T) {
 		}
 
 		userRepo := newFakeUserRepository(users)
-		accountRepo := newFakeAccountSecurityRepository()
-		activityRepo := newFakeActivityRepository()
+		accountRepo := newFakeAccountSecurityRepository(userRepo)
 		smsClient := &fakeSMSServiceClient{}
 
-		svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+		svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 		t.Run("minimum duration (5 minutes)", func(t *testing.T) {
 			err := svc.RequestAccountSecurity(ctx, 1, 5, "")
@@ -576,7 +612,8 @@ func TestRequestAccountSecurityVerificationRateLimit(t *testing.T) {
 	}
 
 	newHarness := func(users map[uint64]*models.User, production bool) *requestHarness {
-		accountRepo := newFakeAccountSecurityRepository()
+		userRepo := newFakeUserRepository(users)
+		accountRepo := newFakeAccountSecurityRepository(userRepo)
 		cacheRepo := newFakeCacheRepository()
 		smsClient := &fakeSMSServiceClient{}
 		return &requestHarness{
@@ -584,9 +621,8 @@ func TestRequestAccountSecurityVerificationRateLimit(t *testing.T) {
 			cacheRepo:   cacheRepo,
 			smsClient:   smsClient,
 			svc: service.NewAccountSecurityService(
-				newFakeUserRepository(users),
+				userRepo,
 				accountRepo,
-				newFakeActivityRepository(),
 				cacheRepo,
 				smsClient,
 				production,
@@ -805,8 +841,7 @@ func TestVerifyAccountSecurityEventLogging(t *testing.T) {
 	}
 
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
 	smsClient := &fakeSMSServiceClient{}
 
 	security := &models.AccountSecurity{
@@ -827,20 +862,21 @@ func TestVerifyAccountSecurityEventLogging(t *testing.T) {
 		UserID:       1,
 		VerifiableID: security.ID,
 		Code:         string(hashed),
+		Phone:        users[1].Phone,
 	}
 
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 	err = svc.VerifyAccountSecurity(ctx, 1, plainCode, "192.168.1.100", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
 	if err != nil {
 		t.Fatalf("VerifyAccountSecurity returned error: %v", err)
 	}
 
-	if len(activityRepo.events) != 1 {
-		t.Fatalf("expected one user event, got %d", len(activityRepo.events))
+	if len(accountRepo.events) != 1 {
+		t.Fatalf("expected one user event, got %d", len(accountRepo.events))
 	}
 
-	event := activityRepo.events[0]
+	event := accountRepo.events[0]
 	if event.UserID != 1 {
 		t.Errorf("expected user ID 1, got %d", event.UserID)
 	}
@@ -870,8 +906,7 @@ func TestVerifyAccountSecurityUnlockWindow(t *testing.T) {
 	}
 
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	activityRepo := newFakeActivityRepository()
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
 	smsClient := &fakeSMSServiceClient{}
 
 	security := &models.AccountSecurity{
@@ -892,9 +927,10 @@ func TestVerifyAccountSecurityUnlockWindow(t *testing.T) {
 		UserID:       1,
 		VerifiableID: security.ID,
 		Code:         string(hashed),
+		Phone:        users[1].Phone,
 	}
 
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, activityRepo, nil, smsClient, false)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, smsClient, false)
 
 	beforeTime := time.Now().Unix()
 	err = svc.VerifyAccountSecurity(ctx, 1, plainCode, "", "")
@@ -923,8 +959,8 @@ func TestCheckAccountSecurity(t *testing.T) {
 	ctx := context.Background()
 	users := map[uint64]*models.User{1: {ID: 1}}
 	userRepo := newFakeUserRepository(users)
-	accountRepo := newFakeAccountSecurityRepository()
-	svc := service.NewAccountSecurityService(userRepo, accountRepo, newFakeActivityRepository(), nil, &fakeSMSServiceClient{}, false)
+	accountRepo := newFakeAccountSecurityRepository(userRepo)
+	svc := service.NewAccountSecurityService(userRepo, accountRepo, nil, &fakeSMSServiceClient{}, false)
 
 	t.Run("no record allows", func(t *testing.T) {
 		unlocked, err := svc.CheckAccountSecurity(ctx, 1)

@@ -93,6 +93,28 @@ func TestActivityRepository_GetLatestActivityScansLegacyVarcharTimes(t *testing.
 	require.Equal(t, start, activity.Start.Format("2006-01-02 15:04:05"))
 	require.True(t, activity.End.Valid)
 	require.Equal(t, end, activity.End.Time.Format("2006-01-02 15:04:05"))
+	require.Equal(t, int32(60), activity.Total)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestActivityRepository_GetLatestActivityScansOpenSession(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := repository.NewActivityRepository(db)
+	start := time.Date(2026, 10, 31, 10, 20, 30, 0, time.Local)
+	mock.ExpectQuery("FROM user_activities").
+		WithArgs(uint64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "start", "end", "total", "ip", "created_at", "updated_at"}).
+			AddRow(uint64(9), uint64(1), []byte(start.Format("2006-01-02 15:04:05")), nil, nil, "127.0.0.1", start, start))
+
+	activity, err := repo.GetLatestActivity(context.Background(), 1)
+	require.NoError(t, err)
+	require.Equal(t, uint64(9), activity.ID)
+	require.Equal(t, start, activity.Start)
+	require.False(t, activity.End.Valid)
+	require.Zero(t, activity.Total)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

@@ -3,12 +3,25 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
+
 	"metarang/auth-service/internal/models"
 )
+
+var ErrUserPhoneTaken = errors.New("user phone already taken")
+
+func mapUserPhoneDuplicate(err error) error {
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 && strings.Contains(mysqlErr.Message, "users_phone_unique") {
+		return ErrUserPhoneTaken
+	}
+	return err
+}
 
 type UserRepository interface {
 	Create(ctx context.Context, user *models.User) error
@@ -135,7 +148,7 @@ func (r *userRepository) Create(ctx context.Context, user *models.User) error {
 		user.ReferrerID, user.AccessToken, user.RefreshToken, user.TokenType,
 		user.ExpiresIn, time.Now(), time.Now())
 	if err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
+		return fmt.Errorf("failed to create user: %w", mapUserPhoneDuplicate(err))
 	}
 
 	id, err := result.LastInsertId()
@@ -200,7 +213,9 @@ func (r *userRepository) FindByID(ctx context.Context, id uint64) (*models.User,
 func (r *userRepository) Update(ctx context.Context, user *models.User) error {
 	query := `
 		UPDATE users 
-		SET name = ?, email = ?, phone = ?, access_token = ?, refresh_token = ?,
+		SET name = ?, email = ?,
+			phone = CASE WHEN phone_verified_at IS NULL THEN COALESCE(?, phone) ELSE phone END,
+			access_token = ?, refresh_token = ?,
 			token_type = ?, expires_in = ?, updated_at = ?
 		WHERE id = ?
 	`
@@ -214,7 +229,7 @@ func (r *userRepository) Update(ctx context.Context, user *models.User) error {
 		user.Name, user.Email, phoneValue, user.AccessToken, user.RefreshToken,
 		user.TokenType, user.ExpiresIn, time.Now(), user.ID)
 	if err != nil {
-		return fmt.Errorf("failed to update user: %w", err)
+		return fmt.Errorf("failed to update user: %w", mapUserPhoneDuplicate(err))
 	}
 	return nil
 }
@@ -342,7 +357,7 @@ func (r *userRepository) UpdatePhone(ctx context.Context, userID uint64, phone s
 	query := `UPDATE users SET phone = ?, updated_at = ? WHERE id = ?`
 	_, err := r.db.ExecContext(ctx, query, phone, time.Now(), userID)
 	if err != nil {
-		return fmt.Errorf("failed to update user phone: %w", err)
+		return fmt.Errorf("failed to update user phone: %w", mapUserPhoneDuplicate(err))
 	}
 	return nil
 }

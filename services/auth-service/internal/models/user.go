@@ -223,13 +223,14 @@ type AccountSecurity struct {
 }
 
 type Otp struct {
-	ID             uint64    `db:"id"`
-	UserID         uint64    `db:"user_id"`
-	VerifiableType string    `db:"verifiable_type"`
-	VerifiableID   uint64    `db:"verifiable_id"`
-	Code           string    `db:"code"`
-	CreatedAt      time.Time `db:"created_at"`
-	UpdatedAt      time.Time `db:"updated_at"`
+	ID             uint64         `db:"id"`
+	UserID         uint64         `db:"user_id"`
+	VerifiableType string         `db:"verifiable_type"`
+	VerifiableID   uint64         `db:"verifiable_id"`
+	Code           string         `db:"code"`
+	Phone          sql.NullString `db:"phone"`
+	CreatedAt      time.Time      `db:"created_at"`
+	UpdatedAt      time.Time      `db:"updated_at"`
 }
 
 type BankAccount struct {

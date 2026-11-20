@@ -3,10 +3,12 @@ package repository_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/require"
 
 	"metarang/auth-service/internal/models"
@@ -54,7 +56,7 @@ func TestAccountSecurityRepository_SQLMock(t *testing.T) {
 		require.True(t, sec.UpdatedAt.IsZero())
 	})
 
-	t.Run("create update delete otp upsert", func(t *testing.T) {
+	t.Run("create update and upsert otp", func(t *testing.T) {
 		mock.ExpectExec("INSERT INTO account_securities").
 			WillReturnResult(sqlmock.NewResult(5, 1))
 		sec := &models.AccountSecurity{UserID: 1, Unlocked: false, Length: 10}
@@ -74,8 +76,8 @@ func TestAccountSecurityRepository_SQLMock(t *testing.T) {
 		require.NoError(t, repo.UpsertOtp(ctx, otp))
 		require.Equal(t, uint64(9), otp.ID)
 
-		otpRows := sqlmock.NewRows([]string{"id", "user_id", "verifiable_type", "verifiable_id", "code", "created_at", "updated_at"}).
-			AddRow(uint64(9), uint64(1), "App\\Models\\AccountSecurity", uint64(5), "111111", now, now)
+		otpRows := sqlmock.NewRows([]string{"id", "user_id", "verifiable_type", "verifiable_id", "code", "phone", "created_at", "updated_at"}).
+			AddRow(uint64(9), uint64(1), "App\\Models\\AccountSecurity", uint64(5), "111111", "09123456789", now, now)
 		mock.ExpectQuery("FROM otps").
 			WithArgs("App\\Models\\AccountSecurity", uint64(5)).
 			WillReturnRows(otpRows)
@@ -84,8 +86,8 @@ func TestAccountSecurityRepository_SQLMock(t *testing.T) {
 		otp2 := &models.Otp{UserID: 1, VerifiableID: 5, Code: "654321"}
 		require.NoError(t, repo.UpsertOtp(ctx, otp2))
 
-		nullOtpRows := sqlmock.NewRows([]string{"id", "user_id", "verifiable_type", "verifiable_id", "code", "created_at", "updated_at"}).
-			AddRow(uint64(10), uint64(1), "App\\Models\\AccountSecurity", uint64(5), "222222", nil, nil)
+		nullOtpRows := sqlmock.NewRows([]string{"id", "user_id", "verifiable_type", "verifiable_id", "code", "phone", "created_at", "updated_at"}).
+			AddRow(uint64(10), uint64(1), "App\\Models\\AccountSecurity", uint64(5), "222222", nil, nil, nil)
 		mock.ExpectQuery("FROM otps").
 			WithArgs("App\\Models\\AccountSecurity", uint64(5)).
 			WillReturnRows(nullOtpRows)
@@ -95,14 +97,53 @@ func TestAccountSecurityRepository_SQLMock(t *testing.T) {
 		require.Equal(t, uint64(10), otpWithNullTS.ID)
 		require.True(t, otpWithNullTS.CreatedAt.IsZero())
 		require.True(t, otpWithNullTS.UpdatedAt.IsZero())
-
-		mock.ExpectExec("DELETE FROM otps").
-			WithArgs(uint64(9)).
-			WillReturnResult(sqlmock.NewResult(0, 1))
-		require.NoError(t, repo.DeleteOtp(ctx, 9))
 	})
 
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCompleteAccountSecurityVerificationRollsBackOnFailure(t *testing.T) {
+	const phone = "09123456789"
+	auditErr := errors.New("audit write failed")
+	for _, tc := range []struct {
+		name      string
+		phoneErr  error
+		resultErr error
+	}{
+		{
+			name:      "number claimed concurrently",
+			phoneErr:  &mysql.MySQLError{Number: 1062, Message: "Duplicate entry for key 'users.users_phone_unique'"},
+			resultErr: repository.ErrUserPhoneTaken,
+		},
+		{name: "audit write fails", resultErr: auditErr},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
+			repo := repository.NewAccountSecurityRepository(db)
+			otp := &models.Otp{ID: 9, UserID: 1, VerifiableID: 5, Code: "hash", Phone: sql.NullString{String: phone, Valid: true}}
+			mock.ExpectBegin()
+			mock.ExpectExec("DELETE FROM otps").
+				WithArgs(uint64(9), uint64(1), "App\\Models\\AccountSecurity", uint64(5), "hash", phone).
+				WillReturnResult(sqlmock.NewResult(0, 1))
+			mock.ExpectQuery("SELECT phone, phone_verified_at FROM users WHERE id = \\? FOR UPDATE").
+				WithArgs(uint64(1)).
+				WillReturnRows(sqlmock.NewRows([]string{"phone", "phone_verified_at"}).AddRow(nil, nil))
+			phoneUpdate := mock.ExpectExec("UPDATE users SET phone = \\?, phone_verified_at = \\?").
+				WithArgs(phone, sqlmock.AnyArg(), sqlmock.AnyArg(), uint64(1))
+			if tc.phoneErr != nil {
+				phoneUpdate.WillReturnError(tc.phoneErr)
+			} else {
+				phoneUpdate.WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectExec("UPDATE account_securities").WillReturnResult(sqlmock.NewResult(0, 1))
+				mock.ExpectExec("INSERT INTO user_events").WillReturnError(auditErr)
+			}
+			mock.ExpectRollback()
+			require.ErrorIs(t, repo.CompleteVerification(context.Background(), otp, &models.UserEvent{UserID: 1}), tc.resultErr)
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func tokenValidateColumns() []string {

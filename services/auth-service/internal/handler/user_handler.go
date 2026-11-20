@@ -86,6 +86,9 @@ func (h *userHandler) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRe
 				"email": "invalid email format",
 			}))
 		}
+		if errors.Is(err, service.ErrPhoneAlreadyTaken) {
+			return nil, status.Error(codes.AlreadyExists, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, "failed to update profile: %v", err)
 	}
 

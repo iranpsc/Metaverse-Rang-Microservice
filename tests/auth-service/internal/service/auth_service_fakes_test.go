@@ -235,16 +235,19 @@ func (f *fakeUserRepository) GetFeatureCounts(ctx context.Context, userID uint64
 var _ repository.UserRepository = (*fakeUserRepository)(nil)
 
 type fakeAccountSecurityRepository struct {
+	users       *fakeUserRepository
 	nextID      uint64
 	nextOtpID   uint64
 	records     map[uint64]*models.AccountSecurity
 	otps        map[uint64]*models.Otp
+	events      []*models.UserEvent
 	createCount int
 	updateCount int
 }
 
-func newFakeAccountSecurityRepository() *fakeAccountSecurityRepository {
+func newFakeAccountSecurityRepository(users *fakeUserRepository) *fakeAccountSecurityRepository {
 	return &fakeAccountSecurityRepository{
+		users:     users,
 		nextID:    100,
 		nextOtpID: 200,
 		records:   make(map[uint64]*models.AccountSecurity),
@@ -299,13 +302,21 @@ func (f *fakeAccountSecurityRepository) UpsertOtp(_ context.Context, otp *models
 	return nil
 }
 
-func (f *fakeAccountSecurityRepository) DeleteOtp(_ context.Context, otpID uint64) error {
-	for key, otp := range f.otps {
-		if otp.ID == otpID {
-			delete(f.otps, key)
-			return nil
+func (f *fakeAccountSecurityRepository) CompleteVerification(_ context.Context, otp *models.Otp, event *models.UserEvent) error {
+	user := f.users.users[otp.UserID]
+	if user.Phone.Valid && user.Phone.String != "" && user.PhoneVerifiedAt.Valid {
+		if user.Phone.String != otp.Phone.String {
+			return repository.ErrAccountSecurityChallengeChanged
 		}
+	} else {
+		user.Phone = otp.Phone
+		user.PhoneVerifiedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	}
+	security := f.records[otp.UserID]
+	security.Unlocked = true
+	security.Until = sql.NullInt64{Int64: time.Now().Unix() + security.Length, Valid: true}
+	delete(f.otps, otp.VerifiableID)
+	f.events = append(f.events, event)
 	return nil
 }
 

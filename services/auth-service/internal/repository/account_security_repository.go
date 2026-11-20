@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"metarang/auth-service/internal/models"
@@ -11,13 +13,15 @@ import (
 
 const accountSecurityVerifiableType = "App\\Models\\AccountSecurity"
 
+var ErrAccountSecurityChallengeChanged = errors.New("account security challenge changed")
+
 type AccountSecurityRepository interface {
 	GetByUserID(ctx context.Context, userID uint64) (*models.AccountSecurity, error)
 	Create(ctx context.Context, security *models.AccountSecurity) error
 	Update(ctx context.Context, security *models.AccountSecurity) error
 	GetOtpByAccountSecurity(ctx context.Context, accountSecurityID uint64) (*models.Otp, error)
 	UpsertOtp(ctx context.Context, otp *models.Otp) error
-	DeleteOtp(ctx context.Context, otpID uint64) error
+	CompleteVerification(ctx context.Context, otp *models.Otp, event *models.UserEvent) error
 }
 
 type accountSecurityRepository struct {
@@ -123,7 +127,7 @@ func (r *accountSecurityRepository) Update(ctx context.Context, security *models
 
 func (r *accountSecurityRepository) GetOtpByAccountSecurity(ctx context.Context, accountSecurityID uint64) (*models.Otp, error) {
 	query := `
-		SELECT id, user_id, verifiable_type, verifiable_id, code, created_at, updated_at
+		SELECT id, user_id, verifiable_type, verifiable_id, code, phone, created_at, updated_at
 		FROM otps
 		WHERE verifiable_type = ? AND verifiable_id = ?
 		LIMIT 1
@@ -137,6 +141,7 @@ func (r *accountSecurityRepository) GetOtpByAccountSecurity(ctx context.Context,
 		&otp.VerifiableType,
 		&otp.VerifiableID,
 		&otp.Code,
+		&otp.Phone,
 		&createdAt,
 		&updatedAt,
 	)
@@ -167,14 +172,15 @@ func (r *accountSecurityRepository) UpsertOtp(ctx context.Context, otp *models.O
 
 	if existing == nil {
 		query := `
-			INSERT INTO otps (user_id, verifiable_type, verifiable_id, code, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?)
+			INSERT INTO otps (user_id, verifiable_type, verifiable_id, code, phone, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 		`
 		result, err := r.db.ExecContext(ctx, query,
 			otp.UserID,
 			accountSecurityVerifiableType,
 			otp.VerifiableID,
 			otp.Code,
+			otp.Phone,
 			now,
 			now,
 		)
@@ -197,13 +203,16 @@ func (r *accountSecurityRepository) UpsertOtp(ctx context.Context, otp *models.O
 
 	query := `
 		UPDATE otps
-		SET code = ?, updated_at = ?
+		SET code = ?, phone = ?, updated_at = ?
 		WHERE id = ?
 	`
 
-	_, err = r.db.ExecContext(ctx, query, otp.Code, now, existing.ID)
+	result, err := r.db.ExecContext(ctx, query, otp.Code, otp.Phone, now, existing.ID)
 	if err != nil {
 		return fmt.Errorf("failed to update otp: %w", err)
+	}
+	if err := requireAccountSecurityRow(result); err != nil {
+		return err
 	}
 
 	otp.ID = existing.ID
@@ -214,10 +223,68 @@ func (r *accountSecurityRepository) UpsertOtp(ctx context.Context, otp *models.O
 	return nil
 }
 
-func (r *accountSecurityRepository) DeleteOtp(ctx context.Context, otpID uint64) error {
-	query := `DELETE FROM otps WHERE id = ?`
-	if _, err := r.db.ExecContext(ctx, query, otpID); err != nil {
-		return fmt.Errorf("failed to delete otp: %w", err)
+func (r *accountSecurityRepository) CompleteVerification(ctx context.Context, otp *models.Otp, event *models.UserEvent) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to start verification transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Consume only the challenge that was checked. A resend can replace the code in the same row.
+	result, err := tx.ExecContext(ctx, `DELETE FROM otps
+		WHERE id = ? AND user_id = ? AND verifiable_type = ? AND verifiable_id = ?
+		AND BINARY code = ? AND phone = ?`,
+		otp.ID, otp.UserID, accountSecurityVerifiableType, otp.VerifiableID, otp.Code, otp.Phone)
+	if err != nil {
+		return fmt.Errorf("failed to consume otp: %w", err)
+	}
+	if err := requireAccountSecurityRow(result); err != nil {
+		return err
+	}
+
+	var phone sql.NullString
+	var verifiedAt sql.NullTime
+	err = tx.QueryRowContext(ctx, `SELECT phone, phone_verified_at FROM users WHERE id = ? FOR UPDATE`, otp.UserID).
+		Scan(&phone, &verifiedAt)
+	if err != nil {
+		return fmt.Errorf("failed to lock user phone: %w", err)
+	}
+	now := time.Now()
+	savedPhone := strings.TrimSpace(phone.String)
+	if phone.Valid && savedPhone != "" && verifiedAt.Valid {
+		if savedPhone != otp.Phone.String {
+			return ErrAccountSecurityChallengeChanged
+		}
+	} else {
+		_, err = tx.ExecContext(ctx, `UPDATE users SET phone = ?, phone_verified_at = ?, updated_at = ? WHERE id = ?`,
+			otp.Phone.String, now, now, otp.UserID)
+		if err != nil {
+			return fmt.Errorf("failed to save verified phone: %w", mapUserPhoneDuplicate(err))
+		}
+	}
+
+	result, err = tx.ExecContext(ctx, `UPDATE account_securities
+		SET unlocked = 1, until = ? + length, updated_at = ? WHERE id = ? AND user_id = ? AND unlocked = 0`,
+		now.Unix(), now, otp.VerifiableID, otp.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to unlock account security: %w", err)
+	}
+	if err := requireAccountSecurityRow(result); err != nil {
+		return err
+	}
+	if err := createUserEvent(ctx, tx, event); err != nil {
+		return fmt.Errorf("failed to record account security event: %w", err)
+	}
+	return tx.Commit()
+}
+
+func requireAccountSecurityRow(result sql.Result) error {
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to read affected rows: %w", err)
+	}
+	if count != 1 {
+		return ErrAccountSecurityChallengeChanged
 	}
 	return nil
 }

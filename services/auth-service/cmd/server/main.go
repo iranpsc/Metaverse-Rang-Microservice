@@ -157,7 +157,6 @@ func main() {
 	accountSecurityService := service.NewAccountSecurityService(
 		userRepo,
 		accountSecurityRepo,
-		activityRepo,
 		cacheRepo,
 		smsClient,
 		service.IsProductionEnv(cfgRuntime.AppEnv),

@@ -221,7 +221,9 @@ func (f *fakeWalletAccountSecurityRepo) GetOtpByAccountSecurity(context.Context,
 	return nil, nil
 }
 func (f *fakeWalletAccountSecurityRepo) UpsertOtp(context.Context, *models.Otp) error { return nil }
-func (f *fakeWalletAccountSecurityRepo) DeleteOtp(context.Context, uint64) error      { return nil }
+func (f *fakeWalletAccountSecurityRepo) CompleteVerification(context.Context, *models.Otp, *models.UserEvent) error {
+	return nil
+}
 
 type fakeWalletActivityRepo struct {
 	events []*models.UserEvent
